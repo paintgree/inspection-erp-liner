@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Login</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post" action="/login" class="form">
+    <label>Email</label>
+    <input name="email" placeholder="manager@demo.com" required />
+    <label>Password</label>
+    <input name="password" type="password" placeholder="manager123" required />
+    <button class="btn primary" type="submit">Login</button>
+  </form>
+
+  <div class="hint">
+    Demo users:<br/>
+    Manager: manager@demo.com / manager123<br/>
+    Inspector: inspector@demo.com / inspector123
+  </div>
+</div>
+{% endblock %}

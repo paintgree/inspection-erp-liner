@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>New Inspection Entry</h1>
+  <div class="muted">Run: {{ run.run_code }} (LINER) — System will auto-assign the 2-hour slot.</div>
+
+  <form method="post" class="form">
+    <label>Actual Inspection Time (HH:MM)</label>
+    <input name="actual_time" placeholder="14:05" required pattern="^([01]\d|2[0-3]):[0-5]\d$"/>
+
+    <label>Remarks (optional)</label>
+    <textarea name="remark" rows="3" placeholder="(optional)"></textarea>
+
+    <button class="btn primary" type="submit">Submit</button>
+    <a class="btn" href="/runs/{{ run.id }}">Cancel</a>
+  </form>
+
+  <div class="card inner">
+    <h2>Confirmation (MVP simplified)</h2>
+    <div class="muted">Next iteration will include Confirm/Change popup for materials/tools/machines every entry.</div>
+  </div>
+</div>
+{% endblock %}
