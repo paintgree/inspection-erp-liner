@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="runHeader">
+  <div>
+    <h1>{{ run.run_code }}</h1>
+    <div class="muted">
+      Client: {{ run.client_name }} | PO: {{ run.po_number }} | Batch: {{ run.dhtp_batch_no }}
+    </div>
+  </div>
+  <div class="actions">
+    {% if run.status == "OPEN" %}
+      <a class="btn primary" href="/runs/{{ run.id }}/entries/new">New Inspection Entry</a>
+    {% endif %}
+    <span class="badge {{ run.status }}">{{ run.status }}</span>
+  </div>
+</div>
+
+<div class="layout">
+  <section class="template card">
+    <h2>Template View (Read-only)</h2>
+
+    <div class="hdrblock">
+      <div><b>Clinet Name:</b> {{ run.client_name }}</div>
+      <div><b>PO Number:</b> {{ run.po_number }}</div>
+      <div><b>DHTP Batch No.:</b> {{ run.dhtp_batch_no }}</div>
+      <div><b>ITP Number:</b> {{ run.itp_number }}</div>
+      <div><b>Pipe Specification:</b> {{ run.pipe_specification }}</div>
+      <div><b>Raw Material Spec.:</b> {{ run.raw_material_spec }}</div>
+      <div><b>Raw Material Batch No.:</b> {{ run.raw_material_batch_no_current }}</div>
+    </div>
+
+    <div class="gridWrap">
+      <table class="grid">
+        <thead>
+          <tr>
+            <th class="stickyCol">Parameter</th>
+            {% for s in slots %}
+              <th>{{ s }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in params %}
+          <tr>
+            <td class="stickyCol">{{ p.label }}</td>
+            {% for s in slots %}
+              <td class="cell">
+                {% if slot_map[s]|length > 0 %}
+                  <div class="mini">{{ slot_map[s]|length }} entry</div>
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="muted small">MVP shows slot activity now. Next build fills actual parameter values into cells.</div>
+  </section>
+
+  <aside class="side card">
+    <h2>Run Controls</h2>
+    <div class="kv"><span>Status</span><span class="badge {{ run.status }}">{{ run.status }}</span></div>
+    <div class="kv"><span>Validation</span><span>{{ run.validation_mode }}</span></div>
+
+    <div class="space"></div>
+
+    {% if user.role == "MANAGER" %}
+      <form method="post" action="/runs/{{ run.id }}/close">
+        <button class="btn" type="submit" {% if run.status != "OPEN" %}disabled{% endif %}>Close Run</button>
+      </form>
+      <form method="post" action="/runs/{{ run.id }}/approve">
+        <button class="btn" type="submit" {% if run.status != "CLOSED" %}disabled{% endif %}>Approve Run</button>
+      </form>
+      <form method="post" action="/runs/{{ run.id }}/reopen">
+        <button class="btn" type="submit" {% if run.status != "CLOSED" %}disabled{% endif %}>Reopen Run</button>
+      </form>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}
