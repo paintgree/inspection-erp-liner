@@ -1,10 +1,13 @@
-from typing import Optional
-from passlib.context import CryptContext
+import hashlib
+import hmac
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Simple deterministic hash for demo (no bcrypt issues on Render)
+# For production we will switch back to bcrypt.
+_SECRET = b"demo-secret-change-later"
 
 def hash_password(pw: str) -> str:
-    return pwd_context.hash(pw)
+    msg = pw.encode("utf-8")
+    return hmac.new(_SECRET, msg, hashlib.sha256).hexdigest()
 
 def verify_password(pw: str, hashed: str) -> bool:
-    return pwd_context.verify(pw, hashed)
+    return hmac.compare_digest(hash_password(pw), hashed)
