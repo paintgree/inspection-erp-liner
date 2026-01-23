@@ -45,14 +45,31 @@
     </div>
 
     <div class="card inner">
-      <h2>Run Limits (defaults loaded)</h2>
-      <div class="muted">MVP loads liner defaults now. Next iteration will make this table editable per run.</div>
-      <ul class="list">
-        {% for p in defaults %}
-          <li><b>{{ p[1] }}</b> — Rule: {{ p[3] }}, Min: {{ p[4] }}, Max: {{ p[5] }} {{ p[2] }}</li>
-        {% endfor %}
-      </ul>
+      <h2>Run Limits (editable)</h2>
+      <table class="table">
+        <thead>
+          <tr><th>Parameter</th><th>Rule</th><th>Min</th><th>Max</th><th>Unit</th></tr>
+        </thead>
+        <tbody>
+          {% for p in defaults %}
+          <tr>
+            <td>{{ p[1] }}<input type="hidden" name="p_key" value="{{ p[0] }}"></td>
+            <td>
+              <select name="p_rule">
+                <option value="RANGE" {% if p[3]=="RANGE" %}selected{% endif %}>RANGE</option>
+                <option value="MAX_ONLY" {% if p[3]=="MAX_ONLY" %}selected{% endif %}>MAX_ONLY</option>
+                <option value="MIN_ONLY" {% if p[3]=="MIN_ONLY" %}selected{% endif %}>MIN_ONLY</option>
+              </select>
+            </td>
+            <td><input name="p_min" value="{{ p[4] if p[4] is not none else '' }}"></td>
+            <td><input name="p_max" value="{{ p[5] if p[5] is not none else '' }}"></td>
+            <td>{{ p[2] }}<input type="hidden" name="p_unit" value="{{ p[2] }}"><input type="hidden" name="p_label" value="{{ p[1] }}"></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
+
 
 <div class="card inner">
   <h2>Machines Used</h2>
@@ -93,4 +110,5 @@
   </form>
 </div>
 {% endblock %}
+
 
