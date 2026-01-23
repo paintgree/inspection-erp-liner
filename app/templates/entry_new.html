@@ -11,6 +11,15 @@
     <label>Remarks (optional)</label>
     <textarea name="remark" rows="3" placeholder="(optional)"></textarea>
 
+    <label>QC Inspector (auto)</label>
+    <input value="{{ user.name }}" disabled />
+    
+    <label>Operator (Hopper / Extruder)</label>
+    <input name="op1" placeholder="Operator name" />
+    
+    <label>Operator (Cooling / Accumulator)</label>
+    <input name="op2" placeholder="Operator name" />
+
     <button class="btn primary" type="submit">Submit</button>
     <a class="btn" href="/runs/{{ run.id }}">Cancel</a>
   </form>
@@ -21,3 +30,4 @@
   </div>
 </div>
 {% endblock %}
+
