@@ -4,7 +4,6 @@
   <h1>Start New Production Run (Liner)</h1>
 
   <form method="post" action="/runs/new" class="form">
-    <label>Run ID (example: LIN-2026-001)</label>
     <input name="run_code" required />
 
     <div class="grid2">
@@ -55,8 +54,43 @@
       </ul>
     </div>
 
+<div class="card inner">
+  <h2>Machines Used</h2>
+  <div class="muted">Add machines used for this run.</div>
+
+  <div class="grid2">
+    <div>
+      <label>Machine 1 Name</label>
+      <input name="m1_name" placeholder="Extruder..." />
+    </div>
+    <div>
+      <label>Machine 1 Tag</label>
+      <input name="m1_tag" placeholder="PW1-L-01-01" />
+    </div>
+
+    <div>
+      <label>Machine 2 Name</label>
+      <input name="m2_name" />
+    </div>
+    <div>
+      <label>Machine 2 Tag</label>
+      <input name="m2_tag" />
+    </div>
+
+    <div>
+      <label>Machine 3 Name</label>
+      <input name="m3_name" />
+    </div>
+    <div>
+      <label>Machine 3 Tag</label>
+      <input name="m3_tag" />
+    </div>
+  </div>
+</div>
+    
     <button class="btn primary" type="submit">Save Production Run</button>
     <a class="btn" href="/dashboard">Cancel</a>
   </form>
 </div>
 {% endblock %}
+
