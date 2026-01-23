@@ -5,4 +5,6 @@ sqlmodel==0.0.22
 passlib==1.7.4
 python-multipart==0.0.9
 itsdangerous==2.2.0
+openpyxl==3.1.5
+
 
