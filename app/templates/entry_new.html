@@ -19,14 +19,22 @@
   <label>QC Inspector (auto)</label>
   <input value="{{ user.name }}" disabled />
 
-  <div class="grid2">
-    <div><label>Operator 1</label><input name="operator1" /></div>
-    <div><label>Operator 2</label><input name="operator2" /></div>
-  </div>
+  {% if run.process == "REINFORCEMENT" %}
+    <div class="grid2">
+      <div><label>Operator (Annular 1 & 2)</label><input name="operator_annular12" /></div>
+      <div><label>Operator (Int./ Ext. 3 & 4)</label><input name="operator_intext34" /></div>
+    </div>
+  {% else %}
+    <div class="grid2">
+      <div><label>Operator 1</label><input name="operator1" /></div>
+      <div><label>Operator 2</label><input name="operator2" /></div>
+    </div>
+  {% endif %}
 
   <div class="card inner">
     <h2>Inspection Readings</h2>
     <div class="muted">Enter numeric values. Leave blank if not taken.</div>
+
     <div class="grid2">
       {% for p in params %}
         <div>
