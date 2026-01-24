@@ -1,7 +1,7 @@
 fastapi
-uvicorn
+uvicorn[standard]
 sqlmodel
 jinja2
 python-multipart
-itsdangerous
 openpyxl
+passlib
