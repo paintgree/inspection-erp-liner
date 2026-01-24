@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>Start New Production Run</h1>
-
 <a class="btn" href="/dashboard">Back</a>
 
 {% if error %}
@@ -9,6 +8,7 @@
 {% endif %}
 
 <form method="post" action="/runs/new" class="card">
+
   <label>Process</label>
   <select name="process">
     {% for p in process_list %}
@@ -16,52 +16,24 @@
     {% endfor %}
   </select>
 
-  <div class="muted" style="margin:8px 0;">
-    Tip: to load defaults for another process, go back and choose the correct “New Run”.
-  </div>
-
   <label>DHTP Batch No. (Run Reference)</label>
   <input name="dhtp_batch_no" required />
 
   <div class="grid2">
-    <div>
-      <label>Client Name</label>
-      <input name="client_name" required />
-    </div>
-    <div>
-      <label>PO Number</label>
-      <input name="po_number" required />
-    </div>
-    <div>
-      <label>ITP Number</label>
-      <input name="itp_number" required />
-    </div>
-    <div>
-      <label>Pipe Specification</label>
-      <input name="pipe_specification" required />
-    </div>
-    <div>
-      <label>Raw Material Spec</label>
-      <input name="raw_material_spec" required />
-    </div>
-    <div>
-      <label>Raw Material Batch No</label>
-      <input name="raw_material_batch_no" required />
-    </div>
+    <div><label>Client Name</label><input name="client_name" required /></div>
+    <div><label>PO Number</label><input name="po_number" required /></div>
+    <div><label>ITP Number</label><input name="itp_number" required /></div>
+    <div><label>Pipe Specification</label><input name="pipe_specification" required /></div>
+    <div><label>Raw Material Spec</label><input name="raw_material_spec" required /></div>
+    <div><label>Raw Material Batch No</label><input name="raw_material_batch_no" required /></div>
   </div>
 
   <div class="card inner">
     <h2>Machines Used</h2>
     <div class="grid2">
       {% for i in [1,2,3,4] %}
-      <div>
-        <label>Machine {{i}} Name</label>
-        <input name="m{{i}}_name" />
-      </div>
-      <div>
-        <label>Machine {{i}} Tag</label>
-        <input name="m{{i}}_tag" />
-      </div>
+      <div><label>Machine {{i}} Name</label><input name="m{{i}}_name" /></div>
+      <div><label>Machine {{i}} Tag</label><input name="m{{i}}_tag" /></div>
       {% endfor %}
     </div>
   </div>
@@ -69,9 +41,7 @@
   <div class="card inner">
     <h2>Run Limits (editable)</h2>
     <table class="table">
-      <thead>
-        <tr><th>Parameter</th><th>Rule</th><th>Min</th><th>Max</th><th>Unit</th></tr>
-      </thead>
+      <thead><tr><th>Parameter</th><th>Rule</th><th>Min</th><th>Max</th><th>Unit</th></tr></thead>
       <tbody>
         {% for p in defaults %}
         <tr>
