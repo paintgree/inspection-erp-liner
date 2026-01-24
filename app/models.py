@@ -54,8 +54,14 @@ class InspectionEntry(SQLModel, table=True):
 
     inspector_user_id: int
 
+    # LINER / COVER operators
     operator1: Optional[str] = None
     operator2: Optional[str] = None
+
+    # REINFORCEMENT operators
+    operator_annular12: Optional[str] = None
+    operator_intext34: Optional[str] = None
+
     remark: Optional[str] = None
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
