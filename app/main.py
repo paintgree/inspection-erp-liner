@@ -140,10 +140,11 @@ IMAGE_MAP = {
 }
 
 TEMPLATE_XLSX_MAP = {
-    "LINER": os.path.join("app", "templates_xlsx", "liner.xlsx"),
-    "REINFORCEMENT": os.path.join("app", "templates_xlsx", "reinforcement.xlsx"),
-    "COVER": os.path.join("app", "templates_xlsx", "cover.xlsx"),
+    "LINER": os.path.join("app", "templates", "templates_xlsx", "liner.xlsx"),
+    "REINFORCEMENT": os.path.join("app", "templates", "templates_xlsx", "reinforcement.xlsx"),
+    "COVER": os.path.join("app", "templates", "templates_xlsx", "cover.xlsx"),
 }
+
 
 @app.on_event("startup")
 def on_startup():
@@ -194,7 +195,17 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
         return RedirectResponse("/login", status_code=302)
 
     runs = session.exec(select(ProductionRun).order_by(ProductionRun.created_at.desc())).all()
-    return templates.TemplateResponse("dashboard.html", {"request": request, "user": u, "runs": runs})
+
+    grouped: Dict[str, List[ProductionRun]] = {}
+    for r in runs:
+        grouped.setdefault(r.dhtp_batch_no, []).append(r)
+
+    # Keep consistent order per batch: LINER, REINFORCEMENT, COVER
+    order = {"LINER": 1, "REINFORCEMENT": 2, "COVER": 3}
+    for b in grouped:
+        grouped[b].sort(key=lambda x: order.get(x.process, 99))
+
+    return templates.TemplateResponse("dashboard.html", {"request": request, "user": u, "grouped": grouped})
 
 # ---------------- RUN CREATE ----------------
 
@@ -431,3 +442,4 @@ async def entry_new_post(request: Request, run_id: int, session: Session = Depen
 
 # ---------------- EXPORT XLSX (unchanged from your current version) ----------------
 # keep your existing export-xlsx function as-is
+
