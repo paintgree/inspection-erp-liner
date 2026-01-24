@@ -23,6 +23,9 @@ class ProductionRun(SQLModel, table=True):
     raw_material_spec: str
     raw_material_batch_no: str
 
+    # NEW: used for dashboard progress
+    total_pipe_length_m: Optional[float] = None
+
     created_by: int
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
