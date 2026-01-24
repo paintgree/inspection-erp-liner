@@ -197,6 +197,7 @@ def get_production_days(session: Session, run_id: int) -> List[date]:
 # ---------- DEFAULT PARAMETERS ----------
 
 LINER_PARAMS = [
+    ("length_m", "Length ( Mtr )", "m", "INFO_ONLY", None, None),
     ("od_mm", "OD (mm)", "mm", "RANGE", 105.0, 106.0),
     ("wall_thickness_mm", "Wall Thickness (mm)", "mm", "RANGE", 7.0, 7.4),
     ("cooling_water_c", "Cooling Water (°C)", "°C", "MAX_ONLY", None, 35.0),
@@ -548,5 +549,6 @@ async def entry_new_post(request: Request, run_id: int, session: Session = Depen
 
 # ---------------- EXPORT XLSX (unchanged from your current version) ----------------
 # keep your existing export-xlsx function as-is
+
 
 
