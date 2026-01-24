@@ -1,122 +1,117 @@
 {% extends "base.html" %}
 {% block content %}
-<a class="btn" href="/dashboard">Back</a>
-
-<h1>{{ run.process }} — Batch: {{ run.dhtp_batch_no }}</h1>
-<div class="muted">Status: <span class="badge">{{ run.status }}</span></div>
-
-<img src="{{ img_url }}" style="max-width:100%; margin:16px 0; border:1px solid #ddd; border-radius:8px;" />
+<a class="btn btn-ghost" href="/dashboard">← Back</a>
 
 <div class="card">
-  <div class="grid2">
-    <div><b>Client:</b> {{ run.client_name }}</div>
-    <div><b>PO:</b> {{ run.po_number }}</div>
-    <div><b>ITP:</b> {{ run.itp_number }}</div>
-    <div><b>Pipe Spec:</b> {{ run.pipe_specification }}</div>
-    <div><b>Raw Material:</b> {{ run.raw_material_spec }}</div>
-    <div><b>RM Batch:</b> {{ run.raw_material_batch_no }}</div>
+  <div class="runheader">
+    <div>
+      <h1>{{ run.process }} — Batch: {{ run.dhtp_batch_no }}</h1>
+      <div class="muted">Status: <b>{{ run.status }}</b></div>
+      <div class="muted">Progress: <b>{{ progress }}%</b></div>
+    </div>
+    <div class="actions">
+      {% if user.role == "MANAGER" %}
+        <a class="btn" href="/runs/{{ run.id }}/edit">Edit Run</a>
+        <form method="post" action="/runs/{{ run.id }}/close"><button class="btn" type="submit">Close</button></form>
+        <form method="post" action="/runs/{{ run.id }}/approve"><button class="btn" type="submit">Approve</button></form>
+        <form method="post" action="/runs/{{ run.id }}/reopen"><button class="btn" type="submit">Reopen</button></form>
+      {% endif %}
+      <a class="btn btn-primary" href="/runs/{{ run.id }}/entry/new">+ New Inspection Entry</a>
+      <a class="btn" href="/runs/{{ run.id }}/export/xlsx">Export XLSX (All Days)</a>
+    </div>
   </div>
-</div>
 
-<div class="card" style="margin-top:12px;">
-  <h2>Machines Used</h2>
-  {% if machines|length == 0 %}
-    <div class="muted">No machines recorded.</div>
-  {% else %}
-    <ul>
-      {% for m in machines %}
-        <li>{{ m.machine_name }}{% if m.tag %} ({{ m.tag }}){% endif %}</li>
-      {% endfor %}
-    </ul>
-  {% endif %}
-</div>
-
-<div class="card" style="margin-top:12px;">
-  <h2>Production Days</h2>
-  {% if production_days|length == 0 %}
-    <div class="muted">No entries yet. Day pages will appear once an inspection is recorded.</div>
-  {% else %}
-    <div class="muted">Each day starts at 00:00. Only days with entries exist.</div>
-    <div style="margin-top:8px;">
-      {% for d in production_days %}
-        {% set idx = loop.index %}
-        <a class="btn btn-sm {% if idx==day_index %}primary{% endif %}" href="/runs/{{ run.id }}?day={{ idx }}">
-          Day {{ idx }} ({{ d.isoformat() }})
-        </a>
-      {% endfor %}
+  {% if image_url %}
+    <div class="imgwrap">
+      <img class="pipeimg" src="{{ image_url }}" alt="process image">
     </div>
   {% endif %}
-</div>
 
-<div style="margin-top:12px;">
-  {% if run.status == "OPEN" %}
-    <a class="btn primary" href="/runs/{{ run.id }}/entries/new">+ New Inspection Entry</a>
-  {% endif %}
-  <a class="btn" href="/runs/{{ run.id }}/export-xlsx">Export XLSX (All Days)</a>
-  {% if production_days|length > 0 %}
-    <a class="btn" href="/runs/{{ run.id }}/export-xlsx?day={{ day_index }}">Export XLSX (This Day)</a>
-  {% endif %}
-</div>
+  <div class="grid3 mt">
+    <div class="card inner">
+      <h2>Header</h2>
+      <div class="kv"><span>Client</span><b>{{ run.client_name }}</b></div>
+      <div class="kv"><span>PO</span><b>{{ run.po_number }}</b></div>
+      <div class="kv"><span>ITP</span><b>{{ run.itp_number }}</b></div>
+      <div class="kv"><span>Pipe Spec</span><b>{{ run.pipe_specification }}</b></div>
+      <div class="kv"><span>Raw Spec</span><b>{{ run.raw_material_spec }}</b></div>
+    </div>
 
-{% if user.role == "MANAGER" %}
-  <div class="card" style="margin-top:12px;">
-    <h2>Workflow</h2>
-
-    {% if run.status == "OPEN" %}
-      <form method="post" action="/runs/{{ run.id }}/close">
-        <button class="btn danger" type="submit">Close Run</button>
-      </form>
-    {% endif %}
-
-    {% if run.status == "CLOSED" %}
-      <form method="post" action="/runs/{{ run.id }}/approve">
-        <button class="btn primary" type="submit">Approve Run</button>
-      </form>
-      <form method="post" action="/runs/{{ run.id }}/reopen" style="margin-top:8px;">
-        <button class="btn" type="submit">Reopen (no reason needed)</button>
-      </form>
-    {% endif %}
-
-    {% if run.status == "APPROVED" %}
-      {% if reopen_error %}
-        <div class="error" style="margin-top:8px;">Reason is required to reopen an APPROVED run.</div>
+    <div class="card inner">
+      <h2>Machines Used</h2>
+      {% if machines|length == 0 %}
+        <div class="muted">No machines added.</div>
       {% endif %}
-      <form method="post" action="/runs/{{ run.id }}/reopen" style="margin-top:8px;">
-        <label>Reason to reopen approved run</label>
-        <input name="reason" required />
-        <button class="btn danger" type="submit">Reopen Approved</button>
-      </form>
-    {% endif %}
-  </div>
-{% endif %}
+      <ul>
+        {% for m in machines %}
+          <li>{{ m.machine_name }} {% if m.machine_tag %}<span class="muted">({{ m.machine_tag }})</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div>
 
-<div class="card" style="margin-top:12px;">
-  <h2>In-Process Inspection — Day {{ day_index }}{% if selected_date %} ({{ selected_date.isoformat() }}){% endif %}</h2>
-  <div style="overflow:auto;">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Parameter</th>
-          {% for s in slots %}
-            <th>{{ s }}</th>
-          {% endfor %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in params %}
+    <div class="card inner">
+      <h2>Daily Trace (Selected Day)</h2>
+      <div class="muted"><b>Raw Material Batch(es):</b> {{ raw_batches|join(", ") if raw_batches else "-" }}</div>
+      <div class="mt">
+        <div class="muted"><b>Tools used (this day):</b></div>
+        {% if tools and tools|length > 0 %}
+          <ul>
+            {% for t in tools %}
+              <li>{{ t[0] }} — {{ t[1] }} — {{ t[2] }}</li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="muted">-</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card inner mt">
+    <h2>Production Days</h2>
+    <div class="muted">Each day starts at 00:00. Only days with entries exist.</div>
+    <div class="days">
+      {% for d in days %}
+        <span class="daypill {% if d == selected_day %}active{% endif %}">{{ d }}</span>
+      {% endfor %}
+      {% if days|length == 0 %}
+        <span class="muted">No entries yet.</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card inner mt">
+    <h2>In-Process Inspection — Day {{ selected_day }}</h2>
+    <div class="tablewrap">
+      <table class="table wide">
+        <thead>
           <tr>
-            <td>{{ p.label }}</td>
-            {% for s in slots %}
-              {% set v = (value_map.get(p.param_key, {}).get(s)) %}
-              <td>{% if v is not none %}{{ v }}{% endif %}</td>
+            <th>Parameter</th>
+            {% for s in ["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00"] %}
+              <th>{{ s }}</th>
             {% endfor %}
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  <div class="muted" style="margin-top:8px;">
-    Users never select the slot — system assigns it from time.
+        </thead>
+        <tbody>
+          {% for p in params %}
+          <tr>
+            <td><b>{{ p.label }}</b> <span class="muted">{{ p.unit }}</span></td>
+            {% for s in ["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00"] %}
+              <td class="cell">
+                {% if grid[s].get(p.param_key) is not none %}
+                  {{ grid[s].get(p.param_key) }}
+                {% else %}
+                  <span class="muted">—</span>
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="muted mt">Users never select the slot — system assigns it from time.</div>
   </div>
 </div>
 {% endblock %}
