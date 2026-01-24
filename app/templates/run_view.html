@@ -29,6 +29,17 @@
       <div><b>Raw Material Batch No.:</b> {{ run.raw_material_batch_no_current }}</div>
     </div>
 
+  {% set img_map = {
+    "LINER": "/static/images/liner.png",
+    "REINFORCEMENT": "/static/images/reinforcement.png",
+    "COVER": "/static/images/cover.png"
+  } %}
+  
+  <img src="{{ img_map.get(run.process, '/static/images/liner.png') }}"
+       style="max-width:100%; margin:16px 0; border:1px solid #ddd; border-radius:8px;">
+
+
+    
     <div class="gridWrap">
       <table class="grid">
         <thead>
@@ -80,3 +91,4 @@
   </aside>
 </div>
 {% endblock %}
+
