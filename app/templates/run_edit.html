@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<a class="btn btn-ghost" href="/runs/{{ run.id }}">← Back</a>
+
+<div class="card">
+  <h1>Edit Run Details</h1>
+
+  <form method="post" action="/runs/{{ run.id }}/edit" class="form">
+    <div class="grid2">
+      <div><label>Client Name</label><input name="client_name" value="{{ run.client_name }}" required></div>
+      <div><label>PO Number</label><input name="po_number" value="{{ run.po_number }}" required></div>
+
+      <div><label>ITP Number</label><input name="itp_number" value="{{ run.itp_number }}" required></div>
+      <div><label>Pipe Specification</label><input name="pipe_specification" value="{{ run.pipe_specification }}" required></div>
+
+      <div><label>Raw Material Spec</label><input name="raw_material_spec" value="{{ run.raw_material_spec }}" required></div>
+      <div><label>Total Pipe Length (m)</label><input name="total_length_m" type="number" step="0.01" value="{{ run.total_length_m }}"></div>
+    </div>
+
+    <button class="btn btn-primary" type="submit">Save Changes</button>
+  </form>
+</div>
+{% endblock %}
