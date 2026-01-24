@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, date, time as dtime
+from datetime import datetime, date, time as dtime, timedelta
 from typing import Dict, List, Optional, Tuple
 
 import os
@@ -30,8 +30,7 @@ templates = Jinja2Templates(directory="app/templates")
 SECRET = "CHANGE_ME_RANDOM"
 ser = URLSafeSerializer(SECRET, salt="session")
 
-SLOTS = [dtime(h, 0) for h in range(0, 24, 2)]  # fixed slots
-
+SLOTS = [dtime(h, 0) for h in range(0, 24, 2)]  # fixed slots 00:00..22:00
 PROCESS_LIST = ["LINER", "REINFORCEMENT", "COVER"]
 
 DEFAULTS = {
@@ -78,27 +77,14 @@ TEMPLATE_XLSX_MAP = {
     "COVER": os.path.join("app", "templates_xlsx", "cover.xlsx"),
 }
 
-def compute_slot(actual: dtime) -> dtime:
-    """
-    2-hour slots with 30-min cutoff before next slot.
-    """
-    base_hour = actual.hour - (actual.hour % 2)
-    prev_slot = dtime(base_hour, 0)
-    idx = SLOTS.index(prev_slot) if prev_slot in SLOTS else 0
-    next_slot = SLOTS[(idx + 1) % len(SLOTS)]
-
-    def mins(t: dtime) -> int:
-        return t.hour * 60 + t.minute
-
-    a = mins(actual)
-    n = mins(next_slot)
-    if prev_slot == dtime(22, 0) and next_slot == dtime(0, 0):
-        n = 24 * 60
-
-    cutoff = n - 30
-    if a > cutoff:
-        return dtime(0, 0) if next_slot == dtime(0, 0) else next_slot
-    return prev_slot
+def parse_float(x: str) -> Optional[float]:
+    x = (x or "").strip()
+    if x == "":
+        return None
+    try:
+        return float(x)
+    except Exception:
+        return None
 
 def get_current_user(request: Request, session: Session) -> Optional[User]:
     cookie = request.cookies.get("erp_session")
@@ -111,27 +97,58 @@ def get_current_user(request: Request, session: Session) -> Optional[User]:
     except Exception:
         return None
 
-def parse_float(x: str) -> Optional[float]:
-    x = (x or "").strip()
-    if x == "":
-        return None
-    try:
-        return float(x)
-    except Exception:
-        return None
+def compute_slot_and_date(actual_date: date, actual_time: dtime) -> Tuple[date, dtime]:
+    """
+    Implements your exact rule:
+
+    Fixed slots: 00:00, 02:00, ... 22:00 (always present)
+    Cutoff: 30 minutes before the NEXT slot.
+    Example:
+      02:00–03:30 -> 02:00
+      03:31–04:00 -> 04:00
+      23:31–24:00 -> 00:00 (NEXT DAY)  ✅
+
+    Returns: (slot_date, slot_time)
+    """
+
+    # Determine previous slot (same day)
+    base_hour = actual_time.hour - (actual_time.hour % 2)
+    prev_slot = dtime(base_hour, 0)
+    idx = SLOTS.index(prev_slot) if prev_slot in SLOTS else 0
+    next_slot = SLOTS[(idx + 1) % len(SLOTS)]
+
+    def mins(t: dtime) -> int:
+        return t.hour * 60 + t.minute
+
+    a = mins(actual_time)
+    n = mins(next_slot)
+
+    # wrap 22:00 -> 00:00 (next day)
+    wrap_next_day = (prev_slot == dtime(22, 0) and next_slot == dtime(0, 0))
+    if wrap_next_day:
+        n = 24 * 60  # treat next slot as 24:00 for cutoff computation
+
+    cutoff = n - 30  # 30 min before next slot
+
+    # If after cutoff => assign to next slot
+    if a > cutoff:
+        # If next slot is 00:00 and we are in 23:31..24:00, move to next day 00:00
+        if wrap_next_day:
+            return (actual_date + timedelta(days=1), dtime(0, 0))
+        return (actual_date, next_slot)
+
+    # Otherwise use prev slot
+    return (actual_date, prev_slot)
 
 def get_production_days(session: Session, run_id: int) -> List[date]:
     """
-    Production days are NOT calendar counted unless entries exist.
-    We define a production day as a unique actual_date having >=1 entry.
-    Day 1 = first date with any entry.
+    Production days = ONLY dates with entries.
+    Day 1..Day N = sorted unique actual_date values in DB.
     """
     days = session.exec(
-        select(InspectionEntry.actual_date)
-        .where(InspectionEntry.run_id == run_id)
+        select(InspectionEntry.actual_date).where(InspectionEntry.run_id == run_id)
     ).all()
-    uniq = sorted(set(days))
-    return uniq
+    return sorted(set(days))
 
 @app.on_event("startup")
 def on_startup():
@@ -248,7 +265,7 @@ async def run_new_post(request: Request, session: Session = Depends(get_session)
             session.add(RunMachine(run_id=run.id, machine_name=mn, tag=tg or None))
     session.commit()
 
-    # Save parameters from arrays (editable)
+    # Save parameters (editable arrays)
     p_keys = form.getlist("p_key")
     p_labels = form.getlist("p_label")
     p_units = form.getlist("p_unit")
@@ -278,7 +295,7 @@ async def run_new_post(request: Request, session: Session = Depends(get_session)
 
     return RedirectResponse(f"/runs/{run.id}", status_code=302)
 
-# ---------------- RUN VIEW (per production day page) ----------------
+# ---------------- RUN VIEW ----------------
 
 @app.get("/runs/{run_id}", response_class=HTMLResponse)
 def run_view(request: Request, run_id: int, day: Optional[int] = None, session: Session = Depends(get_session)):
@@ -293,19 +310,18 @@ def run_view(request: Request, run_id: int, day: Optional[int] = None, session: 
     params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id).order_by(RunParameter.display_order)).all()
     machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
 
-    production_days = get_production_days(session, run_id)  # list[date]
-    # Choose day index
+    production_days = get_production_days(session, run_id)
+
     if not production_days:
         selected_date = None
         day_index = 1
     else:
         if day is None:
-            day_index = len(production_days)  # default last day
+            day_index = len(production_days)
         else:
             day_index = max(1, min(int(day), len(production_days)))
         selected_date = production_days[day_index - 1]
 
-    # Entries for selected day
     if selected_date:
         entries = session.exec(
             select(InspectionEntry)
@@ -366,7 +382,6 @@ def entry_new_get(request: Request, run_id: int, session: Session = Depends(get_
     run = session.get(ProductionRun, run_id)
     if not run:
         return RedirectResponse("/dashboard", status_code=302)
-
     if run.status != "OPEN":
         return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
@@ -387,8 +402,8 @@ async def entry_new_post(request: Request, run_id: int, session: Session = Depen
 
     form = await request.form()
 
-    actual_date_str = (form.get("actual_date") or "").strip()  # YYYY-MM-DD
-    actual_time_str = (form.get("actual_time") or "").strip()  # HH:MM
+    actual_date_str = (form.get("actual_date") or "").strip()
+    actual_time_str = (form.get("actual_time") or "").strip()
 
     try:
         ad = datetime.strptime(actual_date_str, "%Y-%m-%d").date()
@@ -397,15 +412,18 @@ async def entry_new_post(request: Request, run_id: int, session: Session = Depen
 
     if ":" not in actual_time_str:
         return RedirectResponse(f"/runs/{run_id}", status_code=302)
+
     hh, mm = actual_time_str.split(":")
     at = dtime(int(hh), int(mm))
-    slot = compute_slot(at)
+
+    # ✅ HERE IS THE FIX: slot can move to next day
+    slot_date, slot_time = compute_slot_and_date(ad, at)
 
     entry = InspectionEntry(
         run_id=run_id,
-        actual_date=ad,
+        actual_date=slot_date,   # store the production day date after rollover rule
         actual_time=at,
-        slot_time=slot,
+        slot_time=slot_time,
         inspector_user_id=u.id,
         operator1=(form.get("operator1") or "").strip() or None,
         operator2=(form.get("operator2") or "").strip() or None,
@@ -430,9 +448,9 @@ async def entry_new_post(request: Request, run_id: int, session: Session = Depen
     session.add(AuditLog(run_id=run_id, actor_user_id=u.id, action="NEW_ENTRY"))
     session.commit()
 
-    # Redirect to the production-day page where this entry belongs
+    # Redirect to correct day page
     production_days = get_production_days(session, run_id)
-    day_index = production_days.index(ad) + 1 if ad in production_days else 1
+    day_index = production_days.index(slot_date) + 1 if slot_date in production_days else 1
     return RedirectResponse(f"/runs/{run_id}?day={day_index}", status_code=302)
 
 # ---------------- WORKFLOW ----------------
@@ -497,15 +515,12 @@ async def run_reopen(request: Request, run_id: int, session: Session = Depends(g
 
     return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
-# ---------------- EXPORT XLSX (ALL PRODUCTION DAYS IN ONE FILE) ----------------
+# ---------------- EXPORT XLSX (same as previous pack) ----------------
+# (Kept unchanged here to keep this reply focused on your midnight-rollover rule)
+# Your existing export-xlsx endpoint remains valid.
 
 @app.get("/runs/{run_id}/export-xlsx")
 def export_xlsx(request: Request, run_id: int, day: Optional[int] = None, session: Session = Depends(get_session)):
-    """
-    Export ONE XLSX that contains all production days as separate sheets:
-      Day 1, Day 2, ... (only days where entries exist)
-    Optional: ?day=2 to export one day only.
-    """
     u = get_current_user(request, session)
     if not u:
         return RedirectResponse("/login", status_code=302)
@@ -519,30 +534,19 @@ def export_xlsx(request: Request, run_id: int, day: Optional[int] = None, sessio
         return HTMLResponse(f"Template not found: <b>{template_path}</b>", status_code=500)
 
     base_wb = load_workbook(template_path)
-    base_ws = base_wb.worksheets[0]  # master page only (first sheet)
+    base_ws = base_wb.worksheets[0]
 
     production_days = get_production_days(session, run_id)
-    if not production_days:
-        # export just blank Day 1
-        production_days = []
-
-    # If exporting only one day
     if production_days and day is not None:
         di = max(1, min(int(day), len(production_days)))
         production_days = [production_days[di - 1]]
 
-    # We will build the output inside base_wb by copying base_ws
-    # First: rename base_ws to Day 1 if needed; if no production days, keep as Day 1 blank.
-    # Then create additional day sheets by copying.
-    # Finally remove extra original sheets (if template had more).
-
-    # Remove extra template sheets except first, to avoid confusion
     while len(base_wb.worksheets) > 1:
         base_wb.remove(base_wb.worksheets[-1])
 
     if not production_days:
         base_ws.title = "Day 1"
-        day_sheets: List[Tuple[int, date, object]] = [(1, date.today(), base_ws)]
+        day_sheets = [(1, date.today(), base_ws)]
     else:
         base_ws.title = "Day 1"
         day_sheets = [(1, production_days[0], base_ws)]
@@ -554,9 +558,7 @@ def export_xlsx(request: Request, run_id: int, day: Optional[int] = None, sessio
     machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
     params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id).order_by(RunParameter.display_order)).all()
 
-    # Helper: fill a sheet
     def fill_sheet(ws, day_date: date):
-        # Header fill (best-effort positions; matches your liner template)
         ws["D5"] = run.dhtp_batch_no
         ws["I5"] = run.client_name
         ws["I6"] = run.po_number
@@ -564,29 +566,23 @@ def export_xlsx(request: Request, run_id: int, day: Optional[int] = None, sessio
         ws["D7"] = run.raw_material_spec
         ws["D8"] = run.raw_material_batch_no
         ws["D9"] = run.itp_number
-
-        # Put date somewhere visible (safe place)
         ws["I7"] = day_date.isoformat()
 
-        # Machines (M5..)
         for r in range(5, 12):
-            ws[f"M{r}"] = ""  # clear
+            ws[f"M{r}"] = ""
         for i, m in enumerate(machines[:6]):
             ws[f"M{5+i}"] = f"{m.machine_name}{f' ({m.tag})' if m.tag else ''}"
 
-        # Fill time headers row 22 columns E..P
         for i, sl in enumerate(SLOTS):
-            col = get_column_letter(5 + i)  # E=5
+            col = get_column_letter(5 + i)
             ws[f"{col}22"] = sl.strftime("%H:%M")
 
-        # Entries for this day
         entries = session.exec(
             select(InspectionEntry)
             .where(InspectionEntry.run_id == run_id, InspectionEntry.actual_date == day_date)
             .order_by(InspectionEntry.created_at)
         ).all()
 
-        # Fill inspector/operators from last entry of the day
         if entries:
             last_entry = entries[-1]
             inspector = session.get(User, last_entry.inspector_user_id)
@@ -598,14 +594,10 @@ def export_xlsx(request: Request, run_id: int, day: Optional[int] = None, sessio
             ws["B39"] = ""
             ws["B40"] = ""
 
-        # Values map for this day
         entry_ids = [e.id for e in entries]
         entry_slot = {e.id: e.slot_time.strftime("%H:%M") for e in entries}
         value_map: Dict[str, Dict[str, float]] = {}
-        if entry_ids:
-            vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id.in_(entry_ids))).all()
-        else:
-            vals = []
+        vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id.in_(entry_ids))).all() if entry_ids else []
 
         for v in vals:
             slot_str = entry_slot.get(v.entry_id)
@@ -613,7 +605,6 @@ def export_xlsx(request: Request, run_id: int, day: Optional[int] = None, sessio
                 continue
             value_map.setdefault(v.param_key, {})[slot_str] = v.value
 
-        # Fill grid values starting row 23, label column B, times E..P
         start_row = 23
         for r_i, p in enumerate(params):
             row = start_row + r_i
@@ -627,8 +618,7 @@ def export_xlsx(request: Request, run_id: int, day: Optional[int] = None, sessio
                 col = get_column_letter(5 + s_i)
                 ws[f"{col}{row}"] = v
 
-    # Fill all sheets
-    for (di, dday, ws) in day_sheets:
+    for (_, dday, ws) in day_sheets:
         fill_sheet(ws, dday)
 
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
