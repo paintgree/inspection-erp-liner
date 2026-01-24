@@ -1,5 +1,5 @@
 from typing import Optional
-from datetime import datetime, time
+from datetime import datetime, time, date
 from sqlmodel import SQLModel, Field
 
 class User(SQLModel, table=True):
@@ -48,6 +48,7 @@ class InspectionEntry(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     run_id: int = Field(index=True)
 
+    actual_date: date
     actual_time: time
     slot_time: time
 
