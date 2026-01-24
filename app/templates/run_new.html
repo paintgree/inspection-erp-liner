@@ -10,7 +10,6 @@
 </div>
 
 <form method="post" action="/runs/new" class="card">
-  <!-- Process selected from /runs/new?process=... -->
   <input type="hidden" name="process" value="{{ process }}" />
 
   <div class="badge-row">
@@ -23,31 +22,21 @@
 
   <div class="grid2">
     <div>
-      <label>Client Name</label>
-      <input name="client_name"/>
+      <label>Total Pipe Length (m) (for progress)</label>
+      <input name="total_pipe_length_m" placeholder="Example: 1000" />
     </div>
-    <div>
-      <label>PO Number</label>
-      <input name="po_number"/>
+    <div class="muted" style="align-self:end;">
+      Used only for dashboard progress. Can be approximate.
     </div>
+  </div>
 
-    <div>
-      <label>ITP Number</label>
-      <input name="itp_number"/>
-    </div>
-    <div>
-      <label>Pipe Specification</label>
-      <input name="pipe_specification"/>
-    </div>
-
-    <div>
-      <label>Raw Material Spec</label>
-      <input name="raw_material_spec"/>
-    </div>
-    <div>
-      <label>Raw Material Batch No</label>
-      <input name="raw_material_batch_no"/>
-    </div>
+  <div class="grid2">
+    <div><label>Client Name</label><input name="client_name"/></div>
+    <div><label>PO Number</label><input name="po_number"/></div>
+    <div><label>ITP Number</label><input name="itp_number"/></div>
+    <div><label>Pipe Specification</label><input name="pipe_specification"/></div>
+    <div><label>Raw Material Spec</label><input name="raw_material_spec"/></div>
+    <div><label>Raw Material Batch No</label><input name="raw_material_batch_no"/></div>
   </div>
 
   <div class="card inner">
@@ -76,12 +65,7 @@
       <table class="tbl">
         <thead>
           <tr>
-            <th>Key</th>
-            <th>Label</th>
-            <th>Unit</th>
-            <th>Rule</th>
-            <th>Min</th>
-            <th>Max</th>
+            <th>Key</th><th>Label</th><th>Unit</th><th>Rule</th><th>Min</th><th>Max</th>
           </tr>
         </thead>
         <tbody>
