@@ -1,116 +1,103 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card">
-  <h1>Start New Production Run (Liner)</h1>
+<h1>Start New Production Run</h1>
 
-  <form method="post" action="/runs/new" class="form">
-    <input name="run_code" required />
+<a class="btn" href="/dashboard">Back</a>
 
-    <div class="grid2">
-      <div>
-        <label>Clinet Name</label>
-        <input name="client_name" required />
-      </div>
-      <div>
-        <label>PO Number</label>
-        <input name="po_number" required />
-      </div>
-      <div>
-        <label>DHTP Batch No.</label>
-        <input name="dhtp_batch_no" required />
-      </div>
-      <div>
-        <label>ITP Number</label>
-        <input name="itp_number" required />
-      </div>
-      <div>
-        <label>Pipe Specification</label>
-        <input name="pipe_specification" required />
-      </div>
-      <div>
-        <label>Raw Material Spec.</label>
-        <input name="raw_material_spec" required />
-      </div>
-      <div>
-        <label>Raw Material Batch No.</label>
-        <input name="raw_material_batch_no_current" required />
-      </div>
-      <div>
-        <label>Validation Mode</label>
-        <select name="validation_mode">
-          <option value="SOFT">SOFT (allow + highlight + remark)</option>
-          <option value="HARD">HARD (block unless manager override)</option>
-        </select>
-      </div>
-    </div>
+{% if error %}
+  <div class="error">{{ error }}</div>
+{% endif %}
 
-    <div class="card inner">
-      <h2>Run Limits (editable)</h2>
-      <table class="table">
-        <thead>
-          <tr><th>Parameter</th><th>Rule</th><th>Min</th><th>Max</th><th>Unit</th></tr>
-        </thead>
-        <tbody>
-          {% for p in defaults %}
-          <tr>
-            <td>{{ p[1] }}<input type="hidden" name="p_key" value="{{ p[0] }}"></td>
-            <td>
-              <select name="p_rule">
-                <option value="RANGE" {% if p[3]=="RANGE" %}selected{% endif %}>RANGE</option>
-                <option value="MAX_ONLY" {% if p[3]=="MAX_ONLY" %}selected{% endif %}>MAX_ONLY</option>
-                <option value="MIN_ONLY" {% if p[3]=="MIN_ONLY" %}selected{% endif %}>MIN_ONLY</option>
-              </select>
-            </td>
-            <td><input name="p_min" value="{{ p[4] if p[4] is not none else '' }}"></td>
-            <td><input name="p_max" value="{{ p[5] if p[5] is not none else '' }}"></td>
-            <td>{{ p[2] }}<input type="hidden" name="p_unit" value="{{ p[2] }}"><input type="hidden" name="p_label" value="{{ p[1] }}"></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+<form method="post" action="/runs/new" class="card">
+  <label>Process</label>
+  <select name="process">
+    {% for p in process_list %}
+      <option value="{{ p }}" {% if p==process %}selected{% endif %}>{{ p }}</option>
+    {% endfor %}
+  </select>
 
+  <div class="muted" style="margin:8px 0;">
+    Tip: to load defaults for another process, go back and choose the correct “New Run”.
+  </div>
 
-<div class="card inner">
-  <h2>Machines Used</h2>
-  <div class="muted">Add machines used for this run.</div>
+  <label>DHTP Batch No. (Run Reference)</label>
+  <input name="dhtp_batch_no" required />
 
   <div class="grid2">
     <div>
-      <label>Machine 1 Name</label>
-      <input name="m1_name" placeholder="Extruder..." />
+      <label>Client Name</label>
+      <input name="client_name" required />
     </div>
     <div>
-      <label>Machine 1 Tag</label>
-      <input name="m1_tag" placeholder="PW1-L-01-01" />
-    </div>
-
-    <div>
-      <label>Machine 2 Name</label>
-      <input name="m2_name" />
+      <label>PO Number</label>
+      <input name="po_number" required />
     </div>
     <div>
-      <label>Machine 2 Tag</label>
-      <input name="m2_tag" />
-    </div>
-
-    <div>
-      <label>Machine 3 Name</label>
-      <input name="m3_name" />
+      <label>ITP Number</label>
+      <input name="itp_number" required />
     </div>
     <div>
-      <label>Machine 3 Tag</label>
-      <input name="m3_tag" />
+      <label>Pipe Specification</label>
+      <input name="pipe_specification" required />
+    </div>
+    <div>
+      <label>Raw Material Spec</label>
+      <input name="raw_material_spec" required />
+    </div>
+    <div>
+      <label>Raw Material Batch No</label>
+      <input name="raw_material_batch_no" required />
     </div>
   </div>
-</div>
-    
-    <button class="btn primary" type="submit">Save Production Run</button>
-    <a class="btn" href="/dashboard">Cancel</a> <a class="btn" href="/dashboard">Back</a>
 
-  </form>
-</div>
+  <div class="card inner">
+    <h2>Machines Used</h2>
+    <div class="grid2">
+      {% for i in [1,2,3,4] %}
+      <div>
+        <label>Machine {{i}} Name</label>
+        <input name="m{{i}}_name" />
+      </div>
+      <div>
+        <label>Machine {{i}} Tag</label>
+        <input name="m{{i}}_tag" />
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card inner">
+    <h2>Run Limits (editable)</h2>
+    <table class="table">
+      <thead>
+        <tr><th>Parameter</th><th>Rule</th><th>Min</th><th>Max</th><th>Unit</th></tr>
+      </thead>
+      <tbody>
+        {% for p in defaults %}
+        <tr>
+          <td>
+            {{ p[1] }}
+            <input type="hidden" name="p_key" value="{{ p[0] }}">
+            <input type="hidden" name="p_label" value="{{ p[1] }}">
+            <input type="hidden" name="p_unit" value="{{ p[2] }}">
+          </td>
+          <td>
+            <select name="p_rule">
+              <option value="RANGE" {% if p[3]=="RANGE" %}selected{% endif %}>RANGE</option>
+              <option value="MAX_ONLY" {% if p[3]=="MAX_ONLY" %}selected{% endif %}>MAX_ONLY</option>
+              <option value="MIN_ONLY" {% if p[3]=="MIN_ONLY" %}selected{% endif %}>MIN_ONLY</option>
+              <option value="INFO_ONLY" {% if p[3]=="INFO_ONLY" %}selected{% endif %}>INFO_ONLY</option>
+            </select>
+          </td>
+          <td><input name="p_min" value="{{ p[4] if p[4] is not none else '' }}"></td>
+          <td><input name="p_max" value="{{ p[5] if p[5] is not none else '' }}"></td>
+          <td>{{ p[2] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <button class="btn primary" type="submit">Save Production Run</button>
+</form>
 {% endblock %}
-
-
-
