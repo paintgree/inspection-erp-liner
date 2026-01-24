@@ -1,73 +1,50 @@
 {% extends "base.html" %}
 {% block content %}
+<h1>Dashboard</h1>
+<div class="muted">Runs grouped by Batch Number (Run Reference).</div>
 
-<div class="page-header">
-  <div>
-    <h1>Dashboard</h1>
-    <div class="muted">Runs grouped by Batch Number (Run Reference).</div>
-  </div>
-  <div class="toolbar">
-    <a class="btn" href="/runs/new?process=LINER">+ New Run (Liner)</a>
-    <a class="btn" href="/runs/new?process=REINFORCEMENT">+ New Run (Reinforcement)</a>
-    <a class="btn" href="/runs/new?process=COVER">+ New Run (Cover)</a>
-  </div>
+<div class="toolbar">
+  <a class="btn" href="/runs/new/LINER">+ New Run (Liner)</a>
+  <a class="btn" href="/runs/new/REINFORCEMENT">+ New Run (Reinforcement)</a>
+  <a class="btn" href="/runs/new/COVER">+ New Run (Cover)</a>
 </div>
 
-{% for batch, items in grouped.items() %}
-  <div class="card batch-card">
-    <div class="batch-header">
-      <div>
-        <div class="batch-title">Batch: {{ batch }}</div>
-        <div class="muted">All processes for this batch</div>
-      </div>
-    </div>
-
-    <div class="table-wrap">
-      <table class="tbl">
+{% for batch, runs in grouped.items() %}
+  <div class="card">
+    <h2>Batch: {{ batch }}</h2>
+    <div class="tablewrap">
+      <table class="table">
         <thead>
           <tr>
             <th>Process</th>
             <th>Status</th>
-            <th style="width:260px;">Progress</th>
             <th>Client</th>
             <th>PO</th>
-            <th style="width:120px;">Open</th>
+            <th>Progress</th>
+            <th>Open</th>
           </tr>
         </thead>
         <tbody>
-          {% for row in items %}
+        {% for r in runs %}
           <tr>
-            <td><span class="badge">{{ row.run.process }}</span></td>
-            <td><span class="pill {{ row.run.status|lower }}">{{ row.run.status }}</span></td>
-
-            <td>
-              {% if row.percent is not none %}
-                <div class="progress-wrap">
-                  <div class="progress-bar">
-                    <div class="progress-fill" style="width: {{ row.percent }}%;"></div>
-                  </div>
-                  <div class="progress-text">{{ row.percent }}%</div>
+            <td><span class="pill">{{ r.process }}</span></td>
+            <td><span class="status">{{ r.status }}</span></td>
+            <td>{{ r.client_name }}</td>
+            <td>{{ r.po_number }}</td>
+            <td style="min-width:180px">
+              <div class="progressrow">
+                <div class="progressbar">
+                  <div class="progressfill" style="width: {{ progress[r.id] }}%"></div>
                 </div>
-              {% else %}
-                <span class="muted">No total length</span>
-              {% endif %}
+                <div class="pct">{{ progress[r.id] }}%</div>
+              </div>
             </td>
-
-            <td>{{ row.run.client_name }}</td>
-            <td>{{ row.run.po_number }}</td>
-            <td><a class="btn small" href="/runs/{{ row.run.id }}">View</a></td>
+            <td><a class="btn btn-small" href="/runs/{{ r.id }}">View</a></td>
           </tr>
-          {% endfor %}
+        {% endfor %}
         </tbody>
       </table>
     </div>
   </div>
 {% endfor %}
-
-{% if grouped|length == 0 %}
-  <div class="card">
-    <div class="muted">No runs yet. Create one to start.</div>
-  </div>
-{% endif %}
-
 {% endblock %}
