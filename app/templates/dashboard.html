@@ -1,37 +1,58 @@
 {% extends "base.html" %}
 {% block content %}
-  <h1>Dashboard</h1>
 
-  {% if user.role == "MANAGER" %}
-    <a class="btn primary" href="/runs/new?process=LINER">+ New Run (Liner)</a>
-    <a class="btn primary" href="/runs/new?process=REINFORCEMENT">+ New Run (Reinforcement)</a>
-    <a class="btn primary" href="/runs/new?process=COVER">+ New Run (Cover)</a>
-  {% endif %}
+<div class="page-header">
+  <div>
+    <h1>Dashboard</h1>
+    <div class="muted">Runs grouped by Batch Number (Run Reference).</div>
+  </div>
+  <div class="toolbar">
+    <a class="btn" href="/runs/new?process=LINER">+ New Run (Liner)</a>
+    <a class="btn" href="/runs/new?process=REINFORCEMENT">+ New Run (Reinforcement)</a>
+    <a class="btn" href="/runs/new?process=COVER">+ New Run (Cover)</a>
+  </div>
+</div>
 
-  <div class="card" style="margin-top:16px;">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Process</th>
-          <th>Batch (Run Ref)</th>
-          <th>Status</th>
-          <th>Client</th>
-          <th>PO</th>
-          <th>Open</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in runs %}
+{% for batch, items in grouped.items() %}
+  <div class="card batch-card">
+    <div class="batch-header">
+      <div>
+        <div class="batch-title">Batch: {{ batch }}</div>
+        <div class="muted">All processes for this batch</div>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="tbl">
+        <thead>
           <tr>
-            <td>{{ r.process }}</td>
-            <td>{{ r.dhtp_batch_no }}</td>
-            <td><span class="badge">{{ r.status }}</span></td>
+            <th>Process</th>
+            <th>Status</th>
+            <th>Client</th>
+            <th>PO</th>
+            <th style="width:120px;">Open</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in items %}
+          <tr>
+            <td><span class="badge">{{ r.process }}</span></td>
+            <td><span class="pill {{ r.status|lower }}">{{ r.status }}</span></td>
             <td>{{ r.client_name }}</td>
             <td>{{ r.po_number }}</td>
-            <td><a class="btn btn-sm" href="/runs/{{ r.id }}">View</a></td>
+            <td><a class="btn small" href="/runs/{{ r.id }}">View</a></td>
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
+{% endfor %}
+
+{% if grouped|length == 0 %}
+  <div class="card">
+    <div class="muted">No runs yet. Create one to start.</div>
+  </div>
+{% endif %}
+
 {% endblock %}
