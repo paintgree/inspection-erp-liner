@@ -1,94 +1,111 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="runHeader">
-  <div>
-    <h1>{{ run.run_code }}</h1>
-    <div class="muted">
-      Client: {{ run.client_name }} | PO: {{ run.po_number }} | Batch: {{ run.dhtp_batch_no }}
-    </div>
-  </div>
-  <div class="actions">
-    {% if run.status == "OPEN" %}
-      <a class="btn primary" href="/runs/{{ run.id }}/entries/new">New Inspection Entry</a>
-    {% endif %}
-    <span class="badge {{ run.status }}">{{ run.status }}</span>
+<a class="btn" href="/dashboard">Back</a>
+
+<h1>{{ run.process }} — Batch: {{ run.dhtp_batch_no }}</h1>
+<div class="muted">Status: <span class="badge">{{ run.status }}</span></div>
+
+<img src="{{ img_url }}" style="max-width:100%; margin:16px 0; border:1px solid #ddd; border-radius:8px;" />
+
+<div class="card">
+  <div class="grid2">
+    <div><b>Client:</b> {{ run.client_name }}</div>
+    <div><b>PO:</b> {{ run.po_number }}</div>
+    <div><b>ITP:</b> {{ run.itp_number }}</div>
+    <div><b>Pipe Spec:</b> {{ run.pipe_specification }}</div>
+    <div><b>Raw Material:</b> {{ run.raw_material_spec }}</div>
+    <div><b>RM Batch:</b> {{ run.raw_material_batch_no }}</div>
   </div>
 </div>
 
-<div class="layout">
-  <section class="template card">
-    <h2>Template View (Read-only)</h2>
+<div class="card" style="margin-top:12px;">
+  <h2>Machines Used</h2>
+  {% if machines|length == 0 %}
+    <div class="muted">No machines recorded.</div>
+  {% else %}
+    <ul>
+      {% for m in machines %}
+        <li>{{ m.machine_name }} {% if m.tag %} ({{ m.tag }}) {% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+</div>
 
-    <div class="hdrblock">
-      <div><b>Clinet Name:</b> {{ run.client_name }}</div>
-      <div><b>PO Number:</b> {{ run.po_number }}</div>
-      <div><b>DHTP Batch No.:</b> {{ run.dhtp_batch_no }}</div>
-      <div><b>ITP Number:</b> {{ run.itp_number }}</div>
-      <div><b>Pipe Specification:</b> {{ run.pipe_specification }}</div>
-      <div><b>Raw Material Spec.:</b> {{ run.raw_material_spec }}</div>
-      <div><b>Raw Material Batch No.:</b> {{ run.raw_material_batch_no_current }}</div>
-    </div>
+<div style="margin-top:12px;">
+  {% if run.status == "OPEN" %}
+    <a class="btn primary" href="/runs/{{ run.id }}/entries/new">+ New Inspection Entry</a>
+  {% endif %}
+  <a class="btn" href="/runs/{{ run.id }}/export-xlsx">Export XLSX</a>
+</div>
 
-  {% set img_map = {
-    "LINER": "/static/images/liner.png",
-    "REINFORCEMENT": "/static/images/reinforcement.png",
-    "COVER": "/static/images/cover.png"
-  } %}
-  
-  <img src="{{ img_map.get(run.process, '/static/images/liner.png') }}"
-       style="max-width:100%; margin:16px 0; border:1px solid #ddd; border-radius:8px;">
+{% if user.role == "MANAGER" %}
+  <div class="card" style="margin-top:12px;">
+    <h2>Workflow</h2>
 
+    {% if run.status == "OPEN" %}
+      <form method="post" action="/runs/{{ run.id }}/close">
+        <button class="btn danger" type="submit">Close Run</button>
+      </form>
+    {% endif %}
 
-    
-    <div class="gridWrap">
-      <table class="grid">
-        <thead>
+    {% if run.status == "CLOSED" %}
+      <form method="post" action="/runs/{{ run.id }}/approve">
+        <button class="btn primary" type="submit">Approve Run</button>
+      </form>
+
+      <form method="post" action="/runs/{{ run.id }}/reopen" style="margin-top:8px;">
+        <button class="btn" type="submit">Reopen (no reason needed)</button>
+      </form>
+    {% endif %}
+
+    {% if run.status == "APPROVED" %}
+      {% if reopen_error %}
+        <div class="error" style="margin-top:8px;">Reason is required to reopen an APPROVED run.</div>
+      {% endif %}
+      <form method="post" action="/runs/{{ run.id }}/reopen" style="margin-top:8px;">
+        <label>Reason to reopen approved run</label>
+        <input name="reason" required />
+        <button class="btn danger" type="submit">Reopen Approved</button>
+      </form>
+    {% endif %}
+  </div>
+{% endif %}
+
+<div class="card" style="margin-top:12px;">
+  <h2>Template View (Read-only)</h2>
+
+  <div style="overflow:auto;">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Parameter</th>
+          {% for s in slots %}
+            <th>{{ s }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in params %}
           <tr>
-            <th class="stickyCol">Parameter</th>
+            <td>{{ p.label }}</td>
             {% for s in slots %}
-              <th>{{ s }}</th>
-            {% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-          {% for p in params %}
-          <tr>
-            <td class="stickyCol">{{ p.label }}</td>
-            {% for s in slots %}
-              <td class="cell">
-                {% if slot_map[s]|length > 0 %}
-                  <div class="mini">{{ slot_map[s]|length }} entry</div>
+              {% set v = (value_map.get(p.param_key, {}).get(s)) %}
+              <td>
+                {% if v is not none %}
+                  {{ v }}
+                {% elif slot_map[s]|length > 0 %}
+                  <span class="muted">{{ slot_map[s]|length }} entry</span>
                 {% endif %}
               </td>
             {% endfor %}
           </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 
-    <div class="muted small">MVP shows slot activity now. Next build fills actual parameter values into cells.</div>
-  </section>
-
-  <aside class="side card">
-    <h2>Run Controls</h2>
-    <div class="kv"><span>Status</span><span class="badge {{ run.status }}">{{ run.status }}</span></div>
-    <div class="kv"><span>Validation</span><span>{{ run.validation_mode }}</span></div>
-
-    <div class="space"></div>
-
-    {% if user.role == "MANAGER" %}
-      <form method="post" action="/runs/{{ run.id }}/close">
-        <button class="btn" type="submit" {% if run.status != "OPEN" %}disabled{% endif %}>Close Run</button>
-      </form>
-      <form method="post" action="/runs/{{ run.id }}/approve">
-        <button class="btn" type="submit" {% if run.status != "CLOSED" %}disabled{% endif %}>Approve Run</button>
-      </form>
-      <form method="post" action="/runs/{{ run.id }}/reopen">
-        <button class="btn" type="submit" {% if run.status != "CLOSED" %}disabled{% endif %}>Reopen Run</button>
-      </form>
-    {% endif %}
-  </aside>
+  <div class="muted" style="margin-top:8px;">
+    Slot assignment is automatic (2-hour slots). Values appear in the slot cell.
+  </div>
 </div>
 {% endblock %}
-
