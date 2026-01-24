@@ -33,6 +33,112 @@ ser = URLSafeSerializer(SECRET, salt="session")
 SLOTS = [dtime(h, 0) for h in range(0, 24, 2)]  # fixed slots 00:00..22:00
 PROCESS_LIST = ["LINER", "REINFORCEMENT", "COVER"]
 
+@app.get("/runs/{run_id}/export-xlsx")
+def export_xlsx(run_id: int, day: int | None = None, request: Request = None, session: Session = Depends(get_session)):
+    u = get_current_user(request, session)
+    if not u:
+        return RedirectResponse("/login", status_code=302)
+
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        return HTMLResponse("Run not found", status_code=404)
+
+    template_path = TEMPLATE_XLSX_MAP.get(run.process)
+    if not template_path or not os.path.exists(template_path):
+        return HTMLResponse(f"Template not found: {template_path}", status_code=500)
+
+    wb = load_workbook(template_path)
+    ws = wb.worksheets[0]
+
+    # Fill header (adjusted to your sheet mapping)
+    ws["D5"] = run.dhtp_batch_no
+    ws["I5"] = run.client_name
+    ws["I6"] = run.po_number
+    ws["D9"] = run.itp_number
+    ws["D6"] = run.pipe_specification
+    ws["D7"] = run.raw_material_spec
+    ws["D8"] = run.raw_material_batch_no
+
+    machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
+    for r in range(5, 12):
+        ws[f"M{r}"] = ""
+    for i, m in enumerate(machines[:6]):
+        ws[f"M{5+i}"] = f"{m.machine_name}{f' ({m.tag})' if m.tag else ''}"
+
+    # Prepare day list (all production days unless a day index is requested)
+    production_days = get_production_days(session, run_id)
+    if production_days and day is not None:
+        di = max(1, min(int(day), len(production_days)))
+        production_days = [production_days[di - 1]]
+
+    # Remove extra sheets then create needed ones
+    while len(wb.worksheets) > 1:
+        wb.remove(wb.worksheets[-1])
+
+    if not production_days:
+        ws.title = "Day 1"
+        day_sheets = [(1, date.today(), ws)]
+    else:
+        ws.title = "Day 1"
+        day_sheets = [(1, production_days[0], ws)]
+        for i in range(2, len(production_days) + 1):
+            new_ws = wb.copy_worksheet(ws)
+            new_ws.title = f"Day {i}"
+            day_sheets.append((i, production_days[i - 1], new_ws))
+
+    params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id).order_by(RunParameter.display_order)).all()
+
+    # Slot headings
+    for i, sl in enumerate(SLOTS):
+        col = get_column_letter(5 + i)
+        ws[f"{col}22"] = sl.strftime("%H:%M")
+
+    def fill_sheet(ws2, day_date: date):
+        # date cell if your template has one
+        ws2["I7"] = day_date.isoformat()
+
+        entries = session.exec(
+            select(InspectionEntry)
+            .where(InspectionEntry.run_id == run_id, InspectionEntry.actual_date == day_date)
+            .order_by(InspectionEntry.created_at)
+        ).all()
+
+        entry_ids = [e.id for e in entries]
+        entry_slot = {e.id: e.slot_time.strftime("%H:%M") for e in entries}
+
+        vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id.in_(entry_ids))).all() if entry_ids else []
+        value_map: dict[str, dict[str, float]] = {}
+        for v in vals:
+            slot_str = entry_slot.get(v.entry_id)
+            if slot_str:
+                value_map.setdefault(v.param_key, {})[slot_str] = v.value
+
+        # Write values into the table: start row 23, labels in column B, time columns from E
+        start_row = 23
+        for r_i, p in enumerate(params):
+            row = start_row + r_i
+            if ws2[f"B{row}"].value in (None, ""):
+                ws2[f"B{row}"] = p.label
+
+            for s_i, slot_str in enumerate([s.strftime("%H:%M") for s in SLOTS]):
+                v = value_map.get(p.param_key, {}).get(slot_str)
+                if v is None:
+                    continue
+                col = get_column_letter(5 + s_i)
+                ws2[f"{col}{row}"] = v
+
+    for (_, dday, ws2) in day_sheets:
+        fill_sheet(ws2, dday)
+
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+    tmp_path = tmp.name
+    tmp.close()
+    wb.save(tmp_path)
+
+    filename = f"{run.process}_{run.dhtp_batch_no}_ALL_DAYS.xlsx" if day is None else f"{run.process}_{run.dhtp_batch_no}_DAY_{day}.xlsx"
+    return FileResponse(tmp_path, filename=filename, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+
 def parse_float(x: str) -> Optional[float]:
     x = (x or "").strip()
     if x == "":
@@ -442,4 +548,5 @@ async def entry_new_post(request: Request, run_id: int, session: Session = Depen
 
 # ---------------- EXPORT XLSX (unchanged from your current version) ----------------
 # keep your existing export-xlsx function as-is
+
 
