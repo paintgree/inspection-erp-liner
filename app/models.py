@@ -1,84 +1,111 @@
-from typing import Optional
-from datetime import datetime, time, date
-from sqlmodel import SQLModel, Field
+from __future__ import annotations
+
+from datetime import datetime, date, time
+from typing import Optional, List
+from sqlmodel import SQLModel, Field, Relationship
+
 
 class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    email: str = Field(index=True, unique=True)
-    name: str
-    role: str   # MANAGER / INSPECTOR
+    username: str = Field(index=True, unique=True)
+    display_name: str
+    role: str = Field(default="INSPECTOR")  # MANAGER / INSPECTOR
     password_hash: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    entries: List["InspectionEntry"] = Relationship(back_populates="inspector")
+
 
 class ProductionRun(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
-    process: str                 # LINER / REINFORCEMENT / COVER
-    dhtp_batch_no: str = Field(index=True)   # run reference
-    status: str = "OPEN"         # OPEN / CLOSED / APPROVED
+    process: str  # LINER / REINFORCEMENT / COVER
+    dhtp_batch_no: str = Field(index=True)
 
     client_name: str
     po_number: str
     itp_number: str
     pipe_specification: str
     raw_material_spec: str
-    raw_material_batch_no: str
 
-    # NEW: used for dashboard progress
-    total_pipe_length_m: Optional[float] = None
+    total_length_m: float = Field(default=0.0)
 
-    created_by: int
+    status: str = Field(default="OPEN")  # OPEN / CLOSED / APPROVED
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    machines: List["RunMachine"] = Relationship(back_populates="run")
+    params: List["RunParameter"] = Relationship(back_populates="run")
+    entries: List["InspectionEntry"] = Relationship(back_populates="run")
+
 
 class RunMachine(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    run_id: int = Field(index=True)
+    run_id: int = Field(foreign_key="productionrun.id", index=True)
+
     machine_name: str
-    tag: Optional[str] = None
+    machine_tag: str = ""
+
+    run: ProductionRun = Relationship(back_populates="machines")
+
 
 class RunParameter(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    run_id: int = Field(index=True)
+    run_id: int = Field(foreign_key="productionrun.id", index=True)
 
-    param_key: str = Field(index=True)
+    param_key: str
     label: str
-    unit: str
-    rule: str               # RANGE / MAX_ONLY / MIN_ONLY / INFO_ONLY
+    unit: str = ""
+
+    rule: str = Field(default="RANGE")  # RANGE / MAX_ONLY / MIN_ONLY
     min_value: Optional[float] = None
     max_value: Optional[float] = None
+
     display_order: int = 0
+
+    run: ProductionRun = Relationship(back_populates="params")
+
 
 class InspectionEntry(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    run_id: int = Field(index=True)
+    run_id: int = Field(foreign_key="productionrun.id", index=True)
 
     actual_date: date
-    actual_time: time
-    slot_time: time
+    actual_time: str  # "HH:MM" (user enters)
+    slot_time: str    # "00:00"..."22:00" (system assigns)
 
-    inspector_user_id: int
+    inspector_id: int = Field(foreign_key="user.id", index=True)
 
-    # LINER / COVER operators
-    operator1: Optional[str] = None
-    operator2: Optional[str] = None
+    # Operators (liner/cover use operator_1/operator_2; reinforcement uses annular/int/ext)
+    operator_1: str = ""
+    operator_2: str = ""
+    operator_annular_12: str = ""
+    operator_int_ext_34: str = ""
 
-    # REINFORCEMENT operators
-    operator_annular12: Optional[str] = None
-    operator_intext34: Optional[str] = None
+    remarks: str = ""
 
-    remark: Optional[str] = None
+    # Daily traceability (optional updates per entry)
+    raw_material_batch_no: str = ""  # if blank -> unchanged from previous day/entry
+
+    tool1_name: str = ""
+    tool1_serial: str = ""
+    tool1_calib_due: str = ""  # keep as text for simplicity (YYYY-MM-DD)
+
+    tool2_name: str = ""
+    tool2_serial: str = ""
+    tool2_calib_due: str = ""
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    run: ProductionRun = Relationship(back_populates="entries")
+    inspector: User = Relationship(back_populates="entries")
+    values: List["InspectionValue"] = Relationship(back_populates="entry")
+
 
 class InspectionValue(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    entry_id: int = Field(index=True)
-    param_key: str = Field(index=True)
-    value: float
+    entry_id: int = Field(foreign_key="inspectionentry.id", index=True)
 
-class AuditLog(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    run_id: int = Field(index=True)
-    actor_user_id: int
-    action: str
-    reason: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    param_key: str
+    value: Optional[float] = None
+
+    entry: InspectionEntry = Relationship(back_populates="values")
