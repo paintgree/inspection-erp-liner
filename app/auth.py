@@ -1,10 +1,10 @@
-import hashlib
-import hmac
+from passlib.context import CryptContext
 
-_SECRET = b"demo-secret-change-later"
+# PBKDF2 avoids bcrypt backend issues on Render / Python 3.13
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 def hash_password(pw: str) -> str:
-    return hmac.new(_SECRET, pw.encode("utf-8"), hashlib.sha256).hexdigest()
+    return pwd_context.hash(pw)
 
 def verify_password(pw: str, hashed: str) -> bool:
-    return hmac.compare_digest(hash_password(pw), hashed)
+    return pwd_context.verify(pw, hashed)
