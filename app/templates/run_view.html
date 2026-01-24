@@ -25,9 +25,26 @@
   {% else %}
     <ul>
       {% for m in machines %}
-        <li>{{ m.machine_name }} {% if m.tag %} ({{ m.tag }}) {% endif %}</li>
+        <li>{{ m.machine_name }}{% if m.tag %} ({{ m.tag }}){% endif %}</li>
       {% endfor %}
     </ul>
+  {% endif %}
+</div>
+
+<div class="card" style="margin-top:12px;">
+  <h2>Production Days</h2>
+  {% if production_days|length == 0 %}
+    <div class="muted">No entries yet. Day pages will appear once an inspection is recorded.</div>
+  {% else %}
+    <div class="muted">Each day starts at 00:00. Only days with entries exist.</div>
+    <div style="margin-top:8px;">
+      {% for d in production_days %}
+        {% set idx = loop.index %}
+        <a class="btn btn-sm {% if idx==day_index %}primary{% endif %}" href="/runs/{{ run.id }}?day={{ idx }}">
+          Day {{ idx }} ({{ d.isoformat() }})
+        </a>
+      {% endfor %}
+    </div>
   {% endif %}
 </div>
 
@@ -35,7 +52,10 @@
   {% if run.status == "OPEN" %}
     <a class="btn primary" href="/runs/{{ run.id }}/entries/new">+ New Inspection Entry</a>
   {% endif %}
-  <a class="btn" href="/runs/{{ run.id }}/export-xlsx">Export XLSX</a>
+  <a class="btn" href="/runs/{{ run.id }}/export-xlsx">Export XLSX (All Days)</a>
+  {% if production_days|length > 0 %}
+    <a class="btn" href="/runs/{{ run.id }}/export-xlsx?day={{ day_index }}">Export XLSX (This Day)</a>
+  {% endif %}
 </div>
 
 {% if user.role == "MANAGER" %}
@@ -52,7 +72,6 @@
       <form method="post" action="/runs/{{ run.id }}/approve">
         <button class="btn primary" type="submit">Approve Run</button>
       </form>
-
       <form method="post" action="/runs/{{ run.id }}/reopen" style="margin-top:8px;">
         <button class="btn" type="submit">Reopen (no reason needed)</button>
       </form>
@@ -72,8 +91,7 @@
 {% endif %}
 
 <div class="card" style="margin-top:12px;">
-  <h2>Template View (Read-only)</h2>
-
+  <h2>In-Process Inspection — Day {{ day_index }}{% if selected_date %} ({{ selected_date.isoformat() }}){% endif %}</h2>
   <div style="overflow:auto;">
     <table class="table">
       <thead>
@@ -90,22 +108,15 @@
             <td>{{ p.label }}</td>
             {% for s in slots %}
               {% set v = (value_map.get(p.param_key, {}).get(s)) %}
-              <td>
-                {% if v is not none %}
-                  {{ v }}
-                {% elif slot_map[s]|length > 0 %}
-                  <span class="muted">{{ slot_map[s]|length }} entry</span>
-                {% endif %}
-              </td>
+              <td>{% if v is not none %}{{ v }}{% endif %}</td>
             {% endfor %}
           </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
-
   <div class="muted" style="margin-top:8px;">
-    Slot assignment is automatic (2-hour slots). Values appear in the slot cell.
+    Users never select the slot — system assigns it from time.
   </div>
 </div>
 {% endblock %}
