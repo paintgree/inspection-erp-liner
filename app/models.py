@@ -104,4 +104,14 @@ class InspectionValue(SQLModel, table=True):
     param_key: str
     value: Optional[float] = None
 
+    # ✅ limit check result (used for highlighting)
+    is_out_of_spec: bool = Field(default=False)
+    spec_note: str = Field(default="")  # optional message
+
+    # ✅ pending edit workflow (inspector can propose, manager approves)
+    pending_value: Optional[float] = None
+    pending_status: str = Field(default="")  # "" / "PENDING" / "APPROVED" / "REJECTED"
+    pending_by_user_id: Optional[int] = Field(default=None)
+    pending_at: Optional[datetime] = None
+
     entry: "InspectionEntry" = Relationship(back_populates="values")
