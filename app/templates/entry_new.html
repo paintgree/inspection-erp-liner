@@ -1,35 +1,44 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card">
-  <h1>New Inspection Entry</h1>
-  <div class="muted">Run: {{ run.run_code }} (LINER) — System will auto-assign the 2-hour slot.</div>
+<h1>New Inspection Entry</h1>
 
-  <form method="post" class="form">
-    <label>Actual Inspection Time (HH:MM)</label>
-    <input name="actual_time" placeholder="14:05" required pattern="^([01]\d|2[0-3]):[0-5]\d$"/>
+<a class="btn" href="/runs/{{ run.id }}">Back</a>
 
-    <label>Remarks (optional)</label>
-    <textarea name="remark" rows="3" placeholder="(optional)"></textarea>
+<form method="post" action="/runs/{{ run.id }}/entries/new" class="card">
+  <label>Actual Inspection Time (HH:MM)</label>
+  <input name="actual_time" placeholder="14:05" required />
 
-    <label>QC Inspector (auto)</label>
-    <input value="{{ user.name }}" disabled />
-    
-    <label>Operator (Hopper / Extruder)</label>
-    <input name="op1" placeholder="Operator name" />
-    
-    <label>Operator (Cooling / Accumulator)</label>
-    <input name="op2" placeholder="Operator name" />
+  <label>QC Inspector (auto)</label>
+  <input value="{{ user.name }}" disabled />
 
-    <button class="btn primary" type="submit">Submit</button>
-    <a class="btn" href="/runs/{{ run.id }}">Cancel</a>
-  </form>
-  <a class="btn" href="/runs/{{ run.id }}">Back</a>
+  <div class="grid2">
+    <div>
+      <label>Operator 1</label>
+      <input name="operator1" />
+    </div>
+    <div>
+      <label>Operator 2</label>
+      <input name="operator2" />
+    </div>
+  </div>
 
   <div class="card inner">
-    <h2>Confirmation (MVP simplified)</h2>
-    <div class="muted">Next iteration will include Confirm/Change popup for materials/tools/machines every entry.</div>
+    <h2>Inspection Readings</h2>
+    <div class="muted">Enter numeric values (leave blank if not taken).</div>
+
+    <div class="grid2">
+      {% for p in params %}
+        <div>
+          <label>{{ p.label }} ({{ p.unit }})</label>
+          <input name="val_{{ p.param_key }}" placeholder="numeric" />
+        </div>
+      {% endfor %}
+    </div>
   </div>
-</div>
+
+  <label>Remark</label>
+  <input name="remark" />
+
+  <button class="btn primary" type="submit">Submit</button>
+</form>
 {% endblock %}
-
-
