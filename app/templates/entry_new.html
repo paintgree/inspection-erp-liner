@@ -16,8 +16,17 @@
     </div>
   </div>
 
-  <label>QC Inspector (auto)</label>
-  <input value="{{ user.name }}" disabled />
+  <div class="grid2">
+    <div>
+      <label>Pipe Length (m)</label>
+      <input name="pipe_length_m" placeholder="Example: 120" />
+      <div class="muted">This drives dashboard progress (max length entered).</div>
+    </div>
+    <div>
+      <label>QC Inspector (auto)</label>
+      <input value="{{ user.name }}" disabled />
+    </div>
+  </div>
 
   {% if run.process == "REINFORCEMENT" %}
     <div class="grid2">
@@ -37,10 +46,12 @@
 
     <div class="grid2">
       {% for p in params %}
+        {% if p.param_key != "length_m" %}
         <div>
           <label>{{ p.label }} {% if p.unit %} ({{ p.unit }}) {% endif %}</label>
           <input name="val_{{ p.param_key }}" placeholder="numeric" />
         </div>
+        {% endif %}
       {% endfor %}
     </div>
   </div>
