@@ -1,7 +1,14 @@
 from sqlmodel import SQLModel, create_engine, Session
+import os
 
-DATABASE_URL = "sqlite:///./erp_v5.db"
-engine = create_engine(DATABASE_URL, echo=False)
+DB_PATH = os.getenv("INSPECTION_DB", "inspection.db")
+DATABASE_URL = f"sqlite:///{DB_PATH}"
+
+engine = create_engine(
+    DATABASE_URL,
+    echo=False,
+    connect_args={"check_same_thread": False},
+)
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
