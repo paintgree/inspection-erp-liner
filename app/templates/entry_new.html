@@ -1,35 +1,36 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>New Inspection Entry</h1>
-
 <a class="btn" href="/runs/{{ run.id }}">Back</a>
 
 <form method="post" action="/runs/{{ run.id }}/entries/new" class="card">
-  <label>Actual Inspection Time (HH:MM)</label>
-  <input name="actual_time" placeholder="14:05" required />
+
+  <div class="grid2">
+    <div>
+      <label>Inspection Date</label>
+      <input name="actual_date" type="date" value="{{ today }}" required />
+    </div>
+    <div>
+      <label>Inspection Time (HH:MM)</label>
+      <input name="actual_time" placeholder="14:05" required />
+    </div>
+  </div>
 
   <label>QC Inspector (auto)</label>
   <input value="{{ user.name }}" disabled />
 
   <div class="grid2">
-    <div>
-      <label>Operator 1</label>
-      <input name="operator1" />
-    </div>
-    <div>
-      <label>Operator 2</label>
-      <input name="operator2" />
-    </div>
+    <div><label>Operator 1</label><input name="operator1" /></div>
+    <div><label>Operator 2</label><input name="operator2" /></div>
   </div>
 
   <div class="card inner">
     <h2>Inspection Readings</h2>
-    <div class="muted">Enter numeric values (leave blank if not taken).</div>
-
+    <div class="muted">Enter numeric values. Leave blank if not taken.</div>
     <div class="grid2">
       {% for p in params %}
         <div>
-          <label>{{ p.label }} ({{ p.unit }})</label>
+          <label>{{ p.label }} {% if p.unit %} ({{ p.unit }}) {% endif %}</label>
           <input name="val_{{ p.param_key }}" placeholder="numeric" />
         </div>
       {% endfor %}
