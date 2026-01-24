@@ -1,7 +1,5 @@
-from __future__ import annotations
-
-from datetime import datetime, date, time
-from typing import Optional, List
+from datetime import datetime, date
+from typing import Optional
 from sqlmodel import SQLModel, Field, Relationship
 
 
@@ -13,7 +11,7 @@ class User(SQLModel, table=True):
     password_hash: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    entries: List["InspectionEntry"] = Relationship(back_populates="inspector")
+    entries: list["InspectionEntry"] = Relationship(back_populates="inspector")
 
 
 class ProductionRun(SQLModel, table=True):
@@ -33,9 +31,9 @@ class ProductionRun(SQLModel, table=True):
     status: str = Field(default="OPEN")  # OPEN / CLOSED / APPROVED
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    machines: List["RunMachine"] = Relationship(back_populates="run")
-    params: List["RunParameter"] = Relationship(back_populates="run")
-    entries: List["InspectionEntry"] = Relationship(back_populates="run")
+    machines: list["RunMachine"] = Relationship(back_populates="run")
+    params: list["RunParameter"] = Relationship(back_populates="run")
+    entries: list["InspectionEntry"] = Relationship(back_populates="run")
 
 
 class RunMachine(SQLModel, table=True):
@@ -45,7 +43,7 @@ class RunMachine(SQLModel, table=True):
     machine_name: str
     machine_tag: str = ""
 
-    run: ProductionRun = Relationship(back_populates="machines")
+    run: "ProductionRun" = Relationship(back_populates="machines")
 
 
 class RunParameter(SQLModel, table=True):
@@ -62,7 +60,7 @@ class RunParameter(SQLModel, table=True):
 
     display_order: int = 0
 
-    run: ProductionRun = Relationship(back_populates="params")
+    run: "ProductionRun" = Relationship(back_populates="params")
 
 
 class InspectionEntry(SQLModel, table=True):
@@ -70,12 +68,11 @@ class InspectionEntry(SQLModel, table=True):
     run_id: int = Field(foreign_key="productionrun.id", index=True)
 
     actual_date: date
-    actual_time: str  # "HH:MM" (user enters)
-    slot_time: str    # "00:00"..."22:00" (system assigns)
+    actual_time: str  # "HH:MM"
+    slot_time: str    # "00:00"..."22:00"
 
     inspector_id: int = Field(foreign_key="user.id", index=True)
 
-    # Operators (liner/cover use operator_1/operator_2; reinforcement uses annular/int/ext)
     operator_1: str = ""
     operator_2: str = ""
     operator_annular_12: str = ""
@@ -83,12 +80,11 @@ class InspectionEntry(SQLModel, table=True):
 
     remarks: str = ""
 
-    # Daily traceability (optional updates per entry)
-    raw_material_batch_no: str = ""  # if blank -> unchanged from previous day/entry
+    raw_material_batch_no: str = ""
 
     tool1_name: str = ""
     tool1_serial: str = ""
-    tool1_calib_due: str = ""  # keep as text for simplicity (YYYY-MM-DD)
+    tool1_calib_due: str = ""
 
     tool2_name: str = ""
     tool2_serial: str = ""
@@ -96,9 +92,9 @@ class InspectionEntry(SQLModel, table=True):
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    run: ProductionRun = Relationship(back_populates="entries")
-    inspector: User = Relationship(back_populates="entries")
-    values: List["InspectionValue"] = Relationship(back_populates="entry")
+    run: "ProductionRun" = Relationship(back_populates="entries")
+    inspector: "User" = Relationship(back_populates="entries")
+    values: list["InspectionValue"] = Relationship(back_populates="entry")
 
 
 class InspectionValue(SQLModel, table=True):
@@ -108,4 +104,4 @@ class InspectionValue(SQLModel, table=True):
     param_key: str
     value: Optional[float] = None
 
-    entry: InspectionEntry = Relationship(back_populates="values")
+    entry: "InspectionEntry" = Relationship(back_populates="values")
