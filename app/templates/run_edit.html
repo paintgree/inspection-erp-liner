@@ -5,7 +5,11 @@
 <div class="card">
   <h1>Edit Run — {{ run.process }} / Batch {{ run.dhtp_batch_no }}</h1>
 
-  <form method="post" action="/runs/{{ run.id }}/edit" class="form">
+  {% if error %}
+    <div class="alert">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/runs/{{ run.id }}/edit">
     <div class="card inner">
       <h2>Header</h2>
       <div class="grid2">
@@ -22,27 +26,36 @@
 
     <div class="card inner mt">
       <h2>Machines Used</h2>
-      {% set m = machines %}
-      <div class="grid2 mt">
-        <div><label>Machine 1 Name</label><input name="machine1_name" value="{{ m[0].machine_name if m|length > 0 else '' }}"></div>
-        <div><label>Machine 1 Tag</label><input name="machine1_tag" value="{{ m[0].machine_tag if m|length > 0 else '' }}"></div>
+      <div class="muted">If you want fixed 5 slots, we store them here by replacing the list.</div>
 
-        <div><label>Machine 2 Name</label><input name="machine2_name" value="{{ m[1].machine_name if m|length > 1 else '' }}"></div>
-        <div><label>Machine 2 Tag</label><input name="machine2_tag" value="{{ m[1].machine_tag if m|length > 1 else '' }}"></div>
+      {% set m1 = (machines[0] if machines|length>0 else None) %}
+      {% set m2 = (machines[1] if machines|length>1 else None) %}
+      {% set m3 = (machines[2] if machines|length>2 else None) %}
+      {% set m4 = (machines[3] if machines|length>3 else None) %}
+      {% set m5 = (machines[4] if machines|length>4 else None) %}
 
-        <div><label>Machine 3 Name</label><input name="machine3_name" value="{{ m[2].machine_name if m|length > 2 else '' }}"></div>
-        <div><label>Machine 3 Tag</label><input name="machine3_tag" value="{{ m[2].machine_tag if m|length > 2 else '' }}"></div>
+      <div class="grid2">
+        <div><label>Machine 1 Name</label><input name="machine1_name" value="{{ m1.machine_name if m1 else '' }}"></div>
+        <div><label>Machine 1 Tag</label><input name="machine1_tag" value="{{ m1.machine_tag if m1 else '' }}"></div>
 
-        <div><label>Machine 4 Name</label><input name="machine4_name" value="{{ m[3].machine_name if m|length > 3 else '' }}"></div>
-        <div><label>Machine 4 Tag</label><input name="machine4_tag" value="{{ m[3].machine_tag if m|length > 3 else '' }}"></div>
+        <div><label>Machine 2 Name</label><input name="machine2_name" value="{{ m2.machine_name if m2 else '' }}"></div>
+        <div><label>Machine 2 Tag</label><input name="machine2_tag" value="{{ m2.machine_tag if m2 else '' }}"></div>
 
-        <div><label>Machine 5 Name</label><input name="machine5_name" value="{{ m[4].machine_name if m|length > 4 else '' }}"></div>
-        <div><label>Machine 5 Tag</label><input name="machine5_tag" value="{{ m[4].machine_tag if m|length > 4 else '' }}"></div>
+        <div><label>Machine 3 Name</label><input name="machine3_name" value="{{ m3.machine_name if m3 else '' }}"></div>
+        <div><label>Machine 3 Tag</label><input name="machine3_tag" value="{{ m3.machine_tag if m3 else '' }}"></div>
+
+        <div><label>Machine 4 Name</label><input name="machine4_name" value="{{ m4.machine_name if m4 else '' }}"></div>
+        <div><label>Machine 4 Tag</label><input name="machine4_tag" value="{{ m4.machine_tag if m4 else '' }}"></div>
+
+        <div><label>Machine 5 Name</label><input name="machine5_name" value="{{ m5.machine_name if m5 else '' }}"></div>
+        <div><label>Machine 5 Tag</label><input name="machine5_tag" value="{{ m5.machine_tag if m5 else '' }}"></div>
       </div>
     </div>
 
     <div class="card inner mt">
       <h2>Parameter Limits</h2>
+      <div class="muted">These rules control OUT-OF-SPEC highlighting and export decisions.</div>
+
       <div class="tablewrap mt">
         <table class="table">
           <thead>
@@ -59,9 +72,10 @@
                 <td><b>{{ p.label }}</b> {% if p.unit %}<span class="muted">{{ p.unit }}</span>{% endif %}</td>
                 <td>
                   <select name="rule_{{ p.param_key }}">
-                    <option value="RANGE" {% if p.rule == "RANGE" %}selected{% endif %}>RANGE</option>
-                    <option value="MIN_ONLY" {% if p.rule == "MIN_ONLY" %}selected{% endif %}>MIN_ONLY</option>
-                    <option value="MAX_ONLY" {% if p.rule == "MAX_ONLY" %}selected{% endif %}>MAX_ONLY</option>
+                    <option value="">(none)</option>
+                    <option value="RANGE" {% if p.rule=="RANGE" %}selected{% endif %}>RANGE</option>
+                    <option value="MIN_ONLY" {% if p.rule=="MIN_ONLY" %}selected{% endif %}>MIN_ONLY</option>
+                    <option value="MAX_ONLY" {% if p.rule=="MAX_ONLY" %}selected{% endif %}>MAX_ONLY</option>
                   </select>
                 </td>
                 <td><input name="min_{{ p.param_key }}" type="number" step="0.01" value="{{ p.min_value if p.min_value is not none else '' }}"></td>
