@@ -3,114 +3,102 @@
 <a class="btn btn-ghost" href="/runs/{{ run.id }}">← Back</a>
 
 <div class="card">
-  <h1>New Inspection Entry — {{ run.process }} / Batch {{ run.dhtp_batch_no }}</h1>
-
-  {% if not has_any %}
-    <div class="alert">
-      First entry requires: <b>Raw Material Batch No</b> and <b>Inspection Tools</b>.
-    </div>
-  {% endif %}
+  <h1>Inspection Data Entry</h1>
+  <div class="muted">Automatic Slot Assignment: <b>{{ slot_hint if slot_hint else "auto" }}</b></div>
 
   <form method="post" action="/runs/{{ run.id }}/entry/new" class="form">
 
-    <div class="grid2">
+    <div class="grid2 mt">
       <div>
-        <label>Inspection Date</label>
+        <label>Actual Time (24H)</label>
         <input type="date" name="actual_date" required>
       </div>
       <div>
-        <label>Inspection Time</label>
+        <label>Actual Time</label>
         <input type="time" name="actual_time" step="60" required>
       </div>
     </div>
 
-    {% if run.process == "REINFORCEMENT" %}
-      <div class="grid2 mt">
-        <div>
-          <label>Operator (Annular 1–2)</label>
-          <input name="operator_annular_12">
-        </div>
-        <div>
-          <label>Operator (Int/Ext 3–4)</label>
-          <input name="operator_int_ext_34">
-        </div>
+    <div class="grid2 mt">
+      <div>
+        <label>QC Inspector (Locked)</label>
+        <input value="{{ user.display_name }}" disabled>
       </div>
-    {% else %}
-      <div class="grid2 mt">
-        <div>
-          <label>Operator 1</label>
-          <input name="operator_1">
-        </div>
-        <div>
-          <label>Operator 2</label>
-          <input name="operator_2">
-        </div>
-      </div>
-    {% endif %}
-
-    <div class="card inner mt">
-      <h2>Inspection Readings</h2>
-
-      <div class="tablewrap">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Parameter</th>
-              <th>Value</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for p in params %}
-              <tr>
-                <td><b>{{ p.label }}</b> {% if p.unit %}<span class="muted">{{ p.unit }}</span>{% endif %}</td>
-                <td>
-                  <input class="input" type="number" step="0.01" name="param_{{ p.param_key }}" placeholder="Enter value">
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="mt">
+      <div>
         <label>Remarks</label>
         <input name="remarks" placeholder="Optional">
       </div>
     </div>
 
     <div class="card inner mt">
-      <h2>Daily Traceability (Tools & Raw Material Batch)</h2>
+      <div class="sectiontitle accent-blue">Standard Parameters</div>
+      <div class="grid3 mt">
+        {% for p in params %}
+          {% if p.param_key in ["length_m","od_mm","wall_thickness_mm","cooling_water_c","line_speed_m_min","tractor_pressure_mpa"] %}
+            <div class="fieldbox">
+              <div class="labelmini">{{ p.label }}</div>
+              <input type="number" step="0.01" name="v_{{ p.param_key }}" placeholder="Enter value...">
+            </div>
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
 
-      <div class="tracegrid">
-        <div class="field">
-          <label>Raw Material Batch No (leave blank if unchanged)</label>
-          <input name="raw_material_batch_no" placeholder="e.g. RM-12345">
+    <div class="card inner mt">
+      <div class="grid2">
+        <div>
+          <div class="sectiontitle accent-orange">Body Temperature (°C)</div>
+          <div class="barrels mt">
+            {% for i in [1,2,3,4,5] %}
+              <div class="barrel">
+                <div class="barrelhead">Barrel {{ i }}</div>
+                <input type="number" step="0.01" name="v_body_temp_zone_{{ i }}_c" placeholder="">
+              </div>
+            {% endfor %}
+          </div>
         </div>
+
+        <div>
+          <div class="sectiontitle accent-green">Noising Temperature (°C)</div>
+          <div class="barrels mt">
+            {% for i in [1,2,3,4,5] %}
+              <div class="barrel">
+                <div class="barrelhead">Barrel {{ i }}</div>
+                <input type="number" step="0.01" name="v_noising_temp_zone_{{ i }}_c" placeholder="">
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card inner mt">
+      <div class="sectiontitle accent-purple">Daily Traceability (Tools & Raw Material Batch)</div>
+
+      <div class="mt">
+        <label>Raw Material Batch No (leave blank if unchanged)</label>
+        <input name="raw_material_batch_no">
       </div>
 
       <div class="toolgrid mt">
         <div class="toolcard">
           <div class="tooltitle">Tool 1</div>
-          <label>Name</label><input name="tool1_name" placeholder="Tool name">
-          <label>Serial</label><input name="tool1_serial" placeholder="Serial number">
-          <label>Calibration Due</label><input name="tool1_calib_due" placeholder="YYYY-MM-DD">
+          <label>Name</label><input name="tool1_name">
+          <label>Serial</label><input name="tool1_serial">
+          <label>Calibration Due (YYYY-MM-DD)</label><input name="tool1_calib_due">
         </div>
 
         <div class="toolcard">
           <div class="tooltitle">Tool 2</div>
-          <label>Name</label><input name="tool2_name" placeholder="Tool name">
-          <label>Serial</label><input name="tool2_serial" placeholder="Serial number">
-          <label>Calibration Due</label><input name="tool2_calib_due" placeholder="YYYY-MM-DD">
+          <label>Name</label><input name="tool2_name">
+          <label>Serial</label><input name="tool2_serial">
+          <label>Calibration Due (YYYY-MM-DD)</label><input name="tool2_calib_due">
         </div>
-      </div>
-
-      <div class="muted mt">
-        This is tracked per day. If tools/raw batch change during the day, enter the new values in the entry where it changed.
       </div>
     </div>
 
     <div class="toolbar mt">
-      <button class="btn btn-primary" type="submit">Save Entry</button>
+      <button class="btn btn-primary" type="submit">Commit</button>
       <a class="btn" href="/runs/{{ run.id }}">Cancel</a>
     </div>
 
