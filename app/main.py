@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, date, time as dtime
+from datetime import date, time as dtime
 from io import BytesIO
 from typing import Dict, List, Optional, Tuple
 
@@ -70,24 +70,20 @@ LINER_COVER_PARAMS = [
     ("noising_temp_zone_5_c", "Noising Temp Zone 5 (°C)", "°C"),
 ]
 
-# ✅ Updated to match reinforcement.xlsx template rows (A20:E35 is labels/spec area; readings go to F.. columns)
 REINF_PARAMS = [
     ("length_m", "Length (Mtr)", "m"),
 
-    # Outer Diameter / Annular OD group (template rows 23-26)
     ("annular_od_70_1", "Annular OD (mm) (∠ 70°) #1", "mm"),
     ("annular_od_70_2", "Annular OD (mm) (∠ 70°) #2", "mm"),
     ("annular_od_45_3", "Annular OD (mm) (∠ 45°) #3", "mm"),
     ("annular_od_45_4", "Annular OD (mm) (∠ 45°) #4", "mm"),
 
-    # Winding parameters (template rows 27-31)
     ("core_mould_dia_mm", "Core Mould Dia. (mm)", "mm"),
     ("annular_width_1_mm", "Annular Width (mm) #1", "mm"),
     ("annular_width_2_mm", "Annular Width (mm) #2", "mm"),
     ("screw_yarn_width_1_mm", "Screw Yarn Width (mm) #1", "mm"),
     ("screw_yarn_width_2_mm", "Screw Yarn Width (mm) #2", "mm"),
 
-    # Line parameters (template rows 32-35)
     ("tractor_speed_m_min", "Tractor Speed (m/min)", "m/min"),
     ("clamping_gas_p1_mpa", "Clamping Gas Pressure (MPa) #1", "MPa"),
     ("clamping_gas_p2_mpa", "Clamping Gas Pressure (MPa) #2", "MPa"),
@@ -102,7 +98,7 @@ PROCESS_PARAMS = {
 
 
 # -----------------------------
-# EXPORT ROW MAPPING (template rows)
+# EXPORT ROW MAPPING
 # -----------------------------
 ROW_MAP_LINER_COVER = {
     "length_m": 22,
@@ -124,23 +120,16 @@ ROW_MAP_LINER_COVER = {
 }
 
 ROW_MAP_REINF = {
-    # Template: values start on row 22; date in F20; times in row 21 from column F.
     "length_m": 22,
-
-    # Outer Diameter / Annular OD group
     "annular_od_70_1": 23,
     "annular_od_70_2": 24,
     "annular_od_45_3": 25,
     "annular_od_45_4": 26,
-
-    # Winding parameters
     "core_mould_dia_mm": 27,
     "annular_width_1_mm": 28,
     "annular_width_2_mm": 29,
     "screw_yarn_width_1_mm": 30,
     "screw_yarn_width_2_mm": 31,
-
-    # Line parameters
     "tractor_speed_m_min": 32,
     "clamping_gas_p1_mpa": 33,
     "clamping_gas_p2_mpa": 34,
@@ -239,7 +228,6 @@ def get_days_for_run(session: Session, run_id: int) -> List[date]:
 
 def slot_from_time_str(t: str) -> str:
     hh = int(t.split(":")[0])
-    # slot steps: 0,2,4,...,22
     slot_h = (hh // 2) * 2
     return f"{slot_h:02d}:00"
 
@@ -250,7 +238,12 @@ def get_progress_percent(session: Session, run: ProductionRun) -> int:
     max_len = 0.0
     entries = session.exec(select(InspectionEntry).where(InspectionEntry.run_id == run.id)).all()
     for e in entries:
-        vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id, InspectionValue.param_key == "length_m")).all()
+        vals = session.exec(
+            select(InspectionValue).where(
+                InspectionValue.entry_id == e.id,
+                InspectionValue.param_key == "length_m"
+            )
+        ).all()
         for v in vals:
             if v.value is not None and v.value > max_len:
                 max_len = v.value
@@ -269,7 +262,6 @@ def get_day_latest_trace(session: Session, run_id: int, day: date) -> dict:
     tools = []
     if entries:
         raw_batches = [e.raw_material_batch_no for e in entries if e.raw_material_batch_no]
-        # take latest tools for day
         last = entries[-1]
         tools = [
             (last.tool1_name, last.tool1_serial, last.tool1_calib_due),
@@ -321,6 +313,18 @@ def apply_spec_check(param: RunParameter, value: Optional[float]) -> Tuple[bool,
     return False, ""
 
 
+def _safe_float(x: Optional[str]) -> Optional[float]:
+    if x is None:
+        return None
+    x = str(x).strip()
+    if x == "":
+        return None
+    try:
+        return float(x)
+    except Exception:
+        return None
+
+
 # -----------------------------
 # DASHBOARD + RUNS
 # -----------------------------
@@ -330,12 +334,10 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
 
     runs = session.exec(select(ProductionRun).order_by(ProductionRun.created_at.desc())).all()
 
-    # group by batch number so LINER/REINF/COVER appear together
     grouped: Dict[str, List[ProductionRun]] = {}
     for r in runs:
         grouped.setdefault(r.dhtp_batch_no, []).append(r)
 
-    # compute progress per run
     progress_map = {r.id: get_progress_percent(session, r) for r in runs}
 
     return templates.TemplateResponse(
@@ -349,11 +351,16 @@ def run_new_get(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     if user.role != "MANAGER":
         raise HTTPException(403, "Manager only")
-    return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": ""})
+
+    # IMPORTANT: pass param_defs empty until a process is chosen in template
+    return templates.TemplateResponse(
+        "run_new.html",
+        {"request": request, "user": user, "error": "", "param_defs": [], "process": ""},
+    )
 
 
 @app.post("/runs/new")
-def run_new_post(
+async def run_new_post(
     request: Request,
     session: Session = Depends(get_session),
     process: str = Form(...),
@@ -371,7 +378,12 @@ def run_new_post(
 
     process = process.upper().strip()
     if process not in PROCESS_PARAMS:
-        return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": "Invalid process"})
+        return templates.TemplateResponse(
+            "run_new.html",
+            {"request": request, "user": user, "error": "Invalid process", "param_defs": [], "process": ""},
+        )
+
+    form = await request.form()
 
     run = ProductionRun(
         process=process,
@@ -382,14 +394,33 @@ def run_new_post(
         pipe_specification=pipe_specification,
         raw_material_spec=raw_material_spec,
         total_length_m=total_length_m or 0.0,
+        status="OPEN",
     )
     session.add(run)
     session.commit()
     session.refresh(run)
 
-    # create parameters rows for the run
+    # ✅ Save Machines at creation (if your template provides these fields)
+    for i in range(1, 6):
+        nm = (form.get(f"machine{i}_name") or "").strip()
+        tg = (form.get(f"machine{i}_tag") or "").strip()
+        if nm:
+            session.add(RunMachine(run_id=run.id, machine_name=nm, machine_tag=tg))
+    session.commit()
+
+    # ✅ Create parameters + save ranges if provided
     for idx, (key, label, unit) in enumerate(PROCESS_PARAMS[process]):
-        session.add(RunParameter(run_id=run.id, param_key=key, label=label, unit=unit, display_order=idx))
+        rp = RunParameter(run_id=run.id, param_key=key, label=label, unit=unit, display_order=idx)
+
+        rule = (form.get(f"rule_{key}") or "").strip().upper()
+        if rule in ["RANGE", "MIN_ONLY", "MAX_ONLY"]:
+            rp.rule = rule
+
+        rp.min_value = _safe_float(form.get(f"min_{key}"))
+        rp.max_value = _safe_float(form.get(f"max_{key}"))
+
+        session.add(rp)
+
     session.commit()
 
     return RedirectResponse("/dashboard", status_code=302)
@@ -406,14 +437,18 @@ def run_edit_get(run_id: int, request: Request, session: Session = Depends(get_s
         raise HTTPException(404, "Run not found")
 
     machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
+    params = session.exec(
+        select(RunParameter).where(RunParameter.run_id == run_id).order_by(RunParameter.display_order)
+    ).all()
+
     return templates.TemplateResponse(
         "run_edit.html",
-        {"request": request, "user": user, "run": run, "machines": machines, "error": ""},
+        {"request": request, "user": user, "run": run, "machines": machines, "params": params, "error": ""},
     )
 
 
 @app.post("/runs/{run_id}/edit")
-def run_edit_post(
+async def run_edit_post(
     run_id: int,
     request: Request,
     session: Session = Depends(get_session),
@@ -432,6 +467,8 @@ def run_edit_post(
     if not run:
         raise HTTPException(404, "Run not found")
 
+    form = await request.form()
+
     run.client_name = client_name
     run.po_number = po_number
     run.itp_number = itp_number
@@ -441,38 +478,50 @@ def run_edit_post(
     session.add(run)
     session.commit()
 
+    # ✅ Update machines if template uses machine1_name..machine5_name
+    existing = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
+    for m in existing:
+        session.delete(m)
+    session.commit()
+
+    for i in range(1, 6):
+        nm = (form.get(f"machine{i}_name") or "").strip()
+        tg = (form.get(f"machine{i}_tag") or "").strip()
+        if nm:
+            session.add(RunMachine(run_id=run_id, machine_name=nm, machine_tag=tg))
+    session.commit()
+
+    # ✅ Update parameter ranges if posted (rule_key/min_key/max_key)
+    params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id)).all()
+    for p in params:
+        rule = (form.get(f"rule_{p.param_key}") or "").strip().upper()
+        if rule in ["RANGE", "MIN_ONLY", "MAX_ONLY"]:
+            p.rule = rule
+        p.min_value = _safe_float(form.get(f"min_{p.param_key}"))
+        p.max_value = _safe_float(form.get(f"max_{p.param_key}"))
+        session.add(p)
+    session.commit()
+
     return RedirectResponse(f"/runs/{run.id}", status_code=302)
 
 
-@app.post("/runs/{run_id}/machines/add")
-def run_machine_add(
-    run_id: int,
-    request: Request,
-    session: Session = Depends(get_session),
-    machine_name: str = Form(...),
-    machine_tag: str = Form(""),
-):
-    user = get_current_user(request, session)
-    if user.role != "MANAGER":
-        raise HTTPException(403, "Manager only")
-
-    run = session.get(ProductionRun, run_id)
-    if not run:
-        raise HTTPException(404, "Run not found")
-
-    session.add(RunMachine(run_id=run_id, machine_name=machine_name, machine_tag=machine_tag))
-    session.commit()
-    return RedirectResponse(f"/runs/{run_id}/edit", status_code=302)
-
-
+# -----------------------------
+# CLOSE / APPROVE / REOPEN (strict workflow)
+# -----------------------------
 @app.post("/runs/{run_id}/close")
 def run_close(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     if user.role != "MANAGER":
         raise HTTPException(403, "Manager only")
+
     run = session.get(ProductionRun, run_id)
     if not run:
         raise HTTPException(404, "Run not found")
+
+    # Only OPEN can be closed
+    if run.status != "OPEN":
+        return RedirectResponse(f"/runs/{run_id}", status_code=302)
+
     run.status = "CLOSED"
     session.add(run)
     session.commit()
@@ -484,9 +533,15 @@ def run_approve(run_id: int, request: Request, session: Session = Depends(get_se
     user = get_current_user(request, session)
     if user.role != "MANAGER":
         raise HTTPException(403, "Manager only")
+
     run = session.get(ProductionRun, run_id)
     if not run:
         raise HTTPException(404, "Run not found")
+
+    # Only CLOSED can be approved
+    if run.status != "CLOSED":
+        return RedirectResponse(f"/runs/{run_id}", status_code=302)
+
     run.status = "APPROVED"
     session.add(run)
     session.commit()
@@ -498,9 +553,15 @@ def run_reopen(run_id: int, request: Request, session: Session = Depends(get_ses
     user = get_current_user(request, session)
     if user.role != "MANAGER":
         raise HTTPException(403, "Manager only")
+
     run = session.get(ProductionRun, run_id)
     if not run:
         raise HTTPException(404, "Run not found")
+
+    # Only CLOSED/APPROVED can be reopened
+    if run.status not in ["CLOSED", "APPROVED"]:
+        return RedirectResponse(f"/runs/{run_id}", status_code=302)
+
     run.status = "OPEN"
     session.add(run)
     session.commit()
@@ -508,7 +569,7 @@ def run_reopen(run_id: int, request: Request, session: Session = Depends(get_ses
 
 
 # -----------------------------
-# RUN VIEW (✅ FIXED GRID + HIGHLIGHT META + DAY SWITCHING)
+# RUN VIEW
 # -----------------------------
 @app.get("/runs/{run_id}", response_class=HTMLResponse)
 def run_view(run_id: int, request: Request, session: Session = Depends(get_session)):
@@ -526,7 +587,6 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
 
     days = get_days_for_run(session, run_id)
 
-    # ✅ support day selection via ?day=YYYY-MM-DD
     selected_day = None
     day_q = request.query_params.get("day")
     if day_q:
@@ -543,21 +603,17 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
         .order_by(InspectionEntry.created_at)
     ).all()
 
-    # ✅ grid values for display (official values only)
-    grid: Dict[str, Dict[str, Optional[float]]] = {s: {} for s in SLOTS}
+    # ✅ IMPORTANT: build grid as dict for template stability
+    # grid[slot][param_key] = {"value": float, "out": bool, "note": str, "pending_value":..., "pending_status":...}
+    grid: Dict[str, Dict[str, dict]] = {s: {} for s in SLOTS}
 
-    # ✅ meta for styling + pending badge + spec note
-    # structure: grid_meta[slot][param_key] = {...}
-    grid_meta: Dict[str, Dict[str, dict]] = {s: {} for s in SLOTS}
-
-    # If multiple entries exist for the same slot, the later one wins (overwrite).
     for e in entries:
         vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id)).all()
         for v in vals:
-            grid.setdefault(e.slot_time, {})[v.param_key] = v.value
-            grid_meta.setdefault(e.slot_time, {})[v.param_key] = {
-                "is_out_of_spec": bool(v.is_out_of_spec),
-                "spec_note": v.spec_note or "",
+            grid.setdefault(e.slot_time, {})[v.param_key] = {
+                "value": v.value,
+                "out": bool(v.is_out_of_spec),
+                "note": v.spec_note or "",
                 "pending_value": v.pending_value,
                 "pending_status": v.pending_status or "",
             }
@@ -581,7 +637,6 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
             "days": days,
             "selected_day": selected_day,
             "grid": grid,
-            "grid_meta": grid_meta,
             "image_url": IMAGE_MAP.get(run.process, ""),
             "raw_batches": raw_batches,
             "tools": tools,
@@ -611,7 +666,7 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
     )
 
 
-# ✅ IMPORTANT: async + read form once
+# ✅ IMPORTANT: fix input-name mismatch so values really save
 @app.post("/runs/{run_id}/entry/new")
 async def entry_new_post(
     run_id: int,
@@ -626,7 +681,6 @@ async def entry_new_post(
     operator_int_ext_34: str = Form(""),
 
     remarks: str = Form(""),
-
     raw_material_batch_no: str = Form(""),
 
     tool1_name: str = Form(""),
@@ -643,14 +697,12 @@ async def entry_new_post(
     if not run:
         raise HTTPException(404, "Run not found")
 
-    # ✅ block day if run is closed/approved
+    # Inspectors blocked when CLOSED/APPROVED
     if run.status in ["CLOSED", "APPROVED"] and user.role != "MANAGER":
         raise HTTPException(403, "Run is not open")
 
-    # slot from time
     slot_time = slot_from_time_str(actual_time)
 
-    # ✅ read full form once (do not call request.form() multiple times)
     form = await request.form()
 
     entry = InspectionEntry(
@@ -680,20 +732,24 @@ async def entry_new_post(
     session.commit()
     session.refresh(entry)
 
-    # save values + spec check
     params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id)).all()
     by_key = {p.param_key: p for p in params}
 
-    for key in by_key.keys():
+    for key, param in by_key.items():
+        # ✅ accept BOTH naming styles (old + new)
         raw = form.get(f"v_{key}")
         if raw in [None, ""]:
-            continue
-        try:
-            v = float(raw)
-        except Exception:
+            raw = form.get(f"param_{key}")
+        if raw in [None, ""]:
+            raw = form.get(key)
+
+        if raw in [None, ""]:
             continue
 
-        param = by_key[key]
+        v = _safe_float(raw)
+        if v is None:
+            continue
+
         is_oos, note = apply_spec_check(param, v)
 
         session.add(InspectionValue(
@@ -739,14 +795,12 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
             ws = base_wb.copy_worksheet(base_ws)
             ws.title = f"Day {i+1} ({day.isoformat()})"
 
-        # Header fields (must exist for reinforcement too)
         ws["D5"].value = run.dhtp_batch_no
         ws["I5"].value = run.client_name
         ws["I6"].value = run.po_number
         ws["D7"].value = run.raw_material_spec
         ws["D9"].value = run.itp_number
 
-        # Date + time row (reinforcement has different columns)
         if run.process in ["LINER", "COVER"]:
             ws["E20"].value = day
             for idx, slot in enumerate(SLOTS):
@@ -756,10 +810,9 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 cell.value = dtime(int(hh), int(mm))
                 cell.number_format = "h:mm"
         else:
-            # Reinforcement: "Date" label is at E20, we write the actual date at F20
             ws["F20"].value = day
             for idx, slot in enumerate(SLOTS):
-                col = openpyxl.utils.get_column_letter(6 + idx)  # F.. for times
+                col = openpyxl.utils.get_column_letter(6 + idx)
                 cell = ws[f"{col}21"]
                 hh, mm = slot.split(":")
                 cell.value = dtime(int(hh), int(mm))
@@ -799,7 +852,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 ws["B37"].value = last.operator_annular_12
                 ws["B38"].value = last.operator_int_ext_34
 
-        col_start = 5 if run.process in ["LINER", "COVER"] else 6  # E.. or F..
+        col_start = 5 if run.process in ["LINER", "COVER"] else 6
         row_map = ROW_MAP_LINER_COVER if run.process in ["LINER", "COVER"] else ROW_MAP_REINF
 
         day_entries = session.exec(
@@ -817,7 +870,6 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 r = row_map.get(v.param_key)
                 if not r:
                     continue
-                # ✅ export official value ONLY (pending edit ignored until approved)
                 ws[f"{col}{r}"].value = v.value
 
     out = BytesIO()
@@ -830,4 +882,3 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
-
