@@ -12,21 +12,23 @@
 
     <div class="actions">
       {% if user.role == "MANAGER" %}
+        <a class="btn" href="/runs/{{ run.id }}/edit">Edit Run + Parameters</a>
+
         {% if run.status == "OPEN" %}
           <form method="post" action="/runs/{{ run.id }}/close"
-                onsubmit="return confirm('Are you sure you want to CLOSE this run? Inspectors cannot add entries until Reopen.');">
+                onsubmit="return confirm('Are you sure you want to CLOSE this run? Inspectors cannot add entries until you Reopen.');">
             <button class="btn" type="submit">Close</button>
           </form>
         {% endif %}
 
         {% if run.status == "CLOSED" %}
           <form method="post" action="/runs/{{ run.id }}/approve"
-                onsubmit="return confirm('Approve this run? This locks it. You can still Reopen later if needed.');">
+                onsubmit="return confirm('Approve this run? It will be locked. You can Reopen later if needed.');">
             <button class="btn" type="submit">Approve</button>
           </form>
         {% endif %}
 
-        {% if run.status in ["CLOSED", "APPROVED"] %}
+        {% if run.status in ["CLOSED","APPROVED"] %}
           <form method="post" action="/runs/{{ run.id }}/reopen"
                 onsubmit="return confirm('Reopen this run? Inspectors can add entries again.');">
             <button class="btn" type="submit">Reopen</button>
@@ -34,8 +36,13 @@
         {% endif %}
       {% endif %}
 
-      <a class="btn btn-primary" href="/runs/{{ run.id }}/entry/new">+ New Inspection Entry</a>
-      <a class="btn" href="/runs/{{ run.id }}/export/xlsx">Export XLSX (All Days)</a>
+      {% if not (run.status in ["CLOSED","APPROVED"] and user.role != "MANAGER") %}
+        <a class="btn btn-primary" href="/runs/{{ run.id }}/entry/new">+ New Inspection Entry</a>
+      {% else %}
+        <span class="muted"><b>Locked:</b> Manager must reopen.</span>
+      {% endif %}
+
+      <a class="btn" href="/runs/{{ run.id }}/export/xlsx">Export XLSX</a>
     </div>
   </div>
 
@@ -44,60 +51,6 @@
       <img class="pipeimg" src="{{ image_url }}" alt="process image">
     </div>
   {% endif %}
-
-  <div class="grid3 mt">
-    <div class="card inner">
-      <h2>Header</h2>
-      <div class="kv"><span>Client</span><b>{{ run.client_name }}</b></div>
-      <div class="kv"><span>PO</span><b>{{ run.po_number }}</b></div>
-      <div class="kv"><span>ITP</span><b>{{ run.itp_number }}</b></div>
-      <div class="kv"><span>Pipe Spec</span><b>{{ run.pipe_specification }}</b></div>
-      <div class="kv"><span>Raw Spec</span><b>{{ run.raw_material_spec }}</b></div>
-    </div>
-
-    <div class="card inner">
-      <h2>Machines Used</h2>
-      {% if machines|length == 0 %}
-        <div class="muted">No machines recorded.</div>
-      {% else %}
-        <ul>
-          {% for m in machines %}
-            <li>{{ m.machine_name }} {% if m.machine_tag %}<span class="muted">({{ m.machine_tag }})</span>{% endif %}</li>
-          {% endfor %}
-        </ul>
-      {% endif %}
-    </div>
-
-    <div class="card inner">
-      <h2>Daily Trace (Selected Day)</h2>
-      <div class="muted"><b>Raw Material Batch(es):</b> {{ raw_batches|join(", ") if raw_batches else "-" }}</div>
-      <div class="mt">
-        <div class="muted"><b>Tools used (this day):</b></div>
-        {% if tools and tools|length > 0 %}
-          <ul>
-            {% for t in tools %}
-              <li>{{ t[0] }} — {{ t[1] }} — {{ t[2] }}</li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <div class="muted">-</div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-
-  <div class="card inner mt">
-    <h2>Production Days</h2>
-    <div class="muted">Each day starts at 00:00. Only days with entries exist.</div>
-    <div class="days">
-      {% for d in days %}
-        <a class="daypill {% if d == selected_day %}active{% endif %}" href="/runs/{{ run.id }}?day={{ d }}">{{ d }}</a>
-      {% endfor %}
-      {% if days|length == 0 %}
-        <span class="muted">No entries yet.</span>
-      {% endif %}
-    </div>
-  </div>
 
   <div class="card inner mt">
     <h2>In-Process Inspection — Day {{ selected_day }}</h2>
@@ -116,38 +69,3 @@
         <tbody>
           {% for p in params %}
           <tr>
-            <td>
-              <b>{{ p.label }}</b>
-              {% if p.unit %}<span class="muted">{{ p.unit }}</span>{% endif %}
-            </td>
-
-            {% for s in ["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00"] %}
-              {% set cell = grid.get(s, {}).get(p.param_key) %}
-              {% set val = (cell.get("value") if cell else none) %}
-              {% set is_oos = (cell.get("out") if cell else false) %}
-              {% set note = (cell.get("note") if cell else "") %}
-              {% set pending_value = (cell.get("pending_value") if cell else none) %}
-              {% set pending_status = (cell.get("pending_status") if cell else "") %}
-              {% set is_pending = (pending_value is not none and pending_status == "PENDING") %}
-
-              <td class="cell {% if is_oos %}oos{% endif %} {% if is_pending %}pending{% endif %}">
-                {% if val is not none %}
-                  <div class="cellval">
-                    {{ val }}
-                    {% if is_pending %}<span class="badge">PENDING</span>{% endif %}
-                    {% if is_oos %}<span class="badge bad">OUT</span>{% endif %}
-                  </div>
-                  {% if note %}<div class="muted tiny">{{ note }}</div>{% endif %}
-                {% else %}
-                  <span class="muted">—</span>
-                {% endif %}
-              </td>
-            {% endfor %}
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-</div>
-{% endblock %}
