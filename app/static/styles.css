@@ -4,21 +4,11 @@
   --text:#111;
   --muted:#666;
   --line:#e6e8ef;
-  --primary:#111;
 }
 
 *{box-sizing:border-box}
 body{margin:0;font-family:system-ui,Segoe UI,Arial;background:var(--bg);color:var(--text)}
 a{color:inherit}
-
-.topbar{
-  position:sticky;top:0;z-index:10;
-  background:#111;color:#fff;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:12px 16px;
-}
-.brand{font-weight:800;letter-spacing:.5px}
-.userbox{display:flex;gap:10px;align-items:center}
 
 .page{max-width:1100px;margin:0 auto;padding:18px}
 
@@ -32,13 +22,11 @@ a{color:inherit}
 }
 .card.inner{background:#fbfbfd}
 
-h1{margin:0 0 8px 0;font-size:30px}
+h1{margin:0 0 8px 0;font-size:28px}
 h2{margin:0 0 8px 0;font-size:18px}
 
 .muted{color:var(--muted)}
 .mt{margin-top:12px}
-
-.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
 
 .btn{
   display:inline-flex;align-items:center;justify-content:center;
@@ -53,14 +41,39 @@ h2{margin:0 0 8px 0;font-size:18px}
 .btn-ghost{border:none;background:transparent;padding:8px 0}
 .btn-ghost:hover{background:transparent;text-decoration:underline}
 
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+
+@media (max-width:900px){
+  .grid3{grid-template-columns:1fr}
+  .grid2{grid-template-columns:1fr}
+  h1{font-size:22px}
+}
+
+label{display:block;font-size:12px;font-weight:700;margin:10px 0 6px}
+input, select{
+  width:100%;
+  padding:10px 10px;
+  border-radius:10px;
+  border:1px solid var(--line);
+  background:#fff;
+  outline:none;
+}
+input:focus, select:focus{border-color:#b7bce8}
+
+.tablewrap{overflow:auto;border-radius:12px;border:1px solid var(--line);background:#fff}
+.table{width:100%;border-collapse:collapse}
+.table.wide{min-width:980px}
+.table th,.table td{border-bottom:1px solid var(--line);padding:10px;text-align:left;vertical-align:top}
+.table th{background:#fafbff;font-size:13px}
 
 .kv{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed var(--line)}
 .kv:last-child{border-bottom:none}
 
 .runheader{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
+
 .imgwrap{margin-top:12px;display:flex;justify-content:center}
 .pipeimg{max-width:100%;border-radius:12px;border:1px solid var(--line)}
 
@@ -72,19 +85,7 @@ h2{margin:0 0 8px 0;font-size:18px}
 }
 .daypill.active{background:#111;color:#fff;border-color:#111}
 
-@media (max-width:900px){
-  .grid3{grid-template-columns:1fr}
-  .grid2{grid-template-columns:1fr}
-  h1{font-size:24px}
-}
-
-.tablewrap{overflow:auto;border-radius:12px;border:1px solid var(--line);background:#fff}
-.table{width:100%;border-collapse:collapse;min-width:780px}
-.table.wide{min-width:980px}
-.table th,.table td{border-bottom:1px solid var(--line);padding:10px;text-align:left;vertical-align:top}
-.table th{background:#fafbff;font-size:13px}
 .cell{font-variant-numeric:tabular-nums}
-
 .cellval{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .badge{
   display:inline-block;
@@ -94,29 +95,28 @@ h2{margin:0 0 8px 0;font-size:18px}
   background:#f4f6ff;
   font-size:10px;
   font-weight:800;
-  letter-spacing:.2px;
 }
-.badge.bad{
-  background:#ffecec;
-  border-color:#ffb3b3;
-}
-.cell.oos{
-  background:#fff2f2;
-}
-.cell.pending{
-  outline:2px dashed #c9c9ff;
-  outline-offset:-2px;
-}
+.badge.bad{background:#ffecec;border-color:#ffb3b3}
+.cell.oos{background:#fff2f2}
+.cell.pending{outline:2px dashed #c9c9ff;outline-offset:-2px}
 .tiny{font-size:12px}
-
-.pill{
-  display:inline-block;padding:4px 10px;border-radius:999px;
-  border:1px solid var(--line);background:#f3f5ff;font-weight:700;font-size:12px
-}
-.status{
-  padding:4px 10px;border-radius:999px;border:1px solid #cfd6ff;background:#eef1ff;font-weight:800;font-size:12px
-}
 
 .alert{
   padding:10px 12px;border-radius:12px;border:1px solid #ffe1a6;background:#fff6e3
+}
+
+/* ✅ New: tools layout */
+.tracegrid{display:grid;grid-template-columns:1fr;gap:12px}
+.toolgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:900px){ .toolgrid{grid-template-columns:1fr} }
+
+.toolcard{
+  border:1px solid var(--line);
+  background:#fff;
+  border-radius:12px;
+  padding:12px;
+}
+.tooltitle{
+  font-weight:900;
+  margin-bottom:4px;
 }
