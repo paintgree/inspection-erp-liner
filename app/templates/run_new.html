@@ -3,138 +3,64 @@
 <a class="btn btn-ghost" href="/dashboard">← Back</a>
 
 <div class="card">
-  <div class="runheader">
-    <div>
-      <h1>{{ run.process }} — Batch: {{ run.dhtp_batch_no }}</h1>
-      <div class="muted">Status: <b>{{ run.status }}</b></div>
-      <div class="muted">Progress: <b>{{ progress }}%</b></div>
-    </div>
-    <div class="actions">
-      {% if user.role == "MANAGER" %}
-        <a class="btn" href="/runs/{{ run.id }}/edit">Edit Run</a>
-        <form method="post" action="/runs/{{ run.id }}/close"><button class="btn" type="submit">Close</button></form>
-        <form method="post" action="/runs/{{ run.id }}/approve"><button class="btn" type="submit">Approve</button></form>
-        <form method="post" action="/runs/{{ run.id }}/reopen"><button class="btn" type="submit">Reopen</button></form>
-      {% endif %}
-      <a class="btn btn-primary" href="/runs/{{ run.id }}/entry/new">+ New Inspection Entry</a>
-      <a class="btn" href="/runs/{{ run.id }}/export/xlsx">Export XLSX (All Days)</a>
-    </div>
-  </div>
+  <h1>Create New Production Run</h1>
 
-  {% if image_url %}
-    <div class="imgwrap">
-      <img class="pipeimg" src="{{ image_url }}" alt="process image">
-    </div>
+  {% if error %}
+    <div class="alert">{{ error }}</div>
   {% endif %}
 
-  <div class="grid3 mt">
-    <div class="card inner">
-      <h2>Header</h2>
-      <div class="kv"><span>Client</span><b>{{ run.client_name }}</b></div>
-      <div class="kv"><span>PO</span><b>{{ run.po_number }}</b></div>
-      <div class="kv"><span>ITP</span><b>{{ run.itp_number }}</b></div>
-      <div class="kv"><span>Pipe Spec</span><b>{{ run.pipe_specification }}</b></div>
-      <div class="kv"><span>Raw Spec</span><b>{{ run.raw_material_spec }}</b></div>
+  <form method="post" action="/runs/new">
+
+    <div class="field">
+      <label>Process</label>
+      <select name="process" required>
+        <option value="">-- Select --</option>
+        <option value="LINER">LINER</option>
+        <option value="REINFORCEMENT">REINFORCEMENT</option>
+        <option value="COVER">COVER</option>
+      </select>
     </div>
 
-    <div class="card inner">
-      <h2>Machines Used</h2>
-      {% if machines|length == 0 %}
-        <div class="muted">No machines added.</div>
-      {% endif %}
-      <ul>
-        {% for m in machines %}
-          <li>{{ m.machine_name }} {% if m.machine_tag %}<span class="muted">({{ m.machine_tag }})</span>{% endif %}</li>
-        {% endfor %}
-      </ul>
+    <div class="field">
+      <label>DHTP Batch No</label>
+      <input type="text" name="dhtp_batch_no" required>
     </div>
 
-    <div class="card inner">
-      <h2>Daily Trace (Selected Day)</h2>
-      <div class="muted"><b>Raw Material Batch(es):</b> {{ raw_batches|join(", ") if raw_batches else "-" }}</div>
-      <div class="mt">
-        <div class="muted"><b>Tools used (this day):</b></div>
-        {% if tools and tools|length > 0 %}
-          <ul>
-            {% for t in tools %}
-              <li>{{ t[0] }} — {{ t[1] }} — {{ t[2] }}</li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <div class="muted">-</div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
-
-  <div class="card inner mt">
-    <h2>Production Days</h2>
-    <div class="muted">Each day starts at 00:00. Only days with entries exist.</div>
-    <div class="days">
-      {% for d in days %}
-        <a class="daypill {% if d == selected_day %}active{% endif %}" href="/runs/{{ run.id }}?day={{ d }}">{{ d }}</a>
-      {% endfor %}
-      {% if days|length == 0 %}
-        <span class="muted">No entries yet.</span>
-      {% endif %}
-    </div>
-  </div>
-
-  <div class="card inner mt">
-    <h2>In-Process Inspection — Day {{ selected_day }}</h2>
-
-    <div class="tablewrap">
-      <table class="table wide">
-        <thead>
-          <tr>
-            <th>Parameter</th>
-            {% for s in ["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00"] %}
-              <th>{{ s }}</th>
-            {% endfor %}
-          </tr>
-        </thead>
-
-        <tbody>
-          {% for p in params %}
-          <tr>
-            <td>
-              <b>{{ p.label }}</b>
-              {% if p.unit %}<span class="muted">{{ p.unit }}</span>{% endif %}
-            </td>
-
-            {% for s in ["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00"] %}
-              {% set val = grid[s].get(p.param_key) %}
-              {% set meta = grid_meta[s].get(p.param_key) %}
-
-              {% set is_oos = (meta and meta["is_out_of_spec"]) %}
-              {% set is_pending = (meta and meta["pending_value"] is not none and meta["pending_status"] == "PENDING") %}
-
-              <td class="cell {% if is_oos %}oos{% endif %} {% if is_pending %}pending{% endif %}">
-                {% if val is not none %}
-                  <div class="cellval">
-                    {{ val }}
-                    {% if is_pending %}
-                      <span class="badge">PENDING</span>
-                    {% endif %}
-                    {% if is_oos %}
-                      <span class="badge bad">OUT</span>
-                    {% endif %}
-                  </div>
-                  {% if meta and meta["spec_note"] %}
-                    <div class="muted tiny">{{ meta["spec_note"] }}</div>
-                  {% endif %}
-                {% else %}
-                  <span class="muted">—</span>
-                {% endif %}
-              </td>
-            {% endfor %}
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="field">
+      <label>Client Name</label>
+      <input type="text" name="client_name" required>
     </div>
 
-    <div class="muted mt">Users never select the slot — system assigns it from time.</div>
-  </div>
+    <div class="field">
+      <label>PO Number</label>
+      <input type="text" name="po_number" required>
+    </div>
+
+    <div class="field">
+      <label>ITP Number</label>
+      <input type="text" name="itp_number" required>
+    </div>
+
+    <div class="field">
+      <label>Pipe Specification</label>
+      <input type="text" name="pipe_specification" required>
+    </div>
+
+    <div class="field">
+      <label>Raw Material Specification</label>
+      <input type="text" name="raw_material_spec" required>
+    </div>
+
+    <div class="field">
+      <label>Total Pipe Length (m)</label>
+      <input type="number" step="0.01" name="total_length_m">
+    </div>
+
+    <div class="toolbar mt">
+      <button class="btn btn-primary" type="submit">Create Run</button>
+      <a class="btn" href="/dashboard">Cancel</a>
+    </div>
+
+  </form>
 </div>
 {% endblock %}
