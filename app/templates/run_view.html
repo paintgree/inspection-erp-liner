@@ -12,25 +12,23 @@
 
     <div class="actions">
       {% if user.role == "MANAGER" %}
-        <a class="btn" href="/runs/{{ run.id }}/edit">Edit Run</a>
-
         {% if run.status == "OPEN" %}
           <form method="post" action="/runs/{{ run.id }}/close"
-                onsubmit="return confirm('Are you sure you want to CLOSE this process? Inspectors will NOT be able to add entries until you Reopen.');">
+                onsubmit="return confirm('Are you sure you want to CLOSE this run? Inspectors cannot add entries until Reopen.');">
             <button class="btn" type="submit">Close</button>
           </form>
         {% endif %}
 
         {% if run.status == "CLOSED" %}
           <form method="post" action="/runs/{{ run.id }}/approve"
-                onsubmit="return confirm('Approve this process? This will lock the run. You can still Reopen if needed.');">
+                onsubmit="return confirm('Approve this run? This locks it. You can still Reopen later if needed.');">
             <button class="btn" type="submit">Approve</button>
           </form>
         {% endif %}
 
         {% if run.status in ["CLOSED", "APPROVED"] %}
           <form method="post" action="/runs/{{ run.id }}/reopen"
-                onsubmit="return confirm('Reopen this run? Inspectors will be able to add new entries again.');">
+                onsubmit="return confirm('Reopen this run? Inspectors can add entries again.');">
             <button class="btn" type="submit">Reopen</button>
           </form>
         {% endif %}
@@ -60,16 +58,13 @@
     <div class="card inner">
       <h2>Machines Used</h2>
       {% if machines|length == 0 %}
-        <div class="muted">No machines recorded for this run.</div>
+        <div class="muted">No machines recorded.</div>
       {% else %}
         <ul>
           {% for m in machines %}
             <li>{{ m.machine_name }} {% if m.machine_tag %}<span class="muted">({{ m.machine_tag }})</span>{% endif %}</li>
           {% endfor %}
         </ul>
-      {% endif %}
-      {% if user.role == "MANAGER" %}
-        <div class="muted tiny">To change machines, use “Edit Run”.</div>
       {% endif %}
     </div>
 
@@ -139,16 +134,10 @@
                 {% if val is not none %}
                   <div class="cellval">
                     {{ val }}
-                    {% if is_pending %}
-                      <span class="badge">PENDING</span>
-                    {% endif %}
-                    {% if is_oos %}
-                      <span class="badge bad">OUT</span>
-                    {% endif %}
+                    {% if is_pending %}<span class="badge">PENDING</span>{% endif %}
+                    {% if is_oos %}<span class="badge bad">OUT</span>{% endif %}
                   </div>
-                  {% if note %}
-                    <div class="muted tiny">{{ note }}</div>
-                  {% endif %}
+                  {% if note %}<div class="muted tiny">{{ note }}</div>{% endif %}
                 {% else %}
                   <span class="muted">—</span>
                 {% endif %}
@@ -159,8 +148,6 @@
         </tbody>
       </table>
     </div>
-
-    <div class="muted mt">Users never select the slot — system assigns it from time.</div>
   </div>
 </div>
 {% endblock %}
