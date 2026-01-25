@@ -72,18 +72,15 @@ LINER_COVER_PARAMS = [
 
 REINF_PARAMS = [
     ("length_m", "Length (Mtr)", "m"),
-
     ("annular_od_70_1", "Annular OD (mm) (∠ 70°) #1", "mm"),
     ("annular_od_70_2", "Annular OD (mm) (∠ 70°) #2", "mm"),
     ("annular_od_45_3", "Annular OD (mm) (∠ 45°) #3", "mm"),
     ("annular_od_45_4", "Annular OD (mm) (∠ 45°) #4", "mm"),
-
     ("core_mould_dia_mm", "Core Mould Dia. (mm)", "mm"),
     ("annular_width_1_mm", "Annular Width (mm) #1", "mm"),
     ("annular_width_2_mm", "Annular Width (mm) #2", "mm"),
     ("screw_yarn_width_1_mm", "Screw Yarn Width (mm) #1", "mm"),
     ("screw_yarn_width_2_mm", "Screw Yarn Width (mm) #2", "mm"),
-
     ("tractor_speed_m_min", "Tractor Speed (m/min)", "m/min"),
     ("clamping_gas_p1_mpa", "Clamping Gas Pressure (MPa) #1", "MPa"),
     ("clamping_gas_p2_mpa", "Clamping Gas Pressure (MPa) #2", "MPa"),
@@ -247,8 +244,7 @@ def get_progress_percent(session: Session, run: ProductionRun) -> int:
         for v in vals:
             if v.value is not None and v.value > max_len:
                 max_len = v.value
-    pct = int(min(100.0, (max_len / run.total_length_m) * 100.0))
-    return pct
+    return int(min(100.0, (max_len / run.total_length_m) * 100.0))
 
 
 def get_day_latest_trace(session: Session, run_id: int, day: date) -> dict:
@@ -289,6 +285,18 @@ def get_last_known_trace_before_day(session: Session, run_id: int, day: date) ->
     }
 
 
+def _safe_float(x: Optional[str]) -> Optional[float]:
+    if x is None:
+        return None
+    x = str(x).strip()
+    if x == "":
+        return None
+    try:
+        return float(x)
+    except Exception:
+        return None
+
+
 def apply_spec_check(param: RunParameter, value: Optional[float]) -> Tuple[bool, str]:
     if value is None:
         return False, ""
@@ -313,25 +321,12 @@ def apply_spec_check(param: RunParameter, value: Optional[float]) -> Tuple[bool,
     return False, ""
 
 
-def _safe_float(x: Optional[str]) -> Optional[float]:
-    if x is None:
-        return None
-    x = str(x).strip()
-    if x == "":
-        return None
-    try:
-        return float(x)
-    except Exception:
-        return None
-
-
 # -----------------------------
 # DASHBOARD + RUNS
 # -----------------------------
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
-
     runs = session.exec(select(ProductionRun).order_by(ProductionRun.created_at.desc())).all()
 
     grouped: Dict[str, List[ProductionRun]] = {}
@@ -352,10 +347,25 @@ def run_new_get(request: Request, session: Session = Depends(get_session)):
     if user.role != "MANAGER":
         raise HTTPException(403, "Manager only")
 
-    # IMPORTANT: pass param_defs empty until a process is chosen in template
     return templates.TemplateResponse(
         "run_new.html",
         {"request": request, "user": user, "error": "", "param_defs": [], "process": ""},
+    )
+
+
+@app.get("/runs/new/{process}", response_class=HTMLResponse)
+def run_new_get_process(process: str, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    if user.role != "MANAGER":
+        raise HTTPException(403, "Manager only")
+
+    p = process.upper().strip()
+    if p not in PROCESS_PARAMS:
+        raise HTTPException(404, "Invalid process")
+
+    return templates.TemplateResponse(
+        "run_new.html",
+        {"request": request, "user": user, "error": "", "param_defs": PROCESS_PARAMS[p], "process": p},
     )
 
 
@@ -376,8 +386,8 @@ async def run_new_post(
     if user.role != "MANAGER":
         raise HTTPException(403, "Manager only")
 
-    process = process.upper().strip()
-    if process not in PROCESS_PARAMS:
+    p = process.upper().strip()
+    if p not in PROCESS_PARAMS:
         return templates.TemplateResponse(
             "run_new.html",
             {"request": request, "user": user, "error": "Invalid process", "param_defs": [], "process": ""},
@@ -386,7 +396,7 @@ async def run_new_post(
     form = await request.form()
 
     run = ProductionRun(
-        process=process,
+        process=p,
         dhtp_batch_no=dhtp_batch_no,
         client_name=client_name,
         po_number=po_number,
@@ -400,7 +410,7 @@ async def run_new_post(
     session.commit()
     session.refresh(run)
 
-    # ✅ Save Machines at creation (if your template provides these fields)
+    # ✅ machines at creation (machine1_name..machine5_name)
     for i in range(1, 6):
         nm = (form.get(f"machine{i}_name") or "").strip()
         tg = (form.get(f"machine{i}_tag") or "").strip()
@@ -408,8 +418,8 @@ async def run_new_post(
             session.add(RunMachine(run_id=run.id, machine_name=nm, machine_tag=tg))
     session.commit()
 
-    # ✅ Create parameters + save ranges if provided
-    for idx, (key, label, unit) in enumerate(PROCESS_PARAMS[process]):
+    # ✅ parameters + ranges (rule_key/min_key/max_key)
+    for idx, (key, label, unit) in enumerate(PROCESS_PARAMS[p]):
         rp = RunParameter(run_id=run.id, param_key=key, label=label, unit=unit, display_order=idx)
 
         rule = (form.get(f"rule_{key}") or "").strip().upper()
@@ -422,7 +432,6 @@ async def run_new_post(
         session.add(rp)
 
     session.commit()
-
     return RedirectResponse("/dashboard", status_code=302)
 
 
@@ -478,7 +487,7 @@ async def run_edit_post(
     session.add(run)
     session.commit()
 
-    # ✅ Update machines if template uses machine1_name..machine5_name
+    # update machines: replace list
     existing = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
     for m in existing:
         session.delete(m)
@@ -491,7 +500,7 @@ async def run_edit_post(
             session.add(RunMachine(run_id=run_id, machine_name=nm, machine_tag=tg))
     session.commit()
 
-    # ✅ Update parameter ranges if posted (rule_key/min_key/max_key)
+    # update parameter ranges
     params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id)).all()
     for p in params:
         rule = (form.get(f"rule_{p.param_key}") or "").strip().upper()
@@ -506,7 +515,7 @@ async def run_edit_post(
 
 
 # -----------------------------
-# CLOSE / APPROVE / REOPEN (strict workflow)
+# CLOSE / APPROVE / REOPEN (enforced)
 # -----------------------------
 @app.post("/runs/{run_id}/close")
 def run_close(run_id: int, request: Request, session: Session = Depends(get_session)):
@@ -518,7 +527,6 @@ def run_close(run_id: int, request: Request, session: Session = Depends(get_sess
     if not run:
         raise HTTPException(404, "Run not found")
 
-    # Only OPEN can be closed
     if run.status != "OPEN":
         return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
@@ -538,7 +546,6 @@ def run_approve(run_id: int, request: Request, session: Session = Depends(get_se
     if not run:
         raise HTTPException(404, "Run not found")
 
-    # Only CLOSED can be approved
     if run.status != "CLOSED":
         return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
@@ -558,7 +565,6 @@ def run_reopen(run_id: int, request: Request, session: Session = Depends(get_ses
     if not run:
         raise HTTPException(404, "Run not found")
 
-    # Only CLOSED/APPROVED can be reopened
     if run.status not in ["CLOSED", "APPROVED"]:
         return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
@@ -580,9 +586,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
 
     machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
     params = session.exec(
-        select(RunParameter)
-        .where(RunParameter.run_id == run_id)
-        .order_by(RunParameter.display_order)
+        select(RunParameter).where(RunParameter.run_id == run_id).order_by(RunParameter.display_order)
     ).all()
 
     days = get_days_for_run(session, run_id)
@@ -603,8 +607,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
         .order_by(InspectionEntry.created_at)
     ).all()
 
-    # ✅ IMPORTANT: build grid as dict for template stability
-    # grid[slot][param_key] = {"value": float, "out": bool, "note": str, "pending_value":..., "pending_status":...}
+    # grid[slot][param_key] = {"value":..., "out":..., "note":..., "pending_value":..., "pending_status":...}
     grid: Dict[str, Dict[str, dict]] = {s: {} for s in SLOTS}
 
     for e in entries:
@@ -653,9 +656,7 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
         raise HTTPException(404, "Run not found")
 
     params = session.exec(
-        select(RunParameter)
-        .where(RunParameter.run_id == run_id)
-        .order_by(RunParameter.display_order)
+        select(RunParameter).where(RunParameter.run_id == run_id).order_by(RunParameter.display_order)
     ).all()
 
     has_any = session.exec(select(InspectionEntry.id).where(InspectionEntry.run_id == run_id)).first() is not None
@@ -666,7 +667,6 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
     )
 
 
-# ✅ IMPORTANT: fix input-name mismatch so values really save
 @app.post("/runs/{run_id}/entry/new")
 async def entry_new_post(
     run_id: int,
@@ -697,12 +697,11 @@ async def entry_new_post(
     if not run:
         raise HTTPException(404, "Run not found")
 
-    # Inspectors blocked when CLOSED/APPROVED
+    # block inspector when closed/approved
     if run.status in ["CLOSED", "APPROVED"] and user.role != "MANAGER":
         raise HTTPException(403, "Run is not open")
 
     slot_time = slot_from_time_str(actual_time)
-
     form = await request.form()
 
     entry = InspectionEntry(
@@ -735,14 +734,11 @@ async def entry_new_post(
     params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id)).all()
     by_key = {p.param_key: p for p in params}
 
+    # ✅ accept BOTH input names: v_key OR param_key
     for key, param in by_key.items():
-        # ✅ accept BOTH naming styles (old + new)
         raw = form.get(f"v_{key}")
         if raw in [None, ""]:
             raw = form.get(f"param_{key}")
-        if raw in [None, ""]:
-            raw = form.get(key)
-
         if raw in [None, ""]:
             continue
 
@@ -761,7 +757,6 @@ async def entry_new_post(
         ))
 
     session.commit()
-
     return RedirectResponse(f"/runs/{run_id}?day={entry.actual_date.isoformat()}", status_code=302)
 
 
@@ -784,40 +779,56 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
     if not days:
         raise HTTPException(400, "No entries to export")
 
-    base_wb = openpyxl.load_workbook(template_path)
-    base_ws = base_wb.worksheets[0]
+    wb = openpyxl.load_workbook(template_path)
+    base_ws = wb.worksheets[0]
 
     for i, day in enumerate(days):
         if i == 0:
             ws = base_ws
             ws.title = f"Day {i+1} ({day.isoformat()})"
         else:
-            ws = base_wb.copy_worksheet(base_ws)
+            ws = wb.copy_worksheet(base_ws)
             ws.title = f"Day {i+1} ({day.isoformat()})"
 
+        # header
         ws["D5"].value = run.dhtp_batch_no
         ws["I5"].value = run.client_name
         ws["I6"].value = run.po_number
         ws["D7"].value = run.raw_material_spec
         ws["D9"].value = run.itp_number
 
+        # column rules
         if run.process in ["LINER", "COVER"]:
-            ws["E20"].value = day
-            for idx, slot in enumerate(SLOTS):
-                col = openpyxl.utils.get_column_letter(5 + idx)
-                cell = ws[f"{col}21"]
-                hh, mm = slot.split(":")
-                cell.value = dtime(int(hh), int(mm))
-                cell.number_format = "h:mm"
+            col_start = 5  # E
+            date_row = 20
+            time_row = 21
+            inspector_row = 38
+            op1_row = 39
+            op2_row = 40
+            row_map = ROW_MAP_LINER_COVER
         else:
-            ws["F20"].value = day
-            for idx, slot in enumerate(SLOTS):
-                col = openpyxl.utils.get_column_letter(6 + idx)
-                cell = ws[f"{col}21"]
-                hh, mm = slot.split(":")
-                cell.value = dtime(int(hh), int(mm))
-                cell.number_format = "h:mm"
+            col_start = 6  # F
+            date_row = 20
+            time_row = 21
+            inspector_row = 36
+            op1_row = 37
+            op2_row = 38
+            row_map = ROW_MAP_REINF
 
+        # ✅ DATE in every slot column
+        for idx in range(len(SLOTS)):
+            col = openpyxl.utils.get_column_letter(col_start + idx)
+            ws[f"{col}{date_row}"].value = day
+            ws[f"{col}{date_row}"].number_format = "mm-dd-yy"
+
+        # ✅ TIME in every slot column
+        for idx, slot in enumerate(SLOTS):
+            col = openpyxl.utils.get_column_letter(col_start + idx)
+            hh, mm = slot.split(":")
+            ws[f"{col}{time_row}"].value = dtime(int(hh), int(mm))
+            ws[f"{col}{time_row}"].number_format = "h:mm"
+
+        # daily trace
         trace_today = get_day_latest_trace(session, run_id, day)
         carry = get_last_known_trace_before_day(session, run_id, day)
 
@@ -838,23 +849,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 if calib:
                     ws[f"K{r}"].value = calib
 
-        entries = trace_today["entries"]
-        if entries:
-            last = entries[-1]
-            inspector_name = session.get(User, last.inspector_id).display_name
-
-            if run.process in ["LINER", "COVER"]:
-                ws["B38"].value = inspector_name
-                ws["B39"].value = last.operator_1
-                ws["B40"].value = last.operator_2
-            else:
-                ws["B36"].value = inspector_name
-                ws["B37"].value = last.operator_annular_12
-                ws["B38"].value = last.operator_int_ext_34
-
-        col_start = 5 if run.process in ["LINER", "COVER"] else 6
-        row_map = ROW_MAP_LINER_COVER if run.process in ["LINER", "COVER"] else ROW_MAP_REINF
-
+        # ✅ Fill VALUES + Inspector/Operators per SLOT column
         day_entries = session.exec(
             select(InspectionEntry)
             .where(InspectionEntry.run_id == run_id, InspectionEntry.actual_date == day)
@@ -862,8 +857,20 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         ).all()
 
         for e in day_entries:
+            if e.slot_time not in SLOTS:
+                continue
             slot_idx = SLOTS.index(e.slot_time)
             col = openpyxl.utils.get_column_letter(col_start + slot_idx)
+
+            inspector_name = session.get(User, e.inspector_id).display_name if e.inspector_id else ""
+            ws[f"{col}{inspector_row}"].value = inspector_name
+
+            if run.process in ["LINER", "COVER"]:
+                ws[f"{col}{op1_row}"].value = e.operator_1 or ""
+                ws[f"{col}{op2_row}"].value = e.operator_2 or ""
+            else:
+                ws[f"{col}{op1_row}"].value = e.operator_annular_12 or ""
+                ws[f"{col}{op2_row}"].value = e.operator_int_ext_34 or ""
 
             vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id)).all()
             for v in vals:
@@ -873,7 +880,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 ws[f"{col}{r}"].value = v.value
 
     out = BytesIO()
-    base_wb.save(out)
+    wb.save(out)
     out.seek(0)
 
     filename = f"{run.process}_{run.dhtp_batch_no}_ALL_DAYS.xlsx"
