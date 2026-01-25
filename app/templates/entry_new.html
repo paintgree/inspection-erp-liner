@@ -19,42 +19,88 @@
         <input type="date" name="actual_date" required>
       </div>
       <div>
-        <label>Actual Inspection Time (HH:MM)</label>
-        <input type="time" name="actual_time" required>
+        <label>Inspection Time</label>
+        <input type="time" name="actual_time" step="60" required>
       </div>
     </div>
 
-    {% if run.process in ["LINER","COVER"] %}
-      <div class="grid2">
-        <div><label>Operator 1</label><input name="operator_1"></div>
-        <div><label>Operator 2</label><input name="operator_2"></div>
+    {% if run.process == "REINFORCEMENT" %}
+      <div class="grid2 mt">
+        <div>
+          <label>Operator (Annular 1–2)</label>
+          <input name="operator_annular_12">
+        </div>
+        <div>
+          <label>Operator (Int/Ext 3–4)</label>
+          <input name="operator_int_ext_34">
+        </div>
       </div>
     {% else %}
-      <div class="grid2">
-        <div><label>Operator (Annular 1 & 2)</label><input name="operator_annular_12"></div>
-        <div><label>Operator (Int./ Ext. 3 & 4)</label><input name="operator_int_ext_34"></div>
+      <div class="grid2 mt">
+        <div>
+          <label>Operator 1</label>
+          <input name="operator_1">
+        </div>
+        <div>
+          <label>Operator 2</label>
+          <input name="operator_2">
+        </div>
       </div>
     {% endif %}
 
-    <label>Remarks (optional)</label>
-    <input name="remarks">
+    <div class="card inner mt">
+      <h2>Inspection Readings</h2>
+
+      <div class="tablewrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in params %}
+              <tr>
+                <td><b>{{ p.label }}</b> {% if p.unit %}<span class="muted">{{ p.unit }}</span>{% endif %}</td>
+                <td>
+                  <input class="input" type="number" step="0.01" name="param_{{ p.param_key }}" placeholder="Enter value">
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="mt">
+        <label>Remarks</label>
+        <input name="remarks" placeholder="Optional">
+      </div>
+    </div>
 
     <div class="card inner mt">
       <h2>Daily Traceability (Tools & Raw Material Batch)</h2>
 
-      <label>Raw Material Batch No (leave blank if unchanged)</label>
-      <input name="raw_material_batch_no">
-
-      <div class="grid2 mt">
-        <div>
-          <label>Tool 1 Name</label><input name="tool1_name">
-          <label>Tool 1 Serial</label><input name="tool1_serial">
-          <label>Tool 1 Calibration Due (YYYY-MM-DD)</label><input name="tool1_calib_due">
+      <div class="tracegrid">
+        <div class="field">
+          <label>Raw Material Batch No (leave blank if unchanged)</label>
+          <input name="raw_material_batch_no" placeholder="e.g. RM-12345">
         </div>
-        <div>
-          <label>Tool 2 Name</label><input name="tool2_name">
-          <label>Tool 2 Serial</label><input name="tool2_serial">
-          <label>Tool 2 Calibration Due (YYYY-MM-DD)</label><input name="tool2_calib_due">
+      </div>
+
+      <div class="toolgrid mt">
+        <div class="toolcard">
+          <div class="tooltitle">Tool 1</div>
+          <label>Name</label><input name="tool1_name" placeholder="Tool name">
+          <label>Serial</label><input name="tool1_serial" placeholder="Serial number">
+          <label>Calibration Due</label><input name="tool1_calib_due" placeholder="YYYY-MM-DD">
+        </div>
+
+        <div class="toolcard">
+          <div class="tooltitle">Tool 2</div>
+          <label>Name</label><input name="tool2_name" placeholder="Tool name">
+          <label>Serial</label><input name="tool2_serial" placeholder="Serial number">
+          <label>Calibration Due</label><input name="tool2_calib_due" placeholder="YYYY-MM-DD">
         </div>
       </div>
 
@@ -63,21 +109,11 @@
       </div>
     </div>
 
-    <div class="card inner mt">
-      <h2>Inspection Values</h2>
-      <div class="muted">Fill required readings. System places them into correct 2-hour slot automatically.</div>
-
-      <div class="grid2 mt">
-        {% for p in params %}
-          <div>
-            <label>{{ p.label }} {% if p.unit %}({{ p.unit }}){% endif %}</label>
-            <input name="param_{{ p.param_key }}" type="number" step="0.001">
-          </div>
-        {% endfor %}
-      </div>
+    <div class="toolbar mt">
+      <button class="btn btn-primary" type="submit">Save Entry</button>
+      <a class="btn" href="/runs/{{ run.id }}">Cancel</a>
     </div>
 
-    <button class="btn btn-primary" type="submit">Submit Entry</button>
   </form>
 </div>
 {% endblock %}
