@@ -169,7 +169,7 @@ def ensure_default_users():
                 username="manager",
                 display_name="Manager",
                 role="MANAGER",
-                password_hash=hash_password("manager"),
+                password_hash=hash_password("manager123"),
             ))
         i = session.exec(select(User).where(User.username == "inspector")).first()
         if not i:
@@ -830,3 +830,4 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
