@@ -72,7 +72,7 @@
     <div class="muted">Each day starts at 00:00. Only days with entries exist.</div>
     <div class="days">
       {% for d in days %}
-        <span class="daypill {% if d == selected_day %}active{% endif %}">{{ d }}</span>
+        <a class="daypill {% if d == selected_day %}active{% endif %}" href="/runs/{{ run.id }}?day={{ d }}">{{ d }}</a>
       {% endfor %}
       {% if days|length == 0 %}
         <span class="muted">No entries yet.</span>
@@ -82,6 +82,13 @@
 
   <div class="card inner mt">
     <h2>In-Process Inspection — Day {{ selected_day }}</h2>
+
+    {% if grid_meta is not defined %}
+      <div class="alert mt">
+        NOTE: grid_meta not provided from backend yet. Values will still show, but no spec/pending highlighting.
+      </div>
+    {% endif %}
+
     <div class="tablewrap">
       <table class="table wide">
         <thead>
@@ -92,14 +99,36 @@
             {% endfor %}
           </tr>
         </thead>
+
         <tbody>
           {% for p in params %}
           <tr>
-            <td><b>{{ p.label }}</b> <span class="muted">{{ p.unit }}</span></td>
+            <td>
+              <b>{{ p.label }}</b>
+              {% if p.unit %}<span class="muted">{{ p.unit }}</span>{% endif %}
+            </td>
+
             {% for s in ["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00"] %}
-              <td class="cell">
-                {% if grid[s].get(p.param_key) is not none %}
-                  {{ grid[s].get(p.param_key) }}
+              {% set val = grid[s].get(p.param_key) %}
+              {% set meta = (grid_meta[s].get(p.param_key) if grid_meta is defined else None) %}
+
+              {% set is_oos = (meta and meta.is_out_of_spec) %}
+              {% set is_pending = (meta and meta.pending_value is not none) %}
+
+              <td class="cell {% if is_oos %}oos{% endif %} {% if is_pending %}pending{% endif %}">
+                {% if val is not none %}
+                  <div class="cellval">
+                    {{ val }}
+                    {% if is_pending %}
+                      <span class="badge">PENDING</span>
+                    {% endif %}
+                    {% if is_oos %}
+                      <span class="badge bad">OUT</span>
+                    {% endif %}
+                  </div>
+                  {% if meta and meta.spec_note %}
+                    <div class="muted tiny">{{ meta.spec_note }}</div>
+                  {% endif %}
                 {% else %}
                   <span class="muted">—</span>
                 {% endif %}
