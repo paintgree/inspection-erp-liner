@@ -1,51 +1,50 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>Dashboard</h1>
-<div class="muted">Runs grouped by Batch Number (Run Reference).</div>
 
-<div class="toolbar">
-  <a class="btn" href="/runs/new/liner">+ New Run (Liner)</a>
-  <a class="btn" href="/runs/new/reinforcement">+ New Run (Reinforcement)</a>
-  <a class="btn" href="/runs/new/cover">+ New Run (Cover)</a>
+<div class="card">
+  <div class="runheader">
+    <h1>Production Runs</h1>
+
+    {% if user.role == "MANAGER" %}
+      <a class="btn btn-primary" href="/runs/new">+ New Run</a>
+    {% endif %}
+  </div>
 </div>
+
+{% if grouped|length == 0 %}
+  <div class="card">
+    <div class="muted">No runs created yet.</div>
+  </div>
+{% endif %}
 
 {% for batch, runs in grouped.items() %}
   <div class="card">
     <h2>Batch: {{ batch }}</h2>
-    <div class="tablewrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Process</th>
-            <th>Status</th>
-            <th>Client</th>
-            <th>PO</th>
-            <th>Progress</th>
-            <th>Open</th>
-          </tr>
-        </thead>
-        <tbody>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Process</th>
+          <th>Status</th>
+          <th>Progress</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+
+      <tbody>
         {% for r in runs %}
           <tr>
-            <td><span class="pill">{{ r.process }}</span></td>
-            <td><span class="status">{{ r.status }}</span></td>
-            <td>{{ r.client_name }}</td>
-            <td>{{ r.po_number }}</td>
-            <td style="min-width:180px">
-              <div class="progressrow">
-                <div class="progressbar">
-                  <div class="progressfill" style="width: {{ progress[r.id] }}%"></div>
-                </div>
-                <div class="pct">{{ progress[r.id] }}%</div>
-              </div>
+            <td><b>{{ r.process }}</b></td>
+            <td>{{ r.status }}</td>
+            <td>{{ progress_map[r.id] }}%</td>
+            <td>
+              <a class="btn" href="/runs/{{ r.id }}">Open</a>
             </td>
-            <td><a class="btn btn-small" href="/runs/{{ r.id }}">View</a></td>
           </tr>
         {% endfor %}
-        </tbody>
-      </table>
-    </div>
+      </tbody>
+    </table>
   </div>
 {% endfor %}
-{% endblock %}
 
+{% endblock %}
