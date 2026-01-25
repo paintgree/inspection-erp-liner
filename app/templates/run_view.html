@@ -9,13 +9,33 @@
       <div class="muted">Status: <b>{{ run.status }}</b></div>
       <div class="muted">Progress: <b>{{ progress }}%</b></div>
     </div>
+
     <div class="actions">
       {% if user.role == "MANAGER" %}
         <a class="btn" href="/runs/{{ run.id }}/edit">Edit Run</a>
-        <form method="post" action="/runs/{{ run.id }}/close"><button class="btn" type="submit">Close</button></form>
-        <form method="post" action="/runs/{{ run.id }}/approve"><button class="btn" type="submit">Approve</button></form>
-        <form method="post" action="/runs/{{ run.id }}/reopen"><button class="btn" type="submit">Reopen</button></form>
+
+        {% if run.status == "OPEN" %}
+          <form method="post" action="/runs/{{ run.id }}/close"
+                onsubmit="return confirm('Are you sure you want to CLOSE this process? Inspectors will NOT be able to add entries until you Reopen.');">
+            <button class="btn" type="submit">Close</button>
+          </form>
+        {% endif %}
+
+        {% if run.status == "CLOSED" %}
+          <form method="post" action="/runs/{{ run.id }}/approve"
+                onsubmit="return confirm('Approve this process? This will lock the run. You can still Reopen if needed.');">
+            <button class="btn" type="submit">Approve</button>
+          </form>
+        {% endif %}
+
+        {% if run.status in ["CLOSED", "APPROVED"] %}
+          <form method="post" action="/runs/{{ run.id }}/reopen"
+                onsubmit="return confirm('Reopen this run? Inspectors will be able to add new entries again.');">
+            <button class="btn" type="submit">Reopen</button>
+          </form>
+        {% endif %}
       {% endif %}
+
       <a class="btn btn-primary" href="/runs/{{ run.id }}/entry/new">+ New Inspection Entry</a>
       <a class="btn" href="/runs/{{ run.id }}/export/xlsx">Export XLSX (All Days)</a>
     </div>
@@ -40,13 +60,17 @@
     <div class="card inner">
       <h2>Machines Used</h2>
       {% if machines|length == 0 %}
-        <div class="muted">No machines added.</div>
+        <div class="muted">No machines recorded for this run.</div>
+      {% else %}
+        <ul>
+          {% for m in machines %}
+            <li>{{ m.machine_name }} {% if m.machine_tag %}<span class="muted">({{ m.machine_tag }})</span>{% endif %}</li>
+          {% endfor %}
+        </ul>
       {% endif %}
-      <ul>
-        {% for m in machines %}
-          <li>{{ m.machine_name }} {% if m.machine_tag %}<span class="muted">({{ m.machine_tag }})</span>{% endif %}</li>
-        {% endfor %}
-      </ul>
+      {% if user.role == "MANAGER" %}
+        <div class="muted tiny">To change machines, use “Edit Run”.</div>
+      {% endif %}
     </div>
 
     <div class="card inner">
@@ -104,11 +128,11 @@
 
             {% for s in ["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00"] %}
               {% set cell = grid.get(s, {}).get(p.param_key) %}
-              {% set val = (cell.value if cell is not none and cell.value is defined else (cell["value"] if cell is not none and cell["value"] is defined else none)) %}
-              {% set is_oos = (cell and ((cell.out if cell.out is defined else cell["out"]) == true)) %}
-              {% set note = (cell.note if cell and cell.note is defined else (cell["note"] if cell else "")) %}
-              {% set pending_value = (cell.pending_value if cell and cell.pending_value is defined else (cell["pending_value"] if cell else none)) %}
-              {% set pending_status = (cell.pending_status if cell and cell.pending_status is defined else (cell["pending_status"] if cell else "")) %}
+              {% set val = (cell.get("value") if cell else none) %}
+              {% set is_oos = (cell.get("out") if cell else false) %}
+              {% set note = (cell.get("note") if cell else "") %}
+              {% set pending_value = (cell.get("pending_value") if cell else none) %}
+              {% set pending_status = (cell.get("pending_status") if cell else "") %}
               {% set is_pending = (pending_value is not none and pending_status == "PENDING") %}
 
               <td class="cell {% if is_oos %}oos{% endif %} {% if is_pending %}pending{% endif %}">
