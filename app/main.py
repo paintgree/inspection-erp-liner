@@ -70,15 +70,27 @@ LINER_COVER_PARAMS = [
     ("noising_temp_zone_5_c", "Noising Temp Zone 5 (°C)", "°C"),
 ]
 
+# ✅ Updated to match reinforcement.xlsx template rows (A20:E35 is labels/spec area; readings go to F.. columns)
 REINF_PARAMS = [
     ("length_m", "Length (Mtr)", "m"),
-    ("annular_od_70_1", "Annular OD (∠70°) #1 (mm)", "mm"),
-    ("annular_od_70_2", "Annular OD (∠70°) #2 (mm)", "mm"),
-    ("annular_od_45_3", "Annular OD (∠45°) #3 (mm)", "mm"),
-    ("annular_od_45_4", "Annular OD (∠45°) #4 (mm)", "mm"),
+
+    # Outer Diameter / Annular OD group (template rows 23-26)
+    ("annular_od_70_1", "Annular OD (mm) (∠ 70°) #1", "mm"),
+    ("annular_od_70_2", "Annular OD (mm) (∠ 70°) #2", "mm"),
+    ("annular_od_45_3", "Annular OD (mm) (∠ 45°) #3", "mm"),
+    ("annular_od_45_4", "Annular OD (mm) (∠ 45°) #4", "mm"),
+
+    # Winding parameters (template rows 27-31)
+    ("core_mould_dia_mm", "Core Mould Dia. (mm)", "mm"),
+    ("annular_width_1_mm", "Annular Width (mm) #1", "mm"),
+    ("annular_width_2_mm", "Annular Width (mm) #2", "mm"),
+    ("screw_yarn_width_1_mm", "Screw Yarn Width (mm) #1", "mm"),
+    ("screw_yarn_width_2_mm", "Screw Yarn Width (mm) #2", "mm"),
+
+    # Line parameters (template rows 32-35)
     ("tractor_speed_m_min", "Tractor Speed (m/min)", "m/min"),
-    ("clamping_gas_p1_mpa", "Clamping Gas Pressure #1 (MPa)", "MPa"),
-    ("clamping_gas_p2_mpa", "Clamping Gas Pressure #2 (MPa)", "MPa"),
+    ("clamping_gas_p1_mpa", "Clamping Gas Pressure (MPa) #1", "MPa"),
+    ("clamping_gas_p2_mpa", "Clamping Gas Pressure (MPa) #2", "MPa"),
     ("thrust_gas_p_mpa", "Thrust Gas Pressure (MPa)", "MPa"),
 ]
 
@@ -90,7 +102,7 @@ PROCESS_PARAMS = {
 
 
 # -----------------------------
-# XLSX ROW MAPS
+# EXPORT ROW MAPPING (template rows)
 # -----------------------------
 ROW_MAP_LINER_COVER = {
     "length_m": 22,
@@ -112,11 +124,23 @@ ROW_MAP_LINER_COVER = {
 }
 
 ROW_MAP_REINF = {
+    # Template: values start on row 22; date in F20; times in row 21 from column F.
     "length_m": 22,
+
+    # Outer Diameter / Annular OD group
     "annular_od_70_1": 23,
     "annular_od_70_2": 24,
     "annular_od_45_3": 25,
     "annular_od_45_4": 26,
+
+    # Winding parameters
+    "core_mould_dia_mm": 27,
+    "annular_width_1_mm": 28,
+    "annular_width_2_mm": 29,
+    "screw_yarn_width_1_mm": 30,
+    "screw_yarn_width_2_mm": 31,
+
+    # Line parameters
     "tractor_speed_m_min": 32,
     "clamping_gas_p1_mpa": 33,
     "clamping_gas_p2_mpa": 34,
@@ -130,186 +154,52 @@ ROW_MAP_REINF = {
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
+    ensure_default_users()
 
-    with next(get_session()) as session:
-        existing = session.exec(select(User)).first()
-        if not existing:
-            manager = User(
+
+# -----------------------------
+# USERS / AUTH
+# -----------------------------
+def ensure_default_users():
+    from .db import engine
+    with Session(engine) as session:
+        u = session.exec(select(User).where(User.username == "manager")).first()
+        if not u:
+            session.add(User(
                 username="manager",
                 display_name="Manager",
                 role="MANAGER",
-                password_hash=hash_password("manager123"),
-            )
-            inspector = User(
+                password_hash=hash_password("manager"),
+            ))
+        i = session.exec(select(User).where(User.username == "inspector")).first()
+        if not i:
+            session.add(User(
                 username="inspector",
                 display_name="Inspector",
                 role="INSPECTOR",
-                password_hash=hash_password("inspector123"),
-            )
-            session.add(manager)
-            session.add(inspector)
-            session.commit()
+                password_hash=hash_password("inspector"),
+            ))
+        session.commit()
 
 
-# -----------------------------
-# SIMPLE AUTH (cookie)
-# -----------------------------
 def get_current_user(request: Request, session: Session) -> User:
-    uname = request.cookies.get("user")
-    if not uname:
-        raise HTTPException(status_code=401, detail="Not logged in")
-    user = session.exec(select(User).where(User.username == uname)).first()
+    username = request.cookies.get("user")
+    if not username:
+        raise HTTPException(401, "Not logged in")
+    user = session.exec(select(User).where(User.username == username)).first()
     if not user:
-        raise HTTPException(status_code=401, detail="Invalid user")
+        raise HTTPException(401, "Invalid user")
     return user
 
 
-def require_manager(user: User):
-    if user.role != "MANAGER":
-        raise HTTPException(status_code=403, detail="Manager only")
-
-
-# -----------------------------
-# HELPERS
-# -----------------------------
-def slot_for_time(hhmm: str) -> str:
-    """
-    Fixed slots 00:00,02:00,...22:00
-    Rule: cutoff 30 min before next slot
-    """
-    h, m = hhmm.split(":")
-    minutes = int(h) * 60 + int(m)
-
-    slot_minutes = [i * 120 for i in range(12)]
-    for idx, sm in enumerate(slot_minutes):
-        next_sm = slot_minutes[idx + 1] if idx + 1 < len(slot_minutes) else 24 * 60
-        cutoff = next_sm - 30
-        if minutes < cutoff:
-            return SLOTS[idx]
-    return "22:00"
-
-
-def group_runs_by_batch(runs: List[ProductionRun]) -> Dict[str, List[ProductionRun]]:
-    grouped: Dict[str, List[ProductionRun]] = {}
-    for r in runs:
-        grouped.setdefault(r.dhtp_batch_no, []).append(r)
-    for k in grouped:
-        grouped[k] = sorted(grouped[k], key=lambda x: x.process)
-    return dict(sorted(grouped.items(), key=lambda kv: kv[0]))
-
-
-def get_days_for_run(session: Session, run_id: int) -> List[date]:
-    days = session.exec(
-        select(InspectionEntry.actual_date)
-        .where(InspectionEntry.run_id == run_id)
-        .distinct()
-        .order_by(InspectionEntry.actual_date)
-    ).all()
-    return list(days)
-
-
-def get_day_latest_trace(session: Session, run_id: int, day: date) -> dict:
-    entries = session.exec(
-        select(InspectionEntry)
-        .where(InspectionEntry.run_id == run_id, InspectionEntry.actual_date == day)
-        .order_by(InspectionEntry.created_at)
-    ).all()
-
-    raw_batches = []
-    tools = []
-
-    for e in entries:
-        if e.raw_material_batch_no and e.raw_material_batch_no not in raw_batches:
-            raw_batches.append(e.raw_material_batch_no)
-
-        t1 = (e.tool1_name.strip(), e.tool1_serial.strip(), e.tool1_calib_due.strip())
-        t2 = (e.tool2_name.strip(), e.tool2_serial.strip(), e.tool2_calib_due.strip())
-        for t in [t1, t2]:
-            if any(t) and t not in tools:
-                tools.append(t)
-
-    return {"raw_batches": raw_batches, "tools": tools, "entries": entries}
-
-
-def get_last_known_trace_before_day(session: Session, run_id: int, day: date) -> dict:
-    all_entries = session.exec(
-        select(InspectionEntry)
-        .where(InspectionEntry.run_id == run_id, InspectionEntry.actual_date <= day)
-        .order_by(InspectionEntry.actual_date, InspectionEntry.created_at)
-    ).all()
-
-    last_raw = ""
-    last_tools: List[Tuple[str, str, str]] = []
-    for e in all_entries:
-        if e.raw_material_batch_no:
-            last_raw = e.raw_material_batch_no
-
-        tlist = []
-        t1 = (e.tool1_name.strip(), e.tool1_serial.strip(), e.tool1_calib_due.strip())
-        t2 = (e.tool2_name.strip(), e.tool2_serial.strip(), e.tool2_calib_due.strip())
-        for t in [t1, t2]:
-            if any(t):
-                tlist.append(t)
-        if tlist:
-            last_tools = tlist
-    return {"raw": last_raw, "tools": last_tools}
-
-
-def get_progress_percent(session: Session, run: ProductionRun) -> int:
-    if run.total_length_m <= 0:
-        return 0
-    vals = session.exec(
-        select(InspectionValue.value)
-        .join(InspectionEntry, InspectionValue.entry_id == InspectionEntry.id)
-        .where(InspectionEntry.run_id == run.id, InspectionValue.param_key == "length_m")
-    ).all()
-    nums = [v for v in vals if isinstance(v, (int, float))]
-    if not nums:
-        return 0
-    pct = int(round((max(nums) / run.total_length_m) * 100))
-    return max(0, min(100, pct))
-
-
-def check_spec(p: RunParameter, val: float) -> Tuple[bool, str]:
-    """
-    Returns (is_out_of_spec, note)
-    """
-    rule = (p.rule or "RANGE").upper()
-    mn = p.min_value
-    mx = p.max_value
-
-    if rule == "RANGE":
-        if mn is not None and val < mn:
-            return True, f"< min {mn}"
-        if mx is not None and val > mx:
-            return True, f"> max {mx}"
-        return False, ""
-
-    if rule == "MAX_ONLY":
-        if mx is not None and val > mx:
-            return True, f"> max {mx}"
-        return False, ""
-
-    if rule == "MIN_ONLY":
-        if mn is not None and val < mn:
-            return True, f"< min {mn}"
-        return False, ""
-
-    # unknown rule
-    return False, ""
-
-
-# -----------------------------
-# ROUTES
-# -----------------------------
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
-    return RedirectResponse("/login", status_code=302)
+    return RedirectResponse("/dashboard", status_code=302)
 
 
 @app.get("/login", response_class=HTMLResponse)
 def login_get(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse("login.html", {"request": request, "error": ""})
 
 
 @app.post("/login")
@@ -321,7 +211,7 @@ def login_post(
 ):
     user = session.exec(select(User).where(User.username == username)).first()
     if not user or not verify_password(password, user.password_hash):
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid login"})
+        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
     resp = RedirectResponse("/dashboard", status_code=302)
     resp.set_cookie("user", user.username, httponly=True)
     return resp
@@ -334,34 +224,139 @@ def logout():
     return resp
 
 
+# -----------------------------
+# HELPERS
+# -----------------------------
+def get_days_for_run(session: Session, run_id: int) -> List[date]:
+    days = session.exec(
+        select(InspectionEntry.actual_date)
+        .where(InspectionEntry.run_id == run_id)
+        .distinct()
+        .order_by(InspectionEntry.actual_date)
+    ).all()
+    return list(days)
+
+
+def slot_from_time_str(t: str) -> str:
+    hh = int(t.split(":")[0])
+    # slot steps: 0,2,4,...,22
+    slot_h = (hh // 2) * 2
+    return f"{slot_h:02d}:00"
+
+
+def get_progress_percent(session: Session, run: ProductionRun) -> int:
+    if run.total_length_m <= 0:
+        return 0
+    max_len = 0.0
+    entries = session.exec(select(InspectionEntry).where(InspectionEntry.run_id == run.id)).all()
+    for e in entries:
+        vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id, InspectionValue.param_key == "length_m")).all()
+        for v in vals:
+            if v.value is not None and v.value > max_len:
+                max_len = v.value
+    pct = int(min(100.0, (max_len / run.total_length_m) * 100.0))
+    return pct
+
+
+def get_day_latest_trace(session: Session, run_id: int, day: date) -> dict:
+    entries = session.exec(
+        select(InspectionEntry)
+        .where(InspectionEntry.run_id == run_id, InspectionEntry.actual_date == day)
+        .order_by(InspectionEntry.created_at)
+    ).all()
+
+    raw_batches = []
+    tools = []
+    if entries:
+        raw_batches = [e.raw_material_batch_no for e in entries if e.raw_material_batch_no]
+        # take latest tools for day
+        last = entries[-1]
+        tools = [
+            (last.tool1_name, last.tool1_serial, last.tool1_calib_due),
+            (last.tool2_name, last.tool2_serial, last.tool2_calib_due),
+        ]
+
+    return {"entries": entries, "raw_batches": raw_batches, "tools": tools}
+
+
+def get_last_known_trace_before_day(session: Session, run_id: int, day: date) -> dict:
+    entries = session.exec(
+        select(InspectionEntry)
+        .where(InspectionEntry.run_id == run_id, InspectionEntry.actual_date < day)
+        .order_by(InspectionEntry.actual_date, InspectionEntry.created_at)
+    ).all()
+    if not entries:
+        return {"raw": "", "tools": []}
+    last = entries[-1]
+    return {
+        "raw": last.raw_material_batch_no or "",
+        "tools": [
+            (last.tool1_name, last.tool1_serial, last.tool1_calib_due),
+            (last.tool2_name, last.tool2_serial, last.tool2_calib_due),
+        ],
+    }
+
+
+def apply_spec_check(param: RunParameter, value: Optional[float]) -> Tuple[bool, str]:
+    if value is None:
+        return False, ""
+    rule = (param.rule or "").upper()
+    mn = param.min_value
+    mx = param.max_value
+
+    if rule == "RANGE":
+        if mn is not None and value < mn:
+            return True, f"Below min {mn}"
+        if mx is not None and value > mx:
+            return True, f"Above max {mx}"
+        return False, ""
+    if rule == "MAX_ONLY":
+        if mx is not None and value > mx:
+            return True, f"Above max {mx}"
+        return False, ""
+    if rule == "MIN_ONLY":
+        if mn is not None and value < mn:
+            return True, f"Below min {mn}"
+        return False, ""
+    return False, ""
+
+
+# -----------------------------
+# DASHBOARD + RUNS
+# -----------------------------
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
+
     runs = session.exec(select(ProductionRun).order_by(ProductionRun.created_at.desc())).all()
-    grouped = group_runs_by_batch(runs)
-    progress = {r.id: get_progress_percent(session, r) for r in runs}
+
+    # group by batch number so LINER/REINF/COVER appear together
+    grouped: Dict[str, List[ProductionRun]] = {}
+    for r in runs:
+        grouped.setdefault(r.dhtp_batch_no, []).append(r)
+
+    # compute progress per run
+    progress_map = {r.id: get_progress_percent(session, r) for r in runs}
 
     return templates.TemplateResponse(
         "dashboard.html",
-        {"request": request, "user": user, "grouped": grouped, "progress": progress},
+        {"request": request, "user": user, "grouped": grouped, "progress_map": progress_map},
     )
 
 
-@app.get("/runs/new/{process}", response_class=HTMLResponse)
-def run_new_get(process: str, request: Request, session: Session = Depends(get_session)):
+@app.get("/runs/new", response_class=HTMLResponse)
+def run_new_get(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
-    require_manager(user)
-    process = process.upper()
-    if process not in PROCESS_PARAMS:
-        raise HTTPException(404, "Invalid process")
-    return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "process": process})
+    if user.role != "MANAGER":
+        raise HTTPException(403, "Manager only")
+    return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": ""})
 
 
-@app.post("/runs/new/{process}")
+@app.post("/runs/new")
 def run_new_post(
-    process: str,
     request: Request,
     session: Session = Depends(get_session),
+    process: str = Form(...),
     dhtp_batch_no: str = Form(...),
     client_name: str = Form(...),
     po_number: str = Form(...),
@@ -369,58 +364,152 @@ def run_new_post(
     pipe_specification: str = Form(...),
     raw_material_spec: str = Form(...),
     total_length_m: float = Form(0.0),
-    machine1_name: str = Form(""),
-    machine1_tag: str = Form(""),
-    machine2_name: str = Form(""),
-    machine2_tag: str = Form(""),
-    machine3_name: str = Form(""),
-    machine3_tag: str = Form(""),
-    machine4_name: str = Form(""),
-    machine4_tag: str = Form(""),
-    machine5_name: str = Form(""),
-    machine5_tag: str = Form(""),
 ):
     user = get_current_user(request, session)
-    require_manager(user)
+    if user.role != "MANAGER":
+        raise HTTPException(403, "Manager only")
 
-    process = process.upper()
+    process = process.upper().strip()
     if process not in PROCESS_PARAMS:
-        raise HTTPException(404, "Invalid process")
+        return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": "Invalid process"})
 
     run = ProductionRun(
         process=process,
-        dhtp_batch_no=dhtp_batch_no.strip(),
-        client_name=client_name.strip(),
-        po_number=po_number.strip(),
-        itp_number=itp_number.strip(),
-        pipe_specification=pipe_specification.strip(),
-        raw_material_spec=raw_material_spec.strip(),
-        total_length_m=float(total_length_m or 0),
+        dhtp_batch_no=dhtp_batch_no,
+        client_name=client_name,
+        po_number=po_number,
+        itp_number=itp_number,
+        pipe_specification=pipe_specification,
+        raw_material_spec=raw_material_spec,
+        total_length_m=total_length_m or 0.0,
     )
     session.add(run)
     session.commit()
     session.refresh(run)
 
-    machines = [
-        (machine1_name, machine1_tag),
-        (machine2_name, machine2_tag),
-        (machine3_name, machine3_tag),
-        (machine4_name, machine4_tag),
-        (machine5_name, machine5_tag),
-    ]
-    for mn, mt in machines:
-        if mn.strip():
-            session.add(RunMachine(run_id=run.id, machine_name=mn.strip(), machine_tag=mt.strip()))
+    # create parameters rows for the run
+    for idx, (key, label, unit) in enumerate(PROCESS_PARAMS[process]):
+        session.add(RunParameter(run_id=run.id, param_key=key, label=label, unit=unit, display_order=idx))
     session.commit()
 
-    defs = PROCESS_PARAMS[process]
-    for idx, (k, label, unit) in enumerate(defs):
-        session.add(RunParameter(run_id=run.id, param_key=k, label=label, unit=unit, display_order=idx))
+    return RedirectResponse("/dashboard", status_code=302)
+
+
+@app.get("/runs/{run_id}/edit", response_class=HTMLResponse)
+def run_edit_get(run_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    if user.role != "MANAGER":
+        raise HTTPException(403, "Manager only")
+
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
+    return templates.TemplateResponse(
+        "run_edit.html",
+        {"request": request, "user": user, "run": run, "machines": machines, "error": ""},
+    )
+
+
+@app.post("/runs/{run_id}/edit")
+def run_edit_post(
+    run_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    client_name: str = Form(...),
+    po_number: str = Form(...),
+    itp_number: str = Form(...),
+    pipe_specification: str = Form(...),
+    raw_material_spec: str = Form(...),
+    total_length_m: float = Form(0.0),
+):
+    user = get_current_user(request, session)
+    if user.role != "MANAGER":
+        raise HTTPException(403, "Manager only")
+
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    run.client_name = client_name
+    run.po_number = po_number
+    run.itp_number = itp_number
+    run.pipe_specification = pipe_specification
+    run.raw_material_spec = raw_material_spec
+    run.total_length_m = total_length_m or 0.0
+    session.add(run)
     session.commit()
 
     return RedirectResponse(f"/runs/{run.id}", status_code=302)
 
 
+@app.post("/runs/{run_id}/machines/add")
+def run_machine_add(
+    run_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    machine_name: str = Form(...),
+    machine_tag: str = Form(""),
+):
+    user = get_current_user(request, session)
+    if user.role != "MANAGER":
+        raise HTTPException(403, "Manager only")
+
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    session.add(RunMachine(run_id=run_id, machine_name=machine_name, machine_tag=machine_tag))
+    session.commit()
+    return RedirectResponse(f"/runs/{run_id}/edit", status_code=302)
+
+
+@app.post("/runs/{run_id}/close")
+def run_close(run_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    if user.role != "MANAGER":
+        raise HTTPException(403, "Manager only")
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    run.status = "CLOSED"
+    session.add(run)
+    session.commit()
+    return RedirectResponse(f"/runs/{run_id}", status_code=302)
+
+
+@app.post("/runs/{run_id}/approve")
+def run_approve(run_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    if user.role != "MANAGER":
+        raise HTTPException(403, "Manager only")
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    run.status = "APPROVED"
+    session.add(run)
+    session.commit()
+    return RedirectResponse(f"/runs/{run_id}", status_code=302)
+
+
+@app.post("/runs/{run_id}/reopen")
+def run_reopen(run_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    if user.role != "MANAGER":
+        raise HTTPException(403, "Manager only")
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+    run.status = "OPEN"
+    session.add(run)
+    session.commit()
+    return RedirectResponse(f"/runs/{run_id}", status_code=302)
+
+
+# -----------------------------
+# RUN VIEW (✅ FIXED GRID + HIGHLIGHT META + DAY SWITCHING)
+# -----------------------------
 @app.get("/runs/{run_id}", response_class=HTMLResponse)
 def run_view(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -436,7 +525,17 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
     ).all()
 
     days = get_days_for_run(session, run_id)
-    selected_day = days[-1] if days else date.today()
+
+    # ✅ support day selection via ?day=YYYY-MM-DD
+    selected_day = None
+    day_q = request.query_params.get("day")
+    if day_q:
+        try:
+            selected_day = date.fromisoformat(day_q)
+        except Exception:
+            selected_day = None
+    if selected_day is None:
+        selected_day = days[-1] if days else date.today()
 
     entries = session.exec(
         select(InspectionEntry)
@@ -444,17 +543,23 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
         .order_by(InspectionEntry.created_at)
     ).all()
 
-    # ✅ grid now stores more info (value + out_of_spec + pending)
-    grid: Dict[str, Dict[str, dict]] = {s: {} for s in SLOTS}
+    # ✅ grid values for display (official values only)
+    grid: Dict[str, Dict[str, Optional[float]]] = {s: {} for s in SLOTS}
+
+    # ✅ meta for styling + pending badge + spec note
+    # structure: grid_meta[slot][param_key] = {...}
+    grid_meta: Dict[str, Dict[str, dict]] = {s: {} for s in SLOTS}
+
+    # If multiple entries exist for the same slot, the later one wins (overwrite).
     for e in entries:
         vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id)).all()
         for v in vals:
-            grid.setdefault(e.slot_time, {})[v.param_key] = {
-                "value": v.value,
-                "out": bool(v.is_out_of_spec),
-                "note": v.spec_note or "",
-                "pending_status": v.pending_status or "",
+            grid.setdefault(e.slot_time, {})[v.param_key] = v.value
+            grid_meta.setdefault(e.slot_time, {})[v.param_key] = {
+                "is_out_of_spec": bool(v.is_out_of_spec),
+                "spec_note": v.spec_note or "",
                 "pending_value": v.pending_value,
+                "pending_status": v.pending_status or "",
             }
 
     trace_today = get_day_latest_trace(session, run_id, selected_day)
@@ -476,6 +581,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
             "days": days,
             "selected_day": selected_day,
             "grid": grid,
+            "grid_meta": grid_meta,
             "image_url": IMAGE_MAP.get(run.process, ""),
             "raw_batches": raw_batches,
             "tools": tools,
@@ -537,122 +643,74 @@ async def entry_new_post(
     if not run:
         raise HTTPException(404, "Run not found")
 
-    # ✅ block data entry when closed/approved
-    if run.status in ("CLOSED", "APPROVED"):
-        raise HTTPException(400, f"Run is {run.status}. No new entries allowed.")
+    # ✅ block day if run is closed/approved
+    if run.status in ["CLOSED", "APPROVED"] and user.role != "MANAGER":
+        raise HTTPException(403, "Run is not open")
 
-    # first entry MUST include tools + raw batch
-    has_any = session.exec(select(InspectionEntry.id).where(InspectionEntry.run_id == run_id)).first() is not None
-    if not has_any:
-        if not raw_material_batch_no.strip():
-            raise HTTPException(400, "First entry must include Raw Material Batch No.")
-        if not (tool1_name.strip() or tool2_name.strip()):
-            raise HTTPException(400, "First entry must include Inspection Tools")
+    # slot from time
+    slot_time = slot_from_time_str(actual_time)
 
-    slot = slot_for_time(actual_time.strip())
-    day = datetime.strptime(actual_date, "%Y-%m-%d").date()
+    # ✅ read full form once (do not call request.form() multiple times)
+    form = await request.form()
 
     entry = InspectionEntry(
         run_id=run_id,
-        actual_date=day,
-        actual_time=actual_time.strip(),
-        slot_time=slot,
+        actual_date=date.fromisoformat(actual_date),
+        actual_time=actual_time,
+        slot_time=slot_time,
         inspector_id=user.id,
-        operator_1=operator_1.strip(),
-        operator_2=operator_2.strip(),
-        operator_annular_12=operator_annular_12.strip(),
-        operator_int_ext_34=operator_int_ext_34.strip(),
-        remarks=remarks.strip(),
-        raw_material_batch_no=raw_material_batch_no.strip(),
-        tool1_name=tool1_name.strip(),
-        tool1_serial=tool1_serial.strip(),
-        tool1_calib_due=tool1_calib_due.strip(),
-        tool2_name=tool2_name.strip(),
-        tool2_serial=tool2_serial.strip(),
-        tool2_calib_due=tool2_calib_due.strip(),
+
+        operator_1=operator_1,
+        operator_2=operator_2,
+        operator_annular_12=operator_annular_12,
+        operator_int_ext_34=operator_int_ext_34,
+
+        remarks=remarks,
+        raw_material_batch_no=raw_material_batch_no,
+
+        tool1_name=tool1_name,
+        tool1_serial=tool1_serial,
+        tool1_calib_due=tool1_calib_due,
+
+        tool2_name=tool2_name,
+        tool2_serial=tool2_serial,
+        tool2_calib_due=tool2_calib_due,
     )
     session.add(entry)
     session.commit()
     session.refresh(entry)
 
-    # ✅ Read entire form ONCE and save values
-    form = await request.form()
+    # save values + spec check
+    params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id)).all()
+    by_key = {p.param_key: p for p in params}
 
-    params = session.exec(
-        select(RunParameter)
-        .where(RunParameter.run_id == run_id)
-        .order_by(RunParameter.display_order)
-    ).all()
-
-    for p in params:
-        key = f"param_{p.param_key}"
-        raw = form.get(key)
-
-        if raw is None or str(raw).strip() == "":
+    for key in by_key.keys():
+        raw = form.get(f"v_{key}")
+        if raw in [None, ""]:
             continue
-
         try:
-            val = float(raw)
+            v = float(raw)
         except Exception:
             continue
 
-        out, note = check_spec(p, val)
+        param = by_key[key]
+        is_oos, note = apply_spec_check(param, v)
 
-        session.add(
-            InspectionValue(
-                entry_id=entry.id,
-                param_key=p.param_key,
-                value=val,
-                is_out_of_spec=out,
-                spec_note=note,
-            )
-        )
+        session.add(InspectionValue(
+            entry_id=entry.id,
+            param_key=key,
+            value=v,
+            is_out_of_spec=is_oos,
+            spec_note=note,
+        ))
 
     session.commit()
-    return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
-
-@app.post("/runs/{run_id}/close")
-def run_close(run_id: int, request: Request, session: Session = Depends(get_session)):
-    user = get_current_user(request, session)
-    require_manager(user)
-    run = session.get(ProductionRun, run_id)
-    if not run:
-        raise HTTPException(404)
-    run.status = "CLOSED"
-    session.add(run)
-    session.commit()
-    return RedirectResponse(f"/runs/{run_id}", status_code=302)
-
-
-@app.post("/runs/{run_id}/approve")
-def run_approve(run_id: int, request: Request, session: Session = Depends(get_session)):
-    user = get_current_user(request, session)
-    require_manager(user)
-    run = session.get(ProductionRun, run_id)
-    if not run:
-        raise HTTPException(404)
-    run.status = "APPROVED"
-    session.add(run)
-    session.commit()
-    return RedirectResponse(f"/runs/{run_id}", status_code=302)
-
-
-@app.post("/runs/{run_id}/reopen")
-def run_reopen(run_id: int, request: Request, session: Session = Depends(get_session)):
-    user = get_current_user(request, session)
-    require_manager(user)
-    run = session.get(ProductionRun, run_id)
-    if not run:
-        raise HTTPException(404)
-    run.status = "OPEN"
-    session.add(run)
-    session.commit()
-    return RedirectResponse(f"/runs/{run_id}", status_code=302)
+    return RedirectResponse(f"/runs/{run_id}?day={entry.actual_date.isoformat()}", status_code=302)
 
 
 # -----------------------------
-# EXPORT EXCEL (ALL DAYS -> ONE XLSX)
+# EXPORT
 # -----------------------------
 @app.get("/runs/{run_id}/export/xlsx")
 def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_session)):
@@ -681,12 +739,14 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
             ws = base_wb.copy_worksheet(base_ws)
             ws.title = f"Day {i+1} ({day.isoformat()})"
 
+        # Header fields (must exist for reinforcement too)
         ws["D5"].value = run.dhtp_batch_no
         ws["I5"].value = run.client_name
         ws["I6"].value = run.po_number
         ws["D7"].value = run.raw_material_spec
         ws["D9"].value = run.itp_number
 
+        # Date + time row (reinforcement has different columns)
         if run.process in ["LINER", "COVER"]:
             ws["E20"].value = day
             for idx, slot in enumerate(SLOTS):
@@ -696,9 +756,10 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 cell.value = dtime(int(hh), int(mm))
                 cell.number_format = "h:mm"
         else:
+            # Reinforcement: "Date" label is at E20, we write the actual date at F20
             ws["F20"].value = day
             for idx, slot in enumerate(SLOTS):
-                col = openpyxl.utils.get_column_letter(6 + idx)
+                col = openpyxl.utils.get_column_letter(6 + idx)  # F.. for times
                 cell = ws[f"{col}21"]
                 hh, mm = slot.split(":")
                 cell.value = dtime(int(hh), int(mm))
@@ -738,7 +799,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 ws["B37"].value = last.operator_annular_12
                 ws["B38"].value = last.operator_int_ext_34
 
-        col_start = 5 if run.process in ["LINER", "COVER"] else 6
+        col_start = 5 if run.process in ["LINER", "COVER"] else 6  # E.. or F..
         row_map = ROW_MAP_LINER_COVER if run.process in ["LINER", "COVER"] else ROW_MAP_REINF
 
         day_entries = session.exec(
