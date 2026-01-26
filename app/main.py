@@ -5,28 +5,29 @@ from datetime import datetime, date, time as dtime
 from io import BytesIO
 from typing import Dict, List, Optional, Tuple
 
+import openpyxl
 from fastapi import FastAPI, Depends, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-
 from sqlmodel import Session, select
 
+from .auth import hash_password, verify_password
 from .db import create_db_and_tables, get_session
 from .models import (
-    User, ProductionRun, RunMachine, RunParameter,
-    InspectionEntry, InspectionValue, InspectionValueAudit
+    User,
+    ProductionRun,
+    RunMachine,
+    RunParameter,
+    InspectionEntry,
+    InspectionValue,
+    InspectionValueAudit,
 )
-from .auth import hash_password, verify_password
-
-import openpyxl
-
 
 app = FastAPI()
 
 BASE_DIR = os.path.dirname(__file__)
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 
@@ -66,18 +67,15 @@ LINER_COVER_PARAMS = [
 
 REINF_PARAMS = [
     ("length_m", "Length (Mtr)", "m"),
-
     ("annular_od_70_1", "Annular OD (mm) (∠ 70°) #1", "mm"),
     ("annular_od_70_2", "Annular OD (mm) (∠ 70°) #2", "mm"),
     ("annular_od_45_3", "Annular OD (mm) (∠ 45°) #3", "mm"),
     ("annular_od_45_4", "Annular OD (mm) (∠ 45°) #4", "mm"),
-
     ("core_mould_dia_mm", "Core Mould Dia. (mm)", "mm"),
     ("annular_width_1_mm", "Annular Width (mm) #1", "mm"),
     ("annular_width_2_mm", "Annular Width (mm) #2", "mm"),
     ("screw_yarn_width_1_mm", "Screw Yarn Width (mm) #1", "mm"),
     ("screw_yarn_width_2_mm", "Screw Yarn Width (mm) #2", "mm"),
-
     ("tractor_speed_m_min", "Tractor Speed (m/min)", "m/min"),
     ("clamping_gas_p1_mpa", "Clamping Gas Pressure (MPa) #1", "MPa"),
     ("clamping_gas_p2_mpa", "Clamping Gas Pressure (MPa) #2", "MPa"),
@@ -89,7 +87,6 @@ PROCESS_PARAMS = {
     "COVER": LINER_COVER_PARAMS,
     "REINFORCEMENT": REINF_PARAMS,
 }
-
 
 ROW_MAP_LINER_COVER = {
     "length_m": 22,
@@ -230,7 +227,6 @@ def slot_from_time_str(t: str) -> str:
     return f"{slot_h:02d}:00"
 
 
-
 def get_progress_percent(session: Session, run: ProductionRun) -> int:
     if run.total_length_m <= 0:
         return 0
@@ -249,7 +245,6 @@ def get_progress_percent(session: Session, run: ProductionRun) -> int:
     return int(min(100.0, (max_len / run.total_length_m) * 100.0))
 
 
-# ✅ tools/raw trace: leaving tool fields blank does NOT erase previous
 def get_day_latest_trace(session: Session, run_id: int, day: date) -> dict:
     entries = session.exec(
         select(InspectionEntry)
@@ -378,6 +373,7 @@ def run_new_post(
     pipe_specification: str = Form(...),
     raw_material_spec: str = Form(...),
     total_length_m: float = Form(0.0),
+    allow_duplicate: str = Form(""),  # ✅ Part D backend
 ):
     user = get_current_user(request, session)
     if user.role != "MANAGER":
@@ -386,6 +382,26 @@ def run_new_post(
     process = process.upper().strip()
     if process not in PROCESS_PARAMS:
         return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": "Invalid process"})
+
+    dhtp_batch_no = dhtp_batch_no.strip()
+
+    # ✅ Block duplicate OPEN run for same batch+process unless allowed
+    existing_open = session.exec(
+        select(ProductionRun).where(
+            ProductionRun.dhtp_batch_no == dhtp_batch_no,
+            ProductionRun.process == process,
+            ProductionRun.status == "OPEN",
+        )
+    ).first()
+    if existing_open and allow_duplicate != "1":
+        return templates.TemplateResponse(
+            "run_new.html",
+            {
+                "request": request,
+                "user": user,
+                "error": f"There is already an OPEN {process} run for Batch {dhtp_batch_no}. If you really need a second line, tick 'Allow duplicate line'.",
+            },
+        )
 
     run = ProductionRun(
         process=process,
@@ -488,9 +504,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
         .order_by(InspectionEntry.created_at)
     ).all()
 
-    # grid[slot][param_key] = dict(value_id, value, out, note, pending_value, pending_status)
     grid: Dict[str, Dict[str, dict]] = {s: {} for s in SLOTS}
-
     for e in entries:
         vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id)).all()
         for v in vals:
@@ -530,6 +544,102 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
     )
 
 
+# ✅ Part C: run edit page must pass machines + params
+@app.get("/runs/{run_id}/edit", response_class=HTMLResponse)
+def run_edit_get(run_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    if user.role != "MANAGER":
+        raise HTTPException(403, "Manager only")
+
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
+    params = session.exec(
+        select(RunParameter)
+        .where(RunParameter.run_id == run_id)
+        .order_by(RunParameter.display_order)
+    ).all()
+
+    return templates.TemplateResponse(
+        "run_edit.html",
+        {"request": request, "user": user, "run": run, "machines": machines, "params": params, "error": ""},
+    )
+
+
+@app.post("/runs/{run_id}/edit")
+async def run_edit_post(run_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    if user.role != "MANAGER":
+        raise HTTPException(403, "Manager only")
+
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    form = await request.form()
+
+    # header fields
+    run.client_name = str(form.get("client_name", "")).strip()
+    run.po_number = str(form.get("po_number", "")).strip()
+    run.itp_number = str(form.get("itp_number", "")).strip()
+    run.pipe_specification = str(form.get("pipe_specification", "")).strip()
+    run.raw_material_spec = str(form.get("raw_material_spec", "")).strip()
+    try:
+        run.total_length_m = float(form.get("total_length_m") or 0.0)
+    except Exception:
+        run.total_length_m = 0.0
+
+    session.add(run)
+    session.commit()
+
+    # machines: replace existing
+    existing = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
+    for m in existing:
+        session.delete(m)
+    session.commit()
+
+    def _m(name_key: str, tag_key: str):
+        name = str(form.get(name_key, "")).strip()
+        tag = str(form.get(tag_key, "")).strip()
+        if name:
+            session.add(RunMachine(run_id=run_id, machine_name=name, machine_tag=tag))
+
+    _m("machine1_name", "machine1_tag")
+    _m("machine2_name", "machine2_tag")
+    _m("machine3_name", "machine3_tag")
+    _m("machine4_name", "machine4_tag")
+    _m("machine5_name", "machine5_tag")
+    session.commit()
+
+    # parameter limits
+    params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id)).all()
+    for p in params:
+        rule = str(form.get(f"rule_{p.param_key}", "")).strip().upper()
+        if rule not in ["", "RANGE", "MIN_ONLY", "MAX_ONLY"]:
+            rule = ""
+        p.rule = rule
+
+        mn_raw = form.get(f"min_{p.param_key}", "")
+        mx_raw = form.get(f"max_{p.param_key}", "")
+
+        try:
+            p.min_value = float(mn_raw) if str(mn_raw).strip() != "" else None
+        except Exception:
+            p.min_value = None
+
+        try:
+            p.max_value = float(mx_raw) if str(mx_raw).strip() != "" else None
+        except Exception:
+            p.max_value = None
+
+        session.add(p)
+
+    session.commit()
+    return RedirectResponse(f"/runs/{run.id}", status_code=302)
+
+
 @app.get("/runs/{run_id}/entry/new", response_class=HTMLResponse)
 def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -550,7 +660,6 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
         "entry_new.html",
         {"request": request, "user": user, "run": run, "params": params, "has_any": has_any, "error": error},
     )
-
 
 
 @app.post("/runs/{run_id}/entry/new")
@@ -589,7 +698,7 @@ async def entry_new_post(
     slot_time = slot_from_time_str(actual_time)
     day_obj = date.fromisoformat(actual_date)
 
-    # ✅ prevent overwrite: slot already inspected
+    # ✅ clean UI error (no JSON)
     existing_for_slot = session.exec(
         select(InspectionEntry)
         .where(
@@ -598,8 +707,10 @@ async def entry_new_post(
             InspectionEntry.slot_time == slot_time
         )
     ).first()
+
     if existing_for_slot:
-        raise HTTPException(400, "This timing slot is already inspected. Please confirm the time, or use Edit to change the existing record.")
+        msg = "This timing slot is already inspected. Please confirm the time, or use Edit to change the existing record."
+        return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
 
     form = await request.form()
 
@@ -618,7 +729,6 @@ async def entry_new_post(
         remarks=remarks,
         raw_material_batch_no=raw_material_batch_no,
 
-        # tools can be blank; trace functions reuse last non-empty
         tool1_name=tool1_name,
         tool1_serial=tool1_serial,
         tool1_calib_due=tool1_calib_due,
@@ -653,14 +763,12 @@ async def entry_new_post(
         ))
 
     session.commit()
-
     return RedirectResponse(f"/runs/{run_id}?day={entry.actual_date.isoformat()}", status_code=302)
 
 
 # -----------------------------
-# ✅ CELL EDITING + MANAGER APPROVAL
+# CELL EDITING + MANAGER APPROVAL (your code kept)
 # -----------------------------
-
 @app.get("/values/{value_id}/edit", response_class=HTMLResponse)
 def value_edit_get(value_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -673,7 +781,6 @@ def value_edit_get(value_id: int, request: Request, session: Session = Depends(g
     if not entry or not run:
         raise HTTPException(404, "Run/Entry not found")
 
-    # inspectors can't propose when run closed/approved
     if run.status in ["CLOSED", "APPROVED"] and user.role != "MANAGER":
         raise HTTPException(403, "Run is not open")
 
@@ -683,15 +790,7 @@ def value_edit_get(value_id: int, request: Request, session: Session = Depends(g
 
     return templates.TemplateResponse(
         "value_edit.html",
-        {
-            "request": request,
-            "user": user,
-            "run": run,
-            "entry": entry,
-            "param": param,
-            "v": v,
-            "error": "",
-        },
+        {"request": request, "user": user, "run": run, "entry": entry, "param": param, "v": v, "error": ""},
     )
 
 
@@ -720,14 +819,12 @@ async def value_edit_post(
     if nv is None:
         return RedirectResponse(f"/values/{value_id}/edit", status_code=302)
 
-    # set pending
     v.pending_value = nv
     v.pending_status = "PENDING"
     v.pending_by_user_id = user.id
     v.pending_at = datetime.utcnow()
     session.add(v)
 
-    # audit
     session.add(InspectionValueAudit(
         inspection_value_id=v.id,
         action="PROPOSED",
@@ -739,7 +836,6 @@ async def value_edit_post(
     ))
 
     session.commit()
-
     return RedirectResponse(f"/runs/{run.id}?day={entry.actual_date.isoformat()}", status_code=302)
 
 
@@ -753,8 +849,6 @@ def pending_list(run_id: int, request: Request, session: Session = Depends(get_s
     if not run:
         raise HTTPException(404, "Run not found")
 
-    # gather pending values for this run
-    # join: value -> entry (by entry_id) and filter entry.run_id
     pending_items = []
     entries = session.exec(select(InspectionEntry).where(InspectionEntry.run_id == run_id)).all()
     entry_ids = [e.id for e in entries]
@@ -766,19 +860,14 @@ def pending_list(run_id: int, request: Request, session: Session = Depends(get_s
             )
         ).all()
 
-        # param lookup
         params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id)).all()
         pmap = {p.param_key: p for p in params}
-
         emap = {e.id: e for e in entries}
+
         for v in vals:
             e = emap.get(v.entry_id)
             p = pmap.get(v.param_key)
-            pending_items.append({
-                "value": v,
-                "entry": e,
-                "param": p,
-            })
+            pending_items.append({"value": v, "entry": e, "param": p})
 
     return templates.TemplateResponse(
         "pending_list.html",
@@ -806,12 +895,10 @@ def value_approve(value_id: int, request: Request, session: Session = Depends(ge
     old = v.value
     new = v.pending_value
 
-    # apply approved value
     v.value = new
     v.pending_status = "APPROVED"
     session.add(v)
 
-    # audit
     session.add(InspectionValueAudit(
         inspection_value_id=v.id,
         action="APPROVED",
@@ -822,7 +909,6 @@ def value_approve(value_id: int, request: Request, session: Session = Depends(ge
         note="",
     ))
 
-    # clear pending (keep status record in audits)
     v.pending_value = None
     v.pending_status = ""
     v.pending_by_user_id = None
@@ -860,7 +946,6 @@ def value_reject(value_id: int, request: Request, session: Session = Depends(get
         note="",
     ))
 
-    # clear pending
     v.pending_value = None
     v.pending_status = ""
     v.pending_by_user_id = None
@@ -871,9 +956,6 @@ def value_reject(value_id: int, request: Request, session: Session = Depends(get
     return RedirectResponse(f"/runs/{run.id}/pending", status_code=302)
 
 
-# -----------------------------
-# EXPORT (keep your current export; it already ignores pending)
-# -----------------------------
 @app.get("/runs/{run_id}/export/xlsx")
 def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -907,7 +989,6 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         ws["D7"].value = run.raw_material_spec
         ws["D9"].value = run.itp_number
 
-        # date + time
         if run.process in ["LINER", "COVER"]:
             ws["E20"].value = day
             for idx, slot in enumerate(SLOTS):
@@ -945,8 +1026,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 if calib:
                     ws[f"K{r}"].value = calib
 
-        # per-slot inspector/operators already fixed in your current version
-        # (keep your working block here)
+        # keep your inspector/operators export block here (as you already had it working)
 
         col_start = 5 if run.process in ["LINER", "COVER"] else 6
         row_map = ROW_MAP_LINER_COVER if run.process in ["LINER", "COVER"] else ROW_MAP_REINF
@@ -958,6 +1038,8 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         ).all()
 
         for e in day_entries:
+            if e.slot_time not in SLOTS:
+                continue
             slot_idx = SLOTS.index(e.slot_time)
             col = openpyxl.utils.get_column_letter(col_start + slot_idx)
 
@@ -978,5 +1060,3 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
-
-
