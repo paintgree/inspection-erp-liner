@@ -21,6 +21,11 @@
           </form>
         {% endif %}
 
+        {% if user.role == "MANAGER" %}
+          <a class="btn btn-warn" href="/runs/{{ run.id }}/pending">Pending approvals</a>
+        {% endif %}
+
+
         {% if run.status == "CLOSED" %}
           <form method="post" action="/runs/{{ run.id }}/approve"
                 onsubmit="return confirm('Approve this process? This will lock the run. You can Reopen later if needed.');">
@@ -158,4 +163,5 @@
   </div>
 </div>
 {% endblock %}
+
 
