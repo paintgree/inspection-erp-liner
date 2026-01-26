@@ -135,9 +135,12 @@
               <td class="cell {% if is_oos %}oos{% endif %} {% if is_pending %}pending{% endif %}">
                 {% if val is not none %}
                   <div class="cellval">
-                    {{ val }}
-                    {% if is_pending %}<span class="badge">PENDING</span>{% endif %}
-                    {% if is_oos %}<span class="badge bad">OUT</span>{% endif %}
+                    {% if cell and cell.get("value_id") %}
+                      <a href="/values/{{ cell.get('value_id') }}/edit" class="celllink">{{ val }}</a>
+                    {% else %}
+                      {{ val }}
+                    {% endif %}
+
                   </div>
                   {% if note %}<div class="muted tiny">{{ note }}</div>{% endif %}
                 {% else %}
@@ -155,3 +158,4 @@
   </div>
 </div>
 {% endblock %}
+
