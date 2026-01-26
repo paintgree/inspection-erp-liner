@@ -17,6 +17,11 @@
   </div>
 {% endif %}
 
+{% if user.role == "MANAGER" %}
+  <a class="btn" href="/users">Users</a>
+{% endif %}
+
+
 {% for batch, runs in grouped.items() %}
   <div class="card">
     <h2>Batch: {{ batch }}</h2>
@@ -48,3 +53,4 @@
 {% endfor %}
 
 {% endblock %}
+
