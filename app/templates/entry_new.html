@@ -33,44 +33,33 @@
       </div>
     </div>
 
-    {# =========================
-       OPERATORS (different per process)
-       ========================= #}
-    {% if run.process in ["LINER","COVER"] %}
+    {% if run.process in ["LINER", "COVER"] %}
+      <!-- ✅ Operators for LINER/COVER (used in Excel export rows 39 & 40) -->
       <div class="card inner mt">
-        <div class="sectiontitle accent-blue">Operators</div>
+        <div class="sectiontitle accent-purple">Operators</div>
         <div class="grid2 mt">
           <div>
-            <label>Operator (Hopper / Extruder)</label>
+            <label>Operator (Hopper)</label>
             <input name="operator_1" placeholder="Name">
           </div>
           <div>
-            <label>Operator (Cooling / Accumulator)</label>
+            <label>Operator (Extruder)</label>
             <input name="operator_2" placeholder="Name">
           </div>
         </div>
-      </div>
-    {% else %}
-      <div class="card inner mt">
-        <div class="sectiontitle accent-blue">Operators</div>
+
         <div class="grid2 mt">
           <div>
-            <label>Operator (Annular 1–2)</label>
+            <label>Operator (Cooling)</label>
             <input name="operator_annular_12" placeholder="Name">
           </div>
           <div>
-            <label>Operator (Int/Ext 3–4)</label>
+            <label>Operator (Accumulator)</label>
             <input name="operator_int_ext_34" placeholder="Name">
           </div>
         </div>
       </div>
-    {% endif %}
 
-    {# =========================
-       PARAMETERS
-       ========================= #}
-
-    {% if run.process in ["LINER","COVER"] %}
       <div class="card inner mt">
         <div class="sectiontitle accent-blue">Standard Parameters</div>
         <div class="grid3 mt">
@@ -85,6 +74,7 @@
         </div>
       </div>
 
+      <!-- ✅ Body/Noising merged headers + 5 barrels -->
       <div class="card inner mt">
         <div class="grid2">
           <div>
@@ -112,10 +102,11 @@
           </div>
         </div>
       </div>
+
     {% else %}
-      {# REINFORCEMENT: show ALL params as list/grid #}
+      <!-- ✅ REINFORCEMENT: show the reinforcement parameter list (no body/noising blocks) -->
       <div class="card inner mt">
-        <div class="sectiontitle accent-purple">Reinforcement Parameters</div>
+        <div class="sectiontitle accent-blue">Reinforcement Parameters</div>
         <div class="grid3 mt">
           {% for p in params %}
             <div class="fieldbox">
@@ -127,9 +118,6 @@
       </div>
     {% endif %}
 
-    {# =========================
-       TRACEABILITY
-       ========================= #}
     <div class="card inner mt">
       <div class="sectiontitle accent-purple">Daily Traceability (Tools & Raw Material Batch)</div>
 
