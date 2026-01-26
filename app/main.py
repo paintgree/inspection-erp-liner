@@ -931,18 +931,34 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
             slot_idx = SLOTS.index(e.slot_time)
             col = openpyxl.utils.get_column_letter(col_start + slot_idx)
 
-            # ✅ Fill inspector + operators ONLY for LINER/COVER per your exact rows
+            # ✅ Fill inspector + operators per your exact rows
+            inspector_name = user_map.get(e.inspector_id, "")
+            
             if run.process in ["LINER", "COVER"]:
-                inspector_name = user_map.get(e.inspector_id, "")
+                # Inspector: E38:P38
                 ws[f"{col}38"].value = inspector_name
-
-                # Hopper/Extruder (row 39)
+            
+                # Operator (Hopper / Extruder): E39:P39
                 hop_extr = " / ".join([x for x in [e.operator_1, e.operator_2] if x])
                 ws[f"{col}39"].value = hop_extr
-
-                # Cooling/Accumulator (row 40)
+            
+                # Operator (Cooling / Accumulator): E40:P40
                 cool_acc = " / ".join([x for x in [e.operator_annular_12, e.operator_int_ext_34] if x])
                 ws[f"{col}40"].value = cool_acc
+            
+            else:
+                # REINFORCEMENT:
+                # Inspector: F36:Q36
+                ws[f"{col}36"].value = inspector_name
+            
+                # Operator (Annular 1 & 2): F37:Q37
+                annular = " / ".join([x for x in [e.operator_annular_12] if x])
+                ws[f"{col}37"].value = annular
+            
+                # Operator (Int./ Ext. 3 & 4): F38:Q38
+                intex = " / ".join([x for x in [e.operator_int_ext_34] if x])
+                ws[f"{col}38"].value = intex
+
 
             # Values
             vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id)).all()
@@ -962,5 +978,6 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 
