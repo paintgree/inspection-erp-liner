@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<a class="btn btn-ghost" href="/dashboard">← Back</a>
+
+<div class="card">
+  <h1>Users</h1>
+
+  {% if error %}
+    <div class="alert mt">{{ error }}</div>
+  {% endif %}
+
+  <div class="card inner mt">
+    <h2>Create User</h2>
+    <form method="post" action="/users" class="form">
+      <div class="grid2">
+        <div><label>Username</label><input name="username" required></div>
+        <div><label>Display Name</label><input name="display_name" required></div>
+      </div>
+
+      <div class="grid2 mt">
+        <div>
+          <label>Role</label>
+          <select name="role" required>
+            <option value="INSPECTOR">INSPECTOR</option>
+            <option value="MANAGER">MANAGER</option>
+            <option value="BOSS">BOSS (read-only)</option>
+          </select>
+        </div>
+        <div><label>Password</label><input name="password" required></div>
+      </div>
+
+      <div class="toolbar mt">
+        <button class="btn btn-primary" type="submit">Create</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card inner mt">
+    <h2>Existing Users</h2>
+    <div class="tablewrap mt">
+      <table class="table">
+        <thead>
+          <tr><th>Username</th><th>Name</th><th>Role</th></tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr>
+            <td>{{ u.username }}</td>
+            <td>{{ u.display_name }}</td>
+            <td>{{ u.role }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
