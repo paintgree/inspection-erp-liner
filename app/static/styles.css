@@ -153,4 +153,9 @@ input:focus, select:focus{border-color:#b7bce8}
   background: #fff3c4; /* light highlight */
   font-weight: 700;
 }
+.length-row td, .length-row th {
+  background: #fff3c4;
+  font-weight: 700;
+}
+
 
