@@ -124,6 +124,15 @@ def ensure_default_users():
                 role="INSPECTOR",
                 password_hash=hash_password("inspector"),
             ))
+         b = session.exec(select(User).where(User.username == "boss")).first()
+         if not b:
+             session.add(User(
+                 username="boss",
+                 display_name="Boss",
+                 role="BOSS",
+                 password_hash=hash_password("boss123"),
+             ))
+   
         session.commit()
 
 
@@ -135,6 +144,14 @@ def get_current_user(request: Request, session: Session) -> User:
     if not user:
         raise HTTPException(401, "Invalid user")
     return user
+
+def require_manager(user: User):
+    if user.role != "MANAGER":
+        raise HTTPException(403, "Manager only")
+
+def forbid_boss(user: User):
+    if user.role == "BOSS":
+        raise HTTPException(403, "Read-only user")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -320,7 +337,7 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
 @app.get("/runs/new", response_class=HTMLResponse)
 def run_new_get(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
-    if user.role != "MANAGER":
+    require_manager(user)
         raise HTTPException(403, "Manager only")
     return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": ""})
 
@@ -340,7 +357,7 @@ def run_new_post(
     allow_duplicate: str = Form(""),
 ):
     user = get_current_user(request, session)
-    if user.role != "MANAGER":
+    require_manager(user)
         raise HTTPException(403, "Manager only")
 
     process = process.upper().strip()
@@ -450,7 +467,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
 @app.get("/runs/{run_id}/edit", response_class=HTMLResponse)
 def run_edit_get(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
-    if user.role != "MANAGER":
+    require_manager(user)
         raise HTTPException(403, "Manager only")
 
     run = session.get(ProductionRun, run_id)
@@ -471,7 +488,7 @@ def run_edit_get(run_id: int, request: Request, session: Session = Depends(get_s
 @app.post("/runs/{run_id}/edit")
 async def run_edit_post(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
-    if user.role != "MANAGER":
+    require_manager(user)
         raise HTTPException(403, "Manager only")
 
     run = session.get(ProductionRun, run_id)
@@ -583,6 +600,8 @@ async def entry_new_post(
 ):
     user = get_current_user(request, session)
     run = session.get(ProductionRun, run_id)
+    forbid_boss(user)
+
     if not run:
         raise HTTPException(404, "Run not found")
 
@@ -688,6 +707,7 @@ async def value_edit_post(
     note: str = Form(""),
 ):
     user = get_current_user(request, session)
+    forbid_boss(user)
 
     v = session.get(InspectionValue, value_id)
     if not v:
@@ -727,7 +747,7 @@ async def value_edit_post(
 @app.get("/runs/{run_id}/pending", response_class=HTMLResponse)
 def pending_list(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
-    if user.role != "MANAGER":
+    require_manager(user)
         raise HTTPException(403, "Manager only")
 
     run = session.get(ProductionRun, run_id)
@@ -761,7 +781,7 @@ def pending_list(run_id: int, request: Request, session: Session = Depends(get_s
 @app.post("/values/{value_id}/approve")
 def value_approve(value_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
-    if user.role != "MANAGER":
+    require_manager(user)
         raise HTTPException(403, "Manager only")
 
     v = session.get(InspectionValue, value_id)
@@ -805,7 +825,7 @@ def value_approve(value_id: int, request: Request, session: Session = Depends(ge
 @app.post("/values/{value_id}/reject")
 def value_reject(value_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
-    if user.role != "MANAGER":
+    require_manager(user)
         raise HTTPException(403, "Manager only")
 
     v = session.get(InspectionValue, value_id)
@@ -978,6 +998,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 
 
