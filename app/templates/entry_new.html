@@ -4,6 +4,10 @@
 
 <div class="card">
   <h1>Inspection Data Entry</h1>
+  {% if error %}
+  <div class="alert mt">{{ error }}</div>
+  {% endif %}
+
   <div class="muted">Automatic Slot Assignment: <b>{{ slot_hint if slot_hint else "auto" }}</b></div>
 
   <form method="post" action="/runs/{{ run.id }}/entry/new" class="form">
@@ -105,3 +109,4 @@
   </form>
 </div>
 {% endblock %}
+
