@@ -30,7 +30,6 @@ BASE_DIR = os.path.dirname(__file__)
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
-
 IMAGE_MAP = {
     "LINER": "/static/images/liner.png",
     "REINFORCEMENT": "/static/images/reinforcement.png",
@@ -44,7 +43,6 @@ TEMPLATE_XLSX_MAP = {
 }
 
 SLOTS = ["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00"]
-
 
 LINER_COVER_PARAMS = [
     ("length_m", "Length (Mtr)", "m"),
@@ -82,45 +80,21 @@ REINF_PARAMS = [
     ("thrust_gas_p_mpa", "Thrust Gas Pressure (MPa)", "MPa"),
 ]
 
-PROCESS_PARAMS = {
-    "LINER": LINER_COVER_PARAMS,
-    "COVER": LINER_COVER_PARAMS,
-    "REINFORCEMENT": REINF_PARAMS,
-}
+PROCESS_PARAMS = {"LINER": LINER_COVER_PARAMS, "COVER": LINER_COVER_PARAMS, "REINFORCEMENT": REINF_PARAMS}
 
 ROW_MAP_LINER_COVER = {
-    "length_m": 22,
-    "od_mm": 23,
-    "wall_thickness_mm": 24,
-    "cooling_water_c": 25,
-    "line_speed_m_min": 26,
-    "tractor_pressure_mpa": 27,
-    "body_temp_zone_1_c": 28,
-    "body_temp_zone_2_c": 29,
-    "body_temp_zone_3_c": 30,
-    "body_temp_zone_4_c": 31,
-    "body_temp_zone_5_c": 32,
-    "noising_temp_zone_1_c": 33,
-    "noising_temp_zone_2_c": 34,
-    "noising_temp_zone_3_c": 35,
-    "noising_temp_zone_4_c": 36,
-    "noising_temp_zone_5_c": 37,
+    "length_m": 22, "od_mm": 23, "wall_thickness_mm": 24, "cooling_water_c": 25,
+    "line_speed_m_min": 26, "tractor_pressure_mpa": 27, "body_temp_zone_1_c": 28,
+    "body_temp_zone_2_c": 29, "body_temp_zone_3_c": 30, "body_temp_zone_4_c": 31,
+    "body_temp_zone_5_c": 32, "noising_temp_zone_1_c": 33, "noising_temp_zone_2_c": 34,
+    "noising_temp_zone_3_c": 35, "noising_temp_zone_4_c": 36, "noising_temp_zone_5_c": 37,
 }
 
 ROW_MAP_REINF = {
-    "length_m": 22,
-    "annular_od_70_1": 23,
-    "annular_od_70_2": 24,
-    "annular_od_45_3": 25,
-    "annular_od_45_4": 26,
-    "core_mould_dia_mm": 27,
-    "annular_width_1_mm": 28,
-    "annular_width_2_mm": 29,
-    "screw_yarn_width_1_mm": 30,
-    "screw_yarn_width_2_mm": 31,
-    "tractor_speed_m_min": 32,
-    "clamping_gas_p1_mpa": 33,
-    "clamping_gas_p2_mpa": 34,
+    "length_m": 22, "annular_od_70_1": 23, "annular_od_70_2": 24, "annular_od_45_3": 25,
+    "annular_od_45_4": 26, "core_mould_dia_mm": 27, "annular_width_1_mm": 28,
+    "annular_width_2_mm": 29, "screw_yarn_width_1_mm": 30, "screw_yarn_width_2_mm": 31,
+    "tractor_speed_m_min": 32, "clamping_gas_p1_mpa": 33, "clamping_gas_p2_mpa": 34,
     "thrust_gas_p_mpa": 35,
 }
 
@@ -205,6 +179,7 @@ def get_days_for_run(session: Session, run_id: int) -> List[date]:
     return list(days)
 
 
+# ✅ Part A (already done): nearest 2-hour slot rounding
 def slot_from_time_str(t: str) -> str:
     """
     Map any time to nearest 2-hour slot: 00,02,...,22
@@ -217,7 +192,6 @@ def slot_from_time_str(t: str) -> str:
     total_min = hh * 60 + mm
     slot_min = int(round(total_min / 120.0) * 120)
 
-    # clamp to valid range 00:00..22:00
     if slot_min < 0:
         slot_min = 0
     if slot_min > 22 * 60:
@@ -361,6 +335,7 @@ def run_new_get(request: Request, session: Session = Depends(get_session)):
     return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": ""})
 
 
+# ✅ Part D backend added here
 @app.post("/runs/new")
 def run_new_post(
     request: Request,
@@ -373,7 +348,7 @@ def run_new_post(
     pipe_specification: str = Form(...),
     raw_material_spec: str = Form(...),
     total_length_m: float = Form(0.0),
-    allow_duplicate: str = Form(""),  # ✅ Part D backend
+    allow_duplicate: str = Form(""),
 ):
     user = get_current_user(request, session)
     if user.role != "MANAGER":
@@ -383,9 +358,7 @@ def run_new_post(
     if process not in PROCESS_PARAMS:
         return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": "Invalid process"})
 
-    dhtp_batch_no = dhtp_batch_no.strip()
-
-    # ✅ Block duplicate OPEN run for same batch+process unless allowed
+    # ✅ block duplicate OPEN run for same batch+process unless manager allows it
     existing_open = session.exec(
         select(ProductionRun).where(
             ProductionRun.dhtp_batch_no == dhtp_batch_no,
@@ -399,7 +372,7 @@ def run_new_post(
             {
                 "request": request,
                 "user": user,
-                "error": f"There is already an OPEN {process} run for Batch {dhtp_batch_no}. If you really need a second line, tick 'Allow duplicate line'.",
+                "error": f"There is already an OPEN {process} run for Batch {dhtp_batch_no}. If you really need a second line, tick 'Allow duplicate line'."
             },
         )
 
@@ -519,7 +492,6 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
 
     trace_today = get_day_latest_trace(session, run_id, selected_day)
     carry = get_last_known_trace_before_day(session, run_id, selected_day)
-
     raw_batches = trace_today["raw_batches"] or ([carry["raw"]] if carry["raw"] else [])
     tools = trace_today["tools"] or carry["tools"]
 
@@ -544,7 +516,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
     )
 
 
-# ✅ Part C: run edit page must pass machines + params
+# ✅ Part C: run edit GET/POST (machines + params saving)
 @app.get("/runs/{run_id}/edit", response_class=HTMLResponse)
 def run_edit_get(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -557,9 +529,7 @@ def run_edit_get(run_id: int, request: Request, session: Session = Depends(get_s
 
     machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
     params = session.exec(
-        select(RunParameter)
-        .where(RunParameter.run_id == run_id)
-        .order_by(RunParameter.display_order)
+        select(RunParameter).where(RunParameter.run_id == run_id).order_by(RunParameter.display_order)
     ).all()
 
     return templates.TemplateResponse(
@@ -580,7 +550,7 @@ async def run_edit_post(run_id: int, request: Request, session: Session = Depend
 
     form = await request.form()
 
-    # header fields
+    # header
     run.client_name = str(form.get("client_name", "")).strip()
     run.po_number = str(form.get("po_number", "")).strip()
     run.itp_number = str(form.get("itp_number", "")).strip()
@@ -594,7 +564,7 @@ async def run_edit_post(run_id: int, request: Request, session: Session = Depend
     session.add(run)
     session.commit()
 
-    # machines: replace existing
+    # machines: delete and re-add
     existing = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
     for m in existing:
         session.delete(m)
@@ -611,6 +581,7 @@ async def run_edit_post(run_id: int, request: Request, session: Session = Depend
     _m("machine3_name", "machine3_tag")
     _m("machine4_name", "machine4_tag")
     _m("machine5_name", "machine5_tag")
+
     session.commit()
 
     # parameter limits
@@ -662,6 +633,7 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
     )
 
 
+# ✅ Part B: duplicate slot shows clean UI error (redirect) not JSON
 @app.post("/runs/{run_id}/entry/new")
 async def entry_new_post(
     run_id: int,
@@ -698,7 +670,6 @@ async def entry_new_post(
     slot_time = slot_from_time_str(actual_time)
     day_obj = date.fromisoformat(actual_date)
 
-    # ✅ clean UI error (no JSON)
     existing_for_slot = session.exec(
         select(InspectionEntry)
         .where(
@@ -865,9 +836,7 @@ def pending_list(run_id: int, request: Request, session: Session = Depends(get_s
         emap = {e.id: e for e in entries}
 
         for v in vals:
-            e = emap.get(v.entry_id)
-            p = pmap.get(v.param_key)
-            pending_items.append({"value": v, "entry": e, "param": p})
+            pending_items.append({"value": v, "entry": emap.get(v.entry_id), "param": pmap.get(v.param_key)})
 
     return templates.TemplateResponse(
         "pending_list.html",
@@ -956,6 +925,9 @@ def value_reject(value_id: int, request: Request, session: Session = Depends(get
     return RedirectResponse(f"/runs/{run.id}/pending", status_code=302)
 
 
+# -----------------------------
+# EXPORT (your logic kept)
+# -----------------------------
 @app.get("/runs/{run_id}/export/xlsx")
 def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -1025,8 +997,6 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                     ws[f"I{r}"].value = serial
                 if calib:
                     ws[f"K{r}"].value = calib
-
-        # keep your inspector/operators export block here (as you already had it working)
 
         col_start = 5 if run.process in ["LINER", "COVER"] else 6
         row_map = ROW_MAP_LINER_COVER if run.process in ["LINER", "COVER"] else ROW_MAP_REINF
