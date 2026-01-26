@@ -428,11 +428,6 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
                 "pending_status": v.pending_status or "",
             }
 
-    trace_today = get_day_latest_trace(session, run_id, selected_day)
-    carry = get_last_known_trace_before_day(session, run_id, selected_day)
-    raw_batches = trace_today["raw_batches"] or ([carry["raw"]] if carry["raw"] else [])
-    tools = trace_today["tools"] or carry["tools"]
-
     progress = get_progress_percent(session, run)
 
     return templates.TemplateResponse(
@@ -447,8 +442,6 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
             "selected_day": selected_day,
             "grid": grid,
             "image_url": IMAGE_MAP.get(run.process, ""),
-            "raw_batches": raw_batches,
-            "tools": tools,
             "progress": progress,
         },
     )
@@ -500,7 +493,6 @@ async def run_edit_post(run_id: int, request: Request, session: Session = Depend
     session.add(run)
     session.commit()
 
-    # machines: replace
     existing = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
     for m in existing:
         session.delete(m)
@@ -519,10 +511,8 @@ async def run_edit_post(run_id: int, request: Request, session: Session = Depend
     _m("machine5_name", "machine5_tag")
     session.commit()
 
-    # parameter rules + ✅ label rename
     params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id)).all()
     for p in params:
-        # ✅ allow manager rename label
         new_label = str(form.get(f"label_{p.param_key}", "")).strip()
         if new_label:
             p.label = new_label
@@ -611,7 +601,6 @@ async def entry_new_post(
         )
     ).first()
 
-    # ✅ clean UI message (no JSON)
     if existing_for_slot:
         msg = "This timing slot is already inspected. Please confirm the time, or use Edit to change the existing record."
         return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
@@ -664,7 +653,7 @@ async def entry_new_post(
     return RedirectResponse(f"/runs/{run_id}?day={entry.actual_date.isoformat()}", status_code=302)
 
 
-# ====== VALUE EDIT + APPROVAL (same as your working logic) ======
+# ===== VALUE EDIT + APPROVAL (kept as your working logic) =====
 @app.get("/values/{value_id}/edit", response_class=HTMLResponse)
 def value_edit_get(value_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -850,11 +839,9 @@ def value_reject(value_id: int, request: Request, session: Session = Depends(get
     return RedirectResponse(f"/runs/{run.id}/pending", status_code=302)
 
 
-# ✅ EXPORT: Machines in M4:P9 + (values already)
+# ===== EXPORT with Machines + Inspector/Operators per slot for LINER/COVER =====
 @app.get("/runs/{run_id}/export/xlsx")
 def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_session)):
-    user = get_current_user(request, session)
-
     run = session.get(ProductionRun, run_id)
     if not run:
         raise HTTPException(404, "Run not found")
@@ -871,6 +858,8 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
     base_ws = base_wb.worksheets[0]
 
     machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
+    users = session.exec(select(User)).all()
+    user_map = {u.id: u.display_name for u in users}
 
     for i, day in enumerate(days):
         if i == 0:
@@ -880,15 +869,13 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
             ws = base_wb.copy_worksheet(base_ws)
             ws.title = f"Day {i+1} ({day.isoformat()})"
 
-        # header
         ws["D5"].value = run.dhtp_batch_no
         ws["I5"].value = run.client_name
         ws["I6"].value = run.po_number
         ws["D7"].value = run.raw_material_spec
         ws["D9"].value = run.itp_number
 
-        # ✅ machines used mapping M4:P9 (write rows 5..9)
-        # name in M, tag in P (template likely merges M:O for name)
+        # ✅ Machines Used table M4:P9 (write rows 5..9)
         start_row = 5
         for idx in range(5):
             r = start_row + idx
@@ -899,11 +886,11 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 ws[f"M{r}"].value = ""
                 ws[f"P{r}"].value = ""
 
-        # date + time row
+        # Date + time headers (kept)
         if run.process in ["LINER", "COVER"]:
             ws["E20"].value = day
             for idx, slot in enumerate(SLOTS):
-                col = openpyxl.utils.get_column_letter(5 + idx)
+                col = openpyxl.utils.get_column_letter(5 + idx)  # E..P
                 cell = ws[f"{col}21"]
                 hh, mm = slot.split(":")
                 cell.value = dtime(int(hh), int(mm))
@@ -917,27 +904,6 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 cell.value = dtime(int(hh), int(mm))
                 cell.number_format = "h:mm"
 
-        # trace + tools
-        trace_today = get_day_latest_trace(session, run_id, day)
-        carry = get_last_known_trace_before_day(session, run_id, day)
-
-        raw_batches = trace_today["raw_batches"] or ([carry["raw"]] if carry["raw"] else [])
-        raw_str = ", ".join(raw_batches)
-        if raw_str:
-            ws["D8"].value = raw_str
-
-        tools = trace_today["tools"] or carry["tools"]
-        for t_idx in range(2):
-            r = 8 + t_idx
-            if t_idx < len(tools):
-                name, serial, calib = tools[t_idx]
-                if name:
-                    ws[f"G{r}"].value = name
-                if serial:
-                    ws[f"I{r}"].value = serial
-                if calib:
-                    ws[f"K{r}"].value = calib
-
         col_start = 5 if run.process in ["LINER", "COVER"] else 6
         row_map = ROW_MAP_LINER_COVER if run.process in ["LINER", "COVER"] else ROW_MAP_REINF
 
@@ -950,9 +916,24 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         for e in day_entries:
             if e.slot_time not in SLOTS:
                 continue
+
             slot_idx = SLOTS.index(e.slot_time)
             col = openpyxl.utils.get_column_letter(col_start + slot_idx)
 
+            # ✅ Fill inspector + operators ONLY for LINER/COVER per your exact rows
+            if run.process in ["LINER", "COVER"]:
+                inspector_name = user_map.get(e.inspector_id, "")
+                ws[f"{col}38"].value = inspector_name
+
+                # Hopper/Extruder (row 39)
+                hop_extr = " / ".join([x for x in [e.operator_1, e.operator_2] if x])
+                ws[f"{col}39"].value = hop_extr
+
+                # Cooling/Accumulator (row 40)
+                cool_acc = " / ".join([x for x in [e.operator_annular_12, e.operator_int_ext_34] if x])
+                ws[f"{col}40"].value = cool_acc
+
+            # Values
             vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id)).all()
             for v in vals:
                 r = row_map.get(v.param_key)
