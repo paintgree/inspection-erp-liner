@@ -148,3 +148,9 @@ input:focus, select:focus{border-color:#b7bce8}
   border:1px solid #e6e8ef;border-radius:12px;padding:10px;background:#fff;
 }
 .barrelhead{font-size:12px;font-weight:900;margin-bottom:6px;color:#111}
+
+.length-row td, .length-row th {
+  background: #fff3c4; /* light highlight */
+  font-weight: 700;
+}
+
