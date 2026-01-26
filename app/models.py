@@ -115,3 +115,22 @@ class InspectionValue(SQLModel, table=True):
     pending_at: Optional[datetime] = None
 
     entry: "InspectionEntry" = Relationship(back_populates="values")
+    audits: list["InspectionValueAudit"] = Relationship(back_populates="value")
+
+
+# ✅ NEW: full audit trail table (keeps history forever)
+class InspectionValueAudit(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    inspection_value_id: int = Field(foreign_key="inspectionvalue.id", index=True)
+
+    action: str  # PROPOSED / APPROVED / REJECTED
+    old_value: Optional[float] = None
+    new_value: Optional[float] = None
+
+    by_user_id: Optional[int] = None
+    by_user_name: str = ""
+    note: str = ""  # optional reason
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    value: "InspectionValue" = Relationship(back_populates="audits")
