@@ -3,14 +3,14 @@
 <a class="btn btn-ghost" href="/dashboard">← Back</a>
 
 <div class="card">
-  <h1>Users</h1>
+  <h1>User Management</h1>
 
   {% if error %}
     <div class="alert mt">{{ error }}</div>
   {% endif %}
 
   <div class="card inner mt">
-    <h2>Create User</h2>
+    <h2>Create New User</h2>
     <form method="post" action="/users" class="form">
       <div class="grid2">
         <div><label>Username</label><input name="username" required></div>
@@ -30,7 +30,7 @@
       </div>
 
       <div class="toolbar mt">
-        <button class="btn btn-primary" type="submit">Create</button>
+        <button class="btn btn-primary" type="submit">Create User</button>
       </div>
     </form>
   </div>
@@ -44,11 +44,11 @@
         </thead>
         <tbody>
           {% for u in users %}
-          <tr>
-            <td>{{ u.username }}</td>
-            <td>{{ u.display_name }}</td>
-            <td>{{ u.role }}</td>
-          </tr>
+            <tr>
+              <td>{{ u.username }}</td>
+              <td>{{ u.display_name }}</td>
+              <td>{{ u.role }}</td>
+            </tr>
           {% endfor %}
         </tbody>
       </table>
