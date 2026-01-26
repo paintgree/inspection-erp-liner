@@ -886,9 +886,20 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 ws[f"M{r}"].value = ""
                 ws[f"P{r}"].value = ""
 
-        # Date + time headers (kept)
+        # ✅ DATE per slot row (your template requires it)
         if run.process in ["LINER", "COVER"]:
-            ws["E20"].value = day
+            # E20:P20
+            for idx in range(len(SLOTS)):
+                col = openpyxl.utils.get_column_letter(5 + idx)  # E..P
+                ws[f"{col}20"].value = day
+        else:
+            # F20:Q20
+            for idx in range(len(SLOTS)):
+                col = openpyxl.utils.get_column_letter(6 + idx)  # F..Q
+                ws[f"{col}20"].value = day
+        
+        # Time row (keep as before, row 21)
+        if run.process in ["LINER", "COVER"]:
             for idx, slot in enumerate(SLOTS):
                 col = openpyxl.utils.get_column_letter(5 + idx)  # E..P
                 cell = ws[f"{col}21"]
@@ -896,22 +907,13 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 cell.value = dtime(int(hh), int(mm))
                 cell.number_format = "h:mm"
         else:
-            ws["F20"].value = day
             for idx, slot in enumerate(SLOTS):
-                col = openpyxl.utils.get_column_letter(6 + idx)
+                col = openpyxl.utils.get_column_letter(6 + idx)  # F..Q
                 cell = ws[f"{col}21"]
                 hh, mm = slot.split(":")
                 cell.value = dtime(int(hh), int(mm))
                 cell.number_format = "h:mm"
 
-        else:
-            ws["F20"].value = day
-            for idx, slot in enumerate(SLOTS):
-                col = openpyxl.utils.get_column_letter(6 + idx)
-                cell = ws[f"{col}21"]
-                hh, mm = slot.split(":")
-                cell.value = dtime(int(hh), int(mm))
-                cell.number_format = "h:mm"
 
         col_start = 5 if run.process in ["LINER", "COVER"] else 6
         row_map = ROW_MAP_LINER_COVER if run.process in ["LINER", "COVER"] else ROW_MAP_REINF
@@ -960,4 +962,5 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
