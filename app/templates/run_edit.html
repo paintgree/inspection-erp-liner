@@ -26,7 +26,7 @@
 
     <div class="card inner mt">
       <h2>Machines Used</h2>
-      <div class="muted">If you want fixed 5 slots, we store them here by replacing the list.</div>
+      <div class="muted">We store up to 5 machines by replacing the list.</div>
 
       {% set m1 = (machines[0] if machines|length>0 else None) %}
       {% set m2 = (machines[1] if machines|length>1 else None) %}
@@ -53,14 +53,15 @@
     </div>
 
     <div class="card inner mt">
-      <h2>Parameter Limits</h2>
-      <div class="muted">These rules control OUT-OF-SPEC highlighting and export decisions.</div>
+      <h2>Parameter Limits + Rename Fields</h2>
+      <div class="muted">Manager can rename labels per run. Rules control OUT-OF-SPEC highlighting.</div>
 
       <div class="tablewrap mt">
         <table class="table">
           <thead>
             <tr>
-              <th>Parameter</th>
+              <th>Label (Editable)</th>
+              <th>Unit</th>
               <th>Rule</th>
               <th>Min</th>
               <th>Max</th>
@@ -69,7 +70,11 @@
           <tbody>
             {% for p in params %}
               <tr>
-                <td><b>{{ p.label }}</b> {% if p.unit %}<span class="muted">{{ p.unit }}</span>{% endif %}</td>
+                <td>
+                  <input name="label_{{ p.param_key }}" value="{{ p.label }}" style="width:100%;">
+                  <div class="muted" style="font-size:12px;">key: {{ p.param_key }}</div>
+                </td>
+                <td>{{ p.unit or '' }}</td>
                 <td>
                   <select name="rule_{{ p.param_key }}">
                     <option value="">(none)</option>
@@ -78,19 +83,3 @@
                     <option value="MAX_ONLY" {% if p.rule=="MAX_ONLY" %}selected{% endif %}>MAX_ONLY</option>
                   </select>
                 </td>
-                <td><input name="min_{{ p.param_key }}" type="number" step="0.01" value="{{ p.min_value if p.min_value is not none else '' }}"></td>
-                <td><input name="max_{{ p.param_key }}" type="number" step="0.01" value="{{ p.max_value if p.max_value is not none else '' }}"></td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <div class="toolbar mt">
-      <button class="btn btn-primary" type="submit">Save Changes</button>
-      <a class="btn" href="/runs/{{ run.id }}">Cancel</a>
-    </div>
-  </form>
-</div>
-{% endblock %}
