@@ -3,48 +3,61 @@
 <a class="btn btn-ghost" href="/runs/{{ run.id }}">← Back</a>
 
 <div class="card">
-  <h1>Pending Changes — Batch {{ run.dhtp_batch_no }} ({{ run.process }})</h1>
+  <div class="runheader">
+    <div>
+      <h1>Pending Approvals — {{ run.process }} / Batch {{ run.dhtp_batch_no }}</h1>
+      <div class="muted">Approve or Reject edits proposed by inspectors.</div>
+    </div>
+  </div>
 
   {% if items|length == 0 %}
-    <div class="muted mt">No pending changes.</div>
+    <div class="card inner mt">
+      <div class="muted">No pending changes 🎉</div>
+    </div>
   {% else %}
-    <div class="tablewrap mt">
-      <table class="table wide">
-        <thead>
-          <tr>
-            <th>Day</th>
-            <th>Slot</th>
-            <th>Parameter</th>
-            <th>Current</th>
-            <th>Proposed</th>
-            <th>By</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for it in items %}
-            {% set v = it.value %}
-            {% set e = it.entry %}
-            {% set p = it.param %}
+    <div class="card inner mt">
+      <div class="tablewrap">
+        <table class="table wide">
+          <thead>
             <tr>
-              <td>{{ e.actual_date }}</td>
-              <td><b>{{ e.slot_time }}</b></td>
-              <td>{{ p.label if p else v.param_key }}</td>
-              <td>{{ v.value }}</td>
-              <td><b>{{ v.pending_value }}</b></td>
-              <td>{{ v.pending_by_user_id }}</td>
-              <td style="display:flex; gap:8px;">
-                <form method="post" action="/values/{{ v.id }}/approve">
-                  <button class="btn btn-primary" type="submit">Approve</button>
-                </form>
-                <form method="post" action="/values/{{ v.id }}/reject">
-                  <button class="btn" type="submit">Reject</button>
-                </form>
-              </td>
+              <th>Date</th>
+              <th>Slot</th>
+              <th>Parameter</th>
+              <th>Old</th>
+              <th>Proposed</th>
+              <th>Actions</th>
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {% for it in items %}
+              {% set v = it.value %}
+              {% set e = it.entry %}
+              {% set p = it.param %}
+              <tr>
+                <td>{{ e.actual_date if e else "-" }}</td>
+                <td>{{ e.slot_time if e else "-" }}</td>
+                <td>
+                  <b>{{ p.label if p else v.param_key }}</b>
+                  {% if p and p.unit %}<span class="muted">{{ p.unit }}</span>{% endif %}
+                </td>
+                <td>{{ v.value }}</td>
+                <td><b>{{ v.pending_value }}</b></td>
+                <td style="display:flex; gap:10px;">
+                  <form method="post" action="/values/{{ v.id }}/approve"
+                        onsubmit="return confirm('Approve this change?');">
+                    <button class="btn btn-primary" type="submit">Approve</button>
+                  </form>
+
+                  <form method="post" action="/values/{{ v.id }}/reject"
+                        onsubmit="return confirm('Reject this change?');">
+                    <button class="btn" type="submit">Reject</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   {% endif %}
 </div>
