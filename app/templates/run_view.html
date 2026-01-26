@@ -122,7 +122,8 @@
 
         <tbody>
           {% for p in params %}
-          <tr>
+          <tr class="{% if p.param_key == 'length_m' %}length-row{% endif %}">
+
             <td>
               <b>{{ p.label }}</b>
               {% if p.unit %}<span class="muted">{{ p.unit }}</span>{% endif %}
@@ -163,5 +164,6 @@
   </div>
 </div>
 {% endblock %}
+
 
 
