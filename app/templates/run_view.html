@@ -41,7 +41,10 @@
         {% endif %}
       {% endif %}
 
-      <a class="btn btn-primary" href="/runs/{{ run.id }}/entry/new">+ New Inspection Entry</a>
+     {% if user.role != "BOSS" %}
+       <a class="btn btn-primary" href="/runs/{{ run.id }}/entry/new">+ New Inspection Entry</a>
+     {% endif %}
+
       <a class="btn" href="/runs/{{ run.id }}/export/xlsx">Export XLSX (All Days)</a>
     </div>
   </div>
@@ -164,6 +167,7 @@
   </div>
 </div>
 {% endblock %}
+
 
 
 
