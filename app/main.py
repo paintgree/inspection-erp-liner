@@ -406,7 +406,7 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
 def run_new_get(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     require_manager(user)
-        raise HTTPException(403, "Manager only")
+
     return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": ""})
 
 @app.get("/users", response_class=HTMLResponse)
@@ -480,7 +480,7 @@ def run_new_post(
 ):
     user = get_current_user(request, session)
     require_manager(user)
-        raise HTTPException(403, "Manager only")
+     
 
     process = process.upper().strip()
     if process not in PROCESS_PARAMS:
@@ -590,7 +590,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
 def run_edit_get(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     require_manager(user)
-        raise HTTPException(403, "Manager only")
+        
 
     run = session.get(ProductionRun, run_id)
     if not run:
@@ -611,7 +611,7 @@ def run_edit_get(run_id: int, request: Request, session: Session = Depends(get_s
 async def run_edit_post(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     require_manager(user)
-        raise HTTPException(403, "Manager only")
+        
 
     run = session.get(ProductionRun, run_id)
     if not run:
@@ -870,7 +870,7 @@ async def value_edit_post(
 def pending_list(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     require_manager(user)
-        raise HTTPException(403, "Manager only")
+        
 
     run = session.get(ProductionRun, run_id)
     if not run:
@@ -904,7 +904,7 @@ def pending_list(run_id: int, request: Request, session: Session = Depends(get_s
 def value_approve(value_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     require_manager(user)
-        raise HTTPException(403, "Manager only")
+        
 
     v = session.get(InspectionValue, value_id)
     if not v:
@@ -948,7 +948,7 @@ def value_approve(value_id: int, request: Request, session: Session = Depends(ge
 def value_reject(value_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     require_manager(user)
-        raise HTTPException(403, "Manager only")
+       
 
     v = session.get(InspectionValue, value_id)
     if not v:
@@ -1120,6 +1120,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 
 
