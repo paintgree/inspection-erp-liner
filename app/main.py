@@ -116,6 +116,7 @@ def ensure_default_users():
                 role="MANAGER",
                 password_hash=hash_password("manager123"),
             ))
+
         i = session.exec(select(User).where(User.username == "inspector")).first()
         if not i:
             session.add(User(
@@ -124,16 +125,18 @@ def ensure_default_users():
                 role="INSPECTOR",
                 password_hash=hash_password("inspector"),
             ))
-         b = session.exec(select(User).where(User.username == "boss")).first()
-         if not b:
-             session.add(User(
-                 username="boss",
-                 display_name="Boss",
-                 role="BOSS",
-                 password_hash=hash_password("boss123"),
-             ))
-   
+
+        b = session.exec(select(User).where(User.username == "boss")).first()
+        if not b:
+            session.add(User(
+                username="boss",
+                display_name="Boss",
+                role="BOSS",
+                password_hash=hash_password("boss123"),
+            ))
+
         session.commit()
+
 
 
 def get_current_user(request: Request, session: Session) -> User:
@@ -1117,6 +1120,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 
 
