@@ -209,9 +209,26 @@ def get_days_for_run(session: Session, run_id: int) -> List[date]:
 
 
 def slot_from_time_str(t: str) -> str:
-    hh = int(t.split(":")[0])
-    slot_h = (hh // 2) * 2
+    """
+    Map any time to nearest 2-hour slot: 00,02,...,22
+    Example: 13:39 -> 14:00 (nearest), not 12:00 (floor).
+    """
+    parts = t.split(":")
+    hh = int(parts[0])
+    mm = int(parts[1]) if len(parts) > 1 else 0
+
+    total_min = hh * 60 + mm
+    slot_min = int(round(total_min / 120.0) * 120)
+
+    # clamp to valid range 00:00..22:00
+    if slot_min < 0:
+        slot_min = 0
+    if slot_min > 22 * 60:
+        slot_min = 22 * 60
+
+    slot_h = slot_min // 60
     return f"{slot_h:02d}:00"
+
 
 
 def get_progress_percent(session: Session, run: ProductionRun) -> int:
@@ -959,3 +976,4 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
