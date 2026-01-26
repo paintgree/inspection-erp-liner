@@ -544,11 +544,13 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
     ).all()
 
     has_any = session.exec(select(InspectionEntry.id).where(InspectionEntry.run_id == run_id)).first() is not None
+    error = request.query_params.get("error", "")
 
     return templates.TemplateResponse(
         "entry_new.html",
-        {"request": request, "user": user, "run": run, "params": params, "has_any": has_any},
+        {"request": request, "user": user, "run": run, "params": params, "has_any": has_any, "error": error},
     )
+
 
 
 @app.post("/runs/{run_id}/entry/new")
@@ -976,4 +978,5 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
