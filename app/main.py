@@ -904,6 +904,15 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 cell.value = dtime(int(hh), int(mm))
                 cell.number_format = "h:mm"
 
+        else:
+            ws["F20"].value = day
+            for idx, slot in enumerate(SLOTS):
+                col = openpyxl.utils.get_column_letter(6 + idx)
+                cell = ws[f"{col}21"]
+                hh, mm = slot.split(":")
+                cell.value = dtime(int(hh), int(mm))
+                cell.number_format = "h:mm"
+
         col_start = 5 if run.process in ["LINER", "COVER"] else 6
         row_map = ROW_MAP_LINER_COVER if run.process in ["LINER", "COVER"] else ROW_MAP_REINF
 
@@ -951,3 +960,4 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
