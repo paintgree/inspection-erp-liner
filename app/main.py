@@ -1062,7 +1062,7 @@ def _write_next_to_label(ws, label: str, value, col_offset: int = 1):
 
 def _clone_sheet_no_drawings(wb, src_ws, title: str):
     """
-    Clone a worksheet WITHOUT drawings/images (prevents reinforcement export crash).
+    Clone a worksheet WITHOUT drawings/images (prevents reinforcement  crash).
     Preserves:
       - values
       - styles
@@ -1095,6 +1095,47 @@ def _clone_sheet_no_drawings(wb, src_ws, title: str):
                 new_cell.protection = cell.protection
 
     return dst
+
+import subprocess
+import tempfile
+from pathlib import Path
+
+def convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
+    """
+    Uses LibreOffice headless to convert XLSX -> PDF.
+    Preserves template images/logos much better than openpyxl copying.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        tmpdir = Path(tmp)
+        xlsx_path = tmpdir / "report.xlsx"
+        out_dir = tmpdir / "out"
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+        xlsx_path.write_bytes(xlsx_bytes)
+
+        # Convert
+        cmd = [
+            "soffice",
+            "--headless",
+            "--nologo",
+            "--nofirststartwizard",
+            "--invisible",
+            "--convert-to", "pdf",
+            "--outdir", str(out_dir),
+            str(xlsx_path),
+        ]
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        pdf_path = out_dir / "report.pdf"
+        # LibreOffice sometimes names file based on input
+        if not pdf_path.exists():
+            # find first pdf in outdir
+            pdfs = list(out_dir.glob("*.pdf"))
+            if not pdfs:
+                raise RuntimeError("PDF conversion failed: no output produced")
+            pdf_path = pdfs[0]
+
+        return pdf_path.read_bytes()
 
 
 # ===== EXPORT with Machines + Inspector/Operators per slot for LINER/COVER =====
@@ -1266,6 +1307,43 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         out,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> tuple[bytes, str]:
+    user = get_current_user(request, session)
+
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    template_path = TEMPLATE_XLSX_MAP.get(run.process)
+    if not template_path or not os.path.exists(template_path):
+        raise HTTPException(404, f"Template not found: {template_path}")
+
+    days = get_days_for_run(session, run_id)
+    if not days:
+        raise HTTPException(400, "No entries to export")
+
+    # ---- YOUR EXISTING XLSX BUILD CODE GOES HERE ----
+    # build workbook into BytesIO at the end:
+    out = BytesIO()
+    base_wb.save(out)
+    out.seek(0)
+
+    filename_base = f"{run.process}_{run.dhtp_batch_no}_ALL_DAYS"
+    return out.getvalue(), filename_base
+
+from fastapi.responses import Response
+
+@app.get("/runs/{run_id}/export/pdf")
+def export_pdf(run_id: int, request: Request, session: Session = Depends(get_session)):
+    # Reuse your XLSX export logic, but generate bytes instead of StreamingResponse.
+    xlsx_bytes, filename_base = build_export_xlsx_bytes(run_id, request, session)  # <-- small helper we add next
+    pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename_base}.pdf"'},
     )
 
 
