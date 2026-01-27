@@ -37,10 +37,11 @@ IMAGE_MAP = {
 }
 
 TEMPLATE_XLSX_MAP = {
-    "LINER": os.path.join("app", "templates", "templates_xlsx", "liner.xlsx"),
-    "REINFORCEMENT": os.path.join("app", "templates", "templates_xlsx", "reinforcement.xlsx"),
-    "COVER": os.path.join("app", "templates", "templates_xlsx", "cover.xlsx"),
+    "LINER": os.path.join(BASE_DIR, "templates", "templates_xlsx", "liner.xlsx"),
+    "REINFORCEMENT": os.path.join(BASE_DIR, "templates", "templates_xlsx", "reinforcement.xlsx"),
+    "COVER": os.path.join(BASE_DIR, "templates", "templates_xlsx", "cover.xlsx"),
 }
+
 
 SLOTS = ["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00"]
 
@@ -1144,17 +1145,29 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
 
 
             # ✅ HEADER: write by labels so it works for LINER / COVER / REINFORCEMENT templates
-        _write_next_to_label(ws, "DHTP Batch No.", run.dhtp_batch_no)
-        _write_next_to_label(ws, "Client Name", run.client_name)
-        _write_next_to_label(ws, "PO Number", run.po_number)
-        _write_next_to_label(ws, "Pipe Specification", run.pipe_specification)   # fixes cover+reinforcement spec
-        _write_next_to_label(ws, "Raw Material Spec", run.raw_material_spec)
-        _write_next_to_label(ws, "ITP Number", run.itp_number)
+            # ✅ HEADER (fixed cells per template)
+    if run.process in ["LINER", "COVER"]:
+        _set_cell_safe(ws, "E5", run.dhtp_batch_no)          # Batch
+        _set_cell_safe(ws, "I5", run.client_name)            # Client
+        _set_cell_safe(ws, "I6", run.po_number)              # PO
+        _set_cell_safe(ws, "E6", run.pipe_specification)     # Pipe Spec  ✅ (fix cover)
+        _set_cell_safe(ws, "E7", run.raw_material_spec)      # Raw Spec
+        _set_cell_safe(ws, "E9", run.itp_number)             # ITP
+    else:
+        # REINFORCEMENT template uses same header layout in your file
+        _set_cell_safe(ws, "E5", run.dhtp_batch_no)
+        _set_cell_safe(ws, "I5", run.client_name)
+        _set_cell_safe(ws, "I6", run.po_number)
+        _set_cell_safe(ws, "E6", run.pipe_specification)     # ✅ (fix reinforcement)
+        _set_cell_safe(ws, "E7", run.raw_material_spec)
+        _set_cell_safe(ws, "E9", run.itp_number)
+
     
         # Raw material batch (from entry)
         raw_str = ", ".join(raw_batches) if raw_batches else ""
-        if raw_str:
-            _write_next_to_label(ws, "Raw Material Batch No.", raw_str)
+        # Raw Material Batch No. is E8 in your templates
+        _set_cell_safe(ws, "E8", raw_str)
+
 
 
         # ---- Machines Used to match template M4:P9 ----
@@ -1254,6 +1267,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 
 
