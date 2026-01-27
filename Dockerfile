@@ -17,7 +17,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the project
 COPY . /app
 
-# Railway sets PORT automatically
-ENV PORT=8000
+
 
 CMD ["bash", "-lc", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
