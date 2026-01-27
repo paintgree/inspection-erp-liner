@@ -157,6 +157,63 @@ def forbid_boss(user: User):
         raise HTTPException(403, "Read-only user")
 
 
+@app.post("/users/{username}/update")
+def users_update(
+    username: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    display_name: str = Form(""),
+    role: str = Form(""),
+    password: str = Form(""),
+):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    target = session.exec(select(User).where(User.username == username)).first()
+    if not target:
+        raise HTTPException(404, "User not found")
+
+    if display_name.strip():
+        target.display_name = display_name.strip()
+
+    if role.strip():
+        r = role.strip().upper()
+        if r not in ["INSPECTOR", "MANAGER", "BOSS", "RUN_CREATOR"]:
+            raise HTTPException(400, "Invalid role")
+        target.role = r
+
+    if password.strip():
+        if len(password.strip()) < 4:
+            raise HTTPException(400, "Password too short")
+        target.password_hash = hash_password(password.strip())
+
+    session.add(target)
+    session.commit()
+    return RedirectResponse("/users", status_code=302)
+
+
+@app.post("/users/{username}/delete")
+def users_delete(
+    username: str,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    # safety: do not delete yourself
+    if user.username == username:
+        raise HTTPException(400, "You cannot delete your own account")
+
+    target = session.exec(select(User).where(User.username == username)).first()
+    if not target:
+        raise HTTPException(404, "User not found")
+
+    session.delete(target)
+    session.commit()
+    return RedirectResponse("/users", status_code=302)
+
+
 @app.get("/", response_class=HTMLResponse)
 def home(request: Request):
     return RedirectResponse("/dashboard", status_code=302)
@@ -265,15 +322,41 @@ def users_post(
 
 
 def slot_from_time_str(t: str) -> str:
+    """
+    HARD RULE (2-hour slots):
+    - HH:00 .. HH+1:30  -> HH:00
+    - HH+1:31 .. HH+2:00 -> HH+2:00
+    Example:
+      02:00–03:30 -> 02:00
+      03:31–04:00 -> 04:00
+      07:00 -> 06:00
+    """
     parts = t.split(":")
     hh = int(parts[0])
     mm = int(parts[1]) if len(parts) > 1 else 0
     total_min = hh * 60 + mm
-    slot_min = int(round(total_min / 120.0) * 120)
+
+    # base even hour (00,02,04,...,22)
+    base_h = (hh // 2) * 2
+    base_min = base_h * 60
+    delta = total_min - base_min
+
+    # exact even hour always stays in its slot
+    if delta == 0:
+        slot_min = base_min
+    # 0..90 minutes => same slot
+    elif 0 < delta <= 90:
+        slot_min = base_min
+    # 91..120 => next slot
+    else:
+        slot_min = base_min + 120
+
+    # clamp to valid range 00:00..22:00
     if slot_min < 0:
         slot_min = 0
     if slot_min > 22 * 60:
         slot_min = 22 * 60
+
     return f"{slot_min // 60:02d}:00"
 
 
@@ -405,14 +488,13 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
 @app.get("/runs/new", response_class=HTMLResponse)
 def run_new_get(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
-    require_manager(user)
+    if (user.role or "").upper() not in ["MANAGER", "RUN_CREATOR"]:
+    raise HTTPException(403, "Manager only")
+
 
     return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": ""})
 
-@app.get("/users", response_class=HTMLResponse)
-def users_get(request: Request, session: Session = Depends(get_session)):
-    user = get_current_user(request, session)
-    require_manager(user)
+
 
     users = session.exec(select(User).order_by(User.username)).all()
     return templates.TemplateResponse(
@@ -437,7 +519,7 @@ def users_post(
     display_name = display_name.strip()
     role = role.strip().upper()
 
-    if role not in ["INSPECTOR", "MANAGER", "BOSS"]:
+    if role not in ["INSPECTOR", "MANAGER", "BOSS", "RUN_CREATOR"]:
         users = session.exec(select(User).order_by(User.username)).all()
         return templates.TemplateResponse(
             "users.html",
@@ -479,7 +561,9 @@ def run_new_post(
     allow_duplicate: str = Form(""),
 ):
     user = get_current_user(request, session)
-    require_manager(user)
+    if (user.role or "").upper() not in ["MANAGER", "RUN_CREATOR"]:
+    raise HTTPException(403, "Manager only")
+
      
 
     process = process.upper().strip()
@@ -1129,6 +1213,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 
 
