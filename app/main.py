@@ -595,8 +595,17 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
         .order_by(InspectionEntry.created_at)
     ).all()
 
+
+    # --- NEW: inspector name per slot ---
+    users = session.exec(select(User)).all()
+    user_map = {u.id: u for u in users}
+    slot_inspectors: Dict[str, str] = {s: "" for s in SLOTS}
+
+    
     grid: Dict[str, Dict[str, dict]] = {s: {} for s in SLOTS}
     for e in entries:
+        slot_inspectors[e.slot_time] = user_map.get(e.inspector_id).display_name if e.inspector_id in user_map else ""
+
         vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id)).all()
         for v in vals:
             grid.setdefault(e.slot_time, {})[v.param_key] = {
@@ -1302,6 +1311,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.2
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.35
+
 
 
 
