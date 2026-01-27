@@ -636,6 +636,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
             "days": days,
             "selected_day": selected_day,
             "grid": grid,
+            "slot_inspectors": slot_inspectors,
             "image_url": IMAGE_MAP.get(run.process, ""),
             "progress": progress,
             "raw_batches": raw_batches,
@@ -1311,6 +1312,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.2
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.35
+
 
 
 
