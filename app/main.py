@@ -1030,50 +1030,27 @@ def value_reject(value_id: int, request: Request, session: Session = Depends(get
     session.commit()
     return RedirectResponse(f"/runs/{run.id}/pending", status_code=302)
 from openpyxl.cell.cell import MergedCell
+import subprocess
+import tempfile
+from pathlib import Path
+from fastapi.responses import Response
+
 
 def _set_cell_safe(ws, addr: str, value):
     """
     Write value to Excel, even if the target address is part of a merged range.
     openpyxl only allows writing to the TOP-LEFT cell of a merged range.
     """
-    # If addr is inside a merged cell range, redirect to the top-left cell of that range
     for rng in ws.merged_cells.ranges:
         if addr in rng:
             addr = rng.coord.split(":")[0]
             break
     ws[addr].value = value
 
-def _norm(s: str) -> str:
-    return (s or "").strip().lower()
-
-def _find_label_cell(ws, label: str, max_row: int = 40, max_col: int = 25):
-    """
-    Find a cell that contains the label text (case-insensitive).
-    Returns (row, col) or None.
-    """
-    target = _norm(label)
-    for r in range(1, max_row + 1):
-        for c in range(1, max_col + 1):
-            v = ws.cell(row=r, column=c).value
-            if isinstance(v, str) and target in _norm(v):
-                return (r, c)
-    return None
-
-def _write_next_to_label(ws, label: str, value, col_offset: int = 1):
-    """
-    Finds label cell and writes value into the cell to the right (or offset).
-    Safe for different templates.
-    """
-    pos = _find_label_cell(ws, label)
-    if not pos:
-        return False
-    r, c = pos
-    ws.cell(row=r, column=c + col_offset).value = value
-    return True
 
 def _clone_sheet_no_drawings(wb, src_ws, title: str):
     """
-    Clone a worksheet WITHOUT drawings/images (prevents reinforcement  crash).
+    Clone a worksheet WITHOUT drawings/images (prevents crash).
     Preserves:
       - values
       - styles
@@ -1082,17 +1059,14 @@ def _clone_sheet_no_drawings(wb, src_ws, title: str):
     """
     dst = wb.create_sheet(title=title)
 
-    # copy dimensions
     for col, dim in src_ws.column_dimensions.items():
         dst.column_dimensions[col].width = dim.width
     for row, dim in src_ws.row_dimensions.items():
         dst.row_dimensions[row].height = dim.height
 
-    # copy merged cells
     for merged_range in list(src_ws.merged_cells.ranges):
         dst.merge_cells(str(merged_range))
 
-    # copy cells (value + style)
     for row in src_ws.iter_rows():
         for cell in row:
             new_cell = dst.cell(row=cell.row, column=cell.col_idx, value=cell.value)
@@ -1107,14 +1081,11 @@ def _clone_sheet_no_drawings(wb, src_ws, title: str):
 
     return dst
 
-import subprocess
-import tempfile
-from pathlib import Path
 
 def convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
     """
     Uses LibreOffice headless to convert XLSX -> PDF.
-    Preserves template images/logos much better than openpyxl copying.
+    Requires 'soffice' available in the runtime image.
     """
     with tempfile.TemporaryDirectory() as tmp:
         tmpdir = Path(tmp)
@@ -1124,7 +1095,6 @@ def convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
 
         xlsx_path.write_bytes(xlsx_bytes)
 
-        # Convert
         cmd = [
             "soffice",
             "--headless",
@@ -1135,23 +1105,20 @@ def convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
             "--outdir", str(out_dir),
             str(xlsx_path),
         ]
+        # capture output for debugging
         subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        pdf_path = out_dir / "report.pdf"
-        # LibreOffice sometimes names file based on input
-        if not pdf_path.exists():
-            # find first pdf in outdir
-            pdfs = list(out_dir.glob("*.pdf"))
-            if not pdfs:
-                raise RuntimeError("PDF conversion failed: no output produced")
-            pdf_path = pdfs[0]
-
-        return pdf_path.read_bytes()
+        pdfs = list(out_dir.glob("*.pdf"))
+        if not pdfs:
+            raise RuntimeError("PDF conversion failed: no output produced")
+        return pdfs[0].read_bytes()
 
 
-# ===== EXPORT with Machines + Inspector/Operators per slot for LINER/COVER =====
-@app.get("/runs/{run_id}/export/xlsx")
-def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_session)):
+def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> tuple[bytes, str]:
+    """
+    Build the XLSX export in memory and return (bytes, filename_base).
+    This is used by BOTH /export/xlsx and /export/pdf.
+    """
     user = get_current_user(request, session)
 
     run = session.get(ProductionRun, run_id)
@@ -1169,62 +1136,43 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
     base_wb = openpyxl.load_workbook(template_path)
     base_ws = base_wb.worksheets[0]
 
-    # process-specific coordinates you gave:
+    # per process coordinates
     if run.process in ["LINER", "COVER"]:
         col_start = 5  # E
         date_row = 20
         inspector_row = 38
         op1_row = 39
         op2_row = 40
-    else:  # REINFORCEMENT
+        row_map = ROW_MAP_LINER_COVER
+    else:
         col_start = 6  # F
         date_row = 20
         inspector_row = 36
-        op1_row = 37  # annular 1&2
-        op2_row = 38  # int/ext 3&4
+        op1_row = 37
+        op2_row = 38
+        row_map = ROW_MAP_REINF
 
-    row_map = ROW_MAP_LINER_COVER if run.process in ["LINER", "COVER"] else ROW_MAP_REINF
+    machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
+    user_map = {u.id: u for u in session.exec(select(User)).all()}
 
     for i, day in enumerate(days):
         title = f"Day {i+1} ({day.isoformat()})"
-    
+
         if i == 0:
             ws = base_ws
             ws.title = title
         else:
-            # ✅ safe clone that won't crash when template has images/drawings
             ws = _clone_sheet_no_drawings(base_wb, base_ws, title)
 
+        # ----- HEADER (fixed cells) -----
+        _set_cell_safe(ws, "E5", run.dhtp_batch_no)      # Batch
+        _set_cell_safe(ws, "I5", run.client_name)        # Client
+        _set_cell_safe(ws, "I6", run.po_number)          # PO
+        _set_cell_safe(ws, "E6", run.pipe_specification) # Pipe Spec
+        _set_cell_safe(ws, "E7", run.raw_material_spec)  # Raw Spec
+        _set_cell_safe(ws, "E9", run.itp_number)         # ITP
 
-            # ✅ HEADER: write by labels so it works for LINER / COVER / REINFORCEMENT templates
-            # ✅ HEADER (fixed cells per template)
-    if run.process in ["LINER", "COVER"]:
-        _set_cell_safe(ws, "E5", run.dhtp_batch_no)          # Batch
-        _set_cell_safe(ws, "I5", run.client_name)            # Client
-        _set_cell_safe(ws, "I6", run.po_number)              # PO
-        _set_cell_safe(ws, "E6", run.pipe_specification)     # Pipe Spec  ✅ (fix cover)
-        _set_cell_safe(ws, "E7", run.raw_material_spec)      # Raw Spec
-        _set_cell_safe(ws, "E9", run.itp_number)             # ITP
-    else:
-        # REINFORCEMENT template uses same header layout in your file
-        _set_cell_safe(ws, "E5", run.dhtp_batch_no)
-        _set_cell_safe(ws, "I5", run.client_name)
-        _set_cell_safe(ws, "I6", run.po_number)
-        _set_cell_safe(ws, "E6", run.pipe_specification)     # ✅ (fix reinforcement)
-        _set_cell_safe(ws, "E7", run.raw_material_spec)
-        _set_cell_safe(ws, "E9", run.itp_number)
-
-    
-        # Raw material batch (from entry)
-        raw_str = ", ".join(raw_batches) if raw_batches else ""
-        # Raw Material Batch No. is E8 in your templates
-        _set_cell_safe(ws, "E8", raw_str)
-
-
-
-        # ---- Machines Used to match template M4:P9 ----
-        machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
-        # rows 4..8 (5 machines). Name in M, Tag in P (your template shows name column + tag column)
+        # ----- Machines (M4:P8) -----
         for idx in range(5):
             r = 4 + idx
             name = machines[idx].machine_name if idx < len(machines) else ""
@@ -1232,20 +1180,35 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
             _set_cell_safe(ws, f"M{r}", name)
             _set_cell_safe(ws, f"P{r}", tag)
 
-        # ---- Date row per slot (E20:P20 for liner/cover, F20:Q20 for reinforcement) ----
+        # ----- Day trace (raw batch + tools) -----
+        trace_today = get_day_latest_trace(session, run_id, day)
+        carry = get_last_known_trace_before_day(session, run_id, day)
+
+        raw_batches = trace_today["raw_batches"] or ([carry["raw"]] if carry["raw"] else [])
+        raw_str = ", ".join([x for x in raw_batches if x])
+        if raw_str:
+            _set_cell_safe(ws, "E8", raw_str)
+
+        tools = trace_today["tools"] or carry["tools"]
+        for t_idx in range(2):
+            r = 8 + t_idx
+            if t_idx < len(tools):
+                name, serial, calib = tools[t_idx]
+                _set_cell_safe(ws, f"G{r}", name or "")
+                _set_cell_safe(ws, f"I{r}", serial or "")
+                _set_cell_safe(ws, f"K{r}", calib or "")
+
+        # ----- Date row for each time slot -----
         for slot_idx, slot in enumerate(SLOTS):
             col = openpyxl.utils.get_column_letter(col_start + slot_idx)
-            addr = f"{col}{date_row}"
-            _set_cell_safe(ws, addr, day)
+            _set_cell_safe(ws, f"{col}{date_row}", day)
 
-        # ---- Time header row (keep your old behavior if your template expects times on row 21) ----
-        # If your template already has times, you can remove this block safely.
+        # ----- Time header row (optional) -----
         time_row = 21
         for slot_idx, slot in enumerate(SLOTS):
             col = openpyxl.utils.get_column_letter(col_start + slot_idx)
             hh, mm = slot.split(":")
             cell_addr = f"{col}{time_row}"
-            # safe: merged check
             for rng in ws.merged_cells.ranges:
                 if cell_addr in rng:
                     cell_addr = rng.coord.split(":")[0]
@@ -1253,41 +1216,17 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
             ws[cell_addr].value = dtime(int(hh), int(mm))
             ws[cell_addr].number_format = "h:mm"
 
-        # ---- Raw batch + tools (must change as per entry) ----
-        trace_today = get_day_latest_trace(session, run_id, day)
-        carry = get_last_known_trace_before_day(session, run_id, day)
-
-        raw_batches = trace_today["raw_batches"] or ([carry["raw"]] if carry["raw"] else [])
-        raw_str = ", ".join([x for x in raw_batches if x])
-        if raw_str:
-            _set_cell_safe(ws, "D8", raw_str)  # your template cell
-
-        tools = trace_today["tools"] or carry["tools"]
-        # your template tool rows appear to be 8 and 9 with columns G/I/K
-        for t_idx in range(2):
-            r = 8 + t_idx
-            if t_idx < len(tools):
-                name, serial, calib = tools[t_idx]
-                if name:
-                    _set_cell_safe(ws, f"G{r}", name)
-                if serial:
-                    _set_cell_safe(ws, f"I{r}", serial)
-                if calib:
-                    _set_cell_safe(ws, f"K{r}", calib)
-
-        # ---- Fill per-slot: inspector + operators above inspected column ----
+        # ----- Fill per-slot inspector/operators + values -----
         day_entries = session.exec(
             select(InspectionEntry)
             .where(InspectionEntry.run_id == run_id, InspectionEntry.actual_date == day)
             .order_by(InspectionEntry.created_at)
         ).all()
 
-        # inspector lookup
-        user_map = {u.id: u for u in session.exec(select(User)).all()}
-
         for e in day_entries:
             if e.slot_time not in SLOTS:
                 continue
+
             slot_idx = SLOTS.index(e.slot_time)
             col = openpyxl.utils.get_column_letter(col_start + slot_idx)
 
@@ -1301,7 +1240,6 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 _set_cell_safe(ws, f"{col}{op1_row}", e.operator_annular_12 or "")
                 _set_cell_safe(ws, f"{col}{op2_row}", e.operator_int_ext_34 or "")
 
-            # ---- Fill measured values into the grid ----
             vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id)).all()
             for v in vals:
                 r = row_map.get(v.param_key)
@@ -1313,43 +1251,32 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
     base_wb.save(out)
     out.seek(0)
 
-    filename = f"{run.process}_{run.dhtp_batch_no}_ALL_DAYS.xlsx"
-    return StreamingResponse(
-        out,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> tuple[bytes, str]:
-    user = get_current_user(request, session)
-
-    run = session.get(ProductionRun, run_id)
-    if not run:
-        raise HTTPException(404, "Run not found")
-
-    template_path = TEMPLATE_XLSX_MAP.get(run.process)
-    if not template_path or not os.path.exists(template_path):
-        raise HTTPException(404, f"Template not found: {template_path}")
-
-    days = get_days_for_run(session, run_id)
-    if not days:
-        raise HTTPException(400, "No entries to export")
-
-    # ---- YOUR EXISTING XLSX BUILD CODE GOES HERE ----
-    # build workbook into BytesIO at the end:
-    out = BytesIO()
-    base_wb.save(out)
-    out.seek(0)
-
     filename_base = f"{run.process}_{run.dhtp_batch_no}_ALL_DAYS"
     return out.getvalue(), filename_base
 
-from fastapi.responses import Response
+
+@app.get("/runs/{run_id}/export/xlsx")
+def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_session)):
+    xlsx_bytes, filename_base = build_export_xlsx_bytes(run_id, request, session)
+
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename_base}.xlsx"'},
+    )
+
 
 @app.get("/runs/{run_id}/export/pdf")
 def export_pdf(run_id: int, request: Request, session: Session = Depends(get_session)):
-    # Reuse your XLSX export logic, but generate bytes instead of StreamingResponse.
-    xlsx_bytes, filename_base = build_export_xlsx_bytes(run_id, request, session)  # <-- small helper we add next
-    pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
+    xlsx_bytes, filename_base = build_export_xlsx_bytes(run_id, request, session)
+
+    try:
+        pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
+    except FileNotFoundError:
+        raise HTTPException(
+            500,
+            "LibreOffice (soffice) not found on Railway image. Install it or use another PDF method."
+        )
 
     return Response(
         content=pdf_bytes,
