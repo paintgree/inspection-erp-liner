@@ -1308,10 +1308,11 @@ def apply_pdf_page_setup(ws):
     ws.sheet_properties.pageSetUpPr.fitToPage = True
 
     # Smaller margins gives more usable width in portrait
-    ws.page_margins.left = 0.2
-    ws.page_margins.right = 0.2
+    ws.page_margins.left = 0.25
+    ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
-    ws.page_margins.bottom = 0.35
+    ws.page_margins.bottom = 0.70
+
 
 
 
