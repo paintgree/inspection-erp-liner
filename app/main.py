@@ -1019,30 +1019,25 @@ def value_reject(value_id: int, request: Request, session: Session = Depends(get
     return RedirectResponse(f"/runs/{run.id}/pending", status_code=302)
 from openpyxl.cell.cell import MergedCell
 
-def set_cell_safe(ws, addr: str, value, number_format: str | None = None):
+def _set_cell_safe(ws, addr: str, value):
     """
-    Safe writer for templates that contain merged cells.
-    If addr is inside a merged range, write to the top-left cell of that range.
+    Write value to Excel, even if the target address is part of a merged range.
+    openpyxl only allows writing to the TOP-LEFT cell of a merged range.
     """
-    cell = ws[addr]
-
-    # If it's a merged cell, redirect to the merged range's start cell
-    if isinstance(cell, MergedCell):
-        for rng in ws.merged_cells.ranges:
-            if addr in rng:
-                addr = str(rng.start_cell.coordinate)
-                cell = ws[addr]
-                break
-
-    cell.value = value
-    if number_format:
-        cell.number_format = number_format
+    # If addr is inside a merged cell range, redirect to the top-left cell of that range
+    for rng in ws.merged_cells.ranges:
+        if addr in rng:
+            addr = rng.coord.split(":")[0]
+            break
+    ws[addr].value = value
 
 
 
 # ===== EXPORT with Machines + Inspector/Operators per slot for LINER/COVER =====
 @app.get("/runs/{run_id}/export/xlsx")
 def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
     run = session.get(ProductionRun, run_id)
     if not run:
         raise HTTPException(404, "Run not found")
@@ -1058,9 +1053,21 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
     base_wb = openpyxl.load_workbook(template_path)
     base_ws = base_wb.worksheets[0]
 
-    machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
-    users = session.exec(select(User)).all()
-    user_map = {u.id: u.display_name for u in users}
+    # process-specific coordinates you gave:
+    if run.process in ["LINER", "COVER"]:
+        col_start = 5  # E
+        date_row = 20
+        inspector_row = 38
+        op1_row = 39
+        op2_row = 40
+    else:  # REINFORCEMENT
+        col_start = 6  # F
+        date_row = 20
+        inspector_row = 36
+        op1_row = 37  # annular 1&2
+        op2_row = 38  # int/ext 3&4
+
+    row_map = ROW_MAP_LINER_COVER if run.process in ["LINER", "COVER"] else ROW_MAP_REINF
 
     for i, day in enumerate(days):
         if i == 0:
@@ -1070,95 +1077,99 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
             ws = base_wb.copy_worksheet(base_ws)
             ws.title = f"Day {i+1} ({day.isoformat()})"
 
-        ws["D5"].value = run.dhtp_batch_no
-        ws["I5"].value = run.client_name
-        ws["I6"].value = run.po_number
-        ws["D7"].value = run.raw_material_spec
-        ws["D9"].value = run.itp_number
+        # ---- Header fields (safe write for merged cells) ----
+        _set_cell_safe(ws, "D5", run.dhtp_batch_no)
+        _set_cell_safe(ws, "I5", run.client_name)
+        _set_cell_safe(ws, "I6", run.po_number)
+        _set_cell_safe(ws, "D7", run.raw_material_spec)
+        _set_cell_safe(ws, "D9", run.itp_number)
 
-        # ✅ Machines Used table M4:P9 (write rows 5..9)
-        start_row = 5
+        # ---- Machines Used to match template M4:P9 ----
+        machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
+        # rows 4..8 (5 machines). Name in M, Tag in P (your template shows name column + tag column)
         for idx in range(5):
-            r = start_row + idx
-            if idx < len(machines):
-                ws[f"M{r}"].value = machines[idx].machine_name
-                ws[f"P{r}"].value = machines[idx].machine_tag
-            else:
-                ws[f"M{r}"].value = ""
-                ws[f"P{r}"].value = ""
+            r = 4 + idx
+            name = machines[idx].machine_name if idx < len(machines) else ""
+            tag = machines[idx].machine_tag if (idx < len(machines) and machines[idx].machine_tag) else ""
+            _set_cell_safe(ws, f"M{r}", name)
+            _set_cell_safe(ws, f"P{r}", tag)
 
-        # date + time (safe for merged cells)
-        if run.process in ["LINER", "COVER"]:
-            set_cell_safe(ws, "E20", day)
-        
-            for idx, slot in enumerate(SLOTS):
-                col = openpyxl.utils.get_column_letter(5 + idx)  # E..P
-                hh, mm = slot.split(":")
-                set_cell_safe(ws, f"{col}21", dtime(int(hh), int(mm)), number_format="h:mm")
-        
-        else:
-            # REINFORCEMENT
-            set_cell_safe(ws, "F20", day)
-        
-            for idx, slot in enumerate(SLOTS):
-                col = openpyxl.utils.get_column_letter(6 + idx)  # F..Q
-                hh, mm = slot.split(":")
-                set_cell_safe(ws, f"{col}21", dtime(int(hh), int(mm)), number_format="h:mm")
+        # ---- Date row per slot (E20:P20 for liner/cover, F20:Q20 for reinforcement) ----
+        for slot_idx, slot in enumerate(SLOTS):
+            col = openpyxl.utils.get_column_letter(col_start + slot_idx)
+            addr = f"{col}{date_row}"
+            _set_cell_safe(ws, addr, day)
 
+        # ---- Time header row (keep your old behavior if your template expects times on row 21) ----
+        # If your template already has times, you can remove this block safely.
+        time_row = 21
+        for slot_idx, slot in enumerate(SLOTS):
+            col = openpyxl.utils.get_column_letter(col_start + slot_idx)
+            hh, mm = slot.split(":")
+            cell_addr = f"{col}{time_row}"
+            # safe: merged check
+            for rng in ws.merged_cells.ranges:
+                if cell_addr in rng:
+                    cell_addr = rng.coord.split(":")[0]
+                    break
+            ws[cell_addr].value = dtime(int(hh), int(mm))
+            ws[cell_addr].number_format = "h:mm"
 
+        # ---- Raw batch + tools (must change as per entry) ----
+        trace_today = get_day_latest_trace(session, run_id, day)
+        carry = get_last_known_trace_before_day(session, run_id, day)
 
-        col_start = 5 if run.process in ["LINER", "COVER"] else 6
-        row_map = ROW_MAP_LINER_COVER if run.process in ["LINER", "COVER"] else ROW_MAP_REINF
+        raw_batches = trace_today["raw_batches"] or ([carry["raw"]] if carry["raw"] else [])
+        raw_str = ", ".join([x for x in raw_batches if x])
+        if raw_str:
+            _set_cell_safe(ws, "D8", raw_str)  # your template cell
 
+        tools = trace_today["tools"] or carry["tools"]
+        # your template tool rows appear to be 8 and 9 with columns G/I/K
+        for t_idx in range(2):
+            r = 8 + t_idx
+            if t_idx < len(tools):
+                name, serial, calib = tools[t_idx]
+                if name:
+                    _set_cell_safe(ws, f"G{r}", name)
+                if serial:
+                    _set_cell_safe(ws, f"I{r}", serial)
+                if calib:
+                    _set_cell_safe(ws, f"K{r}", calib)
+
+        # ---- Fill per-slot: inspector + operators above inspected column ----
         day_entries = session.exec(
             select(InspectionEntry)
             .where(InspectionEntry.run_id == run_id, InspectionEntry.actual_date == day)
             .order_by(InspectionEntry.created_at)
         ).all()
 
+        # inspector lookup
+        user_map = {u.id: u for u in session.exec(select(User)).all()}
+
         for e in day_entries:
             if e.slot_time not in SLOTS:
                 continue
-
             slot_idx = SLOTS.index(e.slot_time)
             col = openpyxl.utils.get_column_letter(col_start + slot_idx)
 
-            # ✅ Fill inspector + operators per your exact rows
-            inspector_name = user_map.get(e.inspector_id, "")
-            
+            inspector_name = user_map.get(e.inspector_id).display_name if e.inspector_id in user_map else ""
+            _set_cell_safe(ws, f"{col}{inspector_row}", inspector_name)
+
             if run.process in ["LINER", "COVER"]:
-                # Inspector: E38:P38
-                ws[f"{col}38"].value = inspector_name
-            
-                # Operator (Hopper / Extruder): E39:P39
-                hop_extr = " / ".join([x for x in [e.operator_1, e.operator_2] if x])
-                ws[f"{col}39"].value = hop_extr
-            
-                # Operator (Cooling / Accumulator): E40:P40
-                cool_acc = " / ".join([x for x in [e.operator_annular_12, e.operator_int_ext_34] if x])
-                ws[f"{col}40"].value = cool_acc
-            
+                _set_cell_safe(ws, f"{col}{op1_row}", e.operator_1 or "")
+                _set_cell_safe(ws, f"{col}{op2_row}", e.operator_2 or "")
             else:
-                # REINFORCEMENT:
-                # Inspector: F36:Q36
-                ws[f"{col}36"].value = inspector_name
-            
-                # Operator (Annular 1 & 2): F37:Q37
-                annular = " / ".join([x for x in [e.operator_annular_12] if x])
-                ws[f"{col}37"].value = annular
-            
-                # Operator (Int./ Ext. 3 & 4): F38:Q38
-                intex = " / ".join([x for x in [e.operator_int_ext_34] if x])
-                ws[f"{col}38"].value = intex
+                _set_cell_safe(ws, f"{col}{op1_row}", e.operator_annular_12 or "")
+                _set_cell_safe(ws, f"{col}{op2_row}", e.operator_int_ext_34 or "")
 
-
-            # Values
+            # ---- Fill measured values into the grid ----
             vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id)).all()
             for v in vals:
                 r = row_map.get(v.param_key)
                 if not r:
                     continue
-                ws[f"{col}{r}"].value = v.value
+                _set_cell_safe(ws, f"{col}{r}", v.value)
 
     out = BytesIO()
     base_wb.save(out)
@@ -1170,6 +1181,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 
 
