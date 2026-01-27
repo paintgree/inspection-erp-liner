@@ -1133,12 +1133,15 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
     row_map = ROW_MAP_LINER_COVER if run.process in ["LINER", "COVER"] else ROW_MAP_REINF
 
     for i, day in enumerate(days):
+        title = f"Day {i+1} ({day.isoformat()})"
+    
         if i == 0:
             ws = base_ws
-            ws.title = f"Day {i+1} ({day.isoformat()})"
+            ws.title = title
         else:
-            ws = base_wb.copy_worksheet(base_ws)
-            ws.title = f"Day {i+1} ({day.isoformat()})"
+            # ✅ safe clone that won't crash when template has images/drawings
+            ws = _clone_sheet_no_drawings(base_wb, base_ws, title)
+
 
         # ---- Header fields (safe write for merged cells) ----
         _set_cell_safe(ws, "D5", run.dhtp_batch_no)
@@ -1244,6 +1247,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 
 
