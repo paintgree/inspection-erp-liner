@@ -1288,22 +1288,22 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
     )
 
 def apply_pdf_page_setup(ws):
-    """
-    Ensures ONE worksheet = ONE PDF page.
-    LibreOffice respects these settings.
-    """
-    ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+    # Portrait A4
+    ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
 
+    # Fit everything onto ONE page (width + height)
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 1
-
     ws.sheet_properties.pageSetUpPr.fitToPage = True
 
-    ws.page_margins.left = 0.3
-    ws.page_margins.right = 0.3
-    ws.page_margins.top = 0.5
-    ws.page_margins.bottom = 0.5
+    # Smaller margins gives more usable width in portrait
+    ws.page_margins.left = 0.2
+    ws.page_margins.right = 0.2
+    ws.page_margins.top = 0.35
+    ws.page_margins.bottom = 0.35
+
+
 
 
 
