@@ -1031,6 +1031,69 @@ def _set_cell_safe(ws, addr: str, value):
             break
     ws[addr].value = value
 
+def _norm(s: str) -> str:
+    return (s or "").strip().lower()
+
+def _find_label_cell(ws, label: str, max_row: int = 40, max_col: int = 25):
+    """
+    Find a cell that contains the label text (case-insensitive).
+    Returns (row, col) or None.
+    """
+    target = _norm(label)
+    for r in range(1, max_row + 1):
+        for c in range(1, max_col + 1):
+            v = ws.cell(row=r, column=c).value
+            if isinstance(v, str) and target in _norm(v):
+                return (r, c)
+    return None
+
+def _write_next_to_label(ws, label: str, value, col_offset: int = 1):
+    """
+    Finds label cell and writes value into the cell to the right (or offset).
+    Safe for different templates.
+    """
+    pos = _find_label_cell(ws, label)
+    if not pos:
+        return False
+    r, c = pos
+    ws.cell(row=r, column=c + col_offset).value = value
+    return True
+
+def _clone_sheet_no_drawings(wb, src_ws, title: str):
+    """
+    Clone a worksheet WITHOUT drawings/images (prevents reinforcement export crash).
+    Preserves:
+      - values
+      - styles
+      - merged cells
+      - row/col dimensions
+    """
+    dst = wb.create_sheet(title=title)
+
+    # copy dimensions
+    for col, dim in src_ws.column_dimensions.items():
+        dst.column_dimensions[col].width = dim.width
+    for row, dim in src_ws.row_dimensions.items():
+        dst.row_dimensions[row].height = dim.height
+
+    # copy merged cells
+    for merged_range in list(src_ws.merged_cells.ranges):
+        dst.merge_cells(str(merged_range))
+
+    # copy cells (value + style)
+    for row in src_ws.iter_rows():
+        for cell in row:
+            new_cell = dst.cell(row=cell.row, column=cell.col_idx, value=cell.value)
+            if cell.has_style:
+                new_cell._style = cell._style
+                new_cell.number_format = cell.number_format
+                new_cell.font = cell.font
+                new_cell.border = cell.border
+                new_cell.fill = cell.fill
+                new_cell.alignment = cell.alignment
+                new_cell.protection = cell.protection
+
+    return dst
 
 
 # ===== EXPORT with Machines + Inspector/Operators per slot for LINER/COVER =====
@@ -1181,6 +1244,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 
 
