@@ -566,6 +566,12 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
                 "pending_value": v.pending_value,
                 "pending_status": v.pending_status or "",
             }
+    # ✅ Daily Trace (Selected Day): raw batch + tools
+    trace_today = get_day_latest_trace(session, run_id, selected_day)
+    carry = get_last_known_trace_before_day(session, run_id, selected_day)
+
+    raw_batches = trace_today["raw_batches"] or ([carry["raw"]] if carry["raw"] else [])
+    tools = trace_today["tools"] or carry["tools"]
 
     progress = get_progress_percent(session, run)
 
@@ -582,6 +588,9 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
             "grid": grid,
             "image_url": IMAGE_MAP.get(run.process, ""),
             "progress": progress,
+            "raw_batches": raw_batches,
+            "tools": tools,
+
         },
     )
 
@@ -1120,6 +1129,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 
 
