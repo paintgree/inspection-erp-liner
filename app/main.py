@@ -99,6 +99,10 @@ ROW_MAP_REINF = {
     "thrust_gas_p_mpa": 35,
 }
 
+@app.get("/health")
+def health():
+    return {"ok": True}
+
 
 @app.on_event("startup")
 def on_startup():
@@ -216,8 +220,15 @@ def users_delete(
 
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-    return RedirectResponse("/dashboard", status_code=302)
+def home(request: Request, session: Session = Depends(get_session)):
+    # If logged in -> dashboard, else -> login (so root stays "healthy")
+    username = request.cookies.get("user")
+    if username:
+        u = session.exec(select(User).where(User.username == username)).first()
+        if u:
+            return RedirectResponse("/dashboard", status_code=302)
+    return RedirectResponse("/login", status_code=302)
+
 
 
 @app.get("/login", response_class=HTMLResponse)
@@ -1345,6 +1356,7 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename_base}.pdf"'},
     )
+
 
 
 
