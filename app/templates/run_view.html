@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+
 {% block content %}
 <a class="btn btn-ghost" href="/dashboard">← Back</a>
 
@@ -21,10 +22,7 @@
           </form>
         {% endif %}
 
-        {% if user.role == "MANAGER" %}
-          <a class="btn btn-warn" href="/runs/{{ run.id }}/pending">Pending approvals</a>
-        {% endif %}
-
+        <a class="btn btn-warn" href="/runs/{{ run.id }}/pending">Pending approvals</a>
 
         {% if run.status == "CLOSED" %}
           <form method="post" action="/runs/{{ run.id }}/approve"
@@ -41,11 +39,12 @@
         {% endif %}
       {% endif %}
 
-     {% if user.role != "BOSS" %}
-       <a class="btn btn-primary" href="/runs/{{ run.id }}/entry/new">+ New Inspection Entry</a>
-     {% endif %}
+      {% if user.role != "BOSS" %}
+        <a class="btn btn-primary" href="/runs/{{ run.id }}/entry/new">+ New Inspection Entry</a>
+      {% endif %}
 
       <a class="btn" href="/runs/{{ run.id }}/export/xlsx">Export XLSX (All Days)</a>
+      <a class="btn" href="/runs/{{ run.id }}/export/pdf">Export PDF (All Days)</a>
     </div>
   </div>
 
@@ -72,7 +71,12 @@
       {% else %}
         <ul>
           {% for m in machines %}
-            <li>{{ m.machine_name }} {% if m.machine_tag %}<span class="muted">({{ m.machine_tag }})</span>{% endif %}</li>
+            <li>
+              {{ m.machine_name }}
+              {% if m.machine_tag %}
+                <span class="muted">({{ m.machine_tag }})</span>
+              {% endif %}
+            </li>
           {% endfor %}
         </ul>
       {% endif %}
@@ -81,6 +85,7 @@
     <div class="card inner">
       <h2>Daily Trace (Selected Day)</h2>
       <div class="muted"><b>Raw Material Batch(es):</b> {{ raw_batches|join(", ") if raw_batches else "-" }}</div>
+
       <div class="mt">
         <div class="muted"><b>Tools used (this day):</b></div>
         {% if tools and tools|length > 0 %}
@@ -99,10 +104,12 @@
   <div class="card inner mt">
     <h2>Production Days</h2>
     <div class="muted">Each day starts at 00:00. Only days with entries exist.</div>
+
     <div class="days">
       {% for d in days %}
         <a class="daypill {% if d == selected_day %}active{% endif %}" href="/runs/{{ run.id }}?day={{ d }}">{{ d }}</a>
       {% endfor %}
+
       {% if days|length == 0 %}
         <span class="muted">No entries yet.</span>
       {% endif %}
@@ -126,7 +133,6 @@
         <tbody>
           {% for p in params %}
           <tr class="{% if p.param_key == 'length_m' %}length-row{% endif %}">
-
             <td>
               <b>{{ p.label }}</b>
               {% if p.unit %}<span class="muted">{{ p.unit }}</span>{% endif %}
@@ -149,7 +155,6 @@
                     {% else %}
                       {{ val }}
                     {% endif %}
-
                   </div>
                   {% if note %}<div class="muted tiny">{{ note }}</div>{% endif %}
                 {% else %}
@@ -167,9 +172,3 @@
   </div>
 </div>
 {% endblock %}
-
-<a class="btn" href="/runs/{{ run.id }}/export/pdf">Export PDF (All Days)</a>
-
-
-
-
