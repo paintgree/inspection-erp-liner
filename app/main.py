@@ -1017,6 +1017,27 @@ def value_reject(value_id: int, request: Request, session: Session = Depends(get
 
     session.commit()
     return RedirectResponse(f"/runs/{run.id}/pending", status_code=302)
+from openpyxl.cell.cell import MergedCell
+
+def set_cell_safe(ws, addr: str, value, number_format: str | None = None):
+    """
+    Safe writer for templates that contain merged cells.
+    If addr is inside a merged range, write to the top-left cell of that range.
+    """
+    cell = ws[addr]
+
+    # If it's a merged cell, redirect to the merged range's start cell
+    if isinstance(cell, MergedCell):
+        for rng in ws.merged_cells.ranges:
+            if addr in rng:
+                addr = str(rng.start_cell.coordinate)
+                cell = ws[addr]
+                break
+
+    cell.value = value
+    if number_format:
+        cell.number_format = number_format
+
 
 
 # ===== EXPORT with Machines + Inspector/Operators per slot for LINER/COVER =====
@@ -1066,33 +1087,24 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
                 ws[f"M{r}"].value = ""
                 ws[f"P{r}"].value = ""
 
-        # ✅ DATE per slot row (your template requires it)
+        # date + time (safe for merged cells)
         if run.process in ["LINER", "COVER"]:
-            # E20:P20
-            for idx in range(len(SLOTS)):
-                col = openpyxl.utils.get_column_letter(5 + idx)  # E..P
-                ws[f"{col}20"].value = day
-        else:
-            # F20:Q20
-            for idx in range(len(SLOTS)):
-                col = openpyxl.utils.get_column_letter(6 + idx)  # F..Q
-                ws[f"{col}20"].value = day
+            set_cell_safe(ws, "E20", day)
         
-        # Time row (keep as before, row 21)
-        if run.process in ["LINER", "COVER"]:
             for idx, slot in enumerate(SLOTS):
                 col = openpyxl.utils.get_column_letter(5 + idx)  # E..P
-                cell = ws[f"{col}21"]
                 hh, mm = slot.split(":")
-                cell.value = dtime(int(hh), int(mm))
-                cell.number_format = "h:mm"
+                set_cell_safe(ws, f"{col}21", dtime(int(hh), int(mm)), number_format="h:mm")
+        
         else:
+            # REINFORCEMENT
+            set_cell_safe(ws, "F20", day)
+        
             for idx, slot in enumerate(SLOTS):
                 col = openpyxl.utils.get_column_letter(6 + idx)  # F..Q
-                cell = ws[f"{col}21"]
                 hh, mm = slot.split(":")
-                cell.value = dtime(int(hh), int(mm))
-                cell.number_format = "h:mm"
+                set_cell_safe(ws, f"{col}21", dtime(int(hh), int(mm)), number_format="h:mm")
+
 
 
         col_start = 5 if run.process in ["LINER", "COVER"] else 6
@@ -1158,6 +1170,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 
 
