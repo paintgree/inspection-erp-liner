@@ -17,6 +17,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the project
 COPY . /app
 
-
-
-CMD ["bash", "-lc", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT}"]
+# Start app (NO shell variable expansion needed)
+CMD ["python", "-c", "import os, uvicorn; uvicorn.run('app.main:app', host='0.0.0.0', port=int(os.environ.get('PORT','8000')))"]
