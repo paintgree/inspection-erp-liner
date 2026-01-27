@@ -255,9 +255,6 @@ def get_days_for_run(session: Session, run_id: int) -> List[date]:
     ).all()
     return list(days)
 
-def require_manager(user: User):
-    if user.role != "MANAGER":
-        raise HTTPException(403, "Manager only")
 
 
 @app.get("/users", response_class=HTMLResponse)
@@ -489,61 +486,9 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
 def run_new_get(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     if (user.role or "").upper() not in ["MANAGER", "RUN_CREATOR"]:
-    raise HTTPException(403, "Manager only")
-
+        raise HTTPException(403, "Manager only")
 
     return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": ""})
-
-
-
-    users = session.exec(select(User).order_by(User.username)).all()
-    return templates.TemplateResponse(
-        "users.html",
-        {"request": request, "user": user, "users": users, "error": ""},
-    )
-
-
-@app.post("/users")
-def users_post(
-    request: Request,
-    session: Session = Depends(get_session),
-    username: str = Form(...),
-    display_name: str = Form(...),
-    role: str = Form(...),
-    password: str = Form(...),
-):
-    user = get_current_user(request, session)
-    require_manager(user)
-
-    username = username.strip().lower()
-    display_name = display_name.strip()
-    role = role.strip().upper()
-
-    if role not in ["INSPECTOR", "MANAGER", "BOSS", "RUN_CREATOR"]:
-        users = session.exec(select(User).order_by(User.username)).all()
-        return templates.TemplateResponse(
-            "users.html",
-            {"request": request, "user": user, "users": users, "error": "Invalid role"},
-        )
-
-    existing = session.exec(select(User).where(User.username == username)).first()
-    if existing:
-        users = session.exec(select(User).order_by(User.username)).all()
-        return templates.TemplateResponse(
-            "users.html",
-            {"request": request, "user": user, "users": users, "error": "Username already exists"},
-        )
-
-    session.add(User(
-        username=username,
-        display_name=display_name,
-        role=role,
-        password_hash=hash_password(password),
-    ))
-    session.commit()
-
-    return RedirectResponse("/users", status_code=302)
-
 
 
 @app.post("/runs/new")
@@ -562,7 +507,7 @@ def run_new_post(
 ):
     user = get_current_user(request, session)
     if (user.role or "").upper() not in ["MANAGER", "RUN_CREATOR"]:
-    raise HTTPException(403, "Manager only")
+        raise HTTPException(403, "Manager only")
 
      
 
@@ -1213,6 +1158,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 
 
