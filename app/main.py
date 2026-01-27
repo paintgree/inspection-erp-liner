@@ -1216,6 +1216,9 @@ def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> 
             ws[cell_addr].value = dtime(int(hh), int(mm))
             ws[cell_addr].number_format = "h:mm"
 
+        # ✅ THIS LINE makes 1 day = 1 PDF page
+        apply_pdf_page_setup(ws)
+        
         # ----- Fill per-slot inspector/operators + values -----
         day_entries = session.exec(
             select(InspectionEntry)
@@ -1283,6 +1286,24 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename_base}.pdf"'},
     )
+
+def apply_pdf_page_setup(ws):
+    """
+    Ensures ONE worksheet = ONE PDF page.
+    LibreOffice respects these settings.
+    """
+    ws.page_setup.orientation = ws.ORIENTATION_LANDSCAPE
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 1
+
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+
+    ws.page_margins.left = 0.3
+    ws.page_margins.right = 0.3
+    ws.page_margins.top = 0.5
+    ws.page_margins.bottom = 0.5
 
 
 
