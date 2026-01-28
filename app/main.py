@@ -1149,7 +1149,7 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
     ws = wb.worksheets[0]
 
     # ✅ apply your portrait + footer margin setup
-    apply_pdf_page_setup(ws)
+    (ws)
 
     # ✅ NOW we fill ONLY THIS day using SAME logic as XLSX export
     if run.process in ["LINER", "COVER"]:
@@ -1405,7 +1405,7 @@ def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> 
             ws[cell_addr].number_format = "h:mm"
 
         # ✅ THIS LINE makes 1 day = 1 PDF page
-        apply_pdf_page_setup(ws)
+        (ws)
         
         # ----- Fill per-slot inspector/operators + values -----
         day_entries = session.exec(
@@ -1507,20 +1507,22 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
 
 
 def apply_pdf_page_setup(ws):
-    # Portrait A4
+    # A4 Portrait
     ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
 
-    # Fit everything onto ONE page (width + height)
+    # ✅ FIT WIDTH ONLY (do NOT fit height)
     ws.page_setup.fitToWidth = 1
-    ws.page_setup.fitToHeight = 1
-    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_setup.fitToHeight = False
+    ws.sheet_properties.pageSetUpPr.fitToPage = False
 
-    # Smaller margins gives more usable width in portrait
+    # Margins
     ws.page_margins.left = 0.25
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
-    ws.page_margins.bottom = 0.70
+    ws.page_margins.bottom = 0.60
+
+
 
 
 
