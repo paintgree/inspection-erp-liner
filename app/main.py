@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 from fastapi.responses import Response
-from pypdf import PdfWriter, PdfReader
+from pypdf import PdfWriter, PdfReader, Transformation
 import subprocess
 import tempfile
 from pathlib import Path
@@ -1269,41 +1269,43 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
 
 def stamp_background_pdf(data_pdf_bytes: bytes, background_pdf_path: str) -> bytes:
     """
-    Creates a NEW blank page for each data page, then:
-      1) merge background
-      2) merge data on top
-    This prevents "background only" output.
+    Stamps a background PDF UNDER each page of data_pdf_bytes,
+    and shifts the DATA downward a bit so it aligns with your paper design.
     """
     if not background_pdf_path or not os.path.exists(background_pdf_path):
         return data_pdf_bytes
 
     data_reader = PdfReader(BytesIO(data_pdf_bytes))
     bg_reader = PdfReader(background_pdf_path)
-
     writer = PdfWriter()
 
     bg_pages = bg_reader.pages
     bg_count = len(bg_pages)
 
+    # ✅ MOVE DATA DOWN (PDF points; 72 points = 1 inch)
+    # Try 20 first, then 30, 40... until it fits perfectly.
+    SHIFT_DOWN = 25  # points
+
     for i, data_page in enumerate(data_reader.pages):
-        # Use matching background page if multi-page, else page 0
         bg_page = bg_pages[i] if (bg_count > 1 and i < bg_count) else bg_pages[0]
 
-        # Make new page exactly same size as DATA page
-        w = float(data_page.mediabox.width)
-        h = float(data_page.mediabox.height)
+        # Use background page size (paper is the "truth")
+        w = float(bg_page.mediabox.width)
+        h = float(bg_page.mediabox.height)
         new_page = writer.add_blank_page(width=w, height=h)
 
-        # 1) Background first (under)
+        # 1) Background first
         new_page.merge_page(bg_page)
 
-        # 2) Data second (on top)
-        new_page.merge_page(data_page)
+        # 2) Data second, shifted DOWN
+        transform = Transformation().translate(tx=0, ty=-SHIFT_DOWN)
+        new_page.merge_transformed_page(data_page, transform)
 
     out = BytesIO()
     writer.write(out)
     out.seek(0)
     return out.getvalue()
+
 
 
 
@@ -1514,25 +1516,23 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
 
 
 
-
 def apply_pdf_page_setup(ws):
     # A4 Portrait
     ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
 
-    # IMPORTANT: disable fit-to-page (this causes shifting/overlap)
-    ws.page_setup.fitToWidth = False
-    ws.page_setup.fitToHeight = False
-    ws.sheet_properties.pageSetUpPr.fitToPage = False
+    # ✅ Back to "everything in 1 page"
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 1
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
 
-    # Controlled scaling (stable PDF)
-    ws.page_setup.scale = 92  # you can try 90–95 later
-
-    # Margins
+    # Margins (keep as before)
     ws.page_margins.left = 0.25
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
-    ws.page_margins.bottom = 0.60
+    ws.page_margins.bottom = 0.70
+
+
 
 
 
