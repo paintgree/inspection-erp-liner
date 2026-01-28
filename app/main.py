@@ -1264,12 +1264,12 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
 
 def stamp_background_pdf(data_pdf_bytes: bytes, background_pdf_path: str) -> bytes:
     """
-    Stamps a background PDF UNDER each page of data_pdf_bytes.
-    - Background can be 1 page (reused for all pages)
-    - or multi-page (page i uses background page i)
+    Creates a NEW blank page for each data page, then:
+      1) merge background
+      2) merge data on top
+    This prevents "background only" output.
     """
-    if not os.path.exists(background_pdf_path):
-        # If background not found, return original PDF
+    if not background_pdf_path or not os.path.exists(background_pdf_path):
         return data_pdf_bytes
 
     data_reader = PdfReader(BytesIO(data_pdf_bytes))
@@ -1280,23 +1280,26 @@ def stamp_background_pdf(data_pdf_bytes: bytes, background_pdf_path: str) -> byt
     bg_pages = bg_reader.pages
     bg_count = len(bg_pages)
 
-    for i, page in enumerate(data_reader.pages):
-        # pick background page
+    for i, data_page in enumerate(data_reader.pages):
+        # Use matching background page if multi-page, else page 0
         bg_page = bg_pages[i] if (bg_count > 1 and i < bg_count) else bg_pages[0]
 
-        # ✅ Put background UNDER the data:
-        # Start from background page, then overlay data on top
-        new_page = bg_page
+        # Make new page exactly same size as DATA page
+        w = float(data_page.mediabox.width)
+        h = float(data_page.mediabox.height)
+        new_page = writer.add_blank_page(width=w, height=h)
 
-        # Make sure sizes match (if not, it will still overlay but may not align)
+        # 1) Background first (under)
         new_page.merge_page(bg_page)
 
-        writer.add_page(new_page)
+        # 2) Data second (on top)
+        new_page.merge_page(data_page)
 
     out = BytesIO()
     writer.write(out)
     out.seek(0)
     return out.getvalue()
+
 
 
 def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> tuple[bytes, str]:
@@ -1518,6 +1521,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
