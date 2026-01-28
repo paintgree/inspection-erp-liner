@@ -1155,27 +1155,21 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
 
     # ✅ NOW we fill ONLY THIS day using SAME logic as XLSX export
     if run.process in ["LINER", "COVER"]:
-        col_start = 5  # E
-        date_row = 20
-        inspector_row = 38
-        op1_row = 39
-        op2_row = 40
-        row_map = ROW_MAP_LINER_COVER
+    _set_cell_safe(ws, "E5", run.dhtp_batch_no)
+    _set_cell_safe(ws, "I5", run.client_name)
+    _set_cell_safe(ws, "I6", run.po_number)
+    _set_cell_safe(ws, "E6", run.pipe_specification)
+    _set_cell_safe(ws, "E7", run.raw_material_spec)
+    _set_cell_safe(ws, "E9", run.itp_number)
 
-        _set_cell_safe(ws, "E5", run.dhtp_batch_no)
-        _set_cell_safe(ws, "I5", run.client_name)
-        _set_cell_safe(ws, "I6", run.po_number)
-        _set_cell_safe(ws, "E6", run.pipe_specification)
-        _set_cell_safe(ws, "E7", run.raw_material_spec)
-        _set_cell_safe(ws, "E9", run.itp_number)
+    else:  # ✅ REINFORCEMENT (PUT YOUR REAL CELLS HERE)
+    _set_cell_safe(ws, "<<<D4>>>", run.dhtp_batch_no)
+    _set_cell_safe(ws, "<<<I4>>>", run.client_name)
+    _set_cell_safe(ws, "<<<I5>>>", run.po_number)
+    _set_cell_safe(ws, "<<<D5>>>", run.pipe_specification)
+    _set_cell_safe(ws, "<<<D6>>>", run.raw_material_spec)
+    _set_cell_safe(ws, "<<<D8>>>", run.itp_number)
 
-    else:  # REINFORCEMENT
-        col_start = 6  # F
-        date_row = 20
-        inspector_row = 36
-        op1_row = 37
-        op2_row = 38
-        row_map = ROW_MAP_REINF
 
         _set_cell_safe(ws, "E5", run.dhtp_batch_no)
         _set_cell_safe(ws, "I5", run.client_name)
@@ -1531,6 +1525,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
