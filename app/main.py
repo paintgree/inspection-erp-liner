@@ -1269,7 +1269,7 @@ from pypdf import Transformation
 from io import BytesIO
 import os
 
-def stamp_background_pdf(data_pdf_bytes: bytes, background_pdf_path: str, y_shift_pts: float = -30) -> bytes:
+def stamp_background_pdf(data_pdf_bytes: bytes, background_pdf_path: str, y_shift_pts: float = -50) -> bytes:
     """
     Stamp background UNDER the page, then place the data on top,
     but shift the data DOWN by y_shift_pts points.
@@ -1531,6 +1531,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
