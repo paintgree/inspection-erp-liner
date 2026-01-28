@@ -1149,11 +1149,11 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
     ws = wb.worksheets[0]
 
     # ✅ apply print setup (must be called before converting)
-apply_pdf_page_setup(ws)
-
-# lock the printable area so LibreOffice does not move things
-ws.print_title_rows = "1:19"
-ws.print_area = "A1:Z75"
+    apply_pdf_page_setup(ws)
+    
+    # lock the printable area so LibreOffice does not move things
+    ws.print_title_rows = "1:19"
+    ws.print_area = "A1:Z75"
 
 
     # ✅ NOW we fill ONLY THIS day using SAME logic as XLSX export
@@ -1533,6 +1533,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.60
+
 
 
 
