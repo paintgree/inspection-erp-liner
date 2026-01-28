@@ -1150,10 +1150,7 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
 
     # ✅ apply print setup (must be called before converting)
     apply_pdf_page_setup(ws)
-    
-    # lock the printable area so LibreOffice does not move things
-    ws.print_title_rows = "1:19"
-    ws.print_area = "A1:Z75"
+
 
 
     # ✅ NOW we fill ONLY THIS day using SAME logic as XLSX export
@@ -1267,44 +1264,49 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
     out.seek(0)
     return out.getvalue()
 
-def stamp_background_pdf(data_pdf_bytes: bytes, background_pdf_path: str) -> bytes:
+from pypdf import PdfReader, PdfWriter
+from pypdf import Transformation
+from io import BytesIO
+import os
+
+def stamp_background_pdf(data_pdf_bytes: bytes, background_pdf_path: str, y_shift_pts: float = -18) -> bytes:
     """
-    Stamps a background PDF UNDER each page of data_pdf_bytes,
-    and shifts the DATA downward a bit so it aligns with your paper design.
+    Stamp background UNDER the page, then place the data on top,
+    but shift the data DOWN by y_shift_pts points.
+
+    y_shift_pts:
+      -18 means move down ~6.35mm (good starting point)
+      try -12, -18, -24 until perfect.
     """
     if not background_pdf_path or not os.path.exists(background_pdf_path):
         return data_pdf_bytes
 
     data_reader = PdfReader(BytesIO(data_pdf_bytes))
     bg_reader = PdfReader(background_pdf_path)
-    writer = PdfWriter()
 
+    writer = PdfWriter()
     bg_pages = bg_reader.pages
     bg_count = len(bg_pages)
-
-    # ✅ MOVE DATA DOWN (PDF points; 72 points = 1 inch)
-    # Try 20 first, then 30, 40... until it fits perfectly.
-    SHIFT_DOWN = 65  # points
 
     for i, data_page in enumerate(data_reader.pages):
         bg_page = bg_pages[i] if (bg_count > 1 and i < bg_count) else bg_pages[0]
 
-        # Use background page size (paper is the "truth")
-        w = float(bg_page.mediabox.width)
-        h = float(bg_page.mediabox.height)
+        w = float(data_page.mediabox.width)
+        h = float(data_page.mediabox.height)
         new_page = writer.add_blank_page(width=w, height=h)
 
-        # 1) Background first
+        # Background first
         new_page.merge_page(bg_page)
 
-        # 2) Data second, shifted DOWN
-        transform = Transformation().translate(tx=0, ty=-SHIFT_DOWN)
-        new_page.merge_transformed_page(data_page, transform)
+        # Data second, shifted DOWN
+        t = Transformation().translate(tx=0, ty=y_shift_pts)
+        new_page.merge_transformed_page(data_page, t)
 
     out = BytesIO()
     writer.write(out)
     out.seek(0)
     return out.getvalue()
+
 
 
 
@@ -1414,8 +1416,6 @@ def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> 
         # ✅ print setup (important for PDF export)
         apply_pdf_page_setup(ws)
         
-        ws.print_title_rows = "1:19"
-        ws.print_area = "A1:Z75"
 
         
         # ----- Fill per-slot inspector/operators + values -----
@@ -1531,6 +1531,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
