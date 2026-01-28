@@ -1148,8 +1148,13 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
     wb = openpyxl.load_workbook(template_path)
     ws = wb.worksheets[0]
 
-    # ✅ apply your portrait + footer margin setup
-    (ws)
+    # ✅ apply print setup (must be called before converting)
+apply_pdf_page_setup(ws)
+
+# lock the printable area so LibreOffice does not move things
+ws.print_title_rows = "1:19"
+ws.print_area = "A1:Z75"
+
 
     # ✅ NOW we fill ONLY THIS day using SAME logic as XLSX export
     if run.process in ["LINER", "COVER"]:
@@ -1404,8 +1409,12 @@ def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> 
             ws[cell_addr].value = dtime(int(hh), int(mm))
             ws[cell_addr].number_format = "h:mm"
 
-        # ✅ THIS LINE makes 1 day = 1 PDF page
-        (ws)
+        # ✅ print setup (important for PDF export)
+        apply_pdf_page_setup(ws)
+        
+        ws.print_title_rows = "1:19"
+        ws.print_area = "A1:Z75"
+
         
         # ----- Fill per-slot inspector/operators + values -----
         day_entries = session.exec(
@@ -1511,19 +1520,21 @@ def apply_pdf_page_setup(ws):
     ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
 
-    # ❌ disable fit-to-page completely
+    # IMPORTANT: disable fit-to-page (this causes shifting/overlap)
     ws.page_setup.fitToWidth = False
     ws.page_setup.fitToHeight = False
     ws.sheet_properties.pageSetUpPr.fitToPage = False
 
-    # ✅ Controlled scaling (this is the key)
-    ws.page_setup.scale = 92  # try 90–95 if needed
+    # Controlled scaling (stable PDF)
+    ws.page_setup.scale = 92  # you can try 90–95 later
 
-    # Margins (stable)
+    # Margins
     ws.page_margins.left = 0.25
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.60
+
+
 
 
 
