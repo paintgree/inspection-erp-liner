@@ -11,6 +11,12 @@ from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
+from fastapi.responses import Response
+from pypdf import PdfMerger
+import subprocess
+import tempfile
+from pathlib import Path
+
 
 from .auth import hash_password, verify_password
 from .db import create_db_and_tables, get_session
@@ -1123,6 +1129,134 @@ def convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
             raise RuntimeError("PDF conversion failed: no output produced")
         return pdfs[0].read_bytes()
 
+def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> bytes:
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    template_path = TEMPLATE_XLSX_MAP.get(run.process)
+    if not template_path or not os.path.exists(template_path):
+        raise HTTPException(404, f"Template not found: {template_path}")
+
+    # ✅ Load the template fresh (images/logos stay!)
+    wb = openpyxl.load_workbook(template_path)
+    ws = wb.worksheets[0]
+
+    # ✅ apply your portrait + footer margin setup
+    apply_pdf_page_setup(ws)
+
+    # ✅ NOW we fill ONLY THIS day using SAME logic as XLSX export
+    if run.process in ["LINER", "COVER"]:
+        col_start = 5  # E
+        date_row = 20
+        inspector_row = 38
+        op1_row = 39
+        op2_row = 40
+        row_map = ROW_MAP_LINER_COVER
+
+        _set_cell_safe(ws, "E5", run.dhtp_batch_no)
+        _set_cell_safe(ws, "I5", run.client_name)
+        _set_cell_safe(ws, "I6", run.po_number)
+        _set_cell_safe(ws, "E6", run.pipe_specification)
+        _set_cell_safe(ws, "E7", run.raw_material_spec)
+        _set_cell_safe(ws, "E9", run.itp_number)
+
+    else:  # REINFORCEMENT
+        col_start = 6  # F
+        date_row = 20
+        inspector_row = 36
+        op1_row = 37
+        op2_row = 38
+        row_map = ROW_MAP_REINF
+
+        _set_cell_safe(ws, "E5", run.dhtp_batch_no)
+        _set_cell_safe(ws, "I5", run.client_name)
+        _set_cell_safe(ws, "I6", run.po_number)
+        _set_cell_safe(ws, "E6", run.pipe_specification)
+        _set_cell_safe(ws, "E7", run.raw_material_spec)
+        _set_cell_safe(ws, "E9", run.itp_number)
+
+    # Machines Used
+    machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
+    for idx in range(5):
+        r = 4 + idx
+        name = machines[idx].machine_name if idx < len(machines) else ""
+        tag = machines[idx].machine_tag if (idx < len(machines) and machines[idx].machine_tag) else ""
+        _set_cell_safe(ws, f"M{r}", name)
+        _set_cell_safe(ws, f"P{r}", tag)
+
+    # Date row (per slot)
+    for slot_idx, slot in enumerate(SLOTS):
+        col = openpyxl.utils.get_column_letter(col_start + slot_idx)
+        _set_cell_safe(ws, f"{col}{date_row}", day)
+
+    # Time row (if your template needs it)
+    time_row = 21
+    for slot_idx, slot in enumerate(SLOTS):
+        col = openpyxl.utils.get_column_letter(col_start + slot_idx)
+        hh, mm = slot.split(":")
+        addr = f"{col}{time_row}"
+        _set_cell_safe(ws, addr, dtime(int(hh), int(mm)))
+        ws[addr].number_format = "h:mm"
+
+    # Trace for THIS day: raw batch + tools
+    trace_today = get_day_latest_trace(session, run_id, day)
+    carry = get_last_known_trace_before_day(session, run_id, day)
+    raw_batches = trace_today["raw_batches"] or ([carry["raw"]] if carry["raw"] else [])
+    raw_str = ", ".join([x for x in raw_batches if x])
+    if raw_str:
+        _set_cell_safe(ws, "E8", raw_str)  # use the right cell in your template
+
+    tools = trace_today["tools"] or carry["tools"]
+    for t_idx in range(2):
+        r = 8 + t_idx
+        if t_idx < len(tools):
+            name, serial, calib = tools[t_idx]
+            if name:
+                _set_cell_safe(ws, f"G{r}", name)
+            if serial:
+                _set_cell_safe(ws, f"I{r}", serial)
+            if calib:
+                _set_cell_safe(ws, f"K{r}", calib)
+
+    # Fill inspector/operators per slot + values
+    day_entries = session.exec(
+        select(InspectionEntry)
+        .where(InspectionEntry.run_id == run_id, InspectionEntry.actual_date == day)
+        .order_by(InspectionEntry.created_at)
+    ).all()
+
+    user_map = {u.id: u for u in session.exec(select(User)).all()}
+
+    for e in day_entries:
+        if e.slot_time not in SLOTS:
+            continue
+        slot_idx = SLOTS.index(e.slot_time)
+        col = openpyxl.utils.get_column_letter(col_start + slot_idx)
+
+        inspector_name = user_map.get(e.inspector_id).display_name if e.inspector_id in user_map else ""
+        _set_cell_safe(ws, f"{col}{inspector_row}", inspector_name)
+
+        if run.process in ["LINER", "COVER"]:
+            _set_cell_safe(ws, f"{col}{op1_row}", e.operator_1 or "")
+            _set_cell_safe(ws, f"{col}{op2_row}", e.operator_2 or "")
+        else:
+            _set_cell_safe(ws, f"{col}{op1_row}", e.operator_annular_12 or "")
+            _set_cell_safe(ws, f"{col}{op2_row}", e.operator_int_ext_34 or "")
+
+        vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id)).all()
+        for v in vals:
+            r = row_map.get(v.param_key)
+            if not r:
+                continue
+            _set_cell_safe(ws, f"{col}{r}", v.value)
+
+    out = BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return out.getvalue()
+
+
 
 def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> tuple[bytes, str]:
     """
@@ -1281,21 +1415,36 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
 
 @app.get("/runs/{run_id}/export/pdf")
 def export_pdf(run_id: int, request: Request, session: Session = Depends(get_session)):
-    xlsx_bytes, filename_base = build_export_xlsx_bytes(run_id, request, session)
+    user = get_current_user(request, session)
 
-    try:
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    days = get_days_for_run(session, run_id)
+    if not days:
+        raise HTTPException(400, "No entries to export")
+
+    merger = PdfMerger()
+
+    for day in days:
+        xlsx_bytes = build_one_day_workbook_bytes(run_id, day, session)
         pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
-    except FileNotFoundError:
-        raise HTTPException(
-            500,
-            "LibreOffice (soffice) not found on Railway image. Install it or use another PDF method."
-        )
+        merger.append(BytesIO(pdf_bytes))
+
+    final_out = BytesIO()
+    merger.write(final_out)
+    merger.close()
+    final_out.seek(0)
+
+    filename = f"{run.process}_{run.dhtp_batch_no}_ALL_DAYS.pdf"
 
     return Response(
-        content=pdf_bytes,
+        content=final_out.getvalue(),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename_base}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 def apply_pdf_page_setup(ws):
     # Portrait A4
@@ -1312,6 +1461,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
