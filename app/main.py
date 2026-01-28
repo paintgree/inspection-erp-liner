@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 from fastapi.responses import Response
-from pypdf import PdfMerger
+from pypdf import PdfWriter, PdfReader
 import subprocess
 import tempfile
 from pathlib import Path
@@ -1413,6 +1413,9 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
     )
 
 
+from fastapi.responses import Response
+from pypdf import PdfWriter, PdfReader
+
 @app.get("/runs/{run_id}/export/pdf")
 def export_pdf(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -1425,25 +1428,27 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
     if not days:
         raise HTTPException(400, "No entries to export")
 
-    merger = PdfMerger()
+    writer = PdfWriter()
 
     for day in days:
         xlsx_bytes = build_one_day_workbook_bytes(run_id, day, session)
         pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
-        merger.append(BytesIO(pdf_bytes))
 
-    final_out = BytesIO()
-    merger.write(final_out)
-    merger.close()
-    final_out.seek(0)
+        reader = PdfReader(BytesIO(pdf_bytes))
+        for page in reader.pages:
+            writer.add_page(page)
+
+    out = BytesIO()
+    writer.write(out)
+    out.seek(0)
 
     filename = f"{run.process}_{run.dhtp_batch_no}_ALL_DAYS.pdf"
-
     return Response(
-        content=final_out.getvalue(),
+        content=out.getvalue(),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 
 def apply_pdf_page_setup(ws):
@@ -1461,6 +1466,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
