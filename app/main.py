@@ -42,6 +42,12 @@ IMAGE_MAP = {
     "COVER": "/static/images/cover.png",
 }
 
+PAPER_BG_MAP = {
+    "LINER": os.path.join(BASE_DIR, "static", "papers", "liner_bg.pdf"),
+    "REINFORCEMENT": os.path.join(BASE_DIR, "static", "papers", "reinforcement_bg.pdf"),
+    "COVER": os.path.join(BASE_DIR, "static", "papers", "cover_bg.pdf"),
+}
+
 TEMPLATE_XLSX_MAP = {
     "LINER": os.path.join(BASE_DIR, "templates", "templates_xlsx", "liner.xlsx"),
     "REINFORCEMENT": os.path.join(BASE_DIR, "templates", "templates_xlsx", "reinforcement.xlsx"),
@@ -1256,6 +1262,41 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
     out.seek(0)
     return out.getvalue()
 
+def stamp_background_pdf(data_pdf_bytes: bytes, background_pdf_path: str) -> bytes:
+    """
+    Stamps a background PDF UNDER each page of data_pdf_bytes.
+    - Background can be 1 page (reused for all pages)
+    - or multi-page (page i uses background page i)
+    """
+    if not os.path.exists(background_pdf_path):
+        # If background not found, return original PDF
+        return data_pdf_bytes
+
+    data_reader = PdfReader(BytesIO(data_pdf_bytes))
+    bg_reader = PdfReader(background_pdf_path)
+
+    writer = PdfWriter()
+
+    bg_pages = bg_reader.pages
+    bg_count = len(bg_pages)
+
+    for i, page in enumerate(data_reader.pages):
+        # pick background page
+        bg_page = bg_pages[i] if (bg_count > 1 and i < bg_count) else bg_pages[0]
+
+        # ✅ Put background UNDER the data:
+        # Start from background page, then overlay data on top
+        new_page = bg_page
+
+        # Make sure sizes match (if not, it will still overlay but may not align)
+        new_page.merge_page(bg_page)
+
+        writer.add_page(new_page)
+
+    out = BytesIO()
+    writer.write(out)
+    out.seek(0)
+    return out.getvalue()
 
 
 def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> tuple[bytes, str]:
@@ -1413,8 +1454,7 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
     )
 
 
-from fastapi.responses import Response
-from pypdf import PdfWriter, PdfReader
+
 
 @app.get("/runs/{run_id}/export/pdf")
 def export_pdf(run_id: int, request: Request, session: Session = Depends(get_session)):
@@ -1430,10 +1470,21 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
 
     writer = PdfWriter()
 
+    # ✅ pick correct paper background by process
+    background_path = PAPER_BG_MAP.get(run.process, "")
+
     for day in days:
+        # 1) Build 1-day excel
         xlsx_bytes = build_one_day_workbook_bytes(run_id, day, session)
+
+        # 2) Convert to PDF
         pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
 
+        # ✅ 3) Stamp background UNDER the page
+        if background_path:
+            pdf_bytes = stamp_background_pdf(pdf_bytes, background_path)
+
+        # 4) Merge into final output
         reader = PdfReader(BytesIO(pdf_bytes))
         for page in reader.pages:
             writer.add_page(page)
@@ -1448,6 +1499,7 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
 
 
 
@@ -1466,6 +1518,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
