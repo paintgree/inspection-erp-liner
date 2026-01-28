@@ -1511,16 +1511,21 @@ def apply_pdf_page_setup(ws):
     ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
 
-    # ✅ FIT WIDTH ONLY (do NOT fit height)
-    ws.page_setup.fitToWidth = 1
+    # ❌ disable fit-to-page completely
+    ws.page_setup.fitToWidth = False
     ws.page_setup.fitToHeight = False
     ws.sheet_properties.pageSetUpPr.fitToPage = False
 
-    # Margins
+    # ✅ Controlled scaling (this is the key)
+    ws.page_setup.scale = 92  # try 90–95 if needed
+
+    # Margins (stable)
     ws.page_margins.left = 0.25
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.60
+
+
 
 
 
