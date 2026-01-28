@@ -1284,7 +1284,7 @@ def stamp_background_pdf(data_pdf_bytes: bytes, background_pdf_path: str) -> byt
 
     # ✅ MOVE DATA DOWN (PDF points; 72 points = 1 inch)
     # Try 20 first, then 30, 40... until it fits perfectly.
-    SHIFT_DOWN = 25  # points
+    SHIFT_DOWN = 45  # points
 
     for i, data_page in enumerate(data_reader.pages):
         bg_page = bg_pages[i] if (bg_count > 1 and i < bg_count) else bg_pages[0]
@@ -1531,6 +1531,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
