@@ -928,6 +928,133 @@ async def entry_new_post(
     session.commit()
 
     return RedirectResponse(f"/runs/{run_id}?day={entry.actual_date.isoformat()}", status_code=302)
+@app.get("/runs/{run_id}/entry/{slot_time}/fill/{param_key}", response_class=HTMLResponse)
+def fill_missing_value_get(
+    run_id: int,
+    slot_time: str,
+    param_key: str,
+    request: Request,
+    day: str,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+    forbid_boss(user)
+
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    # permissions
+    if run.status in ["CLOSED", "APPROVED"] and (user.role or "").upper() != "MANAGER":
+        raise HTTPException(403, "Run is closed")
+
+    day_obj = date.fromisoformat(day)
+
+    entry = session.exec(
+        select(InspectionEntry).where(
+            InspectionEntry.run_id == run_id,
+            InspectionEntry.actual_date == day_obj,
+            InspectionEntry.slot_time == slot_time,
+        )
+    ).first()
+    if not entry:
+        raise HTTPException(404, "No inspection entry for this slot/day")
+
+    # param
+    param = session.exec(
+        select(RunParameter).where(RunParameter.run_id == run_id, RunParameter.param_key == param_key)
+    ).first()
+    if not param:
+        raise HTTPException(404, "Parameter not found")
+
+    # already exists? send to normal edit
+    existing = session.exec(
+        select(InspectionValue).where(InspectionValue.entry_id == entry.id, InspectionValue.param_key == param_key)
+    ).first()
+    if existing:
+        return RedirectResponse(f"/values/{existing.id}/edit", status_code=302)
+
+    return templates.TemplateResponse(
+        "value_fill.html",
+        {"request": request, "user": user, "run": run, "entry": entry, "param": param, "error": ""},
+    )
+@app.post("/runs/{run_id}/entry/{slot_time}/fill/{param_key}")
+async def fill_missing_value_post(
+    run_id: int,
+    slot_time: str,
+    param_key: str,
+    request: Request,
+    day: str = Form(...),
+    new_value: str = Form(...),
+    note: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+    forbid_boss(user)
+
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    # permissions
+    if run.status in ["CLOSED", "APPROVED"] and (user.role or "").upper() != "MANAGER":
+        raise HTTPException(403, "Run is closed")
+
+    day_obj = date.fromisoformat(day)
+
+    entry = session.exec(
+        select(InspectionEntry).where(
+            InspectionEntry.run_id == run_id,
+            InspectionEntry.actual_date == day_obj,
+            InspectionEntry.slot_time == slot_time,
+        )
+    ).first()
+    if not entry:
+        raise HTTPException(404, "No inspection entry for this slot/day")
+
+    param = session.exec(
+        select(RunParameter).where(RunParameter.run_id == run_id, RunParameter.param_key == param_key)
+    ).first()
+    if not param:
+        raise HTTPException(404, "Parameter not found")
+
+    # prevent duplicates
+    existing = session.exec(
+        select(InspectionValue).where(InspectionValue.entry_id == entry.id, InspectionValue.param_key == param_key)
+    ).first()
+    if existing:
+        return RedirectResponse(f"/runs/{run_id}?day={day_obj.isoformat()}", status_code=302)
+
+    v = _safe_float(new_value)
+    if v is None:
+        return RedirectResponse(f"/runs/{run_id}?day={day_obj.isoformat()}", status_code=302)
+
+    is_oos, spec_note = apply_spec_check(param, v)
+
+    new_iv = InspectionValue(
+        entry_id=entry.id,
+        param_key=param_key,
+        value=v,
+        is_out_of_spec=is_oos,
+        spec_note=spec_note,
+    )
+    session.add(new_iv)
+    session.commit()
+    session.refresh(new_iv)
+
+    # optional: store audit (if your audit table allows it)
+    session.add(InspectionValueAudit(
+        inspection_value_id=new_iv.id,
+        action="CREATED",
+        old_value=None,
+        new_value=v,
+        by_user_id=user.id,
+        by_user_name=user.display_name,
+        note=note or "",
+    ))
+    session.commit()
+
+    return RedirectResponse(f"/runs/{run_id}?day={day_obj.isoformat()}", status_code=302)
 
 
 # ===== VALUE EDIT + APPROVAL (kept as your working logic) =====
@@ -1612,6 +1739,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
