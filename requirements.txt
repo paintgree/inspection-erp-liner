@@ -1,3 +1,4 @@
+psycopg2-binary
 fastapi
 uvicorn[standard]
 sqlmodel
@@ -6,4 +7,6 @@ python-multipart
 openpyxl
 passlib
 pypdf
+psycopg2-binary
+
 
