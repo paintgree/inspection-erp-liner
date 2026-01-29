@@ -1,14 +1,19 @@
 from sqlmodel import SQLModel, create_engine, Session
 import os
 
-DB_PATH = os.getenv("INSPECTION_DB", "inspection.db")
-DATABASE_URL = f"sqlite:///{DB_PATH}"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-engine = create_engine(
-    DATABASE_URL,
-    echo=False,
-    connect_args={"check_same_thread": False},
-)
+if DATABASE_URL:
+    # Postgres (Neon)
+    engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
+else:
+    # SQLite fallback (local)
+    DB_PATH = os.getenv("INSPECTION_DB", "inspection.db")
+    engine = create_engine(
+        f"sqlite:///{DB_PATH}",
+        echo=False,
+        connect_args={"check_same_thread": False},
+    )
 
 def create_db_and_tables():
     SQLModel.metadata.create_all(engine)
