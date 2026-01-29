@@ -928,6 +928,7 @@ async def entry_new_post(
     session.commit()
 
     return RedirectResponse(f"/runs/{run_id}?day={entry.actual_date.isoformat()}", status_code=302)
+
 @app.get("/runs/{run_id}/entry/{slot_time}/fill/{param_key}", response_class=HTMLResponse)
 def fill_missing_value_get(
     run_id: int,
@@ -978,6 +979,7 @@ def fill_missing_value_get(
         "value_fill.html",
         {"request": request, "user": user, "run": run, "entry": entry, "param": param, "error": ""},
     )
+
 @app.post("/runs/{run_id}/entry/{slot_time}/fill/{param_key}")
 async def fill_missing_value_post(
     run_id: int,
@@ -1739,6 +1741,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
