@@ -453,28 +453,25 @@ def get_last_known_trace_before_day(session: Session, run_id: int, day: date) ->
     return {"raw": raw, "tools": tools}
 
 
-def apply_spec_check(param: RunParameter, value: Optional[float]) -> Tuple[bool, str]:
-    if value is None:
-        return False, ""
-    rule = (param.rule or "").upper()
-    mn = param.min_value
-    mx = param.max_value
+def format_spec_for_export(rule: str, mn: float | None, mx: float | None):
+    """
+    Returns (set_value, tolerance_text)
+    """
+    rule = (rule or "").upper()
 
-    if rule == "RANGE":
-        if mn is not None and value < mn:
-            return True, f"Below min {mn}"
-        if mx is not None and value > mx:
-            return True, f"Above max {mx}"
-        return False, ""
-    if rule == "MAX_ONLY":
-        if mx is not None and value > mx:
-            return True, f"Above max {mx}"
-        return False, ""
-    if rule == "MIN_ONLY":
-        if mn is not None and value < mn:
-            return True, f"Below min {mn}"
-        return False, ""
-    return False, ""
+    if rule == "RANGE" and mn is not None and mx is not None:
+        set_value = (mn + mx) / 2.0
+        tol = abs(mx - mn) / 2.0
+        return set_value, f"±{tol:g}"
+
+    if rule == "MAX_ONLY" and mx is not None:
+        return mx, "max"   # you requested: set=35, tol=max (like temperature max 35C)
+
+    if rule == "MIN_ONLY" and mn is not None:
+        return mn, "min"
+
+    # fallback (no spec)
+    return None, ""
 
 
 def _safe_float(x: Optional[str]) -> Optional[float]:
@@ -487,7 +484,63 @@ def _safe_float(x: Optional[str]) -> Optional[float]:
         return float(x)
     except Exception:
         return None
+def apply_specs_to_template(ws, run: ProductionRun, session: Session):
+    """
+    Writes the spec limits into the Excel template cells for export.
+    Output format:
+      - RANGE    -> set value and ±tolerance
+      - MAX_ONLY -> set value and "max"
+      - MIN_ONLY -> set value and "min"
+    """
 
+    params = session.exec(select(RunParameter).where(RunParameter.run_id == run.id)).all()
+
+    # choose correct row map based on process
+    row_map = ROW_MAP_REINF if run.process == "REINFORCEMENT" else ROW_MAP_LINER_COVER
+
+    # TEMPORARY columns (you will confirm later)
+    # These are the two columns where the RED spec should appear:
+    # 1) SET VALUE column
+    # 2) TOLERANCE TEXT column (±0.3 / max / min)
+    SPEC_COL = "C"
+    TOL_COL = "D"
+
+    for p in params:
+        r = row_map.get(p.param_key)
+        if not r:
+            continue
+
+        set_val, tol_txt = format_spec_for_export(p.rule, p.min_value, p.max_value)
+
+        _set_cell_safe(ws, f"{SPEC_COL}{r}", set_val if set_val is not None else "")
+        _set_cell_safe(ws, f"{TOL_COL}{r}", tol_txt)
+
+def apply_specs_to_template(ws, run: ProductionRun, session: Session):
+    params = session.exec(select(RunParameter).where(RunParameter.run_id == run.id)).all()
+
+    # pick row map per process
+    row_map = ROW_MAP_REINF if run.process == "REINFORCEMENT" else ROW_MAP_LINER_COVER
+
+    # TODO: you will confirm these columns per template (liner/cover/reinf can differ)
+    # For now placeholders:
+       if run.process in ["LINER", "COVER"]:
+        SPEC_COL = "C"
+        TOL_COL = "D"
+    else:  # REINFORCEMENT
+        SPEC_COL = "D"
+        TOL_COL = "E"
+
+
+    for p in params:
+        r = row_map.get(p.param_key)
+        if not r:
+            continue
+
+        set_val, tol_txt = format_spec_for_export(p.rule, p.min_value, p.max_value)
+
+        # Use safe setter because your sheets have merged cells
+        _set_cell_safe(ws, f"{SPEC_COL}{r}", set_val if set_val is not None else "")
+        _set_cell_safe(ws, f"{TOL_COL}{r}", tol_txt)
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, session: Session = Depends(get_session)):
@@ -1156,6 +1209,8 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
 
     # ✅ Print setup (keep 1-page)
     apply_pdf_page_setup(ws)
+    apply_specs_to_template(ws, run, session)
+    
 
     # ✅ Per-process coordinates (THIS was missing and causing crashes)
     if run.process in ["LINER", "COVER"]:
@@ -1232,6 +1287,8 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
             _set_cell_safe(ws, f"G{r}", name or "")
             _set_cell_safe(ws, f"I{r}", serial or "")
             _set_cell_safe(ws, f"K{r}", calib or "")
+
+    apply_specs_to_template(ws, run, session)
 
     # Fill inspector/operators per slot + values
     day_entries = session.exec(
@@ -1462,6 +1519,8 @@ def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> 
 
     filename_base = f"{run.process}_{run.dhtp_batch_no}_ALL_DAYS"
     return out.getvalue(), filename_base
+    
+
 
 
 @app.get("/runs/{run_id}/export/xlsx")
@@ -1538,6 +1597,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
