@@ -104,11 +104,11 @@ ROW_MAP_LINER_COVER = {
 }
 
 ROW_MAP_REINF = {
-    "length_m": 22, "annular_od_70_1": 23, "annular_od_70_2": 24, "annular_od_45_3": 25,
-    "annular_od_45_4": 26, "core_mould_dia_mm": 27, "annular_width_1_mm": 28,
-    "annular_width_2_mm": 29, "screw_yarn_width_1_mm": 30, "screw_yarn_width_2_mm": 31,
-    "tractor_speed_m_min": 32, "clamping_gas_p1_mpa": 33, "clamping_gas_p2_mpa": 34,
-    "thrust_gas_p_mpa": 35,
+    "length_m": 21, "annular_od_70_1": 22, "annular_od_70_2": 23, "annular_od_45_3": 24,
+    "annular_od_45_4": 25, "core_mould_dia_mm": 26, "annular_width_1_mm": 27,
+    "annular_width_2_mm": 28, "screw_yarn_width_1_mm": 29, "screw_yarn_width_2_mm": 30,
+    "tractor_speed_m_min": 31, "clamping_gas_p1_mpa": 32, "clamping_gas_p2_mpa": 33,
+    "thrust_gas_p_mpa": 34,
 }
 
 @app.get("/health")
@@ -1222,7 +1222,7 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
     raw_batches = trace_today["raw_batches"] or ([carry["raw"]] if carry["raw"] else [])
     raw_str = ", ".join([x for x in raw_batches if x])
     if raw_str:
-        _set_cell_safe(ws, "F7", raw_str)  # if reinforcement differs, change this cell too
+        _set_cell_safe(ws, "D7", raw_str)  # if reinforcement differs, change this cell too
 
     tools = trace_today["tools"] or carry["tools"]
     for t_idx in range(2):
@@ -1538,6 +1538,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
