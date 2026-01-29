@@ -754,18 +754,35 @@ async def run_edit_post(run_id: int, request: Request, session: Session = Depend
             rule = ""
         p.rule = rule
 
-        mn_raw = form.get(f"min_{p.param_key}", "")
-        mx_raw = form.get(f"max_{p.param_key}", "")
-
-        try:
-            p.min_value = float(mn_raw) if str(mn_raw).strip() != "" else None
-        except Exception:
+        set_raw = form.get(f"set_{p.param_key}", "")
+        tol_raw = form.get(f"tol_{p.param_key}", "")
+        
+        set_v = _safe_float(set_raw)
+        tol_v = _safe_float(tol_raw)
+        
+        # convert Set/Tolerance to Min/Max (keeps old system working)
+        if p.rule == "RANGE":
+            if set_v is None or tol_v is None:
+                p.min_value = None
+                p.max_value = None
+            else:
+                t = abs(tol_v)
+                p.min_value = set_v - t
+                p.max_value = set_v + t
+        
+        elif p.rule == "MAX_ONLY":
+            # your example: temperature max 35 -> set=35, tol can be empty
             p.min_value = None
-
-        try:
-            p.max_value = float(mx_raw) if str(mx_raw).strip() != "" else None
-        except Exception:
+            p.max_value = set_v
+        
+        elif p.rule == "MIN_ONLY":
+            p.min_value = set_v
             p.max_value = None
+        
+        else:
+            p.min_value = None
+            p.max_value = None
+
 
         session.add(p)
 
@@ -1565,6 +1582,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
