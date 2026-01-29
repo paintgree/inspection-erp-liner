@@ -63,8 +63,8 @@
               <th>Label (Editable)</th>
               <th>Unit</th>
               <th>Rule</th>
-              <th>Min</th>
-              <th>Max</th>
+              <th>Set Value</th>
+              <th>Tolerance (±) / Limit</th>
             </tr>
           </thead>
           <tbody>
@@ -83,8 +83,21 @@
                     <option value="MAX_ONLY" {% if p.rule=="MAX_ONLY" %}selected{% endif %}>MAX_ONLY</option>
                   </select>
                 </td>
-                <td><input name="min_{{ p.param_key }}" type="number" step="0.01" value="{{ p.min_value if p.min_value is not none else '' }}"></td>
-                <td><input name="max_{{ p.param_key }}" type="number" step="0.01" value="{{ p.max_value if p.max_value is not none else '' }}"></td>
+                <td>
+                <input name="set_{{ p.param_key }}" type="number" step="0.01"
+                       value="{% if p.rule=='RANGE' and p.min_value is not none and p.max_value is not none %}{{ ((p.min_value + p.max_value) / 2) | round(3) }}
+                              {% elif p.rule=='MAX_ONLY' and p.max_value is not none %}{{ p.max_value }}
+                              {% elif p.rule=='MIN_ONLY' and p.min_value is not none %}{{ p.min_value }}
+                              {% else %}{% endif %}">
+              </td>
+              
+              <td>
+                <input name="tol_{{ p.param_key }}" type="number" step="0.01"
+                       value="{% if p.rule=='RANGE' and p.min_value is not none and p.max_value is not none %}{{ ((p.max_value - p.min_value) / 2) | round(3) }}{% else %}{% endif %}">
+                {% if p.rule == "MAX_ONLY" %}<div class="muted" style="font-size:12px;">Max limit</div>{% endif %}
+                {% if p.rule == "MIN_ONLY" %}<div class="muted" style="font-size:12px;">Min limit</div>{% endif %}
+              </td>
+
               </tr>
             {% endfor %}
           </tbody>
