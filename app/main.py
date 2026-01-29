@@ -1176,7 +1176,7 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
         _set_cell_safe(ws, "E9", run.itp_number)
 
     else:  # REINFORCEMENT
-        col_start = 4   # F
+        col_start = 6   # F
         date_row = 19
         time_row = 20
         inspector_row = 35
@@ -1538,6 +1538,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
