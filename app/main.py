@@ -1288,7 +1288,10 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
     raw_batches = trace_today["raw_batches"] or ([carry["raw"]] if carry["raw"] else [])
     raw_str = ", ".join([x for x in raw_batches if x])
     if raw_str:
-        _set_cell_safe(ws, "D7", raw_str)  # if reinforcement differs, change this cell too
+    if run.process in ["LINER", "COVER"]:
+        _set_cell_safe(ws, "E8", raw_str)   # LINER/COVER: Raw Material Batch No.
+    else:
+        _set_cell_safe(ws, "D7", raw_str)   # REINFORCEMENT (keep as-is)
 
     tools = trace_today["tools"] or carry["tools"]
     for t_idx in range(2):
@@ -1608,6 +1611,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
