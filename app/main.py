@@ -808,6 +808,32 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
         "entry_new.html",
         {"request": request, "user": user, "run": run, "params": params, "has_any": has_any, "error": error},
     )
+def apply_spec_check(param: RunParameter, value: float):
+    """
+    Returns (is_out_of_spec: bool, note: str)
+    """
+    rule = (param.rule or "").upper()
+    mn = param.min_value
+    mx = param.max_value
+
+    if rule == "RANGE":
+        if mn is not None and value < mn:
+            return True, f"Below min {mn}"
+        if mx is not None and value > mx:
+            return True, f"Above max {mx}"
+        return False, ""
+
+    if rule == "MAX_ONLY":
+        if mx is not None and value > mx:
+            return True, f"Above max {mx}"
+        return False, ""
+
+    if rule == "MIN_ONLY":
+        if mn is not None and value < mn:
+            return True, f"Below min {mn}"
+        return False, ""
+
+    return False, ""
 
 
 @app.post("/runs/{run_id}/entry/new")
@@ -1582,6 +1608,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
