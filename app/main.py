@@ -484,36 +484,7 @@ def _safe_float(x: Optional[str]) -> Optional[float]:
         return float(x)
     except Exception:
         return None
-def apply_specs_to_template(ws, run: ProductionRun, session: Session):
-    """
-    Writes the spec limits into the Excel template cells for export.
-    Output format:
-      - RANGE    -> set value and ±tolerance
-      - MAX_ONLY -> set value and "max"
-      - MIN_ONLY -> set value and "min"
-    """
 
-    params = session.exec(select(RunParameter).where(RunParameter.run_id == run.id)).all()
-
-    # choose correct row map based on process
-    row_map = ROW_MAP_REINF if run.process == "REINFORCEMENT" else ROW_MAP_LINER_COVER
-
-    # TEMPORARY columns (you will confirm later)
-    # These are the two columns where the RED spec should appear:
-    # 1) SET VALUE column
-    # 2) TOLERANCE TEXT column (±0.3 / max / min)
-    SPEC_COL = "C"
-    TOL_COL = "D"
-
-    for p in params:
-        r = row_map.get(p.param_key)
-        if not r:
-            continue
-
-        set_val, tol_txt = format_spec_for_export(p.rule, p.min_value, p.max_value)
-
-        _set_cell_safe(ws, f"{SPEC_COL}{r}", set_val if set_val is not None else "")
-        _set_cell_safe(ws, f"{TOL_COL}{r}", tol_txt)
 
 def apply_specs_to_template(ws, run: ProductionRun, session: Session):
     params = session.exec(select(RunParameter).where(RunParameter.run_id == run.id)).all()
@@ -521,15 +492,13 @@ def apply_specs_to_template(ws, run: ProductionRun, session: Session):
     # pick row map per process
     row_map = ROW_MAP_REINF if run.process == "REINFORCEMENT" else ROW_MAP_LINER_COVER
 
-    # TODO: you will confirm these columns per template (liner/cover/reinf can differ)
-    # For now placeholders:
-       if run.process in ["LINER", "COVER"]:
+    # columns per template
+    if run.process in ["LINER", "COVER"]:
         SPEC_COL = "C"
         TOL_COL = "D"
     else:  # REINFORCEMENT
         SPEC_COL = "D"
         TOL_COL = "E"
-
 
     for p in params:
         r = row_map.get(p.param_key)
@@ -538,7 +507,6 @@ def apply_specs_to_template(ws, run: ProductionRun, session: Session):
 
         set_val, tol_txt = format_spec_for_export(p.rule, p.min_value, p.max_value)
 
-        # Use safe setter because your sheets have merged cells
         _set_cell_safe(ws, f"{SPEC_COL}{r}", set_val if set_val is not None else "")
         _set_cell_safe(ws, f"{TOL_COL}{r}", tol_txt)
 
@@ -1597,6 +1565,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
