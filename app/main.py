@@ -1144,40 +1144,47 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
     if not template_path or not os.path.exists(template_path):
         raise HTTPException(404, f"Template not found: {template_path}")
 
-    # ✅ Load the template fresh (images/logos stay!)
+    # Load the template fresh (images/logos stay)
     wb = openpyxl.load_workbook(template_path)
     ws = wb.worksheets[0]
 
-    # ✅ apply print setup (must be called before converting)
+    # ✅ Print setup (keep 1-page)
     apply_pdf_page_setup(ws)
 
-
-
-    # ✅ Header cells (different for liner/cover vs reinforcement)
+    # ✅ Per-process coordinates (THIS was missing and causing crashes)
     if run.process in ["LINER", "COVER"]:
+        col_start = 5  # E
+        date_row = 20
+        inspector_row = 38
+        op1_row = 39
+        op2_row = 40
+        row_map = ROW_MAP_LINER_COVER
+
+        # Header cells (LINER/COVER)
         _set_cell_safe(ws, "E5", run.dhtp_batch_no)
         _set_cell_safe(ws, "I5", run.client_name)
         _set_cell_safe(ws, "I6", run.po_number)
         _set_cell_safe(ws, "E6", run.pipe_specification)
         _set_cell_safe(ws, "E7", run.raw_material_spec)
         _set_cell_safe(ws, "E9", run.itp_number)
-    
+
     else:  # REINFORCEMENT
+        col_start = 6  # F
+        date_row = 20
+        inspector_row = 36
+        op1_row = 37
+        op2_row = 38
+        row_map = ROW_MAP_REINF
+
+        # ✅ IMPORTANT:
+        # Put ONLY the reinforcement header cells here (do NOT write E5/I5 again)
+        # Use the real cells from your reinforcement.xlsx template
         _set_cell_safe(ws, "D4", run.dhtp_batch_no)
         _set_cell_safe(ws, "I4", run.client_name)
         _set_cell_safe(ws, "I5", run.po_number)
         _set_cell_safe(ws, "D5", run.pipe_specification)
         _set_cell_safe(ws, "D6", run.raw_material_spec)
         _set_cell_safe(ws, "D8", run.itp_number)
-
-
-
-        _set_cell_safe(ws, "E5", run.dhtp_batch_no)
-        _set_cell_safe(ws, "I5", run.client_name)
-        _set_cell_safe(ws, "I6", run.po_number)
-        _set_cell_safe(ws, "E6", run.pipe_specification)
-        _set_cell_safe(ws, "E7", run.raw_material_spec)
-        _set_cell_safe(ws, "E9", run.itp_number)
 
     # Machines Used
     machines = session.exec(select(RunMachine).where(RunMachine.run_id == run_id)).all()
@@ -1193,7 +1200,7 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
         col = openpyxl.utils.get_column_letter(col_start + slot_idx)
         _set_cell_safe(ws, f"{col}{date_row}", day)
 
-    # Time row (if your template needs it)
+    # Time row
     time_row = 21
     for slot_idx, slot in enumerate(SLOTS):
         col = openpyxl.utils.get_column_letter(col_start + slot_idx)
@@ -1205,22 +1212,20 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
     # Trace for THIS day: raw batch + tools
     trace_today = get_day_latest_trace(session, run_id, day)
     carry = get_last_known_trace_before_day(session, run_id, day)
+
     raw_batches = trace_today["raw_batches"] or ([carry["raw"]] if carry["raw"] else [])
     raw_str = ", ".join([x for x in raw_batches if x])
     if raw_str:
-        _set_cell_safe(ws, "E8", raw_str)  # use the right cell in your template
+        _set_cell_safe(ws, "E8", raw_str)  # if reinforcement differs, change this cell too
 
     tools = trace_today["tools"] or carry["tools"]
     for t_idx in range(2):
         r = 8 + t_idx
         if t_idx < len(tools):
             name, serial, calib = tools[t_idx]
-            if name:
-                _set_cell_safe(ws, f"G{r}", name)
-            if serial:
-                _set_cell_safe(ws, f"I{r}", serial)
-            if calib:
-                _set_cell_safe(ws, f"K{r}", calib)
+            _set_cell_safe(ws, f"G{r}", name or "")
+            _set_cell_safe(ws, f"I{r}", serial or "")
+            _set_cell_safe(ws, f"K{r}", calib or "")
 
     # Fill inspector/operators per slot + values
     day_entries = session.exec(
@@ -1258,6 +1263,7 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
     wb.save(out)
     out.seek(0)
     return out.getvalue()
+
 
 from pypdf import PdfReader, PdfWriter
 from pypdf import Transformation
@@ -1526,6 +1532,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
