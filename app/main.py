@@ -1058,16 +1058,22 @@ from pathlib import Path
 from fastapi.responses import Response
 
 
-def _set_cell_safe(ws, addr: str, value):
+def _set_cell_safe(ws, addr: str, value, number_format: str | None = None):
     """
     Write value to Excel, even if the target address is part of a merged range.
-    openpyxl only allows writing to the TOP-LEFT cell of a merged range.
+    Also optionally apply number_format to the actual written cell.
     """
+    target_addr = addr
     for rng in ws.merged_cells.ranges:
         if addr in rng:
-            addr = rng.coord.split(":")[0]
+            target_addr = rng.coord.split(":")[0]  # top-left
             break
-    ws[addr].value = value
+
+    c = ws[target_addr]
+    c.value = value
+    if number_format:
+        c.number_format = number_format
+
 
 
 def _clone_sheet_no_drawings(wb, src_ws, title: str):
@@ -1155,6 +1161,7 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
     if run.process in ["LINER", "COVER"]:
         col_start = 5  # E
         date_row = 20
+        time_row = 21
         inspector_row = 38
         op1_row = 39
         op2_row = 40
@@ -1169,11 +1176,12 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
         _set_cell_safe(ws, "E9", run.itp_number)
 
     else:  # REINFORCEMENT
-        col_start = 6  # F
-        date_row = 20
-        inspector_row = 36
-        op1_row = 37
-        op2_row = 38
+        col_start = 4   # F
+        date_row = 19
+        time_row = 20
+        inspector_row = 35
+        op1_row = 36
+        op2_row = 37
         row_map = ROW_MAP_REINF
 
         # ✅ IMPORTANT:
@@ -1194,20 +1202,18 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
         tag = machines[idx].machine_tag if (idx < len(machines) and machines[idx].machine_tag) else ""
         _set_cell_safe(ws, f"M{r}", name)
         _set_cell_safe(ws, f"P{r}", tag)
-
-    # Date row (per slot)
+    
+    # ✅ Date row (IMPORTANT: format as DATE so it doesn't show 12:00 AM)
     for slot_idx, slot in enumerate(SLOTS):
         col = openpyxl.utils.get_column_letter(col_start + slot_idx)
-        _set_cell_safe(ws, f"{col}{date_row}", day)
-
-    # Time row
-    time_row = 21
+        _set_cell_safe(ws, f"{col}{date_row}", day, number_format="m/d/yyyy")
+    
+    # ✅ Time row (format as time)
     for slot_idx, slot in enumerate(SLOTS):
         col = openpyxl.utils.get_column_letter(col_start + slot_idx)
         hh, mm = slot.split(":")
-        addr = f"{col}{time_row}"
-        _set_cell_safe(ws, addr, dtime(int(hh), int(mm)))
-        ws[addr].number_format = "h:mm"
+        _set_cell_safe(ws, f"{col}{time_row}", dtime(int(hh), int(mm)), number_format="h:mm")
+
 
     # Trace for THIS day: raw batch + tools
     trace_today = get_day_latest_trace(session, run_id, day)
@@ -1532,6 +1538,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
