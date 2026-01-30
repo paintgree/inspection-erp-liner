@@ -636,10 +636,21 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
 
     
     grid: Dict[str, Dict[str, dict]] = {s: {} for s in SLOTS}
-    for e in entries:
-        slot_inspectors[e.slot_time] = user_map.get(e.inspector_id).display_name if e.inspector_id in user_map else ""
 
-        vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id)).all()
+    for e in entries:
+        # ✅ SAFETY: ignore any bad/old slot_time values in DB
+        if not e.slot_time or e.slot_time not in SLOTS:
+            continue
+
+        slot_inspectors[e.slot_time] = (
+            user_map.get(e.inspector_id).display_name
+            if e.inspector_id in user_map else ""
+        )
+
+        vals = session.exec(
+            select(InspectionValue).where(InspectionValue.entry_id == e.id)
+        ).all()
+
         for v in vals:
             grid.setdefault(e.slot_time, {})[v.param_key] = {
                 "value_id": v.id,
@@ -1741,6 +1752,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
