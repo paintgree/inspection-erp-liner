@@ -601,6 +601,7 @@ def run_new_post(
 @app.get("/runs/{run_id}", response_class=HTMLResponse)
 def run_view(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
+
     run = session.get(ProductionRun, run_id)
     if not run:
         raise HTTPException(404, "Run not found")
@@ -612,6 +613,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
 
     days = get_days_for_run(session, run_id)
 
+    # pick selected day
     selected_day = None
     day_q = request.query_params.get("day")
     if day_q:
@@ -619,40 +621,38 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
             selected_day = date.fromisoformat(day_q)
         except Exception:
             selected_day = None
+
     if selected_day is None:
         selected_day = days[-1] if days else date.today()
 
+    # entries for the selected day
     entries = session.exec(
         select(InspectionEntry)
         .where(InspectionEntry.run_id == run_id, InspectionEntry.actual_date == selected_day)
         .order_by(InspectionEntry.created_at)
     ).all()
 
-
-    # --- NEW: inspector name per slot ---
+    # inspector names lookup
     users = session.exec(select(User)).all()
     user_map = {u.id: u for u in users}
-    slot_inspectors: Dict[str, str] = {s: "" for s in SLOTS}
 
-    
+    # IMPORTANT: init only known slots
+    slot_inspectors: Dict[str, str] = {s: "" for s in SLOTS}
     grid: Dict[str, Dict[str, dict]] = {s: {} for s in SLOTS}
 
     for e in entries:
-        # ✅ SAFETY: ignore any bad/old slot_time values in DB
+        # ✅ CRASH FIX: ignore old/bad slot_time values
         if not e.slot_time or e.slot_time not in SLOTS:
             continue
 
-        slot_inspectors[e.slot_time] = (
-            user_map.get(e.inspector_id).display_name
-            if e.inspector_id in user_map else ""
-        )
+        if e.inspector_id and e.inspector_id in user_map:
+            slot_inspectors[e.slot_time] = user_map[e.inspector_id].display_name or ""
+        else:
+            slot_inspectors[e.slot_time] = ""
 
-        vals = session.exec(
-            select(InspectionValue).where(InspectionValue.entry_id == e.id)
-        ).all()
-
+        vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id)).all()
         for v in vals:
-            grid.setdefault(e.slot_time, {})[v.param_key] = {
+            grid[e.slot_time][v.param_key] = {
                 "value_id": v.id,
                 "value": v.value,
                 "out": bool(v.is_out_of_spec),
@@ -660,7 +660,8 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
                 "pending_value": v.pending_value,
                 "pending_status": v.pending_status or "",
             }
-    # ✅ Daily Trace (Selected Day): raw batch + tools
+
+    # Daily Trace (Selected Day): raw batch + tools
     trace_today = get_day_latest_trace(session, run_id, selected_day)
     carry = get_last_known_trace_before_day(session, run_id, selected_day)
 
@@ -685,7 +686,6 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
             "progress": progress,
             "raw_batches": raw_batches,
             "tools": tools,
-
         },
     )
 
@@ -1752,6 +1752,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
