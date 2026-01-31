@@ -535,8 +535,12 @@ def get_current_material_lot_for_slot(session: Session, run_id: int, day: date, 
 
 def get_day_material_batches(session: Session, run_id: int, day: date) -> list[str]:
     """
-    Returns unique batch_no used in THIS day (based on events).
+    Returns unique batch_no used in THIS day.
+    Primary source: MaterialUseEvent
+    Fallback: InspectionEntry.raw_material_batch_no
     """
+
+    # 1) Primary: events
     events = session.exec(
         select(MaterialUseEvent)
         .where(MaterialUseEvent.run_id == run_id, MaterialUseEvent.day == day)
@@ -545,11 +549,26 @@ def get_day_material_batches(session: Session, run_id: int, day: date) -> list[s
 
     batch_nos = []
     seen = set()
+
     for ev in events:
         lot = session.get(MaterialLot, ev.lot_id)
         if lot and lot.batch_no and lot.batch_no not in seen:
             seen.add(lot.batch_no)
             batch_nos.append(lot.batch_no)
+
+    # 2) Fallback: if no events found, read from entries (saved in Fix A)
+    if not batch_nos:
+        entries = session.exec(
+            select(InspectionEntry)
+            .where(InspectionEntry.run_id == run_id, InspectionEntry.actual_date == day)
+            .order_by(InspectionEntry.created_at)
+        ).all()
+
+        for e in entries:
+            bn = (e.raw_material_batch_no or "").strip()
+            if bn and bn not in seen:
+                seen.add(bn)
+                batch_nos.append(bn)
 
     return batch_nos
 
@@ -1227,6 +1246,13 @@ async def entry_new_post(
         if not new_lot_id_raw.isdigit():
             msg = "Please select the NEW approved RAW batch."
             return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+
+            # ✅ Always store current batch_no inside the entry (so UI can show it)
+    current_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
+    if current_lot and current_lot.batch_no:
+        entry.raw_material_batch_no = current_lot.batch_no
+        session.add(entry)
+        session.commit()
 
         lot_id = int(new_lot_id_raw)
         lot = session.get(MaterialLot, lot_id)
@@ -2158,6 +2184,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
