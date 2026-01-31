@@ -1002,13 +1002,8 @@ async def run_edit_post(run_id: int, request: Request, session: Session = Depend
 @app.get("/runs/{run_id}/entry/new", response_class=HTMLResponse)
 def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
+
     run = session.get(ProductionRun, run_id)
-    today_lot = get_current_material_lot_for_slot(
-        session,
-        run_id,
-        date.today(),
-        "00:00"
-    )
     if not run:
         raise HTTPException(404, "Run not found")
 
@@ -1019,11 +1014,18 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
     has_any = session.exec(select(InspectionEntry.id).where(InspectionEntry.run_id == run_id)).first() is not None
     error = request.query_params.get("error", "")
 
+    # ✅ Only show MRR APPROVED + RAW lots in dropdown
     approved_lots = session.exec(
-        select(MaterialLot).where(MaterialLot.status == "APPROVED").order_by(MaterialLot.batch_no)
+        select(MaterialLot)
+        .where(
+            MaterialLot.status == "APPROVED",
+            MaterialLot.lot_type == "RAW",
+        )
+        .order_by(MaterialLot.batch_no)
     ).all()
-    
 
+    # ✅ preview: current lot for today at 00:00 (carry-forward logic)
+    today_lot = get_current_material_lot_for_slot(session, run_id, date.today(), "00:00")
 
     return templates.TemplateResponse(
         "entry_new.html",
@@ -1038,6 +1040,7 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
             "current_lot_preview": today_lot,
         },
     )
+
 def apply_spec_check(param: RunParameter, value: float):
     """
     Returns (is_out_of_spec: bool, note: str)
@@ -1140,30 +1143,54 @@ async def entry_new_post(
     session.commit()
     session.refresh(entry)
 
-    # ✅ NEW: save material change event ONLY if user selected "Batch changed?"
-    batch_changed = str(form.get("batch_changed", "")).strip() == "1"
-    new_lot_id_raw = str(form.get("new_lot_id", "")).strip()
+        # =========================================================
+        # ✅ MRR batch tracking (MaterialUseEvent)
+        # =========================================================
+        # If this is the FIRST entry of the day and there is no event yet,
+        # we automatically set a starting lot using carry-forward logic.
+        existing_event_today = session.exec(
+            select(MaterialUseEvent)
+            .where(MaterialUseEvent.run_id == run_id, MaterialUseEvent.day == day_obj)
+        ).first()
+    
+        if not existing_event_today:
+            carry_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
+            if carry_lot and carry_lot.status == "APPROVED":
+                session.add(MaterialUseEvent(
+                    run_id=run_id,
+                    day=day_obj,
+                    slot_time=slot_time,
+                    lot_id=carry_lot.id,
+                    created_by_user_id=user.id,
+                ))
+                session.commit()
+    
+        # Read the posted form values
+        batch_changed = str(form.get("batch_changed", "")).strip() == "1"
+        new_lot_id_raw = str(form.get("new_lot_id", "")).strip()
+    
+        # If user says batch changed, create a NEW event for the selected lot
+        if batch_changed:
+            if not new_lot_id_raw.isdigit():
+                msg = "Please select the new batch (MRR approved)."
+                return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+    
+            lot_id = int(new_lot_id_raw)
+            lot = session.get(MaterialLot, lot_id)
+    
+            if (not lot) or (lot.status != "APPROVED") or (getattr(lot, "lot_type", "") != "RAW"):
+                msg = "Selected batch is not an approved RAW batch in MRR."
+                return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+    
+            session.add(MaterialUseEvent(
+                run_id=run_id,
+                day=day_obj,
+                slot_time=slot_time,
+                lot_id=lot_id,
+                created_by_user_id=user.id,
+            ))
+            session.commit()
 
-    if batch_changed:
-        if not new_lot_id_raw.isdigit():
-            msg = "Please select the new batch (MRR approved)."
-            return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
-
-        lot_id = int(new_lot_id_raw)
-        lot = session.get(MaterialLot, lot_id)
-
-        if (not lot) or (lot.status != "APPROVED"):
-            msg = "Selected batch is not approved in MRR."
-            return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
-
-        session.add(MaterialUseEvent(
-            run_id=run_id,
-            day=day_obj,
-            slot_time=slot_time,
-            lot_id=lot_id,
-            created_by_user_id=user.id,
-        ))
-        session.commit()
 
     # ✅ your existing values saving (keep as-is)
     params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id)).all()
@@ -2077,6 +2104,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
