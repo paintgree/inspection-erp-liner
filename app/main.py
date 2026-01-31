@@ -1040,6 +1040,61 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
 
 
 
+def apply_spec_check(param, v):
+    """
+    Returns (is_oos, note)
+    - is_oos: True if value is out of spec
+    - note: human-readable explanation
+    """
+
+    # Handle empty / missing values safely
+    if v is None or (isinstance(v, str) and v.strip() == ""):
+        return False, ""
+
+    # Convert value to float if possible (common for measurements)
+    try:
+        val = float(v)
+    except (TypeError, ValueError):
+        # If it's not numeric, we can't spec-check it here
+        return False, ""
+
+    # Extract limits from param in a flexible way (dict or object)
+    def get_attr(obj, *names):
+        if obj is None:
+            return None
+        # dict style
+        if isinstance(obj, dict):
+            for n in names:
+                if n in obj and obj[n] is not None:
+                    return obj[n]
+        # object style
+        for n in names:
+            if hasattr(obj, n):
+                x = getattr(obj, n)
+                if x is not None:
+                    return x
+        return None
+
+    min_v = get_attr(param, "min_value", "min", "lower", "low_limit")
+    max_v = get_attr(param, "max_value", "max", "upper", "high_limit")
+
+    # Try to convert min/max if they exist
+    try:
+        min_v = float(min_v) if min_v is not None else None
+    except (TypeError, ValueError):
+        min_v = None
+    try:
+        max_v = float(max_v) if max_v is not None else None
+    except (TypeError, ValueError):
+        max_v = None
+
+    # Spec checks
+    if min_v is not None and val < min_v:
+        return True, f"Below min ({val} < {min_v})"
+    if max_v is not None and val > max_v:
+        return True, f"Above max ({val} > {max_v})"
+
+    return False, ""
 
 @app.post("/runs/{run_id}/entry/new")
 async def entry_new_post(
@@ -2073,6 +2128,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
