@@ -67,6 +67,19 @@ TEMPLATE_XLSX_MAP = {
     "COVER": os.path.join(BASE_DIR, "templates", "templates_xlsx", "cover.xlsx"),
 }
 
+# =========================
+# MRR templates / backgrounds (separate from production runs)
+# =========================
+MRR_PAPER_BG_MAP = {
+    "RAW": os.path.join(BASE_DIR, "static", "papers", "mrr_raw_bg.pdf"),
+    "OUTSOURCED": os.path.join(BASE_DIR, "static", "papers", "mrr_outsourced_bg.pdf"),
+}
+
+MRR_TEMPLATE_XLSX_MAP = {
+    "RAW": os.path.join(BASE_DIR, "templates", "templates_xlsx", "mrr_raw.xlsx"),
+    "OUTSOURCED": os.path.join(BASE_DIR, "templates", "templates_xlsx", "mrr_outsourced.xlsx"),
+}
+
 
 SLOTS = ["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00"]
 
@@ -1950,6 +1963,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
