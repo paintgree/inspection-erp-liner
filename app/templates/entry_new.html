@@ -34,9 +34,10 @@
     </div>
 
     {% if run.process in ["LINER", "COVER"] %}
-      <!-- ✅ Operators for LINER/COVER (used in Excel export rows 39 & 40) -->
+      <!-- ✅ Operators for LINER/COVER -->
       <div class="card inner mt">
         <div class="sectiontitle accent-purple">Operators</div>
+
         <div class="grid2 mt">
           <div>
             <label>Operator (Hopper)</label>
@@ -74,7 +75,6 @@
         </div>
       </div>
 
-      <!-- ✅ Body/Noising merged headers + 5 barrels -->
       <div class="card inner mt">
         <div class="grid2">
           <div>
@@ -104,7 +104,7 @@
       </div>
 
     {% else %}
-      <!-- ✅ REINFORCEMENT: show the reinforcement parameter list (no body/noising blocks) -->
+      <!-- ✅ REINFORCEMENT -->
       <div class="card inner mt">
         <div class="sectiontitle accent-blue">Reinforcement Parameters</div>
         <div class="grid3 mt">
@@ -118,14 +118,63 @@
       </div>
     {% endif %}
 
+    <!-- ✅ Daily Traceability + MRR batch change tracking -->
     <div class="card inner mt">
       <div class="sectiontitle accent-purple">Daily Traceability (Tools & Raw Material Batch)</div>
 
+      <!-- (Optional) show current known batch -->
+      <div class="muted mt">
+        Current lot preview:
+        {% if current_lot_preview %}
+          <b>{{ current_lot_preview.batch_no }}</b>
+          {% if current_lot_preview.material_name %} — {{ current_lot_preview.material_name }}{% endif %}
+        {% else %}
+          <b>None</b>
+        {% endif %}
+      </div>
+
+      <!-- ✅ MRR batch change control -->
+      <div class="card inner mt" style="margin-top:14px;">
+        <h2>Raw Material (MRR Approved)</h2>
+
+        <div class="muted">
+          If raw batch changes during production, tick and select the new batch.
+          The system will record all batches used on this day.
+        </div>
+
+        <div class="mt">
+          <label style="display:flex; gap:10px; align-items:center;">
+            <input type="checkbox" name="batch_changed" value="1"
+                   onchange="document.getElementById('batchSelectWrap').style.display = this.checked ? 'block' : 'none';">
+            Batch changed?
+          </label>
+
+          <div id="batchSelectWrap" style="display:none; margin-top:10px;">
+            <label>Select new approved batch</label>
+            <select name="new_lot_id">
+              <option value="">-- select approved batch --</option>
+              {% for lot in approved_lots %}
+                <option value="{{ lot.id }}">
+                  {{ lot.batch_no }}
+                  {% if lot.material_name %} — {{ lot.material_name }}{% endif %}
+                  {% if lot.supplier_name %} ({{ lot.supplier_name }}){% endif %}
+                </option>
+              {% endfor %}
+            </select>
+            <div class="muted" style="margin-top:6px;">
+              Only APPROVED + RAW batches appear here.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Keep manual field if you still want it (optional) -->
       <div class="mt">
-        <label>Raw Material Batch No (leave blank if unchanged)</label>
+        <label>Raw Material Batch No (manual fallback — optional)</label>
         <input name="raw_material_batch_no">
       </div>
 
+      <!-- Tools -->
       <div class="toolgrid mt">
         <div class="toolcard">
           <div class="tooltitle">Tool 1</div>
@@ -151,29 +200,3 @@
   </form>
 </div>
 {% endblock %}
-<div class="card inner mt">
-  <h2>Raw Material (MRR)</h2>
-
-  <div class="muted">
-    Current batch will be used automatically unless you mark a change.
-  </div>
-
-  <div class="mt">
-    <label style="display:flex; gap:10px; align-items:center;">
-      <input type="checkbox" name="batch_changed" value="1" onchange="document.getElementById('batchSelectWrap').style.display = this.checked ? 'block' : 'none';">
-      Batch changed?
-    </label>
-
-    <div id="batchSelectWrap" style="display:none; margin-top:10px;">
-      <label>Select new approved batch</label>
-      <select name="new_lot_id" required>
-        <option value="">-- select approved batch --</option>
-        {% for lot in approved_lots %}
-          <option value="{{ lot.id }}">{{ lot.batch_no }}{% if lot.material_name %} — {{ lot.material_name }}{% endif %}</option>
-        {% endfor %}
-      </select>
-      <div class="muted" style="margin-top:6px;">Only APPROVED batches appear here.</div>
-    </div>
-  </div>
-</div>
-
