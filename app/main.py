@@ -1143,53 +1143,54 @@ async def entry_new_post(
     session.commit()
     session.refresh(entry)
 
-        # =========================================================
-        # ✅ MRR batch tracking (MaterialUseEvent)
-        # =========================================================
-        # If this is the FIRST entry of the day and there is no event yet,
-        # we automatically set a starting lot using carry-forward logic.
-        existing_event_today = session.exec(
-            select(MaterialUseEvent)
-            .where(MaterialUseEvent.run_id == run_id, MaterialUseEvent.day == day_obj)
-        ).first()
-    
-        if not existing_event_today:
-            carry_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
-            if carry_lot and carry_lot.status == "APPROVED":
-                session.add(MaterialUseEvent(
-                    run_id=run_id,
-                    day=day_obj,
-                    slot_time=slot_time,
-                    lot_id=carry_lot.id,
-                    created_by_user_id=user.id,
-                ))
-                session.commit()
-    
-        # Read the posted form values
-        batch_changed = str(form.get("batch_changed", "")).strip() == "1"
-        new_lot_id_raw = str(form.get("new_lot_id", "")).strip()
-    
-        # If user says batch changed, create a NEW event for the selected lot
-        if batch_changed:
-            if not new_lot_id_raw.isdigit():
-                msg = "Please select the new batch (MRR approved)."
-                return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
-    
-            lot_id = int(new_lot_id_raw)
-            lot = session.get(MaterialLot, lot_id)
-    
-            if (not lot) or (lot.status != "APPROVED") or (getattr(lot, "lot_type", "") != "RAW"):
-                msg = "Selected batch is not an approved RAW batch in MRR."
-                return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
-    
+            # =========================================================
+    # ✅ MRR batch tracking (MaterialUseEvent)
+    # =========================================================
+    # If this is the FIRST entry of the day and there is no event yet,
+    # we automatically set a starting lot using carry-forward logic.
+    existing_event_today = session.exec(
+        select(MaterialUseEvent)
+        .where(MaterialUseEvent.run_id == run_id, MaterialUseEvent.day == day_obj)
+    ).first()
+
+    if not existing_event_today:
+        carry_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
+        if carry_lot and carry_lot.status == "APPROVED":
             session.add(MaterialUseEvent(
                 run_id=run_id,
                 day=day_obj,
                 slot_time=slot_time,
-                lot_id=lot_id,
+                lot_id=carry_lot.id,
                 created_by_user_id=user.id,
             ))
             session.commit()
+
+    # Read the posted form values
+    batch_changed = str(form.get("batch_changed", "")).strip() == "1"
+    new_lot_id_raw = str(form.get("new_lot_id", "")).strip()
+
+    # If user says batch changed, create a NEW event for the selected lot
+    if batch_changed:
+        if not new_lot_id_raw.isdigit():
+            msg = "Please select the new batch (MRR approved)."
+            return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+
+        lot_id = int(new_lot_id_raw)
+        lot = session.get(MaterialLot, lot_id)
+
+        if (not lot) or (lot.status != "APPROVED") or (getattr(lot, "lot_type", "") != "RAW"):
+            msg = "Selected batch is not an approved RAW batch in MRR."
+            return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+
+        session.add(MaterialUseEvent(
+            run_id=run_id,
+            day=day_obj,
+            slot_time=slot_time,
+            lot_id=lot_id,
+            created_by_user_id=user.id,
+        ))
+        session.commit()
+
 
 
     # ✅ your existing values saving (keep as-is)
@@ -2104,6 +2105,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
