@@ -29,6 +29,9 @@ from .models import (
     InspectionEntry,
     InspectionValue,
     InspectionValueAudit,
+    MaterialLot,
+    MaterialUseEvent,
+
 )
 
 app = FastAPI()
@@ -407,7 +410,7 @@ def get_day_latest_trace(session: Session, run_id: int, day: date) -> dict:
         .order_by(InspectionEntry.created_at)
     ).all()
 
-    raw_batches = [e.raw_material_batch_no for e in entries if e.raw_material_batch_no]
+    raw_batches = get_day_material_batches(session, run_id, day)
 
     tool1 = (None, None, None)
     tool2 = (None, None, None)
@@ -453,6 +456,60 @@ def get_last_known_trace_before_day(session: Session, run_id: int, day: date) ->
 
     return {"raw": raw, "tools": tools}
 
+def get_current_material_lot_for_slot(session: Session, run_id: int, day: date, slot_time: str):
+    """
+    Returns MaterialLot or None.
+    Rule:
+      - Find latest MaterialUseEvent for this run/day with slot_time <= current slot_time
+      - If none: fallback to latest event before this day
+    """
+    # events for same day up to this slot
+    ev = session.exec(
+        select(MaterialUseEvent)
+        .where(
+            MaterialUseEvent.run_id == run_id,
+            MaterialUseEvent.day == day,
+            MaterialUseEvent.slot_time <= slot_time,
+        )
+        .order_by(MaterialUseEvent.slot_time.desc(), MaterialUseEvent.created_at.desc())
+    ).first()
+
+    if not ev:
+        # fallback: last event before this day
+        ev = session.exec(
+            select(MaterialUseEvent)
+            .where(
+                MaterialUseEvent.run_id == run_id,
+                MaterialUseEvent.day < day,
+            )
+            .order_by(MaterialUseEvent.day.desc(), MaterialUseEvent.slot_time.desc(), MaterialUseEvent.created_at.desc())
+        ).first()
+
+    if not ev:
+        return None
+
+    return session.get(MaterialLot, ev.lot_id)
+
+
+def get_day_material_batches(session: Session, run_id: int, day: date) -> list[str]:
+    """
+    Returns unique batch_no used in THIS day (based on events).
+    """
+    events = session.exec(
+        select(MaterialUseEvent)
+        .where(MaterialUseEvent.run_id == run_id, MaterialUseEvent.day == day)
+        .order_by(MaterialUseEvent.slot_time, MaterialUseEvent.created_at)
+    ).all()
+
+    batch_nos = []
+    seen = set()
+    for ev in events:
+        lot = session.get(MaterialLot, ev.lot_id)
+        if lot and lot.batch_no and lot.batch_no not in seen:
+            seen.add(lot.batch_no)
+            batch_nos.append(lot.batch_no)
+
+    return batch_nos
 
 def format_spec_for_export(rule: str, mn: float | None, mx: float | None):
     """
@@ -693,6 +750,9 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
                 "progress": progress,
                 "raw_batches": raw_batches,
                 "tools": tools,
+                "approved_lots": approved_lots,
+                "current_lot_preview": today_lot,
+
             },
         )
 
@@ -831,6 +891,12 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
 
     has_any = session.exec(select(InspectionEntry.id).where(InspectionEntry.run_id == run_id)).first() is not None
     error = request.query_params.get("error", "")
+
+    approved_lots = session.exec(
+        select(MaterialLot).where(MaterialLot.status == "APPROVED").order_by(MaterialLot.batch_no)
+    ).all()
+    today_lot = get_current_material_lot_for_slot(session, run_id, date.today(), "00:00")
+
 
     return templates.TemplateResponse(
         "entry_new.html",
@@ -1769,6 +1835,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
