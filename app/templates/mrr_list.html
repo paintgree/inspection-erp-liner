@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<a class="btn btn-ghost" href="/dashboard">← Back</a>
+
+<div class="card">
+  <h1>MRR — Raw Material Receiving</h1>
+
+  {% if error %}
+    <div class="alert">{{ error }}</div>
+  {% endif %}
+
+  <div class="card inner mt">
+    <h2>Add New Batch (MRR)</h2>
+    <form method="post" action="/mrr/new">
+      <div class="grid2">
+        <div>
+          <label>Batch No</label>
+          <input name="batch_no" required>
+        </div>
+        <div>
+          <label>Material Name (optional)</label>
+          <input name="material_name">
+        </div>
+        <div>
+          <label>Supplier (optional)</label>
+          <input name="supplier_name">
+        </div>
+      </div>
+      <div class="toolbar mt">
+        <button class="btn btn-primary" type="submit">Create</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card inner mt">
+    <h2>Lots</h2>
+
+    <div class="tablewrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Batch</th>
+            <th>Material</th>
+            <th>Supplier</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for lot in lots %}
+          <tr>
+            <td><b>{{ lot.batch_no }}</b></td>
+            <td>{{ lot.material_name or "-" }}</td>
+            <td>{{ lot.supplier_name or "-" }}</td>
+            <td>{{ lot.status }}</td>
+            <td>
+              {% if lot.status != "APPROVED" %}
+                <form method="post" action="/mrr/{{ lot.id }}/approve" style="display:inline;">
+                  <button class="btn btn-primary" type="submit">Approve</button>
+                </form>
+              {% endif %}
+              {% if lot.status != "REJECTED" %}
+                <form method="post" action="/mrr/{{ lot.id }}/reject" style="display:inline;">
+                  <button class="btn btn-warn" type="submit">Reject</button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+          {% if lots|length == 0 %}
+          <tr><td colspan="5" class="muted">No lots created yet.</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
