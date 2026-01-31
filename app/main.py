@@ -584,6 +584,67 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
         {"request": request, "user": user, "grouped": grouped, "progress_map": progress_map},
     )
 
+@app.get("/mrr", response_class=HTMLResponse)
+def mrr_list(request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    lots = session.exec(select(MaterialLot).order_by(MaterialLot.created_at.desc())).all()
+    return templates.TemplateResponse("mrr_list.html", {"request": request, "user": user, "lots": lots, "error": ""})
+
+
+@app.post("/mrr/new")
+async def mrr_new(request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    form = await request.form()
+    batch_no = str(form.get("batch_no", "")).strip()
+    material_name = str(form.get("material_name", "")).strip()
+    supplier_name = str(form.get("supplier_name", "")).strip()
+
+    if not batch_no:
+        lots = session.exec(select(MaterialLot).order_by(MaterialLot.created_at.desc())).all()
+        return templates.TemplateResponse("mrr_list.html", {"request": request, "user": user, "lots": lots, "error": "Batch No is required"})
+
+    session.add(MaterialLot(
+        batch_no=batch_no,
+        material_name=material_name,
+        supplier_name=supplier_name,
+        status="PENDING",
+    ))
+    session.commit()
+    return RedirectResponse("/mrr", status_code=302)
+
+
+@app.post("/mrr/{lot_id}/approve")
+def mrr_approve(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "Lot not found")
+
+    lot.status = "APPROVED"
+    session.add(lot)
+    session.commit()
+    return RedirectResponse("/mrr", status_code=302)
+
+
+@app.post("/mrr/{lot_id}/reject")
+def mrr_reject(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "Lot not found")
+
+    lot.status = "REJECTED"
+    session.add(lot)
+    session.commit()
+    return RedirectResponse("/mrr", status_code=302)
 
 @app.get("/runs/new", response_class=HTMLResponse)
 def run_new_get(request: Request, session: Session = Depends(get_session)):
@@ -1880,6 +1941,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
