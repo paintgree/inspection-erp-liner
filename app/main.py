@@ -1011,10 +1011,13 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
         select(RunParameter).where(RunParameter.run_id == run_id).order_by(RunParameter.display_order)
     ).all()
 
-    has_any = session.exec(select(InspectionEntry.id).where(InspectionEntry.run_id == run_id)).first() is not None
+    has_any = session.exec(
+        select(InspectionEntry.id).where(InspectionEntry.run_id == run_id)
+    ).first() is not None
+
     error = request.query_params.get("error", "")
 
-    # ✅ Only show MRR APPROVED + RAW lots in dropdown
+    # Only show APPROVED + RAW lots in dropdown
     approved_lots = session.exec(
         select(MaterialLot)
         .where(
@@ -1024,17 +1027,11 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
         .order_by(MaterialLot.batch_no)
     ).all()
 
-    # ✅ preview: current lot for today at 00:00 (carry-forward logic)
+    # preview: current lot for today at 00:00 (carry-forward logic)
     today_lot = get_current_material_lot_for_slot(session, run_id, date.today(), "00:00")
-    approved_lots = session.exec(
-        select(MaterialLot)
-        .where(
-            MaterialLot.status == "APPROVED",
-            MaterialLot.lot_type == "RAW",
-        )
-        .order_by(MaterialLot.batch_no)
-    ).all()
 
+    # show which batches already used today (for clarity)
+    used_batches_today = get_day_material_batches(session, run_id, date.today())
 
     return templates.TemplateResponse(
         "entry_new.html",
@@ -1047,35 +1044,9 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
             "error": error,
             "approved_lots": approved_lots,
             "current_lot_preview": today_lot,
+            "used_batches_today": used_batches_today,
         },
     )
-
-def apply_spec_check(param: RunParameter, value: float):
-    """
-    Returns (is_out_of_spec: bool, note: str)
-    """
-    rule = (param.rule or "").upper()
-    mn = param.min_value
-    mx = param.max_value
-
-    if rule == "RANGE":
-        if mn is not None and value < mn:
-            return True, f"Below min {mn}"
-        if mx is not None and value > mx:
-            return True, f"Above max {mx}"
-        return False, ""
-
-    if rule == "MAX_ONLY":
-        if mx is not None and value > mx:
-            return True, f"Above max {mx}"
-        return False, ""
-
-    if rule == "MIN_ONLY":
-        if mn is not None and value < mn:
-            return True, f"Below min {mn}"
-        return False, ""
-
-    return False, ""
 
 
 @app.post("/runs/{run_id}/entry/new")
@@ -1090,7 +1061,6 @@ async def entry_new_post(
     operator_annular_12: str = Form(""),
     operator_int_ext_34: str = Form(""),
     remarks: str = Form(""),
-    raw_material_batch_no: str = Form(""),
     tool1_name: str = Form(""),
     tool1_serial: str = Form(""),
     tool1_calib_due: str = Form(""),
@@ -1099,9 +1069,9 @@ async def entry_new_post(
     tool2_calib_due: str = Form(""),
 ):
     user = get_current_user(request, session)
-    run = session.get(ProductionRun, run_id)
     forbid_boss(user)
 
+    run = session.get(ProductionRun, run_id)
     if not run:
         raise HTTPException(404, "Run not found")
 
@@ -1111,24 +1081,22 @@ async def entry_new_post(
     slot_time = slot_from_time_str(actual_time)
     day_obj = date.fromisoformat(actual_date)
 
+    # Prevent duplicate entry in same day/slot
     existing_for_slot = session.exec(
         select(InspectionEntry)
         .where(
             InspectionEntry.run_id == run_id,
             InspectionEntry.actual_date == day_obj,
-            InspectionEntry.slot_time == slot_time
+            InspectionEntry.slot_time == slot_time,
         )
     ).first()
-
     if existing_for_slot:
         msg = "This timing slot is already inspected. Please confirm the time, or use Edit to change the existing record."
         return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
 
     form = await request.form()
-    batch_changed = str(form.get("batch_changed", "")).strip() == "1"
-    new_lot_id_raw = str(form.get("new_lot_id", "")).strip()
 
-
+    # Create the inspection entry (NOTE: we do NOT type/store raw batch number here)
     entry = InspectionEntry(
         run_id=run_id,
         actual_date=day_obj,
@@ -1140,7 +1108,7 @@ async def entry_new_post(
         operator_annular_12=operator_annular_12,
         operator_int_ext_34=operator_int_ext_34,
         remarks=remarks,
-        raw_material_batch_no=raw_material_batch_no,
+        raw_material_batch_no="",  # keep empty; we track via MaterialUseEvent
         tool1_name=tool1_name,
         tool1_serial=tool1_serial,
         tool1_calib_due=tool1_calib_due,
@@ -1152,11 +1120,11 @@ async def entry_new_post(
     session.commit()
     session.refresh(entry)
 
-            # =========================================================
-    # ✅ MRR batch tracking (MaterialUseEvent)
+    # =========================================================
+    # Raw batch tracking (MaterialUseEvent)
     # =========================================================
     # If this is the FIRST entry of the day and there is no event yet,
-    # we automatically set a starting lot using carry-forward logic.
+    # automatically set starting lot using carry-forward logic.
     existing_event_today = session.exec(
         select(MaterialUseEvent)
         .where(MaterialUseEvent.run_id == run_id, MaterialUseEvent.day == day_obj)
@@ -1164,7 +1132,7 @@ async def entry_new_post(
 
     if not existing_event_today:
         carry_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
-        if carry_lot and carry_lot.status == "APPROVED":
+        if carry_lot and carry_lot.status == "APPROVED" and getattr(carry_lot, "lot_type", "") == "RAW":
             session.add(MaterialUseEvent(
                 run_id=run_id,
                 day=day_obj,
@@ -1174,11 +1142,10 @@ async def entry_new_post(
             ))
             session.commit()
 
-    # Read the posted form values
+    # If user says batch changed, create a NEW event for the selected lot
     batch_changed = str(form.get("batch_changed", "")).strip() == "1"
     new_lot_id_raw = str(form.get("new_lot_id", "")).strip()
 
-    # If user says batch changed, create a NEW event for the selected lot
     if batch_changed:
         if not new_lot_id_raw.isdigit():
             msg = "Please select the new batch (MRR approved)."
@@ -1200,9 +1167,7 @@ async def entry_new_post(
         ))
         session.commit()
 
-
-
-    # ✅ your existing values saving (keep as-is)
+    # Save inspection values (unchanged)
     params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id)).all()
     by_key = {p.param_key: p for p in params}
 
@@ -1223,9 +1188,6 @@ async def entry_new_post(
         ))
 
     session.commit()
-
-
-
     return RedirectResponse(f"/runs/{run_id}?day={entry.actual_date.isoformat()}", status_code=302)
 
 @app.get("/runs/{run_id}/entry/{slot_time}/fill/{param_key}", response_class=HTMLResponse)
@@ -2114,6 +2076,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
