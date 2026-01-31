@@ -622,34 +622,34 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
 
     form = await request.form()
 
+    # Batch number is NOT decided at ticket creation time.
+    # We generate a temporary one to satisfy DB + indexing.
+    tmp_batch = "TMP-" + datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+
+    material_name = str(form.get("material_name", "")).strip()
+    supplier_name = str(form.get("supplier_name", "")).strip()
     lot_type = str(form.get("lot_type", "RAW")).strip().upper()
     if lot_type not in ["RAW", "OUTSOURCED"]:
         lot_type = "RAW"
 
-    batch_no = str(form.get("batch_no", "")).strip()
-    material_name = str(form.get("material_name", "")).strip()
-    supplier_name = str(form.get("supplier_name", "")).strip()
-
-    if not batch_no:
-        lots = session.exec(select(MaterialLot).order_by(MaterialLot.created_at.desc())).all()
-        return templates.TemplateResponse(
-            "mrr_list.html",
-            {"request": request, "user": user, "lots": lots, "error": "Batch No is required"},
-        )
+    po_number = str(form.get("po_number", "")).strip()
+    quantity = _safe_float(form.get("quantity"))
 
     lot = MaterialLot(
         lot_type=lot_type,
-        batch_no=batch_no,
+        batch_no=tmp_batch,              # ✅ auto generated
         material_name=material_name,
         supplier_name=supplier_name,
-        po_number=str(form.get("po_number","")).strip(),
-        quantity=_safe_float(form.get("quantity")),
+        po_number=po_number,
+        quantity=quantity,
         status="PENDING",
     )
 
     session.add(lot)
     session.commit()
+
     return RedirectResponse("/mrr", status_code=303)
+
 
 
 
@@ -2047,6 +2047,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
