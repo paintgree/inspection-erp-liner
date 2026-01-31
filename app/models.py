@@ -134,3 +134,34 @@ class InspectionValueAudit(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     value: "InspectionValue" = Relationship(back_populates="audits")
+
+
+from datetime import datetime, date
+from typing import Optional
+from sqlmodel import SQLModel, Field
+
+
+class MaterialLot(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    batch_no: str = Field(index=True)
+    material_name: str = ""
+    supplier_name: str = ""
+
+    status: str = "PENDING"  # PENDING / APPROVED / REJECTED
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class MaterialUseEvent(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    run_id: int = Field(index=True)
+    day: date = Field(index=True)
+    slot_time: str = Field(index=True)  # "00:00".."22:00"
+
+    lot_id: int = Field(index=True)
+
+    created_by_user_id: Optional[int] = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
