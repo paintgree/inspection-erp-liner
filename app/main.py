@@ -622,14 +622,13 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
 
     form = await request.form()
 
-    batch_no = str(form.get("batch_no", "")).strip()
-    material_name = str(form.get("material_name", "")).strip()
-    supplier_name = str(form.get("supplier_name", "")).strip()
-
-    # if you already added lot_type in your DB/model, keep this; otherwise remove it.
     lot_type = str(form.get("lot_type", "RAW")).strip().upper()
     if lot_type not in ["RAW", "OUTSOURCED"]:
         lot_type = "RAW"
+
+    batch_no = str(form.get("batch_no", "")).strip()
+    material_name = str(form.get("material_name", "")).strip()
+    supplier_name = str(form.get("supplier_name", "")).strip()
 
     if not batch_no:
         lots = session.exec(select(MaterialLot).order_by(MaterialLot.created_at.desc())).all()
@@ -639,11 +638,13 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
         )
 
     lot = MaterialLot(
+        lot_type=lot_type,
         batch_no=batch_no,
         material_name=material_name,
         supplier_name=supplier_name,
+        po_number=str(form.get("po_number","")).strip(),
+        quantity=_safe_float(form.get("quantity")),
         status="PENDING",
-        # lot_type=lot_type,   # keep only if your MaterialLot model/table has this column
     )
 
     session.add(lot)
@@ -975,6 +976,7 @@ async def run_edit_post(run_id: int, request: Request, session: Session = Depend
 @app.get("/runs/{run_id}/entry/new", response_class=HTMLResponse)
 def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
+
     run = session.get(ProductionRun, run_id)
     if not run:
         raise HTTPException(404, "Run not found")
@@ -986,15 +988,15 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
     has_any = session.exec(select(InspectionEntry.id).where(InspectionEntry.run_id == run_id)).first() is not None
     error = request.query_params.get("error", "")
 
-    # Current batch preview (latest known batch up to today 00:00)
-    today_lot = get_current_material_lot_for_slot(session, run_id, date.today(), "00:00")
-
-    # Only APPROVED lots for dropdown
+    # ✅ ONLY APPROVED + ONLY RAW lots for production usage
     approved_lots = session.exec(
         select(MaterialLot)
-        .where(MaterialLot.status == "APPROVED")
+        .where(MaterialLot.status == "APPROVED", MaterialLot.lot_type == "RAW")
         .order_by(MaterialLot.batch_no)
     ).all()
+
+    # current lot preview (based on last MaterialUseEvent)
+    today_lot = get_current_material_lot_for_slot(session, run_id, date.today(), "00:00")
 
     return templates.TemplateResponse(
         "entry_new.html",
@@ -1009,6 +1011,7 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
             "current_lot_preview": today_lot,
         },
     )
+
 
 
 
@@ -1030,6 +1033,7 @@ async def entry_new_post(
     tool2_name: str = Form(""),
     tool2_serial: str = Form(""),
     tool2_calib_due: str = Form(""),
+    start_lot_id: str = Form(""),   # ✅ for first ever entry
 ):
     user = get_current_user(request, session)
     forbid_boss(user)
@@ -1044,9 +1048,9 @@ async def entry_new_post(
     slot_time = slot_from_time_str(actual_time)
     day_obj = date.fromisoformat(actual_date)
 
+    # prevent duplicate slot entry
     existing_for_slot = session.exec(
-        select(InspectionEntry)
-        .where(
+        select(InspectionEntry).where(
             InspectionEntry.run_id == run_id,
             InspectionEntry.actual_date == day_obj,
             InspectionEntry.slot_time == slot_time
@@ -1057,10 +1061,28 @@ async def entry_new_post(
         return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
 
     form = await request.form()
+
+    # batch-change checkbox + selected lot
     batch_changed = str(form.get("batch_changed", "")).strip() == "1"
     new_lot_id_raw = str(form.get("new_lot_id", "")).strip()
 
-    # Create entry first
+    # check if run has ANY material event yet
+    has_any_event = session.exec(
+        select(MaterialUseEvent.id).where(MaterialUseEvent.run_id == run_id).limit(1)
+    ).first() is not None
+
+    # If this is the FIRST entry EVER (no event exists), require start_lot_id
+    if not has_any_event:
+        if not str(start_lot_id).isdigit():
+            msg = "Please select the STARTING approved RAW batch (first entry only)."
+            return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+
+        lot = session.get(MaterialLot, int(start_lot_id))
+        if (not lot) or (lot.status != "APPROVED") or (getattr(lot, "lot_type", "RAW") != "RAW"):
+            msg = "Selected starting batch is not an APPROVED RAW batch."
+            return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+
+    # Create the inspection entry first
     entry = InspectionEntry(
         run_id=run_id,
         actual_date=day_obj,
@@ -1083,21 +1105,27 @@ async def entry_new_post(
     session.commit()
     session.refresh(entry)
 
-    # ✅ Decide if we must record a batch event:
-    # - If batch_changed checkbox ticked -> record event
-    # - OR if no batch exists yet for this run/slot/day (first-time) -> record event (required)
-    current_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
-    must_record_batch = batch_changed or (current_lot is None)
+    # ✅ If no events existed (first entry), create the FIRST event from start_lot_id
+    if not has_any_event:
+        session.add(MaterialUseEvent(
+            run_id=run_id,
+            day=day_obj,
+            slot_time=slot_time,
+            lot_id=int(start_lot_id),
+            created_by_user_id=user.id,
+        ))
+        session.commit()
 
-    if must_record_batch:
+    # ✅ If batch_changed checked, create a NEW event (this is how you get “both batches in same day”)
+    if batch_changed:
         if not new_lot_id_raw.isdigit():
-            msg = "Please select the batch (MRR approved)."
+            msg = "Please select the NEW approved RAW batch."
             return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
 
         lot_id = int(new_lot_id_raw)
         lot = session.get(MaterialLot, lot_id)
-        if (not lot) or (lot.status != "APPROVED"):
-            msg = "Selected batch is not approved in MRR."
+        if (not lot) or (lot.status != "APPROVED") or (getattr(lot, "lot_type", "RAW") != "RAW"):
+            msg = "Selected batch is not an APPROVED RAW batch."
             return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
 
         session.add(MaterialUseEvent(
@@ -1109,7 +1137,7 @@ async def entry_new_post(
         ))
         session.commit()
 
-    # Save values
+    # save values (unchanged logic)
     params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id)).all()
     by_key = {p.param_key: p for p in params}
 
@@ -1130,8 +1158,8 @@ async def entry_new_post(
         ))
 
     session.commit()
-
     return RedirectResponse(f"/runs/{run_id}?day={entry.actual_date.isoformat()}", status_code=302)
+
 
 @app.get("/runs/{run_id}/entry/{slot_time}/fill/{param_key}", response_class=HTMLResponse)
 def fill_missing_value_get(
@@ -2019,6 +2047,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
