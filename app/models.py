@@ -1,6 +1,65 @@
 from datetime import datetime, date
 from typing import Optional
 from sqlmodel import SQLModel, Field, Relationship
+from sqlmodel import SQLModel, Field
+from typing import Optional
+from datetime import datetime, date
+
+class MrrTicket(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    status: str = Field(default="OPEN")  # OPEN, IN_PROGRESS, CLOSED, APPROVED
+
+    material_category: str = Field(default="RAW")  # RAW or OUTSOURCED
+    material_type: str = Field(default="")         # e.g. PE100, Resin name, Flange type...
+    supplier_name: str = Field(default="")
+    quantity: str = Field(default="")              # keep string to support "10 bags", "5 tons"
+
+    po_number: str = Field(default="")             # planned PO from manager
+    notes: str = Field(default="")
+
+class MrrDocument(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    ticket_id: int = Field(index=True)
+
+    doc_name: str = Field(default="")              # required
+    doc_number: str = Field(default="")            # optional
+    file_path: str = Field(default="")             # stored file path
+
+    uploaded_by_user_id: Optional[int] = Field(default=None, index=True)
+    uploaded_by_user_name: str = Field(default="")
+
+    doc_type: str = Field(default="GENERAL")       # GENERAL, PO, DELIVERY_NOTE, COA, etc.
+
+class MrrReceiving(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    ticket_id: int = Field(index=True)
+
+    delivery_note_no: str = Field(default="")
+    inspector_po_number: str = Field(default="")
+
+    po_match: bool = Field(default=True)           # computed/updated at save time
+    inspector_confirmed_po: bool = Field(default=False)
+    manager_confirmed_po: bool = Field(default=False)
+
+    received_date: date = Field(default_factory=date.today)
+    remarks: str = Field(default="")
+
+class MrrInspection(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    ticket_id: int = Field(index=True)
+    template_used: str = Field(default="RAW")      # RAW / OUTSOURCED
+
+    # you can store form fields as columns OR JSON.
+    # simplest: store JSON string so you can change template later without DB changes.
+    form_json: str = Field(default="{}")
 
 
 class User(SQLModel, table=True):
@@ -163,5 +222,6 @@ class MaterialUseEvent(SQLModel, table=True):
 
     created_by_user_id: Optional[int] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 
