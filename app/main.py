@@ -622,62 +622,43 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
 
     form = await request.form()
 
-    # REQUIRED
+    batch_no = str(form.get("batch_no", "")).strip()
+    material_name = str(form.get("material_name", "")).strip()
+    supplier_name = str(form.get("supplier_name", "")).strip()
+
     lot_type = str(form.get("lot_type", "RAW")).strip().upper()
     if lot_type not in ["RAW", "OUTSOURCED"]:
         lot_type = "RAW"
 
-    # Ticket fields (NO batch number here if you want ticket to be PO-based)
-    # If you still keep batch_no in UI, it will be stored; otherwise leave blank.
-    batch_no = str(form.get("batch_no", "")).strip()
-
-    material_name = str(form.get("material_name", "")).strip()
-    supplier_name = str(form.get("supplier_name", "")).strip()
-
     po_number = str(form.get("po_number", "")).strip()
     quantity = _safe_float(form.get("quantity"))
 
-    # If you want to allow creating ticket without PO, keep it optional:
-    # if not po_number: po_number = ""
-
-    # Minimal validation (your choice)
-    if not material_name:
+    if not batch_no:
         lots = session.exec(select(MaterialLot).order_by(MaterialLot.created_at.desc())).all()
         return templates.TemplateResponse(
             "mrr_list.html",
-            {"request": request, "user": user, "lots": lots, "error": "Material Name is required"}
+            {"request": request, "user": user, "lots": lots, "error": "Batch No is required"},
         )
 
-    # ✅ Create ONLY ONE ticket
     lot = MaterialLot(
-        lot_type=lot_type,
         batch_no=batch_no,
         material_name=material_name,
         supplier_name=supplier_name,
-        po_number=po_number,
-        quantity=quantity,
         status="PENDING",
     )
+
+    # Only set these if your MaterialLot model actually has them
+    if hasattr(lot, "lot_type"):
+        lot.lot_type = lot_type
+    if hasattr(lot, "po_number"):
+        lot.po_number = po_number
+    if hasattr(lot, "quantity"):
+        lot.quantity = quantity
+
     session.add(lot)
     session.commit()
-
-    # ✅ IMPORTANT: use 303 after POST (prevents browser re-submit creating duplicates)
     return RedirectResponse("/mrr", status_code=303)
 
-
-@app.post("/mrr/{lot_id}/approve")
-def mrr_approve(lot_id: int, request: Request, session: Session = Depends(get_session)):
-    user = get_current_user(request, session)
-    require_manager(user)
-
-    lot = session.get(MaterialLot, lot_id)
-    if not lot:
-        raise HTTPException(404, "Lot not found")
-
-    lot.status = "APPROVED"
-    session.add(lot)
-    session.commit()
-    return RedirectResponse("/mrr", status_code=302)
 
 
 @app.post("/mrr/{lot_id}/reject")
@@ -1017,15 +998,14 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
 
     error = request.query_params.get("error", "")
 
-    # Only show APPROVED + RAW lots in dropdown
-    approved_lots = session.exec(
-        select(MaterialLot)
-        .where(
-            MaterialLot.status == "APPROVED",
-            MaterialLot.lot_type == "RAW",
-        )
-        .order_by(MaterialLot.batch_no)
-    ).all()
+    q = select(MaterialLot).where(MaterialLot.status == "APPROVED")
+    
+    # If your MaterialLot has lot_type, restrict to RAW only
+    if hasattr(MaterialLot, "lot_type"):
+        q = q.where(MaterialLot.lot_type == "RAW")
+    
+    approved_lots = session.exec(q.order_by(MaterialLot.batch_no)).all()
+
 
     # preview: current lot for today at 00:00 (carry-forward logic)
     today_lot = get_current_material_lot_for_slot(session, run_id, date.today(), "00:00")
