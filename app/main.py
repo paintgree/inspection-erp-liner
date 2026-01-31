@@ -615,42 +615,34 @@ def mrr_list(request: Request, session: Session = Depends(get_session)):
     return templates.TemplateResponse("mrr_list.html", {"request": request, "user": user, "lots": lots, "error": ""})
 
 
-@app.post("/mrr/new")
-async def mrr_new(request: Request, session: Session = Depends(get_session)):
+@app.post("/mrr/{lot_id}/approve")
+def mrr_approve(lot_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     require_manager(user)
 
-    form = await request.form()
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "Lot not found")
 
-    # Batch number is NOT decided at ticket creation time.
-    # We generate a temporary one to satisfy DB + indexing.
-    tmp_batch = "TMP-" + datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-
-    material_name = str(form.get("material_name", "")).strip()
-    supplier_name = str(form.get("supplier_name", "")).strip()
-    lot_type = str(form.get("lot_type", "RAW")).strip().upper()
-    if lot_type not in ["RAW", "OUTSOURCED"]:
-        lot_type = "RAW"
-
-    po_number = str(form.get("po_number", "")).strip()
-    quantity = _safe_float(form.get("quantity"))
-
-    lot = MaterialLot(
-        lot_type=lot_type,
-        batch_no=tmp_batch,              # ✅ auto generated
-        material_name=material_name,
-        supplier_name=supplier_name,
-        po_number=po_number,
-        quantity=quantity,
-        status="PENDING",
-    )
-
+    lot.status = "APPROVED"
     session.add(lot)
     session.commit()
-
     return RedirectResponse("/mrr", status_code=303)
 
 
+@app.post("/mrr/{lot_id}/reject")
+def mrr_reject(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "Lot not found")
+
+    lot.status = "REJECTED"
+    session.add(lot)
+    session.commit()
+    return RedirectResponse("/mrr", status_code=303)
 
 
 
@@ -2047,6 +2039,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
