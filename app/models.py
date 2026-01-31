@@ -203,11 +203,15 @@ from datetime import datetime
 class MaterialLot(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
-    lot_type: str = Field(default="RAW", index=True)  # ✅ RAW / OUTSOURCED
+    # ✅ RAW / OUTSOURCED
+    lot_type: str = Field(default="RAW", index=True)
 
     batch_no: str = Field(index=True)
     material_name: str = ""
     supplier_name: str = ""
+
+    po_number: str = ""
+    quantity: Optional[float] = None
 
     status: str = "PENDING"  # PENDING / APPROVED / REJECTED
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -225,6 +229,7 @@ class MaterialUseEvent(SQLModel, table=True):
 
     created_by_user_id: Optional[int] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 
 
