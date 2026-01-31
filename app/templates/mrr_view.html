@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block content %}
+
+<a class="btn btn-ghost" href="/mrr">← Back</a>
+
+<div class="card">
+  <div class="runheader">
+    <div>
+      <h1>MRR Ticket #{{ lot.id }}</h1>
+      <div class="muted">
+        Type: <b>{{ lot.lot_type }}</b> •
+        Batch: <b>{{ lot.batch_no }}</b> •
+        Status: <b>{{ lot.status }}</b>
+      </div>
+    </div>
+
+    <div class="actions">
+      <a class="btn" href="/mrr/{{ lot.id }}/export/xlsx">Export XLSX</a>
+      <a class="btn" href="/mrr/{{ lot.id }}/export/pdf">Export PDF</a>
+    </div>
+  </div>
+
+  <div class="grid3 mt">
+    <div class="card inner">
+      <h2>Basic Info</h2>
+      <div class="kv"><span>Material</span><b>{{ lot.material_name or "-" }}</b></div>
+      <div class="kv"><span>Supplier</span><b>{{ lot.supplier_name or "-" }}</b></div>
+      <div class="kv"><span>PO</span><b>{{ lot.po_number or "-" }}</b></div>
+      <div class="kv"><span>Quantity</span><b>{{ lot.quantity or "-" }}</b></div>
+    </div>
+
+    <div class="card inner">
+      <h2>Actions</h2>
+      <form method="post" action="/mrr/{{ lot.id }}/approve">
+        <button class="btn btn-primary" type="submit">Approve</button>
+      </form>
+      <form method="post" action="/mrr/{{ lot.id }}/reject" class="mt">
+        <button class="btn btn-warn" type="submit">Reject</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
