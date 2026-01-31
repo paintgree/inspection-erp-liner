@@ -632,6 +632,15 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
             .where(InspectionEntry.run_id == run_id, InspectionEntry.actual_date == selected_day)
             .order_by(InspectionEntry.created_at)
         ).all()
+        
+        # ✅ NEW: for the UI to know which slots have an InspectionEntry
+        slot_entry_ids: Dict[str, int] = {}
+        for e in entries:
+            if not e.slot_time or e.slot_time not in SLOTS:
+                continue
+            slot_entry_ids[e.slot_time] = e.id
+
+
 
         users = session.exec(select(User)).all()
         user_map = {u.id: u for u in users}
@@ -679,6 +688,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
                 "selected_day": selected_day,
                 "grid": grid,
                 "slot_inspectors": slot_inspectors,
+                "slot_entry_ids": slot_entry_ids, 
                 "image_url": IMAGE_MAP.get(run.process, ""),
                 "progress": progress,
                 "raw_batches": raw_batches,
@@ -1759,6 +1769,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
