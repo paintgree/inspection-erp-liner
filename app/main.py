@@ -621,34 +621,47 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
     require_manager(user)
 
     form = await request.form()
-    batch_no = str(form.get("batch_no", "")).strip()
-    material_name = str(form.get("material_name", "")).strip()
-    supplier_name = str(form.get("supplier_name", "")).strip()
+
+    # REQUIRED
     lot_type = str(form.get("lot_type", "RAW")).strip().upper()
     if lot_type not in ["RAW", "OUTSOURCED"]:
         lot_type = "RAW"
-    session.add(MaterialLot(
+
+    # Ticket fields (NO batch number here if you want ticket to be PO-based)
+    # If you still keep batch_no in UI, it will be stored; otherwise leave blank.
+    batch_no = str(form.get("batch_no", "")).strip()
+
+    material_name = str(form.get("material_name", "")).strip()
+    supplier_name = str(form.get("supplier_name", "")).strip()
+
+    po_number = str(form.get("po_number", "")).strip()
+    quantity = _safe_float(form.get("quantity"))
+
+    # If you want to allow creating ticket without PO, keep it optional:
+    # if not po_number: po_number = ""
+
+    # Minimal validation (your choice)
+    if not material_name:
+        lots = session.exec(select(MaterialLot).order_by(MaterialLot.created_at.desc())).all()
+        return templates.TemplateResponse(
+            "mrr_list.html",
+            {"request": request, "user": user, "lots": lots, "error": "Material Name is required"}
+        )
+
+    # ✅ Create ONLY ONE ticket
+    lot = MaterialLot(
         lot_type=lot_type,
         batch_no=batch_no,
         material_name=material_name,
         supplier_name=supplier_name,
-        po_number=str(form.get("po_number","")).strip(),
-        quantity=_safe_float(form.get("quantity")),
+        po_number=po_number,
+        quantity=quantity,
         status="PENDING",
-    ))
-    
-
-    if not batch_no:
-        lots = session.exec(select(MaterialLot).order_by(MaterialLot.created_at.desc())).all()
-        return templates.TemplateResponse("mrr_list.html", {"request": request, "user": user, "lots": lots, "error": "Batch No is required"})
-
-    session.add(MaterialLot(
-        batch_no=batch_no,
-        material_name=material_name,
-        supplier_name=supplier_name,
-        status="PENDING",
-    ))
+    )
+    session.add(lot)
     session.commit()
+
+    # ✅ IMPORTANT: use 303 after POST (prevents browser re-submit creating duplicates)
     return RedirectResponse("/mrr", status_code=303)
 
 
@@ -2064,6 +2077,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
