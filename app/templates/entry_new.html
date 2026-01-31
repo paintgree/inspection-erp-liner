@@ -33,41 +33,25 @@
       </div>
     </div>
 
-    <!-- =========================================================
-         RAW MATERIAL (MRR) - APPROVED ONLY + CHANGE EVENT RECORD
-         ========================================================= -->
+    <!-- ✅ RAW MATERIAL (MRR) -->
     <div class="card inner mt">
-      <div class="sectiontitle accent-purple">Raw Material Used (MRR Approved)</div>
+      <div class="sectiontitle accent-purple">Raw Material (MRR Approved Batches)</div>
 
-      <div class="muted">
-        By default, the system continues using the last approved batch used in production.
-        Only mark “Batch changed?” if you started using a NEW approved batch during this slot.
-      </div>
-
-      <div class="mt">
-        <div class="muted" style="margin-bottom:6px;">
+      {% if current_lot_preview %}
+        <div class="muted mt">
           <b>Current batch (auto):</b>
-          {% if current_lot_preview %}
-            {{ current_lot_preview.batch_no }}
-            {% if current_lot_preview.material_name %} — {{ current_lot_preview.material_name }}{% endif %}
-          {% else %}
-            <span class="muted">None recorded yet</span>
-          {% endif %}
+          {{ current_lot_preview.batch_no }}
+          {% if current_lot_preview.material_name %} — {{ current_lot_preview.material_name }}{% endif %}
+          {% if current_lot_preview.supplier_name %} ({{ current_lot_preview.supplier_name }}){% endif %}
+        </div>
+      {% else %}
+        <div class="alert mt">
+          No batch recorded yet for this run. Please select the first approved batch before committing.
         </div>
 
-        <label style="display:flex; gap:10px; align-items:center;">
-          <input
-            type="checkbox"
-            name="batch_changed"
-            value="1"
-            onchange="document.getElementById('batchSelectWrap').style.display = this.checked ? 'block' : 'none';"
-          >
-          Batch changed during this slot?
-        </label>
-
-        <div id="batchSelectWrap" style="display:none; margin-top:10px;">
-          <label>Select NEW approved batch</label>
-          <select name="new_lot_id">
+        <div class="mt">
+          <label>Select first approved batch (required)</label>
+          <select name="new_lot_id" required>
             <option value="">-- select approved batch --</option>
             {% for lot in approved_lots %}
               <option value="{{ lot.id }}">
@@ -75,15 +59,40 @@
               </option>
             {% endfor %}
           </select>
-          <div class="muted" style="margin-top:6px;">
-            Only APPROVED batches appear here.
+          <input type="hidden" name="batch_changed" value="1">
+          <div class="muted" style="margin-top:6px;">Only APPROVED batches appear here.</div>
+        </div>
+      {% endif %}
+
+      {% if current_lot_preview %}
+        <div class="mt">
+          <label style="display:flex; gap:10px; align-items:center;">
+            <input type="checkbox" id="batch_changed_cb" name="batch_changed" value="1"
+              onchange="
+                document.getElementById('batchSelectWrap').style.display = this.checked ? 'block' : 'none';
+                document.getElementById('new_lot_id_select').required = this.checked;
+              ">
+            Batch changed during production?
+          </label>
+
+          <div id="batchSelectWrap" style="display:none; margin-top:10px;">
+            <label>Select new approved batch</label>
+            <select id="new_lot_id_select" name="new_lot_id">
+              <option value="">-- select approved batch --</option>
+              {% for lot in approved_lots %}
+                <option value="{{ lot.id }}">
+                  {{ lot.batch_no }}{% if lot.material_name %} — {{ lot.material_name }}{% endif %}
+                </option>
+              {% endfor %}
+            </select>
+            <div class="muted" style="margin-top:6px;">If a new batch is selected, it will be recorded for this day/slot.</div>
           </div>
         </div>
-      </div>
+      {% endif %}
     </div>
+    <!-- ✅ END RAW MATERIAL -->
 
     {% if run.process in ["LINER", "COVER"] %}
-      <!-- Operators for LINER/COVER -->
       <div class="card inner mt">
         <div class="sectiontitle accent-purple">Operators</div>
         <div class="grid2 mt">
@@ -115,9 +124,7 @@
           {% for p in params %}
             {% if p.param_key in ["length_m","od_mm","wall_thickness_mm","cooling_water_c","line_speed_m_min","tractor_pressure_mpa"] %}
               <div class="fieldbox">
-                <div class="labelmini">
-                  {{ p.label }} {% if p.unit %}<span class="muted">{{ p.unit }}</span>{% endif %}
-                </div>
+                <div class="labelmini">{{ p.label }} {% if p.unit %}<span class="muted">{{ p.unit }}</span>{% endif %}</div>
                 <input type="number" step="0.01" name="v_{{ p.param_key }}" placeholder="Enter value...">
               </div>
             {% endif %}
@@ -133,7 +140,7 @@
               {% for i in [1,2,3,4,5] %}
                 <div class="barrel">
                   <div class="barrelhead">Barrel {{ i }}</div>
-                  <input type="number" step="0.01" name="v_body_temp_zone_{{ i }}_c">
+                  <input type="number" step="0.01" name="v_body_temp_zone_{{ i }}_c" placeholder="">
                 </div>
               {% endfor %}
             </div>
@@ -145,7 +152,7 @@
               {% for i in [1,2,3,4,5] %}
                 <div class="barrel">
                   <div class="barrelhead">Barrel {{ i }}</div>
-                  <input type="number" step="0.01" name="v_noising_temp_zone_{{ i }}_c">
+                  <input type="number" step="0.01" name="v_noising_temp_zone_{{ i }}_c" placeholder="">
                 </div>
               {% endfor %}
             </div>
@@ -154,15 +161,12 @@
       </div>
 
     {% else %}
-      <!-- REINFORCEMENT -->
       <div class="card inner mt">
         <div class="sectiontitle accent-blue">Reinforcement Parameters</div>
         <div class="grid3 mt">
           {% for p in params %}
             <div class="fieldbox">
-              <div class="labelmini">
-                {{ p.label }} {% if p.unit %}<span class="muted">{{ p.unit }}</span>{% endif %}
-              </div>
+              <div class="labelmini">{{ p.label }} {% if p.unit %}<span class="muted">{{ p.unit }}</span>{% endif %}</div>
               <input type="number" step="0.01" name="v_{{ p.param_key }}" placeholder="Enter value...">
             </div>
           {% endfor %}
