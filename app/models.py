@@ -5,6 +5,7 @@ from sqlmodel import SQLModel, Field
 from typing import Optional
 from datetime import datetime, date
 
+
 class MrrTicket(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -203,6 +204,8 @@ from sqlmodel import SQLModel, Field
 class MaterialLot(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
+    lot_type: str = Field(default="RAW", index=True)   # ✅ RAW / OUTSOURCED
+
     batch_no: str = Field(index=True)
     material_name: str = ""
     supplier_name: str = ""
@@ -222,6 +225,7 @@ class MaterialUseEvent(SQLModel, table=True):
 
     created_by_user_id: Optional[int] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 
 
