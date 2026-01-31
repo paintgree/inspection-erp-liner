@@ -1044,13 +1044,12 @@ async def entry_new_post(
     slot_time = slot_from_time_str(actual_time)
     day_obj = date.fromisoformat(actual_date)
 
-    # Prevent duplicate entry in same day/slot
     existing_for_slot = session.exec(
         select(InspectionEntry)
         .where(
             InspectionEntry.run_id == run_id,
             InspectionEntry.actual_date == day_obj,
-            InspectionEntry.slot_time == slot_time,
+            InspectionEntry.slot_time == slot_time
         )
     ).first()
     if existing_for_slot:
@@ -1058,8 +1057,10 @@ async def entry_new_post(
         return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
 
     form = await request.form()
+    batch_changed = str(form.get("batch_changed", "")).strip() == "1"
+    new_lot_id_raw = str(form.get("new_lot_id", "")).strip()
 
-    # Create the inspection entry (NOTE: we do NOT type/store raw batch number here)
+    # Create entry first
     entry = InspectionEntry(
         run_id=run_id,
         actual_date=day_obj,
@@ -1071,7 +1072,6 @@ async def entry_new_post(
         operator_annular_12=operator_annular_12,
         operator_int_ext_34=operator_int_ext_34,
         remarks=remarks,
-        raw_material_batch_no="",  # keep empty; we track via MaterialUseEvent
         tool1_name=tool1_name,
         tool1_serial=tool1_serial,
         tool1_calib_due=tool1_calib_due,
@@ -1083,42 +1083,21 @@ async def entry_new_post(
     session.commit()
     session.refresh(entry)
 
-    # =========================================================
-    # Raw batch tracking (MaterialUseEvent)
-    # =========================================================
-    # If this is the FIRST entry of the day and there is no event yet,
-    # automatically set starting lot using carry-forward logic.
-    existing_event_today = session.exec(
-        select(MaterialUseEvent)
-        .where(MaterialUseEvent.run_id == run_id, MaterialUseEvent.day == day_obj)
-    ).first()
+    # ✅ Decide if we must record a batch event:
+    # - If batch_changed checkbox ticked -> record event
+    # - OR if no batch exists yet for this run/slot/day (first-time) -> record event (required)
+    current_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
+    must_record_batch = batch_changed or (current_lot is None)
 
-    if not existing_event_today:
-        carry_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
-        if carry_lot and carry_lot.status == "APPROVED" and getattr(carry_lot, "lot_type", "") == "RAW":
-            session.add(MaterialUseEvent(
-                run_id=run_id,
-                day=day_obj,
-                slot_time=slot_time,
-                lot_id=carry_lot.id,
-                created_by_user_id=user.id,
-            ))
-            session.commit()
-
-    # If user says batch changed, create a NEW event for the selected lot
-    batch_changed = str(form.get("batch_changed", "")).strip() == "1"
-    new_lot_id_raw = str(form.get("new_lot_id", "")).strip()
-
-    if batch_changed:
+    if must_record_batch:
         if not new_lot_id_raw.isdigit():
-            msg = "Please select the new batch (MRR approved)."
+            msg = "Please select the batch (MRR approved)."
             return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
 
         lot_id = int(new_lot_id_raw)
         lot = session.get(MaterialLot, lot_id)
-
-        if (not lot) or (lot.status != "APPROVED") or (getattr(lot, "lot_type", "") != "RAW"):
-            msg = "Selected batch is not an approved RAW batch in MRR."
+        if (not lot) or (lot.status != "APPROVED"):
+            msg = "Selected batch is not approved in MRR."
             return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
 
         session.add(MaterialUseEvent(
@@ -1130,7 +1109,7 @@ async def entry_new_post(
         ))
         session.commit()
 
-    # Save inspection values (unchanged)
+    # Save values
     params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id)).all()
     by_key = {p.param_key: p for p in params}
 
@@ -1151,6 +1130,7 @@ async def entry_new_post(
         ))
 
     session.commit()
+
     return RedirectResponse(f"/runs/{run_id}?day={entry.actual_date.isoformat()}", status_code=302)
 
 @app.get("/runs/{run_id}/entry/{slot_time}/fill/{param_key}", response_class=HTMLResponse)
@@ -2039,6 +2019,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
