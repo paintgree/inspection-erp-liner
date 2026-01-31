@@ -19,6 +19,7 @@ import tempfile
 from pathlib import Path
 
 
+
 from .auth import hash_password, verify_password
 from .db import create_db_and_tables, get_session
 from .models import (
@@ -39,6 +40,14 @@ app = FastAPI()
 BASE_DIR = os.path.dirname(__file__)
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+# =========================
+# File upload directories
+# =========================
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+MRR_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "mrr")
+
+os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
+
 
 IMAGE_MAP = {
     "LINER": "/static/images/liner.png",
@@ -1941,6 +1950,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
