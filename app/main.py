@@ -528,13 +528,14 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
     )
 
 
-s/new", response_class=HTMLResponse)
+@app.get("/runs/new", response_class=HTMLResponse)
 def run_new_get(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     if (user.role or "").upper() not in ["MANAGER", "RUN_CREATOR"]:
         raise HTTPException(403, "Manager only")
 
     return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": ""})
+
 
 
 @app.post("/runs/new")
@@ -1758,6 +1759,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
