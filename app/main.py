@@ -1166,6 +1166,11 @@ async def entry_new_post(
     # batch-change checkbox + selected lot
     batch_changed = str(form.get("batch_changed", "")).strip() == "1"
     new_lot_id_raw = str(form.get("new_lot_id", "")).strip()
+    
+    # ✅ If user selected a new lot from dropdown, treat it as batch changed (even if checkbox not ticked)
+    if new_lot_id_raw.isdigit():
+        batch_changed = True
+
 
     # check if run has ANY material event yet
     has_any_event = session.exec(
@@ -1228,6 +1233,11 @@ async def entry_new_post(
         if (not lot) or (lot.status != "APPROVED") or (getattr(lot, "lot_type", "RAW") != "RAW"):
             msg = "Selected batch is not an APPROVED RAW batch."
             return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+            
+        current_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
+        if current_lot and current_lot.id == lot_id:
+            # selected lot is same as current lot; no need to create an event
+            batch_changed = False
 
         session.add(MaterialUseEvent(
             run_id=run_id,
@@ -2148,6 +2158,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
