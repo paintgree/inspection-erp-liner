@@ -626,12 +626,10 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
     material_name = str(form.get("material_name", "")).strip()
     supplier_name = str(form.get("supplier_name", "")).strip()
 
+    # if you already added lot_type in your DB/model, keep this; otherwise remove it.
     lot_type = str(form.get("lot_type", "RAW")).strip().upper()
     if lot_type not in ["RAW", "OUTSOURCED"]:
         lot_type = "RAW"
-
-    po_number = str(form.get("po_number", "")).strip()
-    quantity = _safe_float(form.get("quantity"))
 
     if not batch_no:
         lots = session.exec(select(MaterialLot).order_by(MaterialLot.created_at.desc())).all()
@@ -645,19 +643,13 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
         material_name=material_name,
         supplier_name=supplier_name,
         status="PENDING",
+        # lot_type=lot_type,   # keep only if your MaterialLot model/table has this column
     )
-
-    # Only set these if your MaterialLot model actually has them
-    if hasattr(lot, "lot_type"):
-        lot.lot_type = lot_type
-    if hasattr(lot, "po_number"):
-        lot.po_number = po_number
-    if hasattr(lot, "quantity"):
-        lot.quantity = quantity
 
     session.add(lot)
     session.commit()
     return RedirectResponse("/mrr", status_code=303)
+
 
 
 
@@ -983,7 +975,6 @@ async def run_edit_post(run_id: int, request: Request, session: Session = Depend
 @app.get("/runs/{run_id}/entry/new", response_class=HTMLResponse)
 def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
-
     run = session.get(ProductionRun, run_id)
     if not run:
         raise HTTPException(404, "Run not found")
@@ -992,26 +983,18 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
         select(RunParameter).where(RunParameter.run_id == run_id).order_by(RunParameter.display_order)
     ).all()
 
-    has_any = session.exec(
-        select(InspectionEntry.id).where(InspectionEntry.run_id == run_id)
-    ).first() is not None
-
+    has_any = session.exec(select(InspectionEntry.id).where(InspectionEntry.run_id == run_id)).first() is not None
     error = request.query_params.get("error", "")
 
-    q = select(MaterialLot).where(MaterialLot.status == "APPROVED")
-    
-    # If your MaterialLot has lot_type, restrict to RAW only
-    if hasattr(MaterialLot, "lot_type"):
-        q = q.where(MaterialLot.lot_type == "RAW")
-    
-    approved_lots = session.exec(q.order_by(MaterialLot.batch_no)).all()
-
-
-    # preview: current lot for today at 00:00 (carry-forward logic)
+    # Current batch preview (latest known batch up to today 00:00)
     today_lot = get_current_material_lot_for_slot(session, run_id, date.today(), "00:00")
 
-    # show which batches already used today (for clarity)
-    used_batches_today = get_day_material_batches(session, run_id, date.today())
+    # Only APPROVED lots for dropdown
+    approved_lots = session.exec(
+        select(MaterialLot)
+        .where(MaterialLot.status == "APPROVED")
+        .order_by(MaterialLot.batch_no)
+    ).all()
 
     return templates.TemplateResponse(
         "entry_new.html",
@@ -1024,9 +1007,9 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
             "error": error,
             "approved_lots": approved_lots,
             "current_lot_preview": today_lot,
-            "used_batches_today": used_batches_today,
         },
     )
+
 
 
 @app.post("/runs/{run_id}/entry/new")
@@ -2056,6 +2039,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
