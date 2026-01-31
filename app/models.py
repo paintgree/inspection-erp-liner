@@ -196,15 +196,14 @@ class InspectionValueAudit(SQLModel, table=True):
     value: "InspectionValue" = Relationship(back_populates="audits")
 
 
-from datetime import datetime, date
-from typing import Optional
 from sqlmodel import SQLModel, Field
-
+from typing import Optional
+from datetime import datetime
 
 class MaterialLot(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
-    lot_type: str = Field(default="RAW", index=True)   # ✅ RAW / OUTSOURCED
+    lot_type: str = Field(default="RAW", index=True)  # ✅ RAW / OUTSOURCED
 
     batch_no: str = Field(index=True)
     material_name: str = ""
@@ -212,6 +211,7 @@ class MaterialLot(SQLModel, table=True):
 
     status: str = "PENDING"  # PENDING / APPROVED / REJECTED
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 
 class MaterialUseEvent(SQLModel, table=True):
@@ -225,6 +225,7 @@ class MaterialUseEvent(SQLModel, table=True):
 
     created_by_user_id: Optional[int] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 
 
