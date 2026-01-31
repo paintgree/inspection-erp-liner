@@ -1026,6 +1026,15 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
 
     # ✅ preview: current lot for today at 00:00 (carry-forward logic)
     today_lot = get_current_material_lot_for_slot(session, run_id, date.today(), "00:00")
+    approved_lots = session.exec(
+        select(MaterialLot)
+        .where(
+            MaterialLot.status == "APPROVED",
+            MaterialLot.lot_type == "RAW",
+        )
+        .order_by(MaterialLot.batch_no)
+    ).all()
+
 
     return templates.TemplateResponse(
         "entry_new.html",
@@ -2105,6 +2114,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
