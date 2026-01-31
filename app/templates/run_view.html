@@ -140,6 +140,8 @@
         </thead>
 
         <tbody>
+          {% set can_fill = (user.role != "BOSS") and (run.status == "OPEN" or (user.role|upper == "MANAGER")) %}
+
           {% for p in params %}
           <tr class="{% if p.param_key == 'length_m' %}length-row{% endif %}">
             <td>
@@ -155,6 +157,7 @@
               {% set pending_value = (cell.get("pending_value") if cell else none) %}
               {% set pending_status = (cell.get("pending_status") if cell else "") %}
               {% set is_pending = (pending_value is not none and pending_status == "PENDING") %}
+              {% set has_entry_for_slot = slot_entry_ids.get(s) %}
 
               <td class="cell {% if is_oos %}oos{% endif %} {% if is_pending %}pending{% endif %}">
                 {% if val is not none %}
@@ -167,7 +170,13 @@
                   </div>
                   {% if note %}<div class="muted tiny">{{ note }}</div>{% endif %}
                 {% else %}
-                  <span class="muted">—</span>
+                  {% if can_fill and has_entry_for_slot %}
+                    <a class="celllink" href="/runs/{{ run.id }}/entry/{{ s }}/fill/{{ p.param_key }}?day={{ selected_day }}">
+                      Fill
+                    </a>
+                  {% else %}
+                    <span class="muted">—</span>
+                  {% endif %}
                 {% endif %}
               </td>
             {% endfor %}
