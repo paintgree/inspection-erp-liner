@@ -151,3 +151,29 @@
   </form>
 </div>
 {% endblock %}
+<div class="card inner mt">
+  <h2>Raw Material (MRR)</h2>
+
+  <div class="muted">
+    Current batch will be used automatically unless you mark a change.
+  </div>
+
+  <div class="mt">
+    <label style="display:flex; gap:10px; align-items:center;">
+      <input type="checkbox" name="batch_changed" value="1" onchange="document.getElementById('batchSelectWrap').style.display = this.checked ? 'block' : 'none';">
+      Batch changed?
+    </label>
+
+    <div id="batchSelectWrap" style="display:none; margin-top:10px;">
+      <label>Select new approved batch</label>
+      <select name="new_lot_id" required>
+        <option value="">-- select approved batch --</option>
+        {% for lot in approved_lots %}
+          <option value="{{ lot.id }}">{{ lot.batch_no }}{% if lot.material_name %} — {{ lot.material_name }}{% endif %}</option>
+        {% endfor %}
+      </select>
+      <div class="muted" style="margin-top:6px;">Only APPROVED batches appear here.</div>
+    </div>
+  </div>
+</div>
+
