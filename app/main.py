@@ -452,19 +452,38 @@ def get_day_latest_trace(session: Session, run_id: int, day: date) -> dict:
 
 
 def get_last_known_trace_before_day(session: Session, run_id: int, day: date) -> dict:
+    # ✅ Get last known RAW batch from MaterialUseEvent (not from entries)
+    raw = ""
+
+    last_ev = session.exec(
+        select(MaterialUseEvent)
+        .where(
+            MaterialUseEvent.run_id == run_id,
+            MaterialUseEvent.day < day,
+        )
+        .order_by(
+            MaterialUseEvent.day.desc(),
+            MaterialUseEvent.slot_time.desc(),
+            MaterialUseEvent.created_at.desc(),
+        )
+    ).first()
+
+    if last_ev:
+        lot = session.get(MaterialLot, last_ev.lot_id)
+        if lot and lot.batch_no:
+            raw = lot.batch_no
+
+    # Keep existing tool carry-forward logic
     entries = session.exec(
         select(InspectionEntry)
         .where(InspectionEntry.run_id == run_id, InspectionEntry.actual_date < day)
         .order_by(InspectionEntry.actual_date, InspectionEntry.created_at)
     ).all()
 
-    raw = ""
     tool1 = (None, None, None)
     tool2 = (None, None, None)
 
     for e in entries:
-        if e.raw_material_batch_no:
-            raw = e.raw_material_batch_no
         if (e.tool1_name or e.tool1_serial or e.tool1_calib_due):
             tool1 = (e.tool1_name, e.tool1_serial, e.tool1_calib_due)
         if (e.tool2_name or e.tool2_serial or e.tool2_calib_due):
@@ -477,6 +496,7 @@ def get_last_known_trace_before_day(session: Session, run_id: int, day: date) ->
         tools.append(tool2)
 
     return {"raw": raw, "tools": tools}
+
 
 def get_current_material_lot_for_slot(session: Session, run_id: int, day: date, slot_time: str):
     """
@@ -2128,6 +2148,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
