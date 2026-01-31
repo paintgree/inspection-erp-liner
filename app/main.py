@@ -1887,6 +1887,80 @@ def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> 
     return out.getvalue(), filename_base
     
 
+# =========================
+# MRR EXPORT (per MaterialLot)
+# =========================
+
+def build_mrr_xlsx_bytes(lot_id: int, session: Session, template_kind: str = "RAW") -> bytes:
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "Lot not found")
+
+    template_path = MRR_TEMPLATE_XLSX_MAP.get(template_kind)
+    if not template_path or not os.path.exists(template_path):
+        raise HTTPException(404, f"MRR template not found: {template_path}")
+
+    wb = openpyxl.load_workbook(template_path)
+    ws = wb.worksheets[0]
+
+    # IMPORTANT: You MUST adjust these cell addresses to match your MRR template
+    # (These are EXAMPLES so export works immediately and you can change them later.)
+    _set_cell_safe(ws, "C6", lot.batch_no or "")
+    _set_cell_safe(ws, "C7", lot.material_name or "")
+    _set_cell_safe(ws, "C8", lot.supplier_name or "")
+    _set_cell_safe(ws, "C9", lot.status or "")
+    _set_cell_safe(ws, "C10", (lot.created_at.date().isoformat() if getattr(lot, "created_at", None) else ""))
+
+    apply_pdf_page_setup(ws)
+
+    out = BytesIO()
+    wb.save(out)
+    out.seek(0)
+    return out.getvalue()
+
+
+@app.get("/mrr/{lot_id}/export/xlsx")
+def mrr_export_xlsx(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    # for now default RAW (later we add a field)
+    template_kind = "RAW"
+
+    xlsx_bytes = build_mrr_xlsx_bytes(lot_id, session, template_kind=template_kind)
+    filename = f"MRR_{template_kind}_{lot_id}.xlsx"
+
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/mrr/{lot_id}/export/pdf")
+def mrr_export_pdf(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    template_kind = "RAW"
+
+    # 1) Build XLSX
+    xlsx_bytes = build_mrr_xlsx_bytes(lot_id, session, template_kind=template_kind)
+
+    # 2) Convert to PDF
+    pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
+
+    # 3) Stamp MRR background (NOT the production PAPER_BG_MAP)
+    bg_path = MRR_PAPER_BG_MAP.get(template_kind, "")
+    if bg_path:
+        pdf_bytes = stamp_background_pdf(pdf_bytes, bg_path, y_shift_pts=-30)
+
+    filename = f"MRR_{template_kind}_{lot_id}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/runs/{run_id}/export/xlsx")
@@ -1963,6 +2037,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
