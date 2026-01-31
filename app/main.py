@@ -750,9 +750,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
                 "progress": progress,
                 "raw_batches": raw_batches,
                 "tools": tools,
-                "approved_lots": approved_lots,
-                "current_lot_preview": today_lot,
-
+               
             },
         )
 
@@ -882,6 +880,12 @@ async def run_edit_post(run_id: int, request: Request, session: Session = Depend
 def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     run = session.get(ProductionRun, run_id)
+    today_lot = get_current_material_lot_for_slot(
+        session,
+        run_id,
+        date.today(),
+        "00:00"
+    )
     if not run:
         raise HTTPException(404, "Run not found")
 
@@ -895,12 +899,21 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
     approved_lots = session.exec(
         select(MaterialLot).where(MaterialLot.status == "APPROVED").order_by(MaterialLot.batch_no)
     ).all()
-    today_lot = get_current_material_lot_for_slot(session, run_id, date.today(), "00:00")
+    
 
 
     return templates.TemplateResponse(
         "entry_new.html",
-        {"request": request, "user": user, "run": run, "params": params, "has_any": has_any, "error": error},
+        {
+            "request": request,
+            "user": user,
+            "run": run,
+            "params": params,
+            "has_any": has_any,
+            "error": error,
+            "approved_lots": approved_lots,
+            "current_lot_preview": today_lot,
+        },
     )
 def apply_spec_check(param: RunParameter, value: float):
     """
@@ -1835,6 +1848,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
