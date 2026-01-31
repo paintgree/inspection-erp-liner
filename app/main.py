@@ -990,6 +990,9 @@ async def entry_new_post(
         return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
 
     form = await request.form()
+    batch_changed = str(form.get("batch_changed", "")).strip() == "1"
+    new_lot_id_raw = str(form.get("new_lot_id", "")).strip()
+
 
     entry = InspectionEntry(
         run_id=run_id,
@@ -1014,6 +1017,32 @@ async def entry_new_post(
     session.commit()
     session.refresh(entry)
 
+    # ✅ NEW: save material change event ONLY if user selected "Batch changed?"
+    batch_changed = str(form.get("batch_changed", "")).strip() == "1"
+    new_lot_id_raw = str(form.get("new_lot_id", "")).strip()
+
+    if batch_changed:
+        if not new_lot_id_raw.isdigit():
+            msg = "Please select the new batch (MRR approved)."
+            return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+
+        lot_id = int(new_lot_id_raw)
+        lot = session.get(MaterialLot, lot_id)
+
+        if (not lot) or (lot.status != "APPROVED"):
+            msg = "Selected batch is not approved in MRR."
+            return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+
+        session.add(MaterialUseEvent(
+            run_id=run_id,
+            day=day_obj,
+            slot_time=slot_time,
+            lot_id=lot_id,
+            created_by_user_id=user.id,
+        ))
+        session.commit()
+
+    # ✅ your existing values saving (keep as-is)
     params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id)).all()
     by_key = {p.param_key: p for p in params}
 
@@ -1032,7 +1061,10 @@ async def entry_new_post(
             is_out_of_spec=is_oos,
             spec_note=note,
         ))
+
     session.commit()
+
+
 
     return RedirectResponse(f"/runs/{run_id}?day={entry.actual_date.isoformat()}", status_code=302)
 
@@ -1848,6 +1880,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
