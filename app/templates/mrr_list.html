@@ -1,81 +1,117 @@
 {% extends "base.html" %}
 {% block content %}
+
 <a class="btn btn-ghost" href="/dashboard">← Back</a>
-<a class="btn" href="/mrr/{{ lot.id }}/export/xlsx">Export XLSX</a>
-<a class="btn" href="/mrr/{{ lot.id }}/export/pdf">Export PDF</a>
 
 <div class="card">
-  <h1>MRR — Raw Material Receiving</h1>
+  <div class="runheader">
+    <div>
+      <h1>MRR — Material Receiving Register</h1>
+      <div class="muted">Create and manage MRR tickets</div>
+    </div>
+  </div>
 
   {% if error %}
     <div class="alert">{{ error }}</div>
   {% endif %}
 
   <div class="card inner mt">
-    <h2>Add New Batch (MRR)</h2>
+    <h2>New MRR Ticket</h2>
+
     <form method="post" action="/mrr/new">
-      <div class="grid2">
+      <div class="grid3 mt">
+        <div>
+          <label>Type</label>
+          <select name="lot_type" required>
+            <option value="RAW">RAW</option>
+            <option value="OUTSOURCED">OUTSOURCED</option>
+          </select>
+        </div>
+
         <div>
           <label>Batch No</label>
           <input name="batch_no" required>
         </div>
+
         <div>
-          <label>Material Name (optional)</label>
+          <label>Material Name</label>
           <input name="material_name">
         </div>
+
         <div>
-          <label>Supplier (optional)</label>
+          <label>Supplier</label>
           <input name="supplier_name">
         </div>
+
+        <div>
+          <label>PO Number</label>
+          <input name="po_number">
+        </div>
+
+        <div>
+          <label>Quantity</label>
+          <input name="quantity" type="number" step="0.01">
+        </div>
       </div>
+
       <div class="toolbar mt">
-        <button class="btn btn-primary" type="submit">Create</button>
+        <button class="btn btn-primary" type="submit">+ Create Ticket</button>
       </div>
     </form>
   </div>
 
   <div class="card inner mt">
-    <h2>Lots</h2>
+    <h2>Tickets</h2>
 
-    <div class="tablewrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Batch</th>
-            <th>Material</th>
-            <th>Supplier</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for lot in lots %}
-          <tr>
-            <td><b>{{ lot.batch_no }}</b></td>
-            <td>{{ lot.material_name or "-" }}</td>
-            <td>{{ lot.supplier_name or "-" }}</td>
-            <td>{{ lot.status }}</td>
-            <td>
-              {% if lot.status != "APPROVED" %}
-                <form method="post" action="/mrr/{{ lot.id }}/approve" style="display:inline;">
-                  <button class="btn btn-primary" type="submit">Approve</button>
-                </form>
-              {% endif %}
-              {% if lot.status != "REJECTED" %}
-                <form method="post" action="/mrr/{{ lot.id }}/reject" style="display:inline;">
-                  <button class="btn btn-warn" type="submit">Reject</button>
-                </form>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-          {% if lots|length == 0 %}
-          <tr><td colspan="5" class="muted">No lots created yet.</td></tr>
-          {% endif %}
-        </tbody>
-      </table>
-    </div>
+    {% if lots|length == 0 %}
+      <div class="muted">No MRR tickets yet.</div>
+    {% else %}
+      <div class="tablewrap">
+        <table class="table wide">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Type</th>
+              <th>Batch No</th>
+              <th>Material</th>
+              <th>Supplier</th>
+              <th>PO</th>
+              <th>Status</th>
+              <th style="width:240px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for lot in lots %}
+              <tr>
+                <td>{{ lot.id }}</td>
+                <td>{{ lot.lot_type or "-" }}</td>
+                <td><b>{{ lot.batch_no }}</b></td>
+                <td>{{ lot.material_name or "-" }}</td>
+                <td>{{ lot.supplier_name or "-" }}</td>
+                <td>{{ lot.po_number or "-" }}</td>
+                <td><b>{{ lot.status }}</b></td>
+                <td>
+                  <a class="btn" href="/mrr/{{ lot.id }}">Open</a>
+
+                  {% if lot.status != "APPROVED" %}
+                    <form method="post" action="/mrr/{{ lot.id }}/approve" style="display:inline;">
+                      <button class="btn btn-primary" type="submit">Approve</button>
+                    </form>
+                  {% endif %}
+
+                  {% if lot.status != "REJECTED" %}
+                    <form method="post" action="/mrr/{{ lot.id }}/reject" style="display:inline;">
+                      <button class="btn btn-warn" type="submit">Reject</button>
+                    </form>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
   </div>
-
 </div>
+
 {% endblock %}
