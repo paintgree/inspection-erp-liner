@@ -624,6 +624,19 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
     batch_no = str(form.get("batch_no", "")).strip()
     material_name = str(form.get("material_name", "")).strip()
     supplier_name = str(form.get("supplier_name", "")).strip()
+    lot_type = str(form.get("lot_type", "RAW")).strip().upper()
+    if lot_type not in ["RAW", "OUTSOURCED"]:
+        lot_type = "RAW"
+    session.add(MaterialLot(
+        lot_type=lot_type,
+        batch_no=batch_no,
+        material_name=material_name,
+        supplier_name=supplier_name,
+        po_number=str(form.get("po_number","")).strip(),
+        quantity=_safe_float(form.get("quantity")),
+        status="PENDING",
+    ))
+    
 
     if not batch_no:
         lots = session.exec(select(MaterialLot).order_by(MaterialLot.created_at.desc())).all()
@@ -667,6 +680,20 @@ def mrr_reject(lot_id: int, request: Request, session: Session = Depends(get_ses
     session.add(lot)
     session.commit()
     return RedirectResponse("/mrr", status_code=302)
+    
+@app.get("/mrr/{lot_id}", response_class=HTMLResponse)
+def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "Lot not found")
+
+    return templates.TemplateResponse(
+        "mrr_view.html",
+        {"request": request, "user": user, "lot": lot},
+    )
 
 @app.get("/runs/new", response_class=HTMLResponse)
 def run_new_get(request: Request, session: Session = Depends(get_session)):
@@ -2037,6 +2064,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
