@@ -649,7 +649,7 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
         status="PENDING",
     ))
     session.commit()
-    return RedirectResponse("/mrr", status_code=302)
+    return RedirectResponse("/mrr", status_code=303)
 
 
 @app.post("/mrr/{lot_id}/approve")
@@ -2064,6 +2064,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
