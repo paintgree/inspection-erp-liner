@@ -890,6 +890,113 @@ def mrr_docs_manager_approve(lot_id: int, request: Request, session: Session = D
 
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
 
+def mrr_docs_are_cleared(session: Session, lot_id: int) -> bool:
+    rec = session.exec(
+        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
+    ).first()
+
+    if not rec:
+        return False
+
+    return rec.inspector_confirmed_po or rec.manager_confirmed_po
+@app.get("/mrr/{lot_id}/inspection", response_class=HTMLResponse)
+def mrr_inspection_get(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    forbid_boss(user)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR ticket not found")
+
+    # ❌ Block if documentation not cleared
+    if not mrr_docs_are_cleared(session, lot_id):
+        return templates.TemplateResponse(
+            "simple_message.html",
+            {
+                "request": request,
+                "title": "Documentation Not Completed",
+                "message": "Receiving inspection cannot start until documentation is confirmed or manager approved.",
+                "back_url": f"/mrr/{lot_id}",
+            },
+        )
+
+    insp = session.exec(
+        select(MrrReceivingInspection)
+        .where(MrrReceivingInspection.ticket_id == lot_id)
+    ).first()
+
+    return templates.TemplateResponse(
+        "mrr_inspection.html",
+        {
+            "request": request,
+            "user": user,
+            "lot": lot,
+            "inspection": insp,
+        },
+    )
+@app.post("/mrr/{lot_id}/inspection")
+async def mrr_inspection_post(
+    lot_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    remarks: str = Form(""),
+):
+    user = get_current_user(request, session)
+    forbid_boss(user)
+
+    if not mrr_docs_are_cleared(session, lot_id):
+        raise HTTPException(403, "Documentation not approved")
+
+    form = await request.form()
+
+    # store EVERYTHING except remarks
+    data = {k: v for k, v in form.items() if k != "remarks"}
+
+    insp = session.exec(
+        select(MrrReceivingInspection)
+        .where(MrrReceivingInspection.ticket_id == lot_id)
+    ).first()
+
+    if not insp:
+        insp = MrrReceivingInspection(
+            ticket_id=lot_id,
+            inspector_id=user.id,
+            inspector_name=user.display_name,
+        )
+
+    insp.inspection_json = json.dumps(data)
+    insp.remarks = remarks
+    insp.inspector_confirmed = True
+
+    session.add(insp)
+    session.commit()
+
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
+@app.post("/mrr/{lot_id}/inspection/approve")
+def mrr_inspection_approve(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    insp = session.exec(
+        select(MrrReceivingInspection)
+        .where(MrrReceivingInspection.ticket_id == lot_id)
+    ).first()
+
+    if not insp:
+        raise HTTPException(404, "Inspection not found")
+
+    insp.manager_approved = True
+    session.add(insp)
+
+    # close ticket
+    lot = session.get(MaterialLot, lot_id)
+    lot.status = "APPROVED"
+    session.add(lot)
+
+    session.commit()
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 
 @app.get("/runs/new", response_class=HTMLResponse)
 def run_new_get(request: Request, session: Session = Depends(get_session)):
@@ -2348,6 +2455,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
