@@ -17,12 +17,26 @@
     <div class="actions">
       <a class="btn" href="/mrr/{{ lot.id }}/export/xlsx">Export XLSX</a>
       <a class="btn" href="/mrr/{{ lot.id }}/export/pdf">Export PDF</a>
+      {% if user.role and user.role|upper == "MANAGER" %}
+        <a class="btn btn-warn" href="/mrr/pending">Pending approvals</a>
+      {% endif %}
     </div>
   </div>
 
   {% set docs_ok = (receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po)) %}
   {% set insp_submitted = (inspection and inspection.inspector_confirmed) %}
   {% set insp_ok = (inspection and inspection.manager_approved) %}
+
+  {% if user.role and user.role|upper == "MANAGER" and insp_submitted and not insp_ok %}
+    <div class="alert mt">
+      <b>Action required:</b> Inspector submitted Receiving Inspection. Please approve to make this batch usable in production.
+      <div class="mt">
+        <form method="post" action="/mrr/{{ lot.id }}/inspection/approve" style="display:inline;">
+          <button class="btn btn-primary" type="submit">Approve Receiving Inspection</button>
+        </form>
+      </div>
+    </div>
+  {% endif %}
 
   <div class="grid3 mt">
     <div class="card inner">
@@ -62,11 +76,8 @@
         {% endif %}
       {% endif %}
 
-      {% if user.role and user.role|upper == "MANAGER" and insp_submitted and not insp_ok %}
-        <div class="alert mt">Inspector submitted Receiving Inspection. Manager approval is required.</div>
-        <form method="post" action="/mrr/{{ lot.id }}/inspection/approve" class="mt">
-          <button class="btn btn-primary" type="submit">Approve Receiving Inspection</button>
-        </form>
+      {% if user.role and user.role|upper == "MANAGER" %}
+        <a class="btn mt" href="/mrr/pending">View all pending approvals</a>
       {% endif %}
     </div>
 
@@ -143,10 +154,6 @@
 
   <div class="card inner mt">
     <h2>Inspector Documentation</h2>
-
-    <div class="muted">
-      Inspector must match PO and upload PO document. If not, manager override is required.
-    </div>
 
     {% if user.role and user.role|upper == "INSPECTOR" %}
       <form method="post" action="/mrr/{{ lot.id }}/docs/submit" class="mt">
