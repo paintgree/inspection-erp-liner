@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, date
-from typing import Optional, List
+from typing import Optional
 
 from sqlmodel import SQLModel, Field, Relationship
 
@@ -19,7 +19,8 @@ class User(SQLModel, table=True):
     password_hash: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    entries: List["InspectionEntry"] = Relationship(back_populates="inspector")
+    # ✅ IMPORTANT: use built-in list[] not typing.List[]
+    entries: list["InspectionEntry"] = Relationship(back_populates="inspector")
 
 
 # =========================
@@ -42,9 +43,9 @@ class ProductionRun(SQLModel, table=True):
     status: str = Field(default="OPEN")  # OPEN / CLOSED / APPROVED
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    machines: List["RunMachine"] = Relationship(back_populates="run")
-    params: List["RunParameter"] = Relationship(back_populates="run")
-    entries: List["InspectionEntry"] = Relationship(back_populates="run")
+    machines: list["RunMachine"] = Relationship(back_populates="run")
+    params: list["RunParameter"] = Relationship(back_populates="run")
+    entries: list["InspectionEntry"] = Relationship(back_populates="run")
 
 
 class RunMachine(SQLModel, table=True):
@@ -66,7 +67,6 @@ class RunParameter(SQLModel, table=True):
     label: str
     unit: str = ""
 
-    # Spec rule
     rule: str = Field(default="RANGE")  # "" / RANGE / MAX_ONLY / MIN_ONLY
     min_value: Optional[float] = None
     max_value: Optional[float] = None
@@ -93,8 +93,6 @@ class InspectionEntry(SQLModel, table=True):
     operator_int_ext_34: str = ""
 
     remarks: str = ""
-
-    # stored for export / trace
     raw_material_batch_no: str = ""
 
     tool1_name: str = ""
@@ -109,7 +107,7 @@ class InspectionEntry(SQLModel, table=True):
 
     run: "ProductionRun" = Relationship(back_populates="entries")
     inspector: "User" = Relationship(back_populates="entries")
-    values: List["InspectionValue"] = Relationship(back_populates="entry")
+    values: list["InspectionValue"] = Relationship(back_populates="entry")
 
 
 class InspectionValue(SQLModel, table=True):
@@ -123,14 +121,13 @@ class InspectionValue(SQLModel, table=True):
     is_out_of_spec: bool = Field(default=False)
     spec_note: str = Field(default="")
 
-    # pending edit workflow
     pending_value: Optional[float] = None
     pending_status: str = Field(default="")  # "" / PENDING / APPROVED / REJECTED
     pending_by_user_id: Optional[int] = Field(default=None)
     pending_at: Optional[datetime] = None
 
     entry: "InspectionEntry" = Relationship(back_populates="values")
-    audits: List["InspectionValueAudit"] = Relationship(back_populates="value")
+    audits: list["InspectionValueAudit"] = Relationship(back_populates="value")
 
 
 class InspectionValueAudit(SQLModel, table=True):
@@ -152,8 +149,8 @@ class InspectionValueAudit(SQLModel, table=True):
 
 
 # =========================
-# MRR (Receiving inspection tickets)
-# IMPORTANT: MaterialLot IS the "MRR ticket"
+# MRR Tickets
+# IMPORTANT: MaterialLot is your "MRR Ticket"
 # =========================
 
 class MaterialLot(SQLModel, table=True):
@@ -161,13 +158,12 @@ class MaterialLot(SQLModel, table=True):
 
     lot_type: str = Field(default="RAW", index=True)  # RAW / OUTSOURCED
 
-    batch_no: str = Field(index=True)  # TMP... until manager sets final number if needed
+    batch_no: str = Field(index=True)  # TMP... then final
     material_name: str = ""
     supplier_name: str = ""
 
-    # Manager PO (what manager entered when creating ticket)
     po_number: str = ""
-    quantity: Optional[float] = None  # PO quantity (planned)
+    quantity: Optional[float] = None
 
     status: str = "PENDING"  # PENDING / APPROVED / REJECTED
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -177,30 +173,19 @@ class MrrDocument(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    # link to ticket
     lot_id: int = Field(foreign_key="materiallot.id", index=True)
 
-    # user chooses: PO / DELIVERY_NOTE / COA / RELATED
-    doc_type: str = Field(default="RELATED")
-
-    # user typed friendly name
-    doc_title: str = Field(default="")
-
-    # optional: a document number (DN number, etc.)
-    doc_number: str = Field(default="")
-
-    # where file saved on server
-    file_path: str = Field(default="")
+    doc_type: str = Field(default="RELATED")     # PO / DELIVERY_NOTE / COA / RELATED
+    doc_title: str = Field(default="")          # required
+    doc_number: str = Field(default="")         # optional
+    file_path: str = Field(default="")          # saved path
 
     uploaded_by_user_id: Optional[int] = Field(default=None, index=True)
     uploaded_by_user_name: str = Field(default="")
-    uploaded_by_role: str = Field(default="")  # MANAGER / INSPECTOR
+    uploaded_by_role: str = Field(default="")   # MANAGER / INSPECTOR
 
 
 class MrrReceiving(SQLModel, table=True):
-    """
-    Inspector documentation step (PO match, delivery note, qty arrived, confirmation)
-    """
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -210,7 +195,6 @@ class MrrReceiving(SQLModel, table=True):
     delivery_note_no: str = Field(default="")
     qty_arrived: Optional[float] = None
 
-    # Documentation status gate
     docs_status: str = Field(default="PENDING")  # PENDING / CLEARED / NEED_MANAGER_APPROVAL
 
     confirmed_by_inspector_id: Optional[int] = Field(default=None, index=True)
@@ -218,36 +202,6 @@ class MrrReceiving(SQLModel, table=True):
 
     remarks: str = Field(default="")
 
-
-class MrrInspection(SQLModel, table=True):
-    """
-    Receiving inspection form (template-based).
-    Keep it flexible using JSON string to avoid DB changes when template changes.
-    """
-    id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-    lot_id: int = Field(foreign_key="materiallot.id", index=True)
-
-    template_used: str = Field(default="RAW")  # RAW / OUTSOURCED
-    form_json: str = Field(default="{}")
-
-
-# =========================
-# Linking RAW lots to production runs (in-process trace)
-# =========================
-
-class MaterialUseEvent(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-
-    run_id: int = Field(index=True)
-    day: date = Field(index=True)
-    slot_time: str = Field(index=True)  # "00:00".."22:00"
-
-    lot_id: int = Field(index=True)
-
-    created_by_user_id: Optional[int] = Field(default=None, index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class MrrReceivingInspection(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -258,11 +212,37 @@ class MrrReceivingInspection(SQLModel, table=True):
     inspector_id: int = Field(index=True)
     inspector_name: str = ""
 
-    template_type: str = Field(default="RAW")  # RAW / OUTSOURCED
-
-    inspection_json: str = Field(default="{}")  # checklist answers
+    template_type: str = Field(default="RAW")    # RAW / OUTSOURCED
+    inspection_json: str = Field(default="{}")
 
     inspector_confirmed: bool = Field(default=False)
     manager_approved: bool = Field(default=False)
 
     remarks: str = Field(default="")
+
+
+class MrrInspection(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    lot_id: int = Field(foreign_key="materiallot.id", index=True)
+
+    template_used: str = Field(default="RAW")
+    form_json: str = Field(default="{}")
+
+
+# =========================
+# Linking RAW lots to production runs
+# =========================
+
+class MaterialUseEvent(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    run_id: int = Field(index=True)
+    day: date = Field(index=True)
+    slot_time: str = Field(index=True)
+
+    lot_id: int = Field(index=True)
+
+    created_by_user_id: Optional[int] = Field(default=None, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
