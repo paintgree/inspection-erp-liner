@@ -217,3 +217,11 @@ class MrrReceivingInspection(SQLModel, table=True):
     manager_approved: bool = Field(default=False)
 
     remarks: str = Field(default="")
+
+
+# =========================
+# COMPATIBILITY ALIAS
+# =========================
+# Your main.py imports MrrInspection, but the real model you use everywhere
+# is MrrReceivingInspection. This alias fixes the import error cleanly.
+MrrInspection = MrrReceivingInspection
