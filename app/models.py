@@ -248,3 +248,21 @@ class MaterialUseEvent(SQLModel, table=True):
 
     created_by_user_id: Optional[int] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class MrrReceivingInspection(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    ticket_id: int = Field(index=True)
+
+    inspector_id: int = Field(index=True)
+    inspector_name: str = ""
+
+    template_type: str = Field(default="RAW")  # RAW / OUTSOURCED
+
+    inspection_json: str = Field(default="{}")  # checklist answers
+
+    inspector_confirmed: bool = Field(default=False)
+    manager_approved: bool = Field(default=False)
+
+    remarks: str = Field(default="")
