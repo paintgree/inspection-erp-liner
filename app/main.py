@@ -636,6 +636,8 @@ def apply_specs_to_template(ws, run: ProductionRun, session: Session):
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
+
+    # Production runs
     runs = session.exec(select(ProductionRun).order_by(ProductionRun.created_at.desc())).all()
 
     grouped: Dict[str, List[ProductionRun]] = {}
@@ -644,9 +646,64 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
 
     progress_map = {r.id: get_progress_percent(session, r) for r in runs}
 
+    # ✅ MRR status summary (simple + useful)
+    lots = session.exec(select(MaterialLot).order_by(MaterialLot.created_at.desc())).all()
+    lot_ids = [l.id for l in lots if l and l.id is not None]
+
+    receiving_map = {}
+    inspection_map = {}
+
+    if lot_ids:
+        receivings = session.exec(
+            select(MrrReceiving).where(MrrReceiving.ticket_id.in_(lot_ids))
+        ).all()
+        receiving_map = {r.ticket_id: r for r in receivings}
+
+        inspections = session.exec(
+            select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id.in_(lot_ids))
+        ).all()
+        inspection_map = {i.ticket_id: i for i in inspections}
+
+    mrr_pending_docs = 0
+    mrr_docs_cleared = 0
+    mrr_insp_submitted = 0
+    mrr_final_approved = 0
+
+    for lot in lots:
+        rec = receiving_map.get(lot.id)
+        insp = inspection_map.get(lot.id)
+
+        docs_ok = bool(rec and (rec.inspector_confirmed_po or rec.manager_confirmed_po))
+        insp_submitted = bool(insp and insp.inspector_confirmed)
+        insp_ok = bool(insp and insp.manager_approved)
+
+        if lot.status == "APPROVED":
+            mrr_final_approved += 1
+        else:
+            if not docs_ok:
+                mrr_pending_docs += 1
+            else:
+                mrr_docs_cleared += 1
+
+            if insp_submitted and not insp_ok:
+                mrr_insp_submitted += 1
+
+    mrr_stats = {
+        "pending_docs": mrr_pending_docs,
+        "docs_cleared": mrr_docs_cleared,
+        "insp_submitted": mrr_insp_submitted,
+        "final_approved": mrr_final_approved,
+    }
+
     return templates.TemplateResponse(
         "dashboard.html",
-        {"request": request, "user": user, "grouped": grouped, "progress_map": progress_map},
+        {
+            "request": request,
+            "user": user,
+            "grouped": grouped,
+            "progress_map": progress_map,
+            "mrr_stats": mrr_stats,
+        },
     )
 
 @app.get("/mrr", response_class=HTMLResponse)
@@ -2491,6 +2548,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
