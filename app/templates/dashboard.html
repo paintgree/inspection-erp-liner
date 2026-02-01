@@ -3,56 +3,85 @@
 
 <div class="card">
   <div class="runheader">
-    <h1>Production Runs</h1>
+    <div>
+      <h1>Dashboard</h1>
+      <div class="muted">Welcome, {{ user.display_name }}</div>
+    </div>
 
-    {% if user.role == "MANAGER" %}
-      <a class="btn btn-primary" href="/runs/new">+ New Run</a>
+    <div class="actions">
+      <a class="btn" href="/mrr">MRR</a>
+      {% if user.role and (user.role|upper == "MANAGER" or user.role|upper == "RUN_CREATOR") %}
+        <a class="btn btn-primary" href="/runs/new">+ New Production Run</a>
+      {% endif %}
+      {% if user.role and user.role|upper == "MANAGER" %}
+        <a class="btn" href="/users">Users</a>
+      {% endif %}
+      <a class="btn btn-ghost" href="/logout">Logout</a>
+    </div>
+  </div>
+
+  <div class="card inner mt">
+    <h2>MRR Summary</h2>
+    <div class="grid3 mt">
+      <div class="card inner">
+        <div class="muted">Pending Documentation</div>
+        <h2 style="margin:6px 0;">{{ mrr_stats.pending_docs }}</h2>
+      </div>
+      <div class="card inner">
+        <div class="muted">Docs Cleared (waiting inspection)</div>
+        <h2 style="margin:6px 0;">{{ mrr_stats.docs_cleared }}</h2>
+      </div>
+      <div class="card inner">
+        <div class="muted">Inspection Submitted (needs manager)</div>
+        <h2 style="margin:6px 0;">{{ mrr_stats.insp_submitted }}</h2>
+      </div>
+    </div>
+
+    <div class="mt">
+      <div class="muted">Production Approved (usable batches)</div>
+      <h2 style="margin:6px 0;">{{ mrr_stats.final_approved }}</h2>
+      <a class="btn mt" href="/mrr">Open MRR</a>
+    </div>
+  </div>
+
+  <div class="card inner mt">
+    <h2>Production Runs</h2>
+
+    {% if grouped|length == 0 %}
+      <div class="muted">No runs yet.</div>
+    {% else %}
+      {% for batch, batch_runs in grouped.items() %}
+        <div class="card inner mt">
+          <h3 style="margin:0 0 8px 0;">Batch: {{ batch }}</h3>
+
+          <div class="tablewrap">
+            <table class="table wide">
+              <thead>
+                <tr>
+                  <th>Process</th>
+                  <th>Status</th>
+                  <th>Progress</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in batch_runs %}
+                  <tr>
+                    <td><b>{{ r.process }}</b></td>
+                    <td>{{ r.status }}</td>
+                    <td>{{ progress_map.get(r.id, 0) }}%</td>
+                    <td>
+                      <a class="btn" href="/runs/{{ r.id }}">Open</a>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      {% endfor %}
     {% endif %}
   </div>
 </div>
 
-{% if grouped|length == 0 %}
-  <div class="card">
-    <div class="muted">No runs created yet.</div>
-  </div>
-{% endif %}
-
-{% if user.role == "MANAGER" %}
-  <a class="btn" href="/users">Users</a>
-{% endif %}
-
-<a class="btn" href="/mrr">MRR</a>
-
-{% for batch, runs in grouped.items() %}
-  <div class="card">
-    <h2>Batch: {{ batch }}</h2>
-
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Process</th>
-          <th>Status</th>
-          <th>Progress</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-
-      <tbody>
-        {% for r in runs %}
-          <tr>
-            <td><b>{{ r.process }}</b></td>
-            <td>{{ r.status }}</td>
-            <td>{{ progress_map[r.id] }}%</td>
-            <td>
-              <a class="btn" href="/runs/{{ r.id }}">Open</a>
-            </td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-{% endfor %}
-
 {% endblock %}
-
-
