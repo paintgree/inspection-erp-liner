@@ -1026,6 +1026,7 @@ async def run_edit_post(run_id: int, request: Request, session: Session = Depend
 
 
 @app.get("/runs/{run_id}/entry/new", response_class=HTMLResponse)
+@app.get("/runs/{run_id}/entry/new", response_class=HTMLResponse)
 def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
@@ -1040,15 +1041,19 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
     has_any = session.exec(select(InspectionEntry.id).where(InspectionEntry.run_id == run_id)).first() is not None
     error = request.query_params.get("error", "")
 
-    # ✅ ONLY APPROVED + ONLY RAW lots for production usage
     approved_lots = session.exec(
         select(MaterialLot)
         .where(MaterialLot.status == "APPROVED", MaterialLot.lot_type == "RAW")
         .order_by(MaterialLot.batch_no)
     ).all()
 
-    # current lot preview (based on last MaterialUseEvent)
-    today_lot = get_current_material_lot_for_slot(session, run_id, date.today(), "00:00")
+    # ✅ TRUE check: does the run already have any batch event?
+    has_any_event = session.exec(
+        select(MaterialUseEvent.id).where(MaterialUseEvent.run_id == run_id).limit(1)
+    ).first() is not None
+
+    # ✅ Show current batch as the latest batch in the run (not today 00:00)
+    today_lot = get_latest_material_lot_for_run(session, run_id)
 
     return templates.TemplateResponse(
         "entry_new.html",
@@ -1060,10 +1065,26 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
             "has_any": has_any,
             "error": error,
             "approved_lots": approved_lots,
+            "has_any_event": has_any_event,
             "current_lot_preview": today_lot,
         },
     )
 
+
+def get_latest_material_lot_for_run(session: Session, run_id: int):
+    last_ev = session.exec(
+        select(MaterialUseEvent)
+        .where(MaterialUseEvent.run_id == run_id)
+        .order_by(
+            MaterialUseEvent.day.desc(),
+            MaterialUseEvent.slot_time.desc(),
+            MaterialUseEvent.created_at.desc(),
+        )
+    ).first()
+
+    if not last_ev:
+        return None
+    return session.get(MaterialLot, last_ev.lot_id)
 
 
 def apply_spec_check(param, v):
@@ -2170,6 +2191,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
