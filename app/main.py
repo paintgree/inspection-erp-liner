@@ -34,9 +34,10 @@ from .models import (
     MaterialUseEvent,
     MrrDocument,
     MrrReceiving,
-    MrrInspection,
-
+    MrrReceivingInspection,  # ✅ required because your code uses this name
+    MrrInspection,           # ✅ now works (alias in models.py)
 )
+
 
 app = FastAPI()
 
@@ -2578,6 +2579,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
