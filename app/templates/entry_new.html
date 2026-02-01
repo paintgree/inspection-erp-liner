@@ -126,7 +126,7 @@
       <div class="sectiontitle accent-purple">Raw Material (MRR Approved)</div>
 
       <div class="muted">
-        {% if current_lot_preview %}
+        {% if not has_any_event %}
           Current batch (auto): <b>{{ current_lot_preview.batch_no }}</b>
           {% if current_lot_preview.material_name %} — {{ current_lot_preview.material_name }}{% endif %}
         {% else %}
@@ -219,3 +219,4 @@
   </form>
 </div>
 {% endblock %}
+
