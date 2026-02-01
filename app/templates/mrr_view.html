@@ -27,176 +27,187 @@
   {% set insp_submitted = (inspection and inspection.inspector_confirmed) %}
   {% set insp_ok = (inspection and inspection.manager_approved) %}
 
-  {% if user.role and user.role|upper == "MANAGER" and insp_submitted and not insp_ok %}
-    <div class="alert mt">
-      <b>Action required:</b> Inspector submitted Receiving Inspection. Please approve to make this batch usable in production.
-      <div class="mt">
-        <form method="post" action="/mrr/{{ lot.id }}/inspection/approve" style="display:inline;">
-          <button class="btn btn-primary" type="submit">Approve Receiving Inspection</button>
-        </form>
-      </div>
-    </div>
-  {% endif %}
-
-  <div class="grid3 mt">
-    <div class="card inner">
-      <h2>Basic Info</h2>
-      <div class="kv"><span>Material</span><b>{{ lot.material_name or "-" }}</b></div>
-      <div class="kv"><span>Supplier</span><b>{{ lot.supplier_name or "-" }}</b></div>
-      <div class="kv"><span>PO</span><b>{{ lot.po_number or "-" }}</b></div>
-      <div class="kv"><span>Quantity (PO)</span><b>{{ lot.quantity or "-" }}</b></div>
-    </div>
-
-    <div class="card inner">
-      <h2>Progress</h2>
-
-      <div class="kv">
-        <span>Documentation</span>
-        <b>{% if docs_ok %}CLEARED{% elif receiving %}SAVED{% else %}PENDING{% endif %}</b>
-      </div>
-
-      <div class="kv">
-        <span>Receiving Inspection</span>
-        <b>{% if insp_ok %}APPROVED{% elif insp_submitted %}SUBMITTED{% else %}PENDING{% endif %}</b>
-      </div>
-
-      <div class="mt muted">
-        Ticket becomes <b>APPROVED</b> for production only after manager approves Receiving Inspection.
-      </div>
-
-      {% if user.role and user.role|upper == "INSPECTOR" %}
-        {% if docs_ok %}
-          <a class="btn btn-primary mt" href="/mrr/{{ lot.id }}/inspection">Start / Continue Receiving Inspection</a>
-        {% else %}
-          <div class="alert mt">Complete documentation first to start Receiving Inspection.</div>
-        {% endif %}
-      {% endif %}
-
-      {% if user.role and user.role|upper == "MANAGER" %}
-        <a class="btn mt" href="/mrr/pending">View all pending approvals</a>
-      {% endif %}
-    </div>
-
-    <div class="card inner">
-      <h2>Documents</h2>
-
-      {% if docs and docs|length > 0 %}
-        <div class="tablewrap mt">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th class="wrap">Name</th>
-                <th>No.</th>
-                <th>By</th>
-                <th>File</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for d in docs %}
-                <tr>
-                  <td><b>{{ d.doc_type }}</b></td>
-                  <td class="wrap">{{ d.doc_name or "-" }}</td>
-                  <td>{{ d.doc_number or "-" }}</td>
-                  <td class="wrap">{{ d.uploaded_by_user_name }}</td>
-                  <td><a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/download">Download</a></td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+  <!-- =========================
+       TOP HEADER BLOCK (Basic Info)
+  ========================== -->
+  <div class="mrr-layout mt">
+    <div class="mrr-top">
+      <div class="card inner">
+        <h2>Basic Info</h2>
+        <div class="kv"><span>Material</span><b>{{ lot.material_name or "-" }}</b></div>
+        <div class="kv"><span>Supplier</span><b>{{ lot.supplier_name or "-" }}</b></div>
+        <div class="kv"><span>PO</span><b>{{ lot.po_number or "-" }}</b></div>
+        <div class="kv">
+          <span>Quantity (PO)</span>
+          <b>
+            {{ lot.quantity if lot.quantity is not none else "-" }}
+            {{ lot.quantity_unit if lot.quantity_unit else "" }}
+          </b>
         </div>
-      {% else %}
-        <div class="muted mt">No documents uploaded yet.</div>
-      {% endif %}
+      </div>
+    </div>
 
-      <div class="mt">
-        <h3>Upload Document</h3>
+    <!-- =========================
+         BOTTOM TWO BLOCKS
+    ========================== -->
+    <div class="mrr-bottom">
+      <!-- PROGRESS (left) -->
+      <div class="card inner">
+        <h2>Progress</h2>
 
-        <form method="post" action="/mrr/{{ lot.id }}/docs/upload" enctype="multipart/form-data" class="mt">
-          <div class="grid2">
-            <div class="fieldbox">
-              <label>Document Type</label>
-              <select name="doc_type" required>
-                <option value="PO">PO</option>
-                <option value="DELIVERY_NOTE">Delivery Note</option>
-                <option value="COA">COA / Lab Test</option>
-                <option value="RELATED">Related</option>
-              </select>
+        <div class="kv">
+          <span>Documentation</span>
+          <b>{% if docs_ok %}CLEARED{% elif receiving %}SAVED{% else %}PENDING{% endif %}</b>
+        </div>
 
-              <label class="mt">Choose File</label>
-              <input type="file" name="file" required>
-            </div>
+        <div class="kv">
+          <span>Receiving Inspection</span>
+          <b>{% if insp_ok %}APPROVED{% elif insp_submitted %}SUBMITTED{% else %}PENDING{% endif %}</b>
+        </div>
 
-            <div class="fieldbox">
-              <label>Document Name (required)</label>
-              <input name="doc_title" required placeholder="e.g. PO Copy, Delivery Note scan, COA">
+        <div class="mt muted">
+          Ticket becomes <b>APPROVED</b> for production only after manager approves Receiving Inspection.
+        </div>
 
-              <label class="mt">Document Number (optional)</label>
-              <input name="doc_number" placeholder="e.g. DN-12345">
+        {% if user.role and user.role|upper == "INSPECTOR" %}
+          {% if docs_ok %}
+            <a class="btn btn-primary mt" href="/mrr/{{ lot.id }}/inspection">Start / Continue Receiving Inspection</a>
+          {% else %}
+            <div class="alert mt">Complete documentation first to start Receiving Inspection.</div>
+          {% endif %}
+        {% endif %}
 
-              <div class="toolbar mt">
-                <button class="btn btn-primary" type="submit">Upload</button>
+        {% if user.role and user.role|upper == "MANAGER" %}
+          <a class="btn mt" href="/mrr/pending">View all pending approvals</a>
+        {% endif %}
+      </div>
+
+      <!-- DOCUMENTS (right) -->
+      <div class="card inner">
+        <h2>Documents</h2>
+
+        {% if docs and docs|length > 0 %}
+          <div class="tablewrap mt">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th class="wrap">Name</th>
+                  <th>No.</th>
+                  <th>By</th>
+                  <th>File</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for d in docs %}
+                  <tr>
+                    <td><b>{{ d.doc_type }}</b></td>
+                    <td class="wrap">{{ d.doc_name or "-" }}</td>
+                    <td>{{ d.doc_number or "-" }}</td>
+                    <td class="wrap">{{ d.uploaded_by_user_name }}</td>
+                    <td><a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/download">Download</a></td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="muted mt">No documents uploaded yet.</div>
+        {% endif %}
+
+        <div class="mt">
+          <h3>Upload Document</h3>
+
+          <form method="post" action="/mrr/{{ lot.id }}/docs/upload" enctype="multipart/form-data" class="mt">
+            <div class="grid2">
+              <div class="fieldbox">
+                <label>Document Type</label>
+                <select name="doc_type" required>
+                  <option value="PO">PO</option>
+                  <option value="DELIVERY_NOTE">Delivery Note</option>
+                  <option value="COA">COA / Lab Test</option>
+                  <option value="RELATED">Related</option>
+                </select>
+
+                <label class="mt">Choose File</label>
+                <input type="file" name="file" required>
+              </div>
+
+              <div class="fieldbox">
+                <label>Document Name (required)</label>
+                <input name="doc_title" required placeholder="e.g. PO Copy, Delivery Note scan, COA">
+
+                <label class="mt">Document Number (optional)</label>
+                <input name="doc_number" placeholder="e.g. DN-12345">
+
+                <div class="toolbar mt">
+                  <button class="btn btn-primary" type="submit">Upload</button>
+                </div>
               </div>
             </div>
-          </div>
-        </form>
+          </form>
+        </div>
+
+        <!-- INSPECTOR DOCUMENTATION (same page) -->
+        <div class="mt">
+          <h3>Inspector Documentation</h3>
+
+          {% if user.role and user.role|upper == "INSPECTOR" %}
+            <form method="post" action="/mrr/{{ lot.id }}/docs/submit" class="mt">
+              <div>
+                <label>PO Number (must match ticket PO)</label>
+                <input name="inspector_po_number" required value="{{ receiving.inspector_po_number if receiving else '' }}">
+                <div class="muted tiny">Ticket PO: <b>{{ lot.po_number }}</b></div>
+              </div>
+
+              <div class="mt">
+                <label>Delivery Note Number (optional)</label>
+                <input name="delivery_note_no" value="{{ receiving.delivery_note_no if receiving else '' }}">
+              </div>
+
+              <!-- ✅ FIX: Quantity + Unit from the beginning -->
+              <div class="grid2 mt">
+                <div>
+                  <label>Quantity Arrived</label>
+                  <input name="qty_arrived" type="number" step="0.01"
+                         value="{{ receiving.qty_arrived if receiving and receiving.qty_arrived is not none else '' }}"
+                         required>
+                </div>
+                <div>
+                  <label>Unit</label>
+                  <select name="qty_unit" required>
+                    <option value="KG" {% if receiving and receiving.qty_unit=='KG' %}selected{% endif %}>KG</option>
+                    <option value="T" {% if receiving and receiving.qty_unit=='T' %}selected{% endif %}>Ton (T)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="toolbar mt">
+                <button class="btn" type="submit">Save Documentation</button>
+              </div>
+            </form>
+
+            <form method="post" action="/mrr/{{ lot.id }}/docs/confirm" class="mt">
+              <button class="btn btn-primary" type="submit">Confirm Documentation Complete</button>
+            </form>
+          {% else %}
+            <div class="mt muted">Inspector will complete documentation here.</div>
+          {% endif %}
+
+          {% if user.role and user.role|upper == "MANAGER" and receiving and not (receiving.inspector_confirmed_po or receiving.manager_confirmed_po) %}
+            <div class="mt muted">
+              If inspector cannot satisfy requirements (PO mismatch / missing PO doc), manager can override:
+            </div>
+            <form method="post" action="/mrr/{{ lot.id }}/docs/approve" class="mt">
+              <button class="btn btn-primary" type="submit">Manager Override Documentation</button>
+            </form>
+          {% endif %}
+        </div>
 
       </div>
     </div>
   </div>
 
-  <div class="card inner mt">
-    <h2>Inspector Documentation</h2>
-
-    {% if user.role and user.role|upper == "INSPECTOR" %}
-      <form method="post" action="/mrr/{{ lot.id }}/docs/submit" class="mt">
-        <div>
-          <label>PO Number (must match ticket PO)</label>
-          <input name="inspector_po_number" required value="{{ receiving.inspector_po_number if receiving else '' }}">
-          <div class="muted tiny">Ticket PO: <b>{{ lot.po_number }}</b></div>
-        </div>
-
-        <div class="mt">
-          <label>Delivery Note Number (optional)</label>
-          <input name="delivery_note_no" value="{{ receiving.delivery_note_no if receiving else '' }}">
-        </div>
-
-        <div class="mt">
-          <label>Quantity Arrived</label>
-          <input name="qty_arrived" type="number" step="0.01"
-                 value="{{ receiving.qty_arrived if receiving and receiving.qty_arrived is not none else '' }}">
-        </div>
-
-        <div class="toolbar mt">
-          <button class="btn" type="submit">Save Documentation</button>
-        </div>
-      </form>
-
-      <form method="post" action="/mrr/{{ lot.id }}/docs/confirm" class="mt">
-        <button class="btn btn-primary" type="submit">Confirm Documentation Complete</button>
-      </form>
-    {% else %}
-      <div class="mt muted">Inspector will complete documentation here.</div>
-    {% endif %}
-
-    {% if user.role and user.role|upper == "MANAGER" and receiving and not (receiving.inspector_confirmed_po or receiving.manager_confirmed_po) %}
-      <div class="mt muted">
-        If inspector cannot satisfy requirements (PO mismatch / missing PO doc), manager can override:
-      </div>
-      <form method="post" action="/mrr/{{ lot.id }}/docs/approve" class="mt">
-        <button class="btn btn-primary" type="submit">Manager Override Documentation</button>
-      </form>
-    {% endif %}
-  </div>
-
-  {% if user.role and user.role|upper == "MANAGER" %}
-  <div class="card inner mt">
-    <h2>Manager Actions</h2>
-    <form method="post" action="/mrr/{{ lot.id }}/reject" style="display:inline;">
-      <button class="btn btn-warn" type="submit">Reject Ticket</button>
-    </form>
-  </div>
-  {% endif %}
 </div>
 
 {% endblock %}
