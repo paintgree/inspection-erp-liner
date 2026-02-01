@@ -883,7 +883,7 @@ async def mrr_doc_upload(
     doc_type: str = Form(...),
     doc_title: str = Form(...),
     doc_number: str = Form(""),
-    file: UploadFile = Form(...),
+    file: UploadFile = File(...),
 ):
     user = get_current_user(request, session)
 
@@ -893,7 +893,8 @@ async def mrr_doc_upload(
 
     os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
 
-    filename = f"{lot_id}_{int(datetime.utcnow().timestamp())}_{file.filename}"
+    safe_original = os.path.basename(file.filename or "upload.bin")
+    filename = f"{lot_id}_{int(datetime.utcnow().timestamp())}_{safe_original}"
     path = os.path.join(MRR_UPLOAD_DIR, filename)
 
     with open(path, "wb") as f:
@@ -913,6 +914,7 @@ async def mrr_doc_upload(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 
 @app.get("/mrr/docs/{doc_id}/download")
 def mrr_doc_download(doc_id: int, request: Request, session: Session = Depends(get_session)):
@@ -2600,6 +2602,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
