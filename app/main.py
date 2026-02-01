@@ -554,7 +554,11 @@ def get_day_material_batches(session: Session, run_id: int, day: date) -> list[s
         lot = session.get(MaterialLot, ev.lot_id)
         if lot and lot.batch_no and lot.batch_no not in seen:
             seen.add(lot.batch_no)
-            batch_nos.append(lot.batch_no)
+            bn = (lot.batch_no or "").strip()
+            if bn and bn not in seen:
+                seen.add(bn)
+                batch_nos.append(bn)
+
 
     # 2) Fallback: if no events found, read from entries (saved in Fix A)
     if not batch_nos:
@@ -1206,8 +1210,15 @@ async def entry_new_post(
         if (not lot) or (lot.status != "APPROVED") or (getattr(lot, "lot_type", "RAW") != "RAW"):
             msg = "Selected starting batch is not an APPROVED RAW batch."
             return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+            
+    # ✅ Save the current RAW batch number into the entry (for run page + exports)
+    current_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
+    if current_lot and current_lot.batch_no:
+        entry.raw_material_batch_no = current_lot.batch_no
+    else:
+        entry.raw_material_batch_no = ""
 
-    # Create the inspection entry first
+        # Create the inspection entry first (NO batch yet)
     entry = InspectionEntry(
         run_id=run_id,
         actual_date=day_obj,
@@ -1230,7 +1241,7 @@ async def entry_new_post(
     session.commit()
     session.refresh(entry)
 
-    # ✅ If no events existed (first entry), create the FIRST event from start_lot_id
+    # ✅ FIRST entry: create starting MaterialUseEvent at this slot
     if not has_any_event:
         session.add(MaterialUseEvent(
             run_id=run_id,
@@ -1241,38 +1252,32 @@ async def entry_new_post(
         ))
         session.commit()
 
-    # ✅ If batch_changed checked, create a NEW event (this is how you get “both batches in same day”)
+    # ✅ Batch changed: create new event
     if batch_changed:
         if not new_lot_id_raw.isdigit():
-            msg = "Please select the NEW approved RAW batch."
+            msg = "Please select the NEW approved RAW batch when 'batch changed' is checked."
             return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
 
-            # ✅ Always store current batch_no inside the entry (so UI can show it)
-    current_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
-    if current_lot and current_lot.batch_no:
-        entry.raw_material_batch_no = current_lot.batch_no
-        session.add(entry)
-        session.commit()
-
-        lot_id = int(new_lot_id_raw)
-        lot = session.get(MaterialLot, lot_id)
-        if (not lot) or (lot.status != "APPROVED") or (getattr(lot, "lot_type", "RAW") != "RAW"):
-            msg = "Selected batch is not an APPROVED RAW batch."
+        new_lot = session.get(MaterialLot, int(new_lot_id_raw))
+        if (not new_lot) or (new_lot.status != "APPROVED") or (getattr(new_lot, "lot_type", "RAW") != "RAW"):
+            msg = "Selected NEW batch is not an APPROVED RAW batch."
             return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
-            
-        current_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
-        if current_lot and current_lot.id == lot_id:
-            # selected lot is same as current lot; no need to create an event
-            batch_changed = False
 
         session.add(MaterialUseEvent(
             run_id=run_id,
             day=day_obj,
             slot_time=slot_time,
-            lot_id=lot_id,
+            lot_id=int(new_lot_id_raw),
             created_by_user_id=user.id,
         ))
         session.commit()
+
+    # ✅ NOW event(s) exist, so this will return the correct batch
+    current_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
+    entry.raw_material_batch_no = current_lot.batch_no if (current_lot and current_lot.batch_no) else ""
+    session.add(entry)
+    session.commit()
+
 
     # save values (unchanged logic)
     params = session.exec(select(RunParameter).where(RunParameter.run_id == run_id)).all()
@@ -2184,6 +2189,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
