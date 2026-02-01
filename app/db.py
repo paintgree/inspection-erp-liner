@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-
 from sqlmodel import SQLModel, create_engine, Session
 from sqlalchemy import inspect, text
 
@@ -10,10 +9,8 @@ from sqlalchemy import inspect, text
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
-    # Postgres (Neon)
     engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
 else:
-    # SQLite fallback (local)
     DB_PATH = os.getenv("INSPECTION_DB", "inspection.db")
     engine = create_engine(
         f"sqlite:///{DB_PATH}",
@@ -22,38 +19,66 @@ else:
     )
 
 
-def _ensure_schema_patches() -> None:
-    """
-    Minimal migration helper.
-    SQLModel's create_all() won't add columns to existing tables, so we patch
-    known missing columns here safely.
-    """
+def _add_column_if_missing(table: str, col: str, ddl_postgres: str, ddl_sqlite: str) -> None:
     insp = inspect(engine)
-    tables = set(insp.get_table_names())
+    if table not in insp.get_table_names():
+        return
 
-    # ---- Patch: mrrreceiving.qty_arrived (missing in your Postgres) ----
-    if "mrrreceiving" in tables:
-        cols = {c["name"] for c in insp.get_columns("mrrreceiving")}
-        if "qty_arrived" not in cols:
-            dialect = engine.dialect.name
-            if dialect == "postgresql":
-                ddl = "ALTER TABLE mrrreceiving ADD COLUMN IF NOT EXISTS qty_arrived DOUBLE PRECISION"
-            elif dialect == "sqlite":
-                # SQLite supports ADD COLUMN (no IF NOT EXISTS reliably across all versions)
-                ddl = "ALTER TABLE mrrreceiving ADD COLUMN qty_arrived REAL"
-            else:
-                # generic fallback
-                ddl = "ALTER TABLE mrrreceiving ADD COLUMN qty_arrived FLOAT"
+    cols = {c["name"] for c in insp.get_columns(table)}
+    if col in cols:
+        return
 
-            with engine.begin() as conn:
-                conn.execute(text(ddl))
+    dialect = engine.dialect.name
+    ddl = ddl_postgres if dialect == "postgresql" else ddl_sqlite
+
+    with engine.begin() as conn:
+        conn.execute(text(ddl))
+
+
+def _ensure_schema_patches() -> None:
+    # ✅ mrrreceiving new fields
+    _add_column_if_missing(
+        "mrrreceiving",
+        "qty_arrived",
+        "ALTER TABLE mrrreceiving ADD COLUMN IF NOT EXISTS qty_arrived DOUBLE PRECISION",
+        "ALTER TABLE mrrreceiving ADD COLUMN qty_arrived REAL",
+    )
+    _add_column_if_missing(
+        "mrrreceiving",
+        "qty_unit",
+        "ALTER TABLE mrrreceiving ADD COLUMN IF NOT EXISTS qty_unit VARCHAR(10) DEFAULT 'KG'",
+        "ALTER TABLE mrrreceiving ADD COLUMN qty_unit TEXT DEFAULT 'KG'",
+    )
+    _add_column_if_missing(
+        "mrrreceiving",
+        "is_partial_delivery",
+        "ALTER TABLE mrrreceiving ADD COLUMN IF NOT EXISTS is_partial_delivery BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE mrrreceiving ADD COLUMN is_partial_delivery INTEGER DEFAULT 0",
+    )
+    _add_column_if_missing(
+        "mrrreceiving",
+        "qty_mismatch_reason",
+        "ALTER TABLE mrrreceiving ADD COLUMN IF NOT EXISTS qty_mismatch_reason TEXT DEFAULT ''",
+        "ALTER TABLE mrrreceiving ADD COLUMN qty_mismatch_reason TEXT DEFAULT ''",
+    )
+
+    # ✅ materiallot new fields
+    _add_column_if_missing(
+        "materiallot",
+        "quantity_unit",
+        "ALTER TABLE materiallot ADD COLUMN IF NOT EXISTS quantity_unit VARCHAR(10) DEFAULT 'KG'",
+        "ALTER TABLE materiallot ADD COLUMN quantity_unit TEXT DEFAULT 'KG'",
+    )
+    _add_column_if_missing(
+        "materiallot",
+        "received_total",
+        "ALTER TABLE materiallot ADD COLUMN IF NOT EXISTS received_total DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE materiallot ADD COLUMN received_total REAL DEFAULT 0",
+    )
 
 
 def create_db_and_tables() -> None:
-    # Create any missing tables first
     SQLModel.metadata.create_all(engine)
-
-    # Then patch existing tables (add missing columns)
     _ensure_schema_patches()
 
 
