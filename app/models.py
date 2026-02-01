@@ -184,21 +184,21 @@ class MrrDocument(SQLModel, table=True):
 
 class MrrReceiving(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
 
     ticket_id: int = Field(index=True)
 
-    delivery_note_no: str = Field(default="")
-    inspector_po_number: str = Field(default="")
+    inspector_po_number: str = ""
+    delivery_note_no: str = ""
 
-    po_match: bool = Field(default=True)
-    inspector_confirmed_po: bool = Field(default=False)
-    manager_confirmed_po: bool = Field(default=False)
+    qty_arrived: Optional[float] = None
+    qty_unit: str = "KG"  # KG / T / LB etc
 
-    received_date: date = Field(default_factory=date.today)
-    remarks: str = Field(default="")
+    is_partial_delivery: bool = False
+    qty_mismatch_reason: str = ""
 
-    qty_arrived: Optional[float] = Field(default=None)
+    inspector_confirmed_po: bool = False
+    manager_confirmed_po: bool = False
+
 
 
 class MrrReceivingInspection(SQLModel, table=True):
@@ -225,3 +225,4 @@ class MrrReceivingInspection(SQLModel, table=True):
 # Your main.py imports MrrInspection, but the real model you use everywhere
 # is MrrReceivingInspection. This alias fixes the import error cleanly.
 MrrInspection = MrrReceivingInspection
+
