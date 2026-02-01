@@ -652,10 +652,22 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
 @app.get("/mrr", response_class=HTMLResponse)
 def mrr_list(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
-    require_manager(user)
 
-    lots = session.exec(select(MaterialLot).order_by(MaterialLot.created_at.desc())).all()
-    return templates.TemplateResponse("mrr_list.html", {"request": request, "user": user, "lots": lots, "error": ""})
+    # Inspectors can view, managers can manage
+    lots = session.exec(
+        select(MaterialLot).order_by(MaterialLot.created_at.desc())
+    ).all()
+
+    return templates.TemplateResponse(
+        "mrr_list.html",
+        {
+            "request": request,
+            "user": user,
+            "lots": lots,
+            "error": "",
+        },
+    )
+
 
 @app.post("/mrr/new")
 async def mrr_new(request: Request, session: Session = Depends(get_session)):
@@ -726,16 +738,158 @@ def mrr_reject(lot_id: int, request: Request, session: Session = Depends(get_ses
 @app.get("/mrr/{lot_id}", response_class=HTMLResponse)
 def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
-    require_manager(user)
 
     lot = session.get(MaterialLot, lot_id)
     if not lot:
-        raise HTTPException(404, "Lot not found")
+        raise HTTPException(404, "MRR Ticket not found")
+
+    docs = session.exec(
+        select(MrrDocument)
+        .where(MrrDocument.ticket_id == lot_id)
+        .order_by(MrrDocument.created_at.desc())
+    ).all()
+
+    receiving = session.exec(
+        select(MrrReceiving)
+        .where(MrrReceiving.ticket_id == lot_id)
+    ).first()
 
     return templates.TemplateResponse(
         "mrr_view.html",
-        {"request": request, "user": user, "lot": lot},
+        {
+            "request": request,
+            "user": user,
+            "lot": lot,
+            "docs": docs,
+            "receiving": receiving,
+        },
     )
+
+@app.post("/mrr/{lot_id}/docs/upload")
+async def mrr_doc_upload(
+    lot_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    doc_type: str = Form(...),
+    doc_title: str = Form(...),
+    doc_number: str = Form(""),
+    file: UploadFile = Form(...),
+):
+    user = get_current_user(request, session)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
+
+    filename = f"{lot_id}_{int(datetime.utcnow().timestamp())}_{file.filename}"
+    path = os.path.join(MRR_UPLOAD_DIR, filename)
+
+    with open(path, "wb") as f:
+        f.write(await file.read())
+
+    doc = MrrDocument(
+        ticket_id=lot_id,
+        doc_type=doc_type,
+        doc_name=doc_title,
+        doc_number=doc_number,
+        file_path=path,
+        uploaded_by_user_id=user.id,
+        uploaded_by_user_name=user.display_name,
+    )
+
+    session.add(doc)
+    session.commit()
+
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
+@app.get("/mrr/docs/{doc_id}/download")
+def mrr_doc_download(doc_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    doc = session.get(MrrDocument, doc_id)
+    if not doc or not os.path.exists(doc.file_path):
+        raise HTTPException(404, "File not found")
+
+    return FileResponse(
+        doc.file_path,
+        filename=os.path.basename(doc.file_path),
+    )
+
+@app.post("/mrr/{lot_id}/docs/submit")
+def mrr_docs_submit(
+    lot_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    inspector_po_number: str = Form(...),
+    delivery_note_no: str = Form(""),
+    qty_arrived: Optional[float] = Form(None),
+):
+    user = get_current_user(request, session)
+    forbid_boss(user)
+
+    rec = session.exec(
+        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
+    ).first()
+
+    if not rec:
+        rec = MrrReceiving(ticket_id=lot_id)
+
+    rec.inspector_po_number = inspector_po_number.strip()
+    rec.delivery_note_no = delivery_note_no.strip()
+    rec.qty_arrived = qty_arrived
+
+    session.add(rec)
+    session.commit()
+
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
+@app.post("/mrr/{lot_id}/docs/confirm")
+def mrr_docs_confirm(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    forbid_boss(user)
+
+    lot = session.get(MaterialLot, lot_id)
+    rec = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+    docs = session.exec(select(MrrDocument).where(MrrDocument.ticket_id == lot_id)).all()
+
+    if not rec:
+        raise HTTPException(400, "Documentation not saved")
+
+    has_po_doc = any(d.doc_type == "PO" for d in docs)
+    po_match = rec.inspector_po_number.strip() == (lot.po_number or "").strip()
+
+    rec.po_match = po_match
+
+    if has_po_doc and po_match:
+        rec.inspector_confirmed_po = True
+    else:
+        rec.inspector_confirmed_po = False
+        rec.manager_confirmed_po = False
+
+    session.add(rec)
+    session.commit()
+
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
+@app.post("/mrr/{lot_id}/docs/approve")
+def mrr_docs_manager_approve(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    rec = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+    if not rec:
+        raise HTTPException(404, "Receiving record not found")
+
+    rec.manager_confirmed_po = True
+    rec.inspector_confirmed_po = True
+
+    session.add(rec)
+    session.commit()
+
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 
 @app.get("/runs/new", response_class=HTMLResponse)
 def run_new_get(request: Request, session: Session = Depends(get_session)):
@@ -2194,6 +2348,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
