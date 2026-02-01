@@ -1089,6 +1089,36 @@ def mrr_inspection_approve(lot_id: int, request: Request, session: Session = Dep
     session.commit()
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
 
+@app.get("/mrr/pending", response_class=HTMLResponse)
+def mrr_pending(request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    # Find inspections submitted by inspector but not yet manager-approved
+    pending = session.exec(
+        select(MrrReceivingInspection)
+        .where(MrrReceivingInspection.inspector_confirmed == True)
+        .where(MrrReceivingInspection.manager_approved == False)
+        .order_by(MrrReceivingInspection.created_at.desc())
+    ).all()
+
+    # Load lots to show ticket info
+    lot_ids = [p.ticket_id for p in pending]
+    lots = []
+    lot_map = {}
+    if lot_ids:
+        lots = session.exec(select(MaterialLot).where(MaterialLot.id.in_(lot_ids))).all()
+        lot_map = {l.id: l for l in lots}
+
+    return templates.TemplateResponse(
+        "mrr_pending.html",
+        {
+            "request": request,
+            "user": user,
+            "pending": pending,
+            "lot_map": lot_map,
+        },
+    )
 
 
 @app.get("/runs/new", response_class=HTMLResponse)
@@ -2548,6 +2578,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
