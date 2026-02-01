@@ -536,32 +536,27 @@ def get_current_material_lot_for_slot(session: Session, run_id: int, day: date, 
 def get_day_material_batches(session: Session, run_id: int, day: date) -> list[str]:
     """
     Returns unique batch_no used in THIS day.
-    Primary source: MaterialUseEvent
-    Fallback: InspectionEntry.raw_material_batch_no
+    First tries MaterialUseEvent; if none, falls back to InspectionEntry.raw_material_batch_no.
     """
 
-    # 1) Primary: events
+    # 1) Events for this day
     events = session.exec(
         select(MaterialUseEvent)
         .where(MaterialUseEvent.run_id == run_id, MaterialUseEvent.day == day)
         .order_by(MaterialUseEvent.slot_time, MaterialUseEvent.created_at)
     ).all()
 
-    batch_nos = []
+    batch_nos: list[str] = []
     seen = set()
 
     for ev in events:
         lot = session.get(MaterialLot, ev.lot_id)
-        if lot and lot.batch_no and lot.batch_no not in seen:
-            seen.add(lot.batch_no)
         bn = (lot.batch_no or "").strip() if lot else ""
         if bn and bn not in seen:
             seen.add(bn)
             batch_nos.append(bn)
 
-
-
-    # 2) Fallback: if no events found, read from entries (saved in Fix A)
+    # 2) Fallback: if no events found, read from entries
     if not batch_nos:
         entries = session.exec(
             select(InspectionEntry)
@@ -576,6 +571,7 @@ def get_day_material_batches(session: Session, run_id: int, day: date) -> list[s
                 batch_nos.append(bn)
 
     return batch_nos
+
 
 def format_spec_for_export(rule: str, mn: float | None, mx: float | None):
     """
@@ -723,20 +719,6 @@ def mrr_reject(lot_id: int, request: Request, session: Session = Depends(get_ses
     return RedirectResponse("/mrr", status_code=303)
 
 
-
-@app.post("/mrr/{lot_id}/reject")
-def mrr_reject(lot_id: int, request: Request, session: Session = Depends(get_session)):
-    user = get_current_user(request, session)
-    require_manager(user)
-
-    lot = session.get(MaterialLot, lot_id)
-    if not lot:
-        raise HTTPException(404, "Lot not found")
-
-    lot.status = "REJECTED"
-    session.add(lot)
-    session.commit()
-    return RedirectResponse("/mrr", status_code=302)
     
 @app.get("/mrr/{lot_id}", response_class=HTMLResponse)
 def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_session)):
@@ -1961,7 +1943,11 @@ def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> 
         raw_batches = trace_today["raw_batches"] or ([carry["raw"]] if carry["raw"] else [])
         raw_str = ", ".join([x for x in raw_batches if x])
         if raw_str:
-            _set_cell_safe(ws, "E8", raw_str)
+            if run.process in ["LINER", "COVER"]:
+                _set_cell_safe(ws, "E8", raw_str)
+            else:
+                _set_cell_safe(ws, "D7", raw_str)
+
 
         tools = trace_today["tools"] or carry["tools"]
         for t_idx in range(2):
@@ -2184,6 +2170,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
