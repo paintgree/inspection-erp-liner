@@ -15,6 +15,8 @@
     <div class="alert">{{ error }}</div>
   {% endif %}
 
+  {# ✅ Manager-only: create new ticket #}
+  {% if user.role and user.role|upper == "MANAGER" %}
   <div class="card inner mt">
     <h2>New MRR Ticket</h2>
 
@@ -28,8 +30,6 @@
           </select>
         </div>
 
-        <!-- ✅ Batch No removed (generated automatically in backend) -->
-
         <div>
           <label>Material Name</label>
           <input name="material_name" placeholder="e.g. SABIC white">
@@ -42,7 +42,7 @@
 
         <div>
           <label>PO Number</label>
-          <input name="po_number" placeholder="Optional">
+          <input name="po_number" placeholder="Required for documentation check">
         </div>
 
         <div>
@@ -56,6 +56,7 @@
       </div>
     </form>
   </div>
+  {% endif %}
 
   <div class="card inner mt">
     <h2>Tickets</h2>
@@ -74,7 +75,7 @@
               <th>Supplier</th>
               <th>PO</th>
               <th>Status</th>
-              <th style="width:240px;">Actions</th>
+              <th style="width:260px;">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -90,16 +91,19 @@
                 <td>
                   <a class="btn" href="/mrr/{{ lot.id }}">Open</a>
 
-                  {% if lot.status != "APPROVED" %}
-                    <form method="post" action="/mrr/{{ lot.id }}/approve" style="display:inline;">
-                      <button class="btn btn-primary" type="submit">Approve</button>
-                    </form>
-                  {% endif %}
+                  {# ✅ Manager-only approve/reject #}
+                  {% if user.role and user.role|upper == "MANAGER" %}
+                    {% if lot.status != "APPROVED" %}
+                      <form method="post" action="/mrr/{{ lot.id }}/approve" style="display:inline;">
+                        <button class="btn btn-primary" type="submit">Approve</button>
+                      </form>
+                    {% endif %}
 
-                  {% if lot.status != "REJECTED" %}
-                    <form method="post" action="/mrr/{{ lot.id }}/reject" style="display:inline;">
-                      <button class="btn btn-warn" type="submit">Reject</button>
-                    </form>
+                    {% if lot.status != "REJECTED" %}
+                      <form method="post" action="/mrr/{{ lot.id }}/reject" style="display:inline;">
+                        <button class="btn btn-warn" type="submit">Reject</button>
+                      </form>
+                    {% endif %}
                   {% endif %}
                 </td>
               </tr>
