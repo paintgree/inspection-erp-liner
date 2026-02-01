@@ -125,14 +125,15 @@
     <div class="card inner mt">
       <div class="sectiontitle accent-purple">Raw Material (MRR Approved)</div>
 
+      {% if not has_any_event %}
       <div class="muted">
-        {% if not has_any_event %}
-          Current batch (auto): <b>{{ current_lot_preview.batch_no }}</b>
-          {% if current_lot_preview.material_name %} — {{ current_lot_preview.material_name }}{% endif %}
-        {% else %}
-          No batch selected yet for this run. Please select the starting batch below.
-        {% endif %}
+        No batch selected yet for this run. Please select the starting batch below.
       </div>
+    {% else %}
+      <div class="muted">
+        This run already has a selected batch. If the batch changed during this inspection, tick the box to record the new batch.
+      </div>
+    {% endif %}
 
       <!-- starting batch (only required when no previous events exist) -->
       {% if not current_lot_preview %}
@@ -219,4 +220,5 @@
   </form>
 </div>
 {% endblock %}
+
 
