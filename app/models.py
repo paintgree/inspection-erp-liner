@@ -145,7 +145,13 @@ class MaterialLot(SQLModel, table=True):
     po_number: str = Field(default="")
     quantity: Optional[float] = Field(default=None)
 
-    status: str = Field(default="PENDING")  # PENDING / APPROVED / REJECTED
+    # ✅ NEW: unit for PO quantity (so PO can be 1 T, etc.)
+    quantity_unit: str = Field(default="KG")  # KG / T
+
+    # ✅ NEW: total received so far (for partial deliveries)
+    received_total: float = Field(default=0.0)
+
+    status: str = Field(default="PENDING")  # PENDING / PARTIAL / READY / APPROVED / REJECTED
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -184,20 +190,27 @@ class MrrDocument(SQLModel, table=True):
 
 class MrrReceiving(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
     ticket_id: int = Field(index=True)
 
-    inspector_po_number: str = ""
-    delivery_note_no: str = ""
+    delivery_note_no: str = Field(default="")
+    inspector_po_number: str = Field(default="")
 
-    qty_arrived: Optional[float] = None
-    qty_unit: str = "KG"  # KG / T / LB etc
+    po_match: bool = Field(default=True)
+    inspector_confirmed_po: bool = Field(default=False)
+    manager_confirmed_po: bool = Field(default=False)
 
-    is_partial_delivery: bool = False
-    qty_mismatch_reason: str = ""
+    received_date: date = Field(default_factory=date.today)
+    remarks: str = Field(default="")
 
-    inspector_confirmed_po: bool = False
-    manager_confirmed_po: bool = False
+    # ✅ Quantity entered ONCE here, and reused in inspection page
+    qty_arrived: Optional[float] = Field(default=None)
+    qty_unit: str = Field(default="KG")  # KG / T
+
+    # ✅ Partial delivery logic
+    is_partial_delivery: bool = Field(default=False)
+    qty_mismatch_reason: str = Field(default="")
 
 
 
@@ -225,4 +238,5 @@ class MrrReceivingInspection(SQLModel, table=True):
 # Your main.py imports MrrInspection, but the real model you use everywhere
 # is MrrReceivingInspection. This alias fixes the import error cleanly.
 MrrInspection = MrrReceivingInspection
+
 
