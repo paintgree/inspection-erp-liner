@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+
+<a class="btn btn-ghost" href="/mrr/{{ lot.id }}">← Back</a>
+
+<div class="card">
+  <h1>Receiving Inspection</h1>
+  <div class="muted">MRR Ticket #{{ lot.id }}</div>
+
+  <form method="post">
+    <div class="mt">
+      <label>Packaging condition OK?</label>
+      <select name="packaging_ok" required>
+        <option value="">-- select --</option>
+        <option value="YES">YES</option>
+        <option value="NO">NO</option>
+      </select>
+    </div>
+
+    <div class="mt">
+      <label>Quantity matches delivery?</label>
+      <select name="qty_ok" required>
+        <option value="">-- select --</option>
+        <option value="YES">YES</option>
+        <option value="NO">NO</option>
+      </select>
+    </div>
+
+    <div class="mt">
+      <label>COA / Test documents OK?</label>
+      <select name="coa_ok" required>
+        <option value="">-- select --</option>
+        <option value="YES">YES</option>
+        <option value="NO">NO</option>
+      </select>
+    </div>
+
+    <div class="mt">
+      <label>Remarks</label>
+      <textarea name="remarks"></textarea>
+    </div>
+
+    <div class="toolbar mt">
+      <button class="btn btn-primary" type="submit">Submit Inspection</button>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
