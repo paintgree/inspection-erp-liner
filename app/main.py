@@ -711,12 +711,17 @@ def mrr_approve(lot_id: int, request: Request, session: Session = Depends(get_se
 
     lot = session.get(MaterialLot, lot_id)
     if not lot:
-        raise HTTPException(404, "Lot not found")
+        raise HTTPException(404, "MRR Ticket not found")
 
-    lot.status = "APPROVED"
+    # ✅ Do NOT approve the lot for production here anymore.
+    # This button now only confirms the ticket is valid to proceed (still not production-approved).
+    # We'll mark it as PENDING and rely on Receiving Inspection approval to set APPROVED.
+    lot.status = "PENDING"
     session.add(lot)
     session.commit()
-    return RedirectResponse("/mrr", status_code=303)
+
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 
 
 @app.post("/mrr/{lot_id}/reject")
@@ -726,12 +731,14 @@ def mrr_reject(lot_id: int, request: Request, session: Session = Depends(get_ses
 
     lot = session.get(MaterialLot, lot_id)
     if not lot:
-        raise HTTPException(404, "Lot not found")
+        raise HTTPException(404, "MRR Ticket not found")
 
     lot.status = "REJECTED"
     session.add(lot)
     session.commit()
-    return RedirectResponse("/mrr", status_code=303)
+
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 
 
     
@@ -984,18 +991,23 @@ def mrr_inspection_approve(lot_id: int, request: Request, session: Session = Dep
     ).first()
 
     if not insp:
-        raise HTTPException(404, "Inspection not found")
+        raise HTTPException(404, "Receiving Inspection not found")
 
+    # ✅ Manager approves the receiving inspection
     insp.manager_approved = True
     session.add(insp)
 
-    # close ticket
+    # ✅ THIS is the ONLY place the batch becomes usable in production
     lot = session.get(MaterialLot, lot_id)
-    lot.status = "APPROVED"
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    lot.status = "APPROVED"   # <-- makes it appear in production dropdown
     session.add(lot)
 
     session.commit()
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 
 
 @app.get("/runs/new", response_class=HTMLResponse)
@@ -2455,6 +2467,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
