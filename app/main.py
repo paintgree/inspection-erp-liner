@@ -653,10 +653,25 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
 def mrr_list(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
-    # Inspectors can view, managers can manage
     lots = session.exec(
         select(MaterialLot).order_by(MaterialLot.created_at.desc())
     ).all()
+
+    lot_ids = [l.id for l in lots if l and l.id is not None]
+
+    receiving_map = {}
+    inspection_map = {}
+
+    if lot_ids:
+        receivings = session.exec(
+            select(MrrReceiving).where(MrrReceiving.ticket_id.in_(lot_ids))
+        ).all()
+        receiving_map = {r.ticket_id: r for r in receivings}
+
+        inspections = session.exec(
+            select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id.in_(lot_ids))
+        ).all()
+        inspection_map = {i.ticket_id: i for i in inspections}
 
     return templates.TemplateResponse(
         "mrr_list.html",
@@ -664,9 +679,12 @@ def mrr_list(request: Request, session: Session = Depends(get_session)):
             "request": request,
             "user": user,
             "lots": lots,
+            "receiving_map": receiving_map,
+            "inspection_map": inspection_map,
             "error": "",
         },
     )
+
 
 
 @app.post("/mrr/new")
@@ -761,6 +779,11 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         .where(MrrReceiving.ticket_id == lot_id)
     ).first()
 
+    inspection = session.exec(
+        select(MrrReceivingInspection)
+        .where(MrrReceivingInspection.ticket_id == lot_id)
+    ).first()
+
     return templates.TemplateResponse(
         "mrr_view.html",
         {
@@ -769,6 +792,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
             "lot": lot,
             "docs": docs,
             "receiving": receiving,
+            "inspection": inspection,
         },
     )
 
@@ -2467,6 +2491,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
