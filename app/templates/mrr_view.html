@@ -52,16 +52,12 @@
 
       <div class="kv">
         <span>Documentation</span>
-        <b>
-          {% if docs_ok %}CLEARED{% elif receiving %}SAVED{% else %}PENDING{% endif %}
-        </b>
+        <b>{% if docs_ok %}CLEARED{% elif receiving %}SAVED{% else %}PENDING{% endif %}</b>
       </div>
 
       <div class="kv">
         <span>Receiving Inspection</span>
-        <b>
-          {% if insp_ok %}APPROVED{% elif insp_submitted %}SUBMITTED{% else %}PENDING{% endif %}
-        </b>
+        <b>{% if insp_ok %}APPROVED{% elif insp_submitted %}SUBMITTED{% else %}PENDING{% endif %}</b>
       </div>
 
       <div class="mt muted">
@@ -85,12 +81,12 @@
       <h2>Documents</h2>
 
       {% if docs and docs|length > 0 %}
-        <div class="tablewrap">
-          <table class="table wide">
+        <div class="tablewrap mt">
+          <table class="table">
             <thead>
               <tr>
                 <th>Type</th>
-                <th>Name</th>
+                <th class="wrap">Name</th>
                 <th>No.</th>
                 <th>By</th>
                 <th>File</th>
@@ -100,25 +96,25 @@
               {% for d in docs %}
                 <tr>
                   <td><b>{{ d.doc_type }}</b></td>
-                  <td>{{ d.doc_name or "-" }}</td>
+                  <td class="wrap">{{ d.doc_name or "-" }}</td>
                   <td>{{ d.doc_number or "-" }}</td>
-                  <td>{{ d.uploaded_by_user_name }}</td>
-                  <td><a class="btn" href="/mrr/docs/{{ d.id }}/download">Download</a></td>
+                  <td class="wrap">{{ d.uploaded_by_user_name }}</td>
+                  <td><a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/download">Download</a></td>
                 </tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
       {% else %}
-        <div class="muted">No documents uploaded yet.</div>
+        <div class="muted mt">No documents uploaded yet.</div>
       {% endif %}
 
       <div class="mt">
-        <h3 style="margin:0 0 10px 0;">Upload Document</h3>
+        <h3>Upload Document</h3>
 
-        <form method="post" action="/mrr/{{ lot.id }}/docs/upload" enctype="multipart/form-data">
-          <div class="grid3">
-            <div>
+        <form method="post" action="/mrr/{{ lot.id }}/docs/upload" enctype="multipart/form-data" class="mt">
+          <div class="grid2">
+            <div class="fieldbox">
               <label>Document Type</label>
               <select name="doc_type" required>
                 <option value="PO">PO</option>
@@ -126,28 +122,25 @@
                 <option value="COA">COA / Lab Test</option>
                 <option value="RELATED">Related</option>
               </select>
+
+              <label class="mt">Choose File</label>
+              <input type="file" name="file" required>
             </div>
 
-            <div>
+            <div class="fieldbox">
               <label>Document Name (required)</label>
               <input name="doc_title" required placeholder="e.g. PO Copy, Delivery Note scan, COA">
-            </div>
 
-            <div>
-              <label>Document Number (optional)</label>
+              <label class="mt">Document Number (optional)</label>
               <input name="doc_number" placeholder="e.g. DN-12345">
+
+              <div class="toolbar mt">
+                <button class="btn btn-primary" type="submit">Upload</button>
+              </div>
             </div>
-          </div>
-
-          <div class="mt">
-            <label>Choose File</label>
-            <input type="file" name="file" required>
-          </div>
-
-          <div class="toolbar mt">
-            <button class="btn btn-primary" type="submit">Upload</button>
           </div>
         </form>
+
       </div>
     </div>
   </div>
