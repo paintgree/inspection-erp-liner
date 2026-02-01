@@ -554,10 +554,11 @@ def get_day_material_batches(session: Session, run_id: int, day: date) -> list[s
         lot = session.get(MaterialLot, ev.lot_id)
         if lot and lot.batch_no and lot.batch_no not in seen:
             seen.add(lot.batch_no)
-            bn = (lot.batch_no or "").strip()
-            if bn and bn not in seen:
-                seen.add(bn)
-                batch_nos.append(bn)
+        bn = (lot.batch_no or "").strip() if lot else ""
+        if bn and bn not in seen:
+            seen.add(bn)
+            batch_nos.append(bn)
+
 
 
     # 2) Fallback: if no events found, read from entries (saved in Fix A)
@@ -1138,37 +1139,7 @@ def apply_spec_check(param, v):
         return True, f"Above max ({val} > {max_v})"
 
     return False, ""
-    # ✅ Create starting MaterialUseEvent if this is the first ever entry
-    if not has_any_event:
-        session.add(MaterialUseEvent(
-            run_id=run_id,
-            day=day_obj,
-            slot_time=slot_time,
-            lot_id=int(start_lot_id),
-            created_by_user_id=user.id,
-        ))
-        session.commit()
-
-    # ✅ If batch changed (or new_lot_id selected), create event
-    if batch_changed:
-        if not new_lot_id_raw.isdigit():
-            msg = "Please select the NEW approved RAW batch."
-            return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
-
-        new_lot = session.get(MaterialLot, int(new_lot_id_raw))
-        if (not new_lot) or (new_lot.status != "APPROVED") or (getattr(new_lot, "lot_type", "RAW") != "RAW"):
-            msg = "Selected NEW batch is not an APPROVED RAW batch."
-            return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
-
-        session.add(MaterialUseEvent(
-            run_id=run_id,
-            day=day_obj,
-            slot_time=slot_time,
-            lot_id=int(new_lot_id_raw),
-            created_by_user_id=user.id,
-        ))
-        session.commit()
-
+   
 @app.post("/runs/{run_id}/entry/new")
 async def entry_new_post(
     run_id: int,
@@ -1241,12 +1212,6 @@ async def entry_new_post(
             msg = "Selected starting batch is not an APPROVED RAW batch."
             return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
             
-    # ✅ Save the current RAW batch number into the entry (for run page + exports)
-    current_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
-    if current_lot and current_lot.batch_no:
-        entry.raw_material_batch_no = current_lot.batch_no
-    else:
-        entry.raw_material_batch_no = ""
 
         # Create the inspection entry first (NO batch yet)
     entry = InspectionEntry(
@@ -1302,6 +1267,11 @@ async def entry_new_post(
         ))
         session.commit()
 
+    # ✅ NOW we can read the current batch (because the events exist) and save it into the entry
+    current_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
+    entry.raw_material_batch_no = (current_lot.batch_no or "").strip() if current_lot else ""
+    session.add(entry)
+    session.commit()
 
 
     # save values (unchanged logic)
@@ -2214,6 +2184,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
