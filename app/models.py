@@ -19,8 +19,7 @@ class User(SQLModel, table=True):
     password_hash: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    # ✅ IMPORTANT: use built-in list[] not typing.List[]
-    entries: list["InspectionEntry"] = Relationship(back_populates="inspector")
+
 
 
 # =========================
@@ -106,7 +105,7 @@ class InspectionEntry(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     run: "ProductionRun" = Relationship(back_populates="entries")
-    inspector: "User" = Relationship(back_populates="entries")
+    inspector: "User" = Relationship()
     values: list["InspectionValue"] = Relationship(back_populates="entry")
 
 
@@ -246,3 +245,4 @@ class MaterialUseEvent(SQLModel, table=True):
 
     created_by_user_id: Optional[int] = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
