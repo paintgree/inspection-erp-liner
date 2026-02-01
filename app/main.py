@@ -6,17 +6,38 @@ from datetime import datetime, date, time as dtime
 from io import BytesIO
 from typing import Dict, List, Optional, Tuple
 
-import openpyxl
-from fastapi import FastAPI, Depends, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from sqlmodel import Session, select
-from fastapi.responses import Response
-from pypdf import PdfWriter, PdfReader, Transformation
+from typing import Dict, List, Optional, Tuple
+from pathlib import Path
 import subprocess
 import tempfile
-from pathlib import Path
+import json
+import os
+from datetime import datetime
+
+import openpyxl
+from pypdf import PdfWriter, PdfReader, Transformation
+
+from fastapi import (
+    FastAPI,
+    Depends,
+    Request,
+    Form,
+    HTTPException,
+    UploadFile,
+    File,
+)
+from fastapi.responses import (
+    HTMLResponse,
+    RedirectResponse,
+    StreamingResponse,
+    Response,
+    FileResponse,
+)
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
+from sqlmodel import Session, select
+
 
 
 
@@ -2579,6 +2600,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
