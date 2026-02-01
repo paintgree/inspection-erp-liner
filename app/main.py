@@ -59,6 +59,27 @@ from .models import (
     MrrInspection,           # ✅ now works (alias in models.py)
 )
 
+# =========================
+# MRR helpers (units + report no)
+# =========================
+
+UNIT_MULTIPLIER = {
+    "KG": 1.0,
+    "T": 1000.0,   # 1 Ton = 1000 KG
+}
+
+def normalize_qty_to_kg(qty: float, unit: str) -> float:
+    u = (unit or "KG").upper().strip()
+    mul = UNIT_MULTIPLIER.get(u)
+    if mul is None:
+        mul = 1.0
+    return float(qty) * mul
+
+def generate_report_no(ticket_id: int) -> str:
+    # simple stable format
+    from datetime import datetime
+    now = datetime.utcnow()
+    return f"MRR-{now.year}-{now.month:02d}-{ticket_id:04d}"
 
 app = FastAPI()
 
@@ -936,26 +957,57 @@ def mrr_docs_submit(
     session: Session = Depends(get_session),
     inspector_po_number: str = Form(...),
     delivery_note_no: str = Form(""),
-    qty_arrived: Optional[float] = Form(None),
+    qty_arrived: float = Form(...),
+    qty_unit: str = Form("KG"),
 ):
     user = get_current_user(request, session)
-    forbid_boss(user)
 
-    rec = session.exec(
-        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
-    ).first()
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
 
-    if not rec:
-        rec = MrrReceiving(ticket_id=lot_id)
+    # get or create receiving header record
+    receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+    if not receiving:
+        receiving = MrrReceiving(ticket_id=lot_id)
 
-    rec.inspector_po_number = inspector_po_number.strip()
-    rec.delivery_note_no = delivery_note_no.strip()
-    rec.qty_arrived = qty_arrived
+    receiving.inspector_po_number = inspector_po_number.strip()
+    receiving.delivery_note_no = (delivery_note_no or "").strip()
+    receiving.qty_arrived = float(qty_arrived)
+    receiving.qty_unit = (qty_unit or "KG").upper().strip()
 
-    session.add(rec)
+    # PO match check
+    receiving.po_match = (receiving.inspector_po_number == (lot.po_number or "").strip())
+
+    # ---- quantity rules ----
+    if lot.quantity is None:
+        lot.quantity = 0.0
+
+    po_kg = normalize_qty_to_kg(float(lot.quantity), lot.quantity_unit)
+    arrived_kg = normalize_qty_to_kg(float(receiving.qty_arrived), receiving.qty_unit)
+
+    # partial delivery if arrived < PO
+    receiving.is_partial_delivery = arrived_kg < po_kg
+
+    # if arrived > PO → require mismatch reason later in inspection page
+    if arrived_kg > po_kg and not receiving.qty_mismatch_reason:
+        receiving.qty_mismatch_reason = "Arrived quantity exceeds PO. Provide reason."
+
+    # update running received total (KG)
+    lot.received_total = float(lot.received_total or 0.0) + arrived_kg
+
+    # status handling
+    if receiving.is_partial_delivery:
+        lot.status = "PARTIAL"
+    else:
+        lot.status = "PENDING"
+
+    session.add(receiving)
+    session.add(lot)
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 
 @app.post("/mrr/{lot_id}/docs/confirm")
 def mrr_docs_confirm(lot_id: int, request: Request, session: Session = Depends(get_session)):
@@ -1011,31 +1063,46 @@ def mrr_docs_are_cleared(session: Session, lot_id: int) -> bool:
         return False
 
     return rec.inspector_confirmed_po or rec.manager_confirmed_po
+    
 @app.get("/mrr/{lot_id}/inspection", response_class=HTMLResponse)
-def mrr_inspection_get(lot_id: int, request: Request, session: Session = Depends(get_session)):
+def mrr_receiving_inspection_page(
+    lot_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
     user = get_current_user(request, session)
-    forbid_boss(user)
 
     lot = session.get(MaterialLot, lot_id)
     if not lot:
-        raise HTTPException(404, "MRR ticket not found")
+        raise HTTPException(404, "MRR Ticket not found")
 
-    # ❌ Block if documentation not cleared
-    if not mrr_docs_are_cleared(session, lot_id):
-        return templates.TemplateResponse(
-            "simple_message.html",
-            {
-                "request": request,
-                "title": "Documentation Not Completed",
-                "message": "Receiving inspection cannot start until documentation is confirmed or manager approved.",
-                "back_url": f"/mrr/{lot_id}",
-            },
+    receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+    inspection = session.exec(select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id == lot_id)).first()
+
+    if not inspection:
+        inspection = MrrReceivingInspection(
+            ticket_id=lot_id,
+            inspector_id=user.id,
+            inspector_name=user.display_name,
+            template_type=lot.lot_type or "RAW",
+            inspection_json="{}",
         )
+        session.add(inspection)
+        session.commit()
 
-    insp = session.exec(
-        select(MrrReceivingInspection)
-        .where(MrrReceivingInspection.ticket_id == lot_id)
-    ).first()
+    # ensure report_no exists inside JSON
+    import json
+    data = {}
+    try:
+        data = json.loads(inspection.inspection_json or "{}")
+    except Exception:
+        data = {}
+
+    if not data.get("report_no"):
+        data["report_no"] = generate_report_no(lot_id)
+        inspection.inspection_json = json.dumps(data)
+        session.add(inspection)
+        session.commit()
 
     return templates.TemplateResponse(
         "mrr_inspection.html",
@@ -1043,47 +1110,112 @@ def mrr_inspection_get(lot_id: int, request: Request, session: Session = Depends
             "request": request,
             "user": user,
             "lot": lot,
-            "inspection": insp,
+            "receiving": receiving,      # ✅ used to prefill header
+            "inspection": inspection,
+            "inspection_data": data,     # ✅ report_no available
         },
     )
+
 @app.post("/mrr/{lot_id}/inspection")
-async def mrr_inspection_post(
+def mrr_receiving_inspection_submit(
     lot_id: int,
     request: Request,
     session: Session = Depends(get_session),
+    # Prefilled header fields (editable)
+    delivery_note: str = Form(""),
+    qty_arrived: float = Form(...),
+    qty_unit: str = Form("KG"),
+    is_partial_delivery: Optional[str] = Form(None),
+    qty_mismatch_reason: str = Form(""),
+
+    # RAW checks
+    packaging_ok: str = Form(""),
+    marking_ok: str = Form(""),
+    damage_ok: str = Form(""),
+    qty_ok: str = Form(""),
+    coa_ok: str = Form(""),
+    material_status: str = Form(""),
+    hold_comments: str = Form(""),
+
     remarks: str = Form(""),
+    inspected_by: str = Form(""),
 ):
     user = get_current_user(request, session)
-    forbid_boss(user)
 
-    if not mrr_docs_are_cleared(session, lot_id):
-        raise HTTPException(403, "Documentation not approved")
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
 
-    form = await request.form()
+    receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+    if not receiving:
+        # if someone skipped docs, create it
+        receiving = MrrReceiving(ticket_id=lot_id)
 
-    # store EVERYTHING except remarks
-    data = {k: v for k, v in form.items() if k != "remarks"}
+    # update receiving header from inspection page (no duplicate work)
+    receiving.delivery_note_no = (delivery_note or "").strip()
+    receiving.qty_arrived = float(qty_arrived)
+    receiving.qty_unit = (qty_unit or "KG").upper().strip()
+    receiving.is_partial_delivery = bool(is_partial_delivery)
+    receiving.qty_mismatch_reason = (qty_mismatch_reason or "").strip()
 
-    insp = session.exec(
-        select(MrrReceivingInspection)
-        .where(MrrReceivingInspection.ticket_id == lot_id)
-    ).first()
+    # validate qty vs PO with unit conversion
+    if lot.quantity is None:
+        lot.quantity = 0.0
 
-    if not insp:
-        insp = MrrReceivingInspection(
+    po_kg = normalize_qty_to_kg(float(lot.quantity), lot.quantity_unit)
+    arrived_kg = normalize_qty_to_kg(float(receiving.qty_arrived), receiving.qty_unit)
+
+    if arrived_kg > po_kg and not receiving.qty_mismatch_reason:
+        raise HTTPException(400, "Arrived quantity exceeds PO. Reason is required.")
+
+    if arrived_kg < po_kg:
+        receiving.is_partial_delivery = True
+        lot.status = "PARTIAL"
+    else:
+        lot.status = "PENDING"
+
+    # save inspection json
+    inspection = session.exec(select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id == lot_id)).first()
+    if not inspection:
+        inspection = MrrReceivingInspection(
             ticket_id=lot_id,
             inspector_id=user.id,
             inspector_name=user.display_name,
+            template_type=lot.lot_type or "RAW",
+            inspection_json="{}",
         )
 
-    insp.inspection_json = json.dumps(data)
-    insp.remarks = remarks
-    insp.inspector_confirmed = True
+    import json
+    payload = {
+        "report_no": generate_report_no(lot_id),
+        "delivery_note": receiving.delivery_note_no,
+        "qty_arrived": receiving.qty_arrived,
+        "qty_unit": receiving.qty_unit,
+        "is_partial_delivery": receiving.is_partial_delivery,
+        "qty_mismatch_reason": receiving.qty_mismatch_reason,
 
-    session.add(insp)
+        "packaging_ok": packaging_ok,
+        "marking_ok": marking_ok,
+        "damage_ok": damage_ok,
+        "qty_ok": qty_ok,
+        "coa_ok": coa_ok,
+        "material_status": material_status,
+        "hold_comments": hold_comments,
+
+        "remarks": remarks,
+        "inspected_by": inspected_by or user.display_name,
+    }
+
+    inspection.inspection_json = json.dumps(payload)
+    inspection.inspector_confirmed = True
+
+    session.add(receiving)
+    session.add(inspection)
+    session.add(lot)
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 
 @app.post("/mrr/{lot_id}/inspection/approve")
 def mrr_inspection_approve(lot_id: int, request: Request, session: Session = Depends(get_session)):
@@ -2602,6 +2734,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
