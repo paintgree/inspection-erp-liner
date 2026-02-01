@@ -12,224 +12,140 @@
       </div>
     </div>
     <div class="actions">
-      <span class="pill">Fill carefully • Saved on submit</span>
+      <span class="pill">Report: <b>{{ inspection_data.report_no }}</b></span>
     </div>
   </div>
 
   <form method="post" class="mt">
 
-    <!-- =========================
-         HEADER (common)
-    ========================== -->
     <div class="card inner">
-      <div class="sectiontitle accent-blue">Header</div>
+      <div class="sectiontitle accent-blue">Header (auto-copied from Documentation)</div>
 
       <div class="grid3 mt">
         <div>
           <label>Report Number</label>
-          <input name="report_no" placeholder="Auto / Manual">
-        </div>
-
-        <div>
-          <label>Inspection Date</label>
-          <input name="inspection_date" type="date">
+          <input value="{{ inspection_data.report_no }}" readonly>
         </div>
 
         <div>
           <label>Purchase Order</label>
-          <input name="purchase_order" value="{{ lot.po_number or '' }}" placeholder="PO Number">
+          <input value="{{ lot.po_number }}" readonly>
         </div>
-      </div>
 
-      <div class="grid2 mt">
         <div>
           <label>Delivery Note</label>
-          <input name="delivery_note" placeholder="DN Number">
-        </div>
-
-        <div>
-          <label>Supplier / Vendor</label>
-          <input name="supplier_vendor" value="{{ lot.supplier_name or '' }}" placeholder="Supplier name">
+          <input name="delivery_note" value="{{ receiving.delivery_note_no if receiving else '' }}" placeholder="DN Number">
         </div>
       </div>
-    </div>
-
-    <!-- =========================
-         OUTSOURCED SECTION
-         Based on your doc template:
-         items table + visual inspection sampling + remarks
-    ========================== -->
-    {% if lot.lot_type and lot.lot_type|upper == "OUTSOURCED" %}
-      <div class="card inner mt">
-        <div class="sectiontitle accent-purple">Items (as per PO)</div>
-
-        <div class="muted tiny mt">
-          Fill the item details like the “Outsourced Material Receiving Inspection Report” template :contentReference[oaicite:2]{index=2}
-        </div>
-
-        <div class="tablewrap mt">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>ITEM</th>
-                <th class="wrap">P.O Description</th>
-                <th>SIZE</th>
-                <th>TYPE</th>
-                <th>Pressure Rating / Class</th>
-                <th>QTY</th>
-                <th class="wrap">MTC Certificate No.</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for i in range(1, 9) %}
-              <tr>
-                <td><input name="item_{{i}}_no" placeholder="{{ i }}"></td>
-                <td><input name="item_{{i}}_desc" placeholder="Description"></td>
-                <td><input name="item_{{i}}_size" placeholder="Size"></td>
-                <td><input name="item_{{i}}_type" placeholder="Type"></td>
-                <td><input name="item_{{i}}_class" placeholder="Class"></td>
-                <td><input name="item_{{i}}_qty" type="number" step="0.01" placeholder="Qty"></td>
-                <td><input name="item_{{i}}_mtc" placeholder="MTC No."></td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div class="card inner mt">
-        <div class="sectiontitle accent-orange">Visual Inspection (10% sampling)</div>
-
-        <div class="tablewrap mt">
-          <table class="table">
-            <thead>
-              <tr>
-                <th class="wrap">Heat/Batch Number</th>
-                <th class="wrap">Flange ID / S.N</th>
-                <th class="wrap">Surface Condition</th>
-                <th class="wrap">Physical Damage</th>
-                <th class="wrap">Package Condition</th>
-                <th class="wrap">Markings & Labeling</th>
-                <th>Result (ACC/REJ)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for r in range(1, 11) %}
-              <tr>
-                <td><input name="vis_{{r}}_heat" placeholder="Heat/Batch"></td>
-                <td><input name="vis_{{r}}_sn" placeholder="ID / SN"></td>
-                <td><input name="vis_{{r}}_surface" placeholder="OK / Note"></td>
-                <td><input name="vis_{{r}}_damage" placeholder="OK / Note"></td>
-                <td><input name="vis_{{r}}_package" placeholder="OK / Note"></td>
-                <td><input name="vis_{{r}}_marking" placeholder="OK / Note"></td>
-                <td>
-                  <select name="vis_{{r}}_result">
-                    <option value=""></option>
-                    <option value="ACC">ACC</option>
-                    <option value="REJ">REJ</option>
-                  </select>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    {% endif %}
-
-    <!-- =========================
-         RAW SECTION
-         Based on your RAW template spreadsheet structure:
-         visual/physical + documentation review + status
-    ========================== -->
-    {% if lot.lot_type and lot.lot_type|upper == "RAW" %}
-      <div class="card inner mt">
-        <div class="sectiontitle accent-green">Visual & Physical Inspection</div>
-
-        <div class="grid2 mt">
-          <div class="fieldbox">
-            <label>Packaging condition OK?</label>
-            <select name="packaging_ok" required>
-              <option value="">-- select --</option>
-              <option value="YES">YES</option>
-              <option value="NO">NO</option>
-            </select>
-
-            <label class="mt">Identification / marking as per specification?</label>
-            <select name="marking_ok" required>
-              <option value="">-- select --</option>
-              <option value="YES">YES</option>
-              <option value="NO">NO</option>
-            </select>
-
-            <label class="mt">Any physical damage / contamination?</label>
-            <select name="damage_ok" required>
-              <option value="">-- select --</option>
-              <option value="NO_DAMAGE">No damage</option>
-              <option value="HAS_DAMAGE">Has issues</option>
-            </select>
-          </div>
-
-          <div class="fieldbox">
-            <label>Quantity matches delivery?</label>
-            <select name="qty_ok" required>
-              <option value="">-- select --</option>
-              <option value="YES">YES</option>
-              <option value="NO">NO</option>
-            </select>
-
-            <label class="mt">COA / PDS available and acceptable?</label>
-            <select name="coa_ok" required>
-              <option value="">-- select --</option>
-              <option value="YES">YES</option>
-              <option value="NO">NO</option>
-            </select>
-
-            <label class="mt">Material status (Tick one)</label>
-            <select name="material_status" required>
-              <option value="">-- select --</option>
-              <option value="VERIFIED_CONFIRMED">Verified and Confirmed</option>
-              <option value="ON_HOLD">On Hold</option>
-              <option value="NON_CONFORMITY">Non-Conformity</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="mt">
-          <label>If On Hold / Non-Conformity: Reason / Comments</label>
-          <textarea name="hold_comments" placeholder="Write reason / NCR reference / actions..."></textarea>
-        </div>
-      </div>
-    {% endif %}
-
-    <!-- =========================
-         REMARKS + FINAL
-    ========================== -->
-    <div class="card inner mt">
-      <div class="sectiontitle accent-blue">Remarks</div>
-      <textarea name="remarks" placeholder="General remarks..."></textarea>
 
       <div class="grid3 mt">
         <div>
-          <label>Inspected by (Name)</label>
-          <input name="inspected_by" value="{{ user.display_name or '' }}" placeholder="Inspector name">
+          <label>PO Quantity</label>
+          <input value="{{ lot.quantity }} {{ lot.quantity_unit }}" readonly>
         </div>
+
         <div>
-          <label>Reviewed by</label>
-          <input name="reviewed_by" placeholder="Reviewer name">
+          <label>Quantity Arrived</label>
+          <input name="qty_arrived" type="number" step="0.01"
+                 value="{{ receiving.qty_arrived if receiving and receiving.qty_arrived is not none else '' }}"
+                 required>
         </div>
+
         <div>
-          <label>Approved by</label>
-          <input name="approved_by" placeholder="Approver name">
+          <label>Unit</label>
+          <select name="qty_unit">
+            <option value="KG" {% if receiving and receiving.qty_unit=='KG' %}selected{% endif %}>KG</option>
+            <option value="T"  {% if receiving and receiving.qty_unit=='T' %}selected{% endif %}>Ton (T)</option>
+          </select>
         </div>
       </div>
 
-      <div class="toolbar mt">
-        <button class="btn btn-primary" type="submit">Submit Inspection</button>
+      <div class="mt">
+        <label>
+          <input type="checkbox" name="is_partial_delivery" {% if receiving and receiving.is_partial_delivery %}checked{% endif %}>
+          Partial delivery (ticket stays open)
+        </label>
       </div>
 
-      <div class="muted tiny">
-        Submitting marks inspection as <b>submitted</b>. Manager approval will make the batch <b>APPROVED</b>.
+      <div class="mt">
+        <label>If quantity mismatch / partial delivery – Reason (required if arrived &gt; PO)</label>
+        <textarea name="qty_mismatch_reason" placeholder="Explain mismatch / partial delivery...">{{ receiving.qty_mismatch_reason if receiving else '' }}</textarea>
+      </div>
+    </div>
+
+    <div class="card inner mt">
+      <div class="sectiontitle accent-green">Visual & Physical Inspection (RAW)</div>
+
+      <div class="grid2 mt">
+        <div class="fieldbox">
+          <label>Packaging condition OK?</label>
+          <select name="packaging_ok" required>
+            <option value="">-- select --</option>
+            <option value="YES">YES</option>
+            <option value="NO">NO</option>
+          </select>
+
+          <label class="mt">Identification / marking as per specification?</label>
+          <select name="marking_ok" required>
+            <option value="">-- select --</option>
+            <option value="YES">YES</option>
+            <option value="NO">NO</option>
+          </select>
+
+          <label class="mt">Any physical damage / contamination?</label>
+          <select name="damage_ok" required>
+            <option value="">-- select --</option>
+            <option value="NO_DAMAGE">No damage</option>
+            <option value="HAS_DAMAGE">Has issues</option>
+          </select>
+        </div>
+
+        <div class="fieldbox">
+          <label>Quantity matches delivery?</label>
+          <select name="qty_ok" required>
+            <option value="">-- select --</option>
+            <option value="YES">YES</option>
+            <option value="NO">NO</option>
+          </select>
+
+          <label class="mt">COA / PDS available and acceptable?</label>
+          <select name="coa_ok" required>
+            <option value="">-- select --</option>
+            <option value="YES">YES</option>
+            <option value="NO">NO</option>
+          </select>
+
+          <label class="mt">Material status</label>
+          <select name="material_status" required>
+            <option value="">-- select --</option>
+            <option value="VERIFIED_CONFIRMED">Verified and Confirmed</option>
+            <option value="ON_HOLD">On Hold</option>
+            <option value="NON_CONFORMITY">Non-Conformity</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt">
+        <label>If On Hold / Non-Conformity: Reason / Comments</label>
+        <textarea name="hold_comments" placeholder="Write reason / NCR reference / actions..."></textarea>
+      </div>
+    </div>
+
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Remarks</div>
+
+      <label>General remarks</label>
+      <textarea name="remarks" placeholder="General remarks..."></textarea>
+
+      <div class="grid2 mt">
+        <div>
+          <label>Inspected by</label>
+          <input name="inspected_by" value="{{ user.display_name }}">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" type="submit">Submit Inspection</button>
+        </div>
       </div>
     </div>
 
