@@ -49,10 +49,11 @@
   </div>
 
   {% if image_url %}
-    <div class="imgwrap">
-      <img class="pipeimg" src="{{ image_url }}" alt="process image">
+    <div class="run-diagram">
+      <img src="{{ image_url }}" alt="{{ run.process }} diagram">
     </div>
   {% endif %}
+
 
   <div class="grid3 mt">
     <div class="card inner">
@@ -190,3 +191,4 @@
   </div>
 </div>
 {% endblock %}
+
