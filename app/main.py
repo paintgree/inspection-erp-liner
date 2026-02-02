@@ -68,12 +68,67 @@ UNIT_MULTIPLIER = {
     "T": 1000.0,   # 1 Ton = 1000 KG
 }
 
-def normalize_qty(qty: float, unit: str) -> float:
+def normalize_qty_to_kg(qty: float, unit: str) -> float:
     u = (unit or "KG").upper().strip()
-    if u == "PCS":
-        return float(qty)  # PCS stays PCS
-    mul = UNIT_MULTIPLIER.get(u, 1.0)
-    return float(qty) * mul
+    if u in ["T", "TON", "TONNE"]:
+        return float(qty) * 1000.0
+    if u in ["KG", "KGS"]:
+        return float(qty)
+    # For PCS we cannot convert to KG; keep as-is (handled by units_compatible)
+    return float(qty)
+
+def dn_doc_exists(session: Session, lot_id: int, dn_number: str) -> bool:
+    dn_number = (dn_number or "").strip()
+    if not dn_number:
+        return False
+    doc = session.exec(
+        select(MrrDocument).where(
+            (MrrDocument.ticket_id == lot_id) &
+            (MrrDocument.doc_type == "DELIVERY_NOTE") &
+            (MrrDocument.doc_number == dn_number)
+        )
+    ).first()
+    return bool(doc)
+
+def get_submitted_shipment_by_dn(session: Session, lot_id: int, dn_number: str):
+    dn_number = (dn_number or "").strip()
+    if not dn_number:
+        return None
+    # DN is "consumed" ONLY if shipment was submitted (inspector_confirmed True) or approved
+    return session.exec(
+        select(MrrReceivingInspection).where(
+            (MrrReceivingInspection.ticket_id == lot_id) &
+            (MrrReceivingInspection.delivery_note_no == dn_number) &
+            (
+                (MrrReceivingInspection.inspector_confirmed == True) |
+                (MrrReceivingInspection.manager_approved == True)
+            )
+        )
+    ).first()
+
+def get_draft_shipment_by_dn(session: Session, lot_id: int, dn_number: str):
+    dn_number = (dn_number or "").strip()
+    if not dn_number:
+        return None
+    # Draft = created but NOT submitted yet
+    return session.exec(
+        select(MrrReceivingInspection).where(
+            (MrrReceivingInspection.ticket_id == lot_id) &
+            (MrrReceivingInspection.delivery_note_no == dn_number) &
+            (MrrReceivingInspection.inspector_confirmed == False) &
+            (MrrReceivingInspection.manager_approved == False)
+        )
+    ).first()
+
+def get_latest_draft_shipment(session: Session, lot_id: int):
+    return session.exec(
+        select(MrrReceivingInspection).where(
+            (MrrReceivingInspection.ticket_id == lot_id) &
+            (MrrReceivingInspection.inspector_confirmed == False) &
+            (MrrReceivingInspection.manager_approved == False)
+        ).order_by(MrrReceivingInspection.created_at.desc())
+    ).first()
+
 
 def units_compatible(po_unit: str, arrived_unit: str) -> bool:
     pu = (po_unit or "").upper().strip()
@@ -1008,6 +1063,35 @@ def mrr_doc_download(doc_id: int, request: Request, session: Session = Depends(g
         doc.file_path,
         filename=os.path.basename(doc.file_path),
     )
+@app.get("/mrr/docs/{doc_id}/inline")
+def mrr_doc_inline(doc_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    doc = session.get(MrrDocument, doc_id)
+    if not doc or not os.path.exists(doc.file_path):
+        raise HTTPException(404, "File not found")
+
+    # Try to let browser render it
+    return FileResponse(
+        doc.file_path,
+        media_type="application/octet-stream",
+        filename=os.path.basename(doc.file_path),
+        headers={"Content-Disposition": f'inline; filename="{os.path.basename(doc.file_path)}"'},
+    )
+
+@app.get("/mrr/docs/{doc_id}/view", response_class=HTMLResponse)
+def mrr_doc_view(doc_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    doc = session.get(MrrDocument, doc_id)
+    if not doc or not os.path.exists(doc.file_path):
+        raise HTTPException(404, "File not found")
+
+    # Render a page with iframe
+    return templates.TemplateResponse(
+        "mrr_doc_view.html",
+        {"request": request, "user": user, "doc": doc},
+    )
 
 @app.post("/mrr/{lot_id}/docs/submit")
 def mrr_docs_submit(
@@ -1170,15 +1254,31 @@ def new_shipment_inspection_page(
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
 
-    # compute remaining
-    po_norm = normalize_qty(lot.quantity, lot.quantity_unit)
-    remaining = max(po_norm - float(lot.received_total or 0.0), 0.0)
+    # Remaining qty (kg/t compatible)
+    po_unit = (lot.quantity_unit or "KG").upper().strip()
+    po_qty = float(lot.quantity or 0.0)
 
-    # count shipments already created
-    shipments_count = session.exec(
+    if po_unit in ["PC", "PCS"]:
+        # PCS balance uses raw numbers
+        received_total = float(lot.received_total or 0.0)
+        remaining = max(po_qty - received_total, 0.0)
+        remaining_label = f"{remaining:g} {po_unit}"
+    else:
+        po_kg = normalize_qty_to_kg(po_qty, po_unit)
+        received_total = float(lot.received_total or 0.0)  # we store as KG normalized
+        remaining_kg = max(po_kg - received_total, 0.0)
+        remaining_label = f"{remaining_kg:g} KG (normalized)"
+
+    # Shipment counter (how many shipments exist already)
+    shipments = session.exec(
         select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id == lot_id)
     ).all()
-    next_seq = len(shipments_count) + 1
+    next_seq = len(shipments) + 1
+
+    # Draft resume (best UX)
+    draft = get_latest_draft_shipment(session, lot_id)
+
+    error = request.query_params.get("error", "").strip()
 
     return templates.TemplateResponse(
         "mrr_new_shipment.html",
@@ -1186,8 +1286,10 @@ def new_shipment_inspection_page(
             "request": request,
             "user": user,
             "lot": lot,
-            "remaining": remaining,
+            "remaining_label": remaining_label,
             "next_seq": next_seq,
+            "draft": draft,
+            "error": error,
         },
     )
 
@@ -1202,73 +1304,71 @@ def create_shipment_inspection(
     qty_unit: str = Form(...),
 ):
     user = get_current_user(request, session)
+
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
 
-    dn_input = (delivery_note_no or "").strip()
-    if not dn_input:
-        return RedirectResponse(f"/mrr/{lot_id}/inspection/new?error=Delivery+Note+Number+is+required", status_code=303)
-
-    # ✅ latest uploaded Delivery Note document
-    latest_dn = session.exec(
-        select(MrrDocument)
-        .where((MrrDocument.ticket_id == lot_id) & (MrrDocument.doc_type == "DELIVERY_NOTE"))
-        .order_by(MrrDocument.created_at.desc())
-    ).first()
-
-    if not latest_dn:
-        return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/new?error=Upload+the+Delivery+Note+document+first",
-            status_code=303,
-        )
-
-    # ✅ must match latest uploaded DN number
-    if (latest_dn.doc_number or "").strip() != dn_input:
-        return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/new?error=Delivery+Note+must+match+the+latest+uploaded+DN+Number",
-            status_code=303,
-        )
-
-    # ✅ DN number cannot be used twice for shipments
-    dn_used = session.exec(
-        select(MrrReceivingInspection)
-        .where(
-            (MrrReceivingInspection.ticket_id == lot_id) &
-            (MrrReceivingInspection.delivery_note_no == dn_input)
-        )
-    ).first()
-    if dn_used:
-        return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/new?error=This+Delivery+Note+was+already+used+in+a+previous+shipment",
-            status_code=303,
-        )
+    dn = (delivery_note_no or "").strip()
+    if not dn:
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/new?error=Delivery%20Note%20number%20is%20required", status_code=303)
 
     qty_unit = (qty_unit or "KG").upper().strip()
-    if qty_unit not in ["KG", "T", "PCS"]:
-        qty_unit = "KG"
+    arrived_qty = float(qty_arrived or 0.0)
+    if arrived_qty <= 0:
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/new?error=Arrived%20quantity%20must%20be%20greater%20than%200", status_code=303)
 
-    if not units_compatible(lot.quantity_unit, qty_unit):
+    # 1) DN document must exist (uploaded as DELIVERY_NOTE with same doc_number)
+    if not dn_doc_exists(session, lot_id, dn):
         return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/new?error=Unit+mismatch:+PO+is+{lot.quantity_unit},+arrived+is+{qty_unit}",
+            f"/mrr/{lot_id}/inspection/new?error=Upload%20Delivery%20Note%20document%20first%20(type%20DELIVERY_NOTE)%20with%20Document%20Number%20exactly%20matching%20this%20DN",
             status_code=303,
         )
 
-    po_norm = normalize_qty(float(lot.quantity or 0.0), lot.quantity_unit)
-    received = float(lot.received_total or 0.0)
-    remaining = max(po_norm - received, 0.0)
+    # 2) If there is a DRAFT shipment with same DN => resume it (DN is NOT consumed until submitted)
+    draft = get_draft_shipment_by_dn(session, lot_id, dn)
+    if draft:
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/{draft.id}", status_code=303)
 
-    arrived_norm = normalize_qty(float(qty_arrived), qty_unit)
-
-    if arrived_norm <= 0:
-        return RedirectResponse(f"/mrr/{lot_id}/inspection/new?error=Arrived+quantity+must+be+greater+than+0", status_code=303)
-
-    if arrived_norm > remaining:
+    # 3) If there is a SUBMITTED shipment with same DN => block (DN already consumed)
+    used = get_submitted_shipment_by_dn(session, lot_id, dn)
+    if used:
         return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/new?error=Arrived+exceeds+remaining+balance+({remaining})",
+            f"/mrr/{lot_id}/inspection/new?error=This%20Delivery%20Note%20was%20already%20used%20in%20a%20previous%20submitted%20shipment",
             status_code=303,
         )
 
+    # 4) Unit compatibility: KG/T compatible; PCS only with PCS
+    po_unit = (lot.quantity_unit or "KG").upper().strip()
+    if not units_compatible(po_unit, qty_unit):
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/new?error=Unit%20mismatch:%20PO%20is%20{po_unit},%20arrived%20is%20{qty_unit}",
+            status_code=303,
+        )
+
+    # 5) Remaining balance validation
+    po_qty = float(lot.quantity or 0.0)
+    received_total = float(lot.received_total or 0.0)
+
+    if po_unit in ["PC", "PCS"]:
+        remaining = max(po_qty - received_total, 0.0)
+        if arrived_qty > remaining:
+            return RedirectResponse(
+                f"/mrr/{lot_id}/inspection/new?error=Arrived%20exceeds%20remaining%20balance%20({remaining:g}%20{po_unit})",
+                status_code=303,
+            )
+        arrived_norm = arrived_qty  # PCS stored as-is
+    else:
+        po_kg = normalize_qty_to_kg(po_qty, po_unit)
+        remaining_kg = max(po_kg - received_total, 0.0)
+        arrived_norm = normalize_qty_to_kg(arrived_qty, qty_unit)
+        if arrived_norm > remaining_kg:
+            return RedirectResponse(
+                f"/mrr/{lot_id}/inspection/new?error=Arrived%20exceeds%20remaining%20balance%20({remaining_kg:g}%20KG%20normalized)",
+                status_code=303,
+            )
+
+    # 6) Shipment sequence
     existing = session.exec(
         select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id == lot_id)
     ).all()
@@ -1278,8 +1378,8 @@ def create_shipment_inspection(
         ticket_id=lot_id,
         inspector_id=user.id,
         inspector_name=user.display_name,
-        delivery_note_no=dn_input,
-        qty_arrived=float(qty_arrived),
+        delivery_note_no=dn,
+        qty_arrived=float(arrived_qty),
         qty_unit=qty_unit,
         report_no=generate_report_no(lot_id, seq),
         template_type=lot.lot_type or "RAW",
@@ -1287,16 +1387,24 @@ def create_shipment_inspection(
         inspector_confirmed=False,
         manager_approved=False,
     )
-
     session.add(insp)
 
-    lot.received_total = received + arrived_norm
-    lot.status = "PARTIAL" if lot.received_total < po_norm else "PENDING"
+    # IMPORTANT: received_total should represent shipments that were started.
+    # If you prefer counting only SUBMITTED shipments, we can change later.
+    lot.received_total = received_total + float(arrived_norm)
+
+    # status
+    if po_unit in ["PC", "PCS"]:
+        lot.status = "PARTIAL" if lot.received_total < po_qty else "PENDING"
+    else:
+        lot.status = "PARTIAL" if lot.received_total < normalize_qty_to_kg(po_qty, po_unit) else "PENDING"
 
     session.add(lot)
     session.commit()
+    session.refresh(insp)
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/{insp.id}", status_code=303)
+
 
 
 
@@ -1325,11 +1433,26 @@ def shipment_inspection_form(
     if not inspection or inspection.ticket_id != lot_id:
         raise HTTPException(404, "Shipment inspection not found")
 
+    # Header source of truth:
+    # - PO = ticket
+    # - Report/DN/Qty/Unit = shipment record
     import json
     try:
         data = json.loads(inspection.inspection_json or "{}")
     except Exception:
         data = {}
+
+    # Ensure report_no exists even for older drafts
+    if not getattr(inspection, "report_no", None):
+        # fallback (should not happen if your model has report_no)
+        data["report_no"] = data.get("report_no") or generate_report_no(lot_id, 1)
+    else:
+        data["report_no"] = inspection.report_no
+
+    # Mirror shipment fields into json (template reads inspection + data)
+    data["delivery_note_no"] = inspection.delivery_note_no or ""
+    data["qty_arrived"] = inspection.qty_arrived if inspection.qty_arrived is not None else ""
+    data["qty_unit"] = inspection.qty_unit or "KG"
 
     return templates.TemplateResponse(
         "mrr_inspection.html",
@@ -2792,6 +2915,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
