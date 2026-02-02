@@ -924,8 +924,8 @@ async def mrr_doc_upload(
     request: Request,
     session: Session = Depends(get_session),
     doc_type: str = Form(...),
-    doc_title: str = Form(""),            # ✅ optional now
-    doc_number: str = Form(...),          # ✅ required always
+    doc_title: str = Form(""),
+    doc_number: str = Form(...),
     file: UploadFile = File(...),
 ):
     user = get_current_user(request, session)
@@ -933,6 +933,27 @@ async def mrr_doc_upload(
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
+
+    dt = (doc_type or "").strip().upper()
+    doc_number_clean = (doc_number or "").strip()
+
+    if not doc_number_clean:
+        return RedirectResponse(f"/mrr/{lot_id}?error=Document+Number+is+required", status_code=303)
+
+    # ✅ prevent duplicate DELIVERY_NOTE numbers for same ticket
+    if dt == "DELIVERY_NOTE":
+        exists = session.exec(
+            select(MrrDocument).where(
+                (MrrDocument.ticket_id == lot_id) &
+                (MrrDocument.doc_type == "DELIVERY_NOTE") &
+                (MrrDocument.doc_number == doc_number_clean)
+            )
+        ).first()
+        if exists:
+            return RedirectResponse(
+                f"/mrr/{lot_id}?error=This+Delivery+Note+number+is+already+uploaded",
+                status_code=303
+            )
 
     os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
 
@@ -943,8 +964,6 @@ async def mrr_doc_upload(
     with open(path, "wb") as f:
         f.write(await file.read())
 
-    dt = (doc_type or "").strip().upper()
-
     # ✅ Auto doc name unless RELATED
     title = (doc_title or "").strip()
     if dt != "RELATED":
@@ -954,15 +973,14 @@ async def mrr_doc_upload(
             "COA": "COA / Lab Test",
         }.get(dt, dt)
 
-    # ✅ RELATED requires a custom name
     if dt == "RELATED" and not title:
-        raise HTTPException(400, "Document Name is required when type is RELATED")
+        return RedirectResponse(f"/mrr/{lot_id}?error=Document+Name+is+required+for+RELATED", status_code=303)
 
     doc = MrrDocument(
         ticket_id=lot_id,
         doc_type=dt,
         doc_name=title,
-        doc_number=(doc_number or "").strip(),
+        doc_number=doc_number_clean,
         file_path=path,
         uploaded_by_user_id=user.id,
         uploaded_by_user_name=user.display_name,
@@ -972,6 +990,7 @@ async def mrr_doc_upload(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 
 
 
@@ -1185,46 +1204,79 @@ def create_shipment_inspection(
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
 
-    qty_unit = (qty_unit or "KG").upper().strip()
-    if not units_compatible(lot.quantity_unit, qty_unit):
-        raise HTTPException(400, f"Unit mismatch: PO is {lot.quantity_unit}, arrived is {qty_unit}")
+    dn_input = (delivery_note_no or "").strip()
+    if not dn_input:
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/new?error=Delivery+Note+Number+is+required", status_code=303)
 
-    # remaining check
-    po_norm = normalize_qty(lot.quantity, lot.quantity_unit)
+    # ✅ latest uploaded Delivery Note document
+    latest_dn = session.exec(
+        select(MrrDocument)
+        .where((MrrDocument.ticket_id == lot_id) & (MrrDocument.doc_type == "DELIVERY_NOTE"))
+        .order_by(MrrDocument.created_at.desc())
+    ).first()
+
+    if not latest_dn:
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/new?error=Upload+the+Delivery+Note+document+first",
+            status_code=303,
+        )
+
+    # ✅ must match latest uploaded DN number
+    if (latest_dn.doc_number or "").strip() != dn_input:
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/new?error=Delivery+Note+must+match+the+latest+uploaded+DN+Number",
+            status_code=303,
+        )
+
+    # ✅ DN number cannot be used twice for shipments
+    dn_used = session.exec(
+        select(MrrReceivingInspection)
+        .where(
+            (MrrReceivingInspection.ticket_id == lot_id) &
+            (MrrReceivingInspection.delivery_note_no == dn_input)
+        )
+    ).first()
+    if dn_used:
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/new?error=This+Delivery+Note+was+already+used+in+a+previous+shipment",
+            status_code=303,
+        )
+
+    qty_unit = (qty_unit or "KG").upper().strip()
+    if qty_unit not in ["KG", "T", "PCS"]:
+        qty_unit = "KG"
+
+    if not units_compatible(lot.quantity_unit, qty_unit):
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/new?error=Unit+mismatch:+PO+is+{lot.quantity_unit},+arrived+is+{qty_unit}",
+            status_code=303,
+        )
+
+    po_norm = normalize_qty(float(lot.quantity or 0.0), lot.quantity_unit)
     received = float(lot.received_total or 0.0)
     remaining = max(po_norm - received, 0.0)
 
     arrived_norm = normalize_qty(float(qty_arrived), qty_unit)
 
     if arrived_norm <= 0:
-        raise HTTPException(400, "Arrived quantity must be > 0")
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/new?error=Arrived+quantity+must+be+greater+than+0", status_code=303)
 
     if arrived_norm > remaining:
-        raise HTTPException(400, f"Arrived exceeds remaining balance ({remaining}). Provide correct quantity.")
-
-    # require Delivery Note attachment exists (uploaded doc)
-    dn_doc = session.exec(
-        select(MrrDocument).where(
-            (MrrDocument.ticket_id == lot_id) &
-            (MrrDocument.doc_type == "DELIVERY_NOTE") &
-            (MrrDocument.doc_number == delivery_note_no.strip())
-        )
-    ).first()
-    if not dn_doc:
-        raise HTTPException(
-            400,
-            "Delivery Note attachment is required. Upload DELIVERY NOTE with same Document Number first."
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/new?error=Arrived+exceeds+remaining+balance+({remaining})",
+            status_code=303,
         )
 
-    # shipment sequence
-    existing = session.exec(select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id == lot_id)).all()
+    existing = session.exec(
+        select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id == lot_id)
+    ).all()
     seq = len(existing) + 1
 
     insp = MrrReceivingInspection(
         ticket_id=lot_id,
         inspector_id=user.id,
         inspector_name=user.display_name,
-        delivery_note_no=delivery_note_no.strip(),
+        delivery_note_no=dn_input,
         qty_arrived=float(qty_arrived),
         qty_unit=qty_unit,
         report_no=generate_report_no(lot_id, seq),
@@ -1236,15 +1288,14 @@ def create_shipment_inspection(
 
     session.add(insp)
 
-    # update received_total + status immediately when shipment is created
     lot.received_total = received + arrived_norm
     lot.status = "PARTIAL" if lot.received_total < po_norm else "PENDING"
 
     session.add(lot)
     session.commit()
 
-    # go fill the inspection template for this shipment
     return RedirectResponse(f"/mrr/{lot_id}/inspection/{insp.id}", status_code=303)
+
 
 
 @app.get("/runs/new", response_class=HTMLResponse)
@@ -2739,6 +2790,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
