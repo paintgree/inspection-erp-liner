@@ -143,16 +143,19 @@ class MaterialLot(SQLModel, table=True):
     supplier_name: str = Field(default="")
 
     po_number: str = Field(default="")
-    quantity: Optional[float] = Field(default=None)
 
-    # ✅ NEW: unit for PO quantity (so PO can be 1 T, etc.)
-    quantity_unit: str = Field(default="KG")  # KG / T
+    # ✅ PO qty is REQUIRED (manager must fill)
+    quantity: float = Field(default=0.0)
 
-    # ✅ NEW: total received so far (for partial deliveries)
+    # ✅ PO unit (manager chooses)
+    quantity_unit: str = Field(default="KG")  # KG / T / PCS
+
+    # ✅ how much received so far (normalized for KG/T, or PCS)
     received_total: float = Field(default=0.0)
 
-    status: str = Field(default="PENDING")  # PENDING / PARTIAL / READY / APPROVED / REJECTED
+    status: str = Field(default="PENDING")  # PENDING / PARTIAL / APPROVED / REJECTED
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 
 class MaterialUseEvent(SQLModel, table=True):
@@ -223,7 +226,14 @@ class MrrReceivingInspection(SQLModel, table=True):
     inspector_id: int = Field(index=True)
     inspector_name: str = Field(default="")
 
+    # ✅ Shipment-specific header
+    delivery_note_no: str = Field(default="")
+    qty_arrived: float = Field(default=0.0)
+    qty_unit: str = Field(default="KG")  # KG / T / PCS
+
+    report_no: str = Field(default="")   # auto
     template_type: str = Field(default="RAW")
+
     inspection_json: str = Field(default="{}")
 
     inspector_confirmed: bool = Field(default=False)
@@ -238,5 +248,6 @@ class MrrReceivingInspection(SQLModel, table=True):
 # Your main.py imports MrrInspection, but the real model you use everywhere
 # is MrrReceivingInspection. This alias fixes the import error cleanly.
 MrrInspection = MrrReceivingInspection
+
 
 
