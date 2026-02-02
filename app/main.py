@@ -902,8 +902,8 @@ async def mrr_doc_upload(
     request: Request,
     session: Session = Depends(get_session),
     doc_type: str = Form(...),
-    doc_title: str = Form(...),
-    doc_number: str = Form(""),
+    doc_title: str = Form(""),            # ✅ optional now
+    doc_number: str = Form(...),          # ✅ required always
     file: UploadFile = File(...),
 ):
     user = get_current_user(request, session)
@@ -921,11 +921,26 @@ async def mrr_doc_upload(
     with open(path, "wb") as f:
         f.write(await file.read())
 
+    dt = (doc_type or "").strip().upper()
+
+    # ✅ Auto doc name unless RELATED
+    title = (doc_title or "").strip()
+    if dt != "RELATED":
+        title = {
+            "PO": "PO Copy",
+            "DELIVERY_NOTE": "Delivery Note",
+            "COA": "COA / Lab Test",
+        }.get(dt, dt)
+
+    # ✅ RELATED requires a custom name
+    if dt == "RELATED" and not title:
+        raise HTTPException(400, "Document Name is required when type is RELATED")
+
     doc = MrrDocument(
         ticket_id=lot_id,
-        doc_type=doc_type,
-        doc_name=doc_title,
-        doc_number=doc_number,
+        doc_type=dt,
+        doc_name=title,
+        doc_number=(doc_number or "").strip(),
         file_path=path,
         uploaded_by_user_id=user.id,
         uploaded_by_user_name=user.display_name,
@@ -935,6 +950,7 @@ async def mrr_doc_upload(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 
 
 @app.get("/mrr/docs/{doc_id}/download")
@@ -966,15 +982,35 @@ def mrr_docs_submit(
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
 
-    # get or create receiving header record
+   # get or create receiving record
     receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+    is_first_time = receiving is None
+    
     if not receiving:
         receiving = MrrReceiving(ticket_id=lot_id)
-
+    
     receiving.inspector_po_number = inspector_po_number.strip()
     receiving.delivery_note_no = (delivery_note_no or "").strip()
     receiving.qty_arrived = float(qty_arrived)
     receiving.qty_unit = (qty_unit or "KG").upper().strip()
+    
+    # ✅ Delivery Note rule:
+    # if ticket is already PARTIAL or there was previous receiving data, require DN
+    if (not is_first_time) and not receiving.delivery_note_no:
+        raise HTTPException(400, "Delivery Note is required for the next partial delivery.")
+
+    po_kg = normalize_qty_to_kg(float(lot.quantity or 0.0), lot.quantity_unit)
+    arrived_kg = normalize_qty_to_kg(float(receiving.qty_arrived), receiving.qty_unit)
+    
+    receiving.is_partial_delivery = arrived_kg < po_kg
+    
+    # update ticket status
+    if receiving.is_partial_delivery:
+        lot.status = "PARTIAL"
+    else:
+        lot.status = "PENDING"   # manager will approve later
+
+
 
     # PO match check
     receiving.po_match = (receiving.inspector_po_number == (lot.po_number or "").strip())
@@ -2734,6 +2770,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
