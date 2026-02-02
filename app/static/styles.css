@@ -261,4 +261,34 @@ tr.row-approved td{background:#f0fdf4;}
 tr.row-pending td{background:#fffbeb;}
 tr.row-rejected td{background:#fef2f2;}
 
+/* =========================
+   Mobile table fix (no vertical text)
+   ========================= */
+@media (max-width: 768px) {
+
+  /* Let tables scroll horizontally on small screens */
+  .tablewrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Prevent breaking words into vertical letters */
+  table.table th,
+  table.table td {
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
+  }
+
+  /* Slightly smaller text so more fits */
+  table.table {
+    font-size: 13px;
+  }
+
+  /* Optional: reduce padding to fit more columns */
+  table.table th,
+  table.table td {
+    padding: 10px 8px;
+  }
+}
 
