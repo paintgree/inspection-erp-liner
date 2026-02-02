@@ -1293,6 +1293,92 @@ def new_shipment_inspection_page(
         },
     )
 
+@app.post("/mrr/{lot_id}/inspection/{inspection_id}")
+async def shipment_inspection_submit(
+    lot_id: int,
+    inspection_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+    forbid_boss(user)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    insp = session.get(MrrReceivingInspection, inspection_id)
+    if not insp or insp.ticket_id != lot_id:
+        raise HTTPException(404, "Shipment inspection not found")
+
+    # If already submitted, don't double-submit
+    if insp.inspector_confirmed:
+        return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
+    form = await request.form()
+
+    # DN must match the shipment DN (no editing here)
+    dn = (insp.delivery_note_no or "").strip()
+    if not dn:
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/{inspection_id}", status_code=303)
+
+    # Block only if ANOTHER submitted shipment already used this DN
+    used = session.exec(
+        select(MrrReceivingInspection).where(
+            (MrrReceivingInspection.ticket_id == lot_id) &
+            (MrrReceivingInspection.id != inspection_id) &
+            (MrrReceivingInspection.delivery_note_no == dn) &
+            (
+                (MrrReceivingInspection.inspector_confirmed == True) |
+                (MrrReceivingInspection.manager_approved == True)
+            )
+        )
+    ).first()
+    if used:
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/{inspection_id}?error=This%20Delivery%20Note%20was%20already%20used%20in%20another%20submitted%20shipment",
+            status_code=303
+        )
+
+    # Update JSON with all inspection fields (store everything)
+    try:
+        data = json.loads(insp.inspection_json or "{}")
+    except Exception:
+        data = {}
+
+    # Keep header fields from shipment as truth
+    data["report_no"] = insp.report_no
+    data["delivery_note_no"] = insp.delivery_note_no
+    data["qty_arrived"] = insp.qty_arrived
+    data["qty_unit"] = insp.qty_unit
+
+    # Store the rest of inspection form inputs
+    for k in form.keys():
+        data[k] = str(form.get(k) or "").strip()
+
+    insp.inspection_json = json.dumps(data)
+    insp.inspector_confirmed = True
+    session.add(insp)
+
+    # ✅ NOW we consume qty into received_total (only on SUBMIT)
+    po_unit = (lot.quantity_unit or "KG").upper().strip()
+    received_total = float(lot.received_total or 0.0)
+
+    if po_unit in ["PC", "PCS"]:
+        arrived_norm = float(insp.qty_arrived or 0.0)
+        lot.received_total = received_total + arrived_norm
+        lot.status = "PARTIAL" if lot.received_total < float(lot.quantity or 0.0) else "PENDING"
+    else:
+        arrived_norm = normalize_qty_to_kg(float(insp.qty_arrived or 0.0), insp.qty_unit or "KG")
+        lot.received_total = received_total + float(arrived_norm)
+
+        po_kg = normalize_qty_to_kg(float(lot.quantity or 0.0), po_unit)
+        lot.status = "PARTIAL" if lot.received_total < po_kg else "PENDING"
+
+    session.add(lot)
+    session.commit()
+
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
 
 @app.post("/mrr/{lot_id}/inspection/new")
 def create_shipment_inspection(
@@ -1311,12 +1397,18 @@ def create_shipment_inspection(
 
     dn = (delivery_note_no or "").strip()
     if not dn:
-        return RedirectResponse(f"/mrr/{lot_id}/inspection/new?error=Delivery%20Note%20number%20is%20required", status_code=303)
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/new?error=Delivery%20Note%20number%20is%20required",
+            status_code=303
+        )
 
     qty_unit = (qty_unit or "KG").upper().strip()
     arrived_qty = float(qty_arrived or 0.0)
     if arrived_qty <= 0:
-        return RedirectResponse(f"/mrr/{lot_id}/inspection/new?error=Arrived%20quantity%20must%20be%20greater%20than%200", status_code=303)
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/new?error=Arrived%20quantity%20must%20be%20greater%20than%200",
+            status_code=303
+        )
 
     # 1) DN document must exist (uploaded as DELIVERY_NOTE with same doc_number)
     if not dn_doc_exists(session, lot_id, dn):
@@ -1325,12 +1417,12 @@ def create_shipment_inspection(
             status_code=303,
         )
 
-    # 2) If there is a DRAFT shipment with same DN => resume it (DN is NOT consumed until submitted)
+    # 2) If there is a DRAFT shipment with same DN => resume it
     draft = get_draft_shipment_by_dn(session, lot_id, dn)
     if draft:
         return RedirectResponse(f"/mrr/{lot_id}/inspection/{draft.id}", status_code=303)
 
-    # 3) If there is a SUBMITTED shipment with same DN => block (DN already consumed)
+    # 3) If there is a SUBMITTED shipment with same DN => block
     used = get_submitted_shipment_by_dn(session, lot_id, dn)
     if used:
         return RedirectResponse(
@@ -1338,7 +1430,7 @@ def create_shipment_inspection(
             status_code=303,
         )
 
-    # 4) Unit compatibility: KG/T compatible; PCS only with PCS
+    # 4) Unit compatibility
     po_unit = (lot.quantity_unit or "KG").upper().strip()
     if not units_compatible(po_unit, qty_unit):
         return RedirectResponse(
@@ -1346,7 +1438,7 @@ def create_shipment_inspection(
             status_code=303,
         )
 
-    # 5) Remaining balance validation
+    # 5) Remaining balance validation (IMPORTANT: use CURRENT received_total, do NOT change it here)
     po_qty = float(lot.quantity or 0.0)
     received_total = float(lot.received_total or 0.0)
 
@@ -1357,7 +1449,7 @@ def create_shipment_inspection(
                 f"/mrr/{lot_id}/inspection/new?error=Arrived%20exceeds%20remaining%20balance%20({remaining:g}%20{po_unit})",
                 status_code=303,
             )
-        arrived_norm = arrived_qty  # PCS stored as-is
+        arrived_norm = arrived_qty
     else:
         po_kg = normalize_qty_to_kg(po_qty, po_unit)
         remaining_kg = max(po_kg - received_total, 0.0)
@@ -1374,6 +1466,7 @@ def create_shipment_inspection(
     ).all()
     seq = len(existing) + 1
 
+    # ✅ Create shipment as DRAFT (DO NOT change lot.received_total here)
     insp = MrrReceivingInspection(
         ticket_id=lot_id,
         inspector_id=user.id,
@@ -1383,27 +1476,21 @@ def create_shipment_inspection(
         qty_unit=qty_unit,
         report_no=generate_report_no(lot_id, seq),
         template_type=lot.lot_type or "RAW",
-        inspection_json="{}",
+        inspection_json=json.dumps({
+            "delivery_note_no": dn,
+            "qty_arrived": float(arrived_qty),
+            "qty_unit": qty_unit,
+            "arrived_norm": float(arrived_norm),
+        }),
         inspector_confirmed=False,
         manager_approved=False,
     )
     session.add(insp)
-
-    # IMPORTANT: received_total should represent shipments that were started.
-    # If you prefer counting only SUBMITTED shipments, we can change later.
-    lot.received_total = received_total + float(arrived_norm)
-
-    # status
-    if po_unit in ["PC", "PCS"]:
-        lot.status = "PARTIAL" if lot.received_total < po_qty else "PENDING"
-    else:
-        lot.status = "PARTIAL" if lot.received_total < normalize_qty_to_kg(po_qty, po_unit) else "PENDING"
-
-    session.add(lot)
     session.commit()
     session.refresh(insp)
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/{insp.id}", status_code=303)
+
 
 
 
@@ -2915,6 +3002,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
