@@ -13,6 +13,57 @@
         Status: <b>{{ lot.status }}</b>
       </div>
     </div>
+<div class="card inner mt">
+  <h2>What’s pending?</h2>
+
+  <ul class="muted" style="margin:8px 0 0 18px; line-height:1.8;">
+    <li>
+      {% if docs and docs|length > 0 %}
+        ✅ Documents uploaded
+      {% else %}
+        ❌ Upload required documents (PO / Delivery Note / COA)
+      {% endif %}
+    </li>
+
+    <li>
+      {% if receiving %}
+        ✅ Documentation saved
+      {% else %}
+        ❌ Fill Inspector Documentation (PO, Delivery Note if needed, Quantity + Unit)
+      {% endif %}
+    </li>
+
+    <li>
+      {% if docs_ok %}
+        ✅ Documentation cleared (ready for inspection)
+      {% else %}
+        ❌ Confirm Documentation Complete
+      {% endif %}
+    </li>
+
+    <li>
+      {% if inspection and inspection.inspector_confirmed %}
+        ✅ Receiving Inspection submitted
+      {% else %}
+        ❌ Start Receiving Inspection
+      {% endif %}
+    </li>
+
+    <li>
+      {% if inspection and inspection.manager_approved %}
+        ✅ Manager approved (ticket ready for production)
+      {% else %}
+        ⏳ Waiting for manager approval
+      {% endif %}
+    </li>
+
+    {% if lot.status and lot.status|upper == "PARTIAL" %}
+    <li>
+      ⚠️ Ticket is <b>PARTIAL</b>: remaining quantity can be received later using the same ticket.
+    </li>
+    {% endif %}
+  </ul>
+</div>
 
     <div class="actions">
       <a class="btn" href="/mrr/{{ lot.id }}/export/xlsx">Export XLSX</a>
