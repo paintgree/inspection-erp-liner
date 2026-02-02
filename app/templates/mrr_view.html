@@ -81,6 +81,10 @@
   <!-- =========================
        1) BASIC INFO (TOP)
   ========================== -->
+  {% if error %}
+    <div class="alert alert-error mt">{{ error }}</div>
+  {% endif %}
+
   <div class="card inner mt">
     <h2>Basic Info</h2>
     <div class="kv"><span>Material</span><b>{{ lot.material_name or "-" }}</b></div>
