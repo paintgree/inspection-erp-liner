@@ -55,8 +55,8 @@ from .models import (
     MaterialUseEvent,
     MrrDocument,
     MrrReceiving,
-    MrrReceivingInspection,  # ✅ required because your code uses this name
-    MrrInspection,           # ✅ now works (alias in models.py)
+    MrrReceivingInspection,  # â required because your code uses this name
+    MrrInspection,           # â now works (alias in models.py)
 )
 
 # =========================
@@ -144,6 +144,18 @@ def generate_report_no(ticket_id: int, seq: int) -> str:
     return f"MRR-{now.year}-{now.month:02d}-{ticket_id:04d}-{seq:02d}"
 
 
+# =========================
+# MRR helpers (ticket cancel)
+# =========================
+
+def is_canceled_lot(lot: "MaterialLot") -> bool:
+    return (getattr(lot, "status", "") or "").strip().upper() == "CANCELED"
+
+def block_if_canceled(lot: "MaterialLot"):
+    if is_canceled_lot(lot):
+        raise HTTPException(400, "This MRR Ticket is canceled.")
+
+
 app = FastAPI()
 
 BASE_DIR = os.path.dirname(__file__)
@@ -227,27 +239,27 @@ LINER_COVER_PARAMS = [
     ("length_m", "Length (Mtr)", "m"),
     ("od_mm", "OD (mm)", "mm"),
     ("wall_thickness_mm", "Wall Thickness (mm)", "mm"),
-    ("cooling_water_c", "Cooling Water (°C)", "°C"),
+    ("cooling_water_c", "Cooling Water (Â°C)", "Â°C"),
     ("line_speed_m_min", "Line Speed (m/min)", "m/min"),
     ("tractor_pressure_mpa", "Tractor Pressure (MPa)", "MPa"),
-    ("body_temp_zone_1_c", "Body Temp Zone 1 (°C)", "°C"),
-    ("body_temp_zone_2_c", "Body Temp Zone 2 (°C)", "°C"),
-    ("body_temp_zone_3_c", "Body Temp Zone 3 (°C)", "°C"),
-    ("body_temp_zone_4_c", "Body Temp Zone 4 (°C)", "°C"),
-    ("body_temp_zone_5_c", "Body Temp Zone 5 (°C)", "°C"),
-    ("noising_temp_zone_1_c", "Noising Temp Zone 1 (°C)", "°C"),
-    ("noising_temp_zone_2_c", "Noising Temp Zone 2 (°C)", "°C"),
-    ("noising_temp_zone_3_c", "Noising Temp Zone 3 (°C)", "°C"),
-    ("noising_temp_zone_4_c", "Noising Temp Zone 4 (°C)", "°C"),
-    ("noising_temp_zone_5_c", "Noising Temp Zone 5 (°C)", "°C"),
+    ("body_temp_zone_1_c", "Body Temp Zone 1 (Â°C)", "Â°C"),
+    ("body_temp_zone_2_c", "Body Temp Zone 2 (Â°C)", "Â°C"),
+    ("body_temp_zone_3_c", "Body Temp Zone 3 (Â°C)", "Â°C"),
+    ("body_temp_zone_4_c", "Body Temp Zone 4 (Â°C)", "Â°C"),
+    ("body_temp_zone_5_c", "Body Temp Zone 5 (Â°C)", "Â°C"),
+    ("noising_temp_zone_1_c", "Noising Temp Zone 1 (Â°C)", "Â°C"),
+    ("noising_temp_zone_2_c", "Noising Temp Zone 2 (Â°C)", "Â°C"),
+    ("noising_temp_zone_3_c", "Noising Temp Zone 3 (Â°C)", "Â°C"),
+    ("noising_temp_zone_4_c", "Noising Temp Zone 4 (Â°C)", "Â°C"),
+    ("noising_temp_zone_5_c", "Noising Temp Zone 5 (Â°C)", "Â°C"),
 ]
 
 REINF_PARAMS = [
     ("length_m", "Length (Mtr)", "m"),
-    ("annular_od_70_1", "Annular OD (mm) (∠ 70°) #1", "mm"),
-    ("annular_od_70_2", "Annular OD (mm) (∠ 70°) #2", "mm"),
-    ("annular_od_45_3", "Annular OD (mm) (∠ 45°) #3", "mm"),
-    ("annular_od_45_4", "Annular OD (mm) (∠ 45°) #4", "mm"),
+    ("annular_od_70_1", "Annular OD (mm) (â  70Â°) #1", "mm"),
+    ("annular_od_70_2", "Annular OD (mm) (â  70Â°) #2", "mm"),
+    ("annular_od_45_3", "Annular OD (mm) (â  45Â°) #3", "mm"),
+    ("annular_od_45_4", "Annular OD (mm) (â  45Â°) #4", "mm"),
     ("core_mould_dia_mm", "Core Mould Dia. (mm)", "mm"),
     ("annular_width_1_mm", "Annular Width (mm) #1", "mm"),
     ("annular_width_2_mm", "Annular Width (mm) #2", "mm"),
@@ -514,8 +526,8 @@ def slot_from_time_str(t: str) -> str:
     - HH:00 .. HH+1:30  -> HH:00
     - HH+1:31 .. HH+2:00 -> HH+2:00
     Example:
-      02:00–03:30 -> 02:00
-      03:31–04:00 -> 04:00
+      02:00â03:30 -> 02:00
+      03:31â04:00 -> 04:00
       07:00 -> 06:00
     """
     parts = t.split(":")
@@ -592,7 +604,7 @@ def get_day_latest_trace(session: Session, run_id: int, day: date) -> dict:
 
 
 def get_last_known_trace_before_day(session: Session, run_id: int, day: date) -> dict:
-    # ✅ Get last known RAW batch from MaterialUseEvent (not from entries)
+    # â Get last known RAW batch from MaterialUseEvent (not from entries)
     raw = ""
 
     last_ev = session.exec(
@@ -722,7 +734,7 @@ def format_spec_for_export(rule: str, mn: float | None, mx: float | None):
     if rule == "RANGE" and mn is not None and mx is not None:
         set_value = (mn + mx) / 2.0
         tol = abs(mx - mn) / 2.0
-        return set_value, f"±{tol:g}"
+        return set_value, f"Â±{tol:g}"
 
     if rule == "MAX_ONLY" and mx is not None:
         return mx, "max"   # you requested: set=35, tol=max (like temperature max 35C)
@@ -783,8 +795,12 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
 
     progress_map = {r.id: get_progress_percent(session, r) for r in runs}
 
-    # ✅ MRR status summary (simple + useful)
-    lots = session.exec(select(MaterialLot).order_by(MaterialLot.created_at.desc())).all()
+    # â MRR status summary (simple + useful)
+    lots = session.exec(
+        select(MaterialLot)
+        .where(MaterialLot.status != "CANCELED")
+        .order_by(MaterialLot.created_at.desc())
+    ).all()
     lot_ids = [l.id for l in lots if l and l.id is not None]
 
     receiving_map = {}
@@ -848,7 +864,9 @@ def mrr_list(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
     lots = session.exec(
-        select(MaterialLot).order_by(MaterialLot.created_at.desc())
+        select(MaterialLot)
+        .where(MaterialLot.status != "CANCELED")
+        .order_by(MaterialLot.created_at.desc())
     ).all()
 
     lot_ids = [l.id for l in lots if l and l.id is not None]
@@ -937,7 +955,7 @@ def mrr_approve(lot_id: int, request: Request, session: Session = Depends(get_se
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
 
-    # ✅ Do NOT approve the lot for production here anymore.
+    # â Do NOT approve the lot for production here anymore.
     # This button now only confirms the ticket is valid to proceed (still not production-approved).
     # We'll mark it as PENDING and rely on Receiving Inspection approval to set APPROVED.
     lot.status = "PENDING"
@@ -964,6 +982,25 @@ def mrr_reject(lot_id: int, request: Request, session: Session = Depends(get_ses
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
 
 
+@app.post("/mrr/{lot_id}/cancel")
+def mrr_cancel(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    """
+    Soft-cancel an MRR ticket (keeps history, blocks further processing, hides from normal lists).
+    """
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    lot.status = "CANCELED"
+    session.add(lot)
+    session.commit()
+
+    return RedirectResponse("/mrr", status_code=303)
+
+
 
     
 @app.get("/mrr/{lot_id}", response_class=HTMLResponse)
@@ -973,6 +1010,8 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
+    block_if_canceled(lot)
+
 
     docs = session.exec(
         select(MrrDocument)
@@ -1021,6 +1060,8 @@ async def mrr_doc_upload(
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
+    block_if_canceled(lot)
+
 
     os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
 
@@ -1046,7 +1087,7 @@ async def mrr_doc_upload(
     if dt == "RELATED" and not title:
         raise HTTPException(400, "Document Name is required when type is RELATED")
 
-    # ✅ store RELATIVE path (portable)
+    # â store RELATIVE path (portable)
     rel_path = os.path.relpath(abs_path, BASE_DIR)
 
     doc = MrrDocument(
@@ -1109,7 +1150,7 @@ def mrr_doc_view(doc_id: int, request: Request, session: Session = Depends(get_s
     if not doc:
         raise HTTPException(404, "Document not found")
 
-    # ✅ IMPORTANT: resolve path exactly like download
+    # â IMPORTANT: resolve path exactly like download
     resolved = resolve_mrr_doc_path(doc.file_path)
 
     if not resolved or not os.path.exists(resolved):
@@ -1127,7 +1168,7 @@ def mrr_doc_view(doc_id: int, request: Request, session: Session = Depends(get_s
     elif ext == ".webp":
         media_type = "image/webp"
 
-    # ✅ Force browser inline preview (not download)
+    # â Force browser inline preview (not download)
     return FileResponse(
         resolved,
         media_type=media_type,
@@ -1150,6 +1191,8 @@ def mrr_docs_submit(
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
+    block_if_canceled(lot)
+
 
     # create or load receiving record (this is ONLY for PO verification now)
     receiving = session.exec(
@@ -1242,14 +1285,20 @@ def mrr_inspection_approve(lot_id: int, request: Request, session: Session = Dep
     if not insp:
         raise HTTPException(404, "Receiving Inspection not found")
 
-    # ✅ Manager approves the receiving inspection
+    # â Manager approves the receiving inspection
     insp.manager_approved = True
     session.add(insp)
 
-    # ✅ THIS is the ONLY place the batch becomes usable in production
+    # â THIS is the ONLY place the batch becomes usable in production
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
+    block_if_canceled(lot)
+
+    block_if_canceled(lot)
+
+    block_if_canceled(lot)
+
 
     lot.status = "APPROVED"   # <-- makes it appear in production dropdown
     session.add(lot)
@@ -1298,6 +1347,8 @@ def new_shipment_inspection_page(
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
+    block_if_canceled(lot)
+
 
     # Remaining qty (kg/t compatible)
     po_unit = (lot.quantity_unit or "KG").upper().strip()
@@ -1405,7 +1456,7 @@ async def shipment_inspection_submit(
     insp.inspector_confirmed = True
     session.add(insp)
 
-    # ✅ NOW we consume qty into received_total (only on SUBMIT)
+    # â NOW we consume qty into received_total (only on SUBMIT)
     po_unit = (lot.quantity_unit or "KG").upper().strip()
     received_total = float(lot.received_total or 0.0)
 
@@ -1439,6 +1490,8 @@ def create_shipment_inspection(
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
+    block_if_canceled(lot)
+
 
     dn = (delivery_note_no or "").strip()
     if not dn:
@@ -1511,7 +1564,7 @@ def create_shipment_inspection(
     ).all()
     seq = len(existing) + 1
 
-    # ✅ Create shipment as DRAFT (DO NOT change lot.received_total here)
+    # â Create shipment as DRAFT (DO NOT change lot.received_total here)
     insp = MrrReceivingInspection(
         ticket_id=lot_id,
         inspector_id=user.id,
@@ -1560,6 +1613,8 @@ def shipment_inspection_form(
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
+    block_if_canceled(lot)
+
 
     inspection = session.get(MrrReceivingInspection, inspection_id)
     if not inspection or inspection.ticket_id != lot_id:
@@ -1696,7 +1751,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
             .order_by(InspectionEntry.created_at)
         ).all()
         
-        # ✅ NEW: for the UI to know which slots have an InspectionEntry
+        # â NEW: for the UI to know which slots have an InspectionEntry
         slot_entry_ids: Dict[str, int] = {}
         for e in entries:
             if not e.slot_time or e.slot_time not in SLOTS:
@@ -1903,12 +1958,12 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
         .order_by(MaterialLot.batch_no)
     ).all()
 
-    # ✅ TRUE check: does the run already have any batch event?
+    # â TRUE check: does the run already have any batch event?
     has_any_event = session.exec(
         select(MaterialUseEvent.id).where(MaterialUseEvent.run_id == run_id).limit(1)
     ).first() is not None
 
-    # ✅ Show current batch as the latest batch in the run (not today 00:00)
+    # â Show current batch as the latest batch in the run (not today 00:00)
     today_lot = get_latest_material_lot_for_run(session, run_id)
 
     return templates.TemplateResponse(
@@ -2017,7 +2072,7 @@ async def entry_new_post(
     tool2_name: str = Form(""),
     tool2_serial: str = Form(""),
     tool2_calib_due: str = Form(""),
-    start_lot_id: str = Form(""),   # ✅ for first ever entry
+    start_lot_id: str = Form(""),   # â for first ever entry
 ):
     user = get_current_user(request, session)
     forbid_boss(user)
@@ -2050,7 +2105,7 @@ async def entry_new_post(
     batch_changed = str(form.get("batch_changed", "")).strip() == "1"
     new_lot_id_raw = str(form.get("new_lot_id", "")).strip()
     
-    # ✅ If user selected a new lot from dropdown, treat it as batch changed (even if checkbox not ticked)
+    # â If user selected a new lot from dropdown, treat it as batch changed (even if checkbox not ticked)
     if new_lot_id_raw.isdigit():
         batch_changed = True
 
@@ -2095,7 +2150,7 @@ async def entry_new_post(
     session.commit()
     session.refresh(entry)
 
-    # ✅ FIRST entry: create starting MaterialUseEvent at this slot
+    # â FIRST entry: create starting MaterialUseEvent at this slot
     if not has_any_event:
         session.add(MaterialUseEvent(
             run_id=run_id,
@@ -2106,7 +2161,7 @@ async def entry_new_post(
         ))
         session.commit()
 
-    # ✅ Batch changed: create new event
+    # â Batch changed: create new event
     if batch_changed:
         if not new_lot_id_raw.isdigit():
             msg = "Please select the NEW approved RAW batch when 'batch changed' is checked."
@@ -2126,7 +2181,7 @@ async def entry_new_post(
         ))
         session.commit()
 
-    # ✅ NOW we can read the current batch (because the events exist) and save it into the entry
+    # â NOW we can read the current batch (because the events exist) and save it into the entry
     current_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
     entry.raw_material_batch_no = (current_lot.batch_no or "").strip() if current_lot else ""
     session.add(entry)
@@ -2575,12 +2630,12 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
     wb = openpyxl.load_workbook(template_path)
     ws = wb.worksheets[0]
 
-    # ✅ Print setup (keep 1-page)
+    # â Print setup (keep 1-page)
     apply_pdf_page_setup(ws)
     apply_specs_to_template(ws, run, session)
     
 
-    # ✅ Per-process coordinates (THIS was missing and causing crashes)
+    # â Per-process coordinates (THIS was missing and causing crashes)
     if run.process in ["LINER", "COVER"]:
         col_start = 5  # E
         date_row = 20
@@ -2607,7 +2662,7 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
         op2_row = 37
         row_map = ROW_MAP_REINF
 
-        # ✅ IMPORTANT:
+        # â IMPORTANT:
         # Put ONLY the reinforcement header cells here (do NOT write E5/I5 again)
         # Use the real cells from your reinforcement.xlsx template
         _set_cell_safe(ws, "D4", run.dhtp_batch_no)
@@ -2626,12 +2681,12 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
         _set_cell_safe(ws, f"M{r}", name)
         _set_cell_safe(ws, f"P{r}", tag)
     
-    # ✅ Date row (IMPORTANT: format as DATE so it doesn't show 12:00 AM)
+    # â Date row (IMPORTANT: format as DATE so it doesn't show 12:00 AM)
     for slot_idx, slot in enumerate(SLOTS):
         col = openpyxl.utils.get_column_letter(col_start + slot_idx)
         _set_cell_safe(ws, f"{col}{date_row}", day, number_format="m/d/yyyy")
     
-    # ✅ Time row (format as time)
+    # â Time row (format as time)
     for slot_idx, slot in enumerate(SLOTS):
         col = openpyxl.utils.get_column_letter(col_start + slot_idx)
         hh, mm = slot.split(":")
@@ -2853,7 +2908,7 @@ def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> 
             ws[cell_addr].value = dtime(int(hh), int(mm))
             ws[cell_addr].number_format = "h:mm"
 
-        # ✅ print setup (important for PDF export)
+        # â print setup (important for PDF export)
         apply_pdf_page_setup(ws)
         
 
@@ -3000,7 +3055,7 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
 
     writer = PdfWriter()
 
-    # ✅ pick correct paper background by process
+    # â pick correct paper background by process
     background_path = PAPER_BG_MAP.get(run.process, "")
 
     for day in days:
@@ -3010,7 +3065,7 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
         # 2) Convert to PDF
         pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
 
-        # ✅ 3) Stamp background UNDER the page
+        # â 3) Stamp background UNDER the page
         if background_path:
             pdf_bytes = stamp_background_pdf(pdf_bytes, background_path)
 
@@ -3037,7 +3092,7 @@ def apply_pdf_page_setup(ws):
     ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
 
-    # ✅ Back to "everything in 1 page"
+    # â Back to "everything in 1 page"
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 1
     ws.sheet_properties.pageSetUpPr.fitToPage = True
@@ -3047,119 +3102,4 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
