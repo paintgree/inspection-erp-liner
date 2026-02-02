@@ -802,26 +802,38 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
 
     form = await request.form()
 
-    # Batch number is NOT decided at ticket creation time.
-    # We generate a temporary one to satisfy DB + indexing.
     tmp_batch = "TMP-" + datetime.utcnow().strftime("%Y%m%d-%H%M%S")
 
     material_name = str(form.get("material_name", "")).strip()
     supplier_name = str(form.get("supplier_name", "")).strip()
+
     lot_type = str(form.get("lot_type", "RAW")).strip().upper()
     if lot_type not in ["RAW", "OUTSOURCED"]:
         lot_type = "RAW"
 
     po_number = str(form.get("po_number", "")).strip()
-    quantity = _safe_float(form.get("quantity"))
+
+    qty_raw = str(form.get("quantity", "")).strip()
+    if qty_raw == "":
+        raise HTTPException(400, "PO Quantity is required")
+    try:
+        quantity = float(qty_raw)
+    except Exception:
+        raise HTTPException(400, "Invalid PO Quantity")
+
+    quantity_unit = str(form.get("quantity_unit", "KG")).strip().upper()
+    if quantity_unit not in ["KG", "T", "PCS"]:
+        quantity_unit = "KG"
 
     lot = MaterialLot(
         lot_type=lot_type,
-        batch_no=tmp_batch,              # ✅ auto generated
+        batch_no=tmp_batch,
         material_name=material_name,
         supplier_name=supplier_name,
         po_number=po_number,
         quantity=quantity,
+        quantity_unit=quantity_unit,
+        received_total=0.0,
         status="PENDING",
     )
 
@@ -2725,6 +2737,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
