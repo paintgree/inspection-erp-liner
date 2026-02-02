@@ -1289,6 +1289,9 @@ def shipment_inspection_form(
         },
     )
 
+@app.get("/mrr/{lot_id}/inspection")
+def old_inspection_redirect(lot_id: int):
+    return RedirectResponse(f"/mrr/{lot_id}/inspection/new", status_code=302)
 
 @app.post("/runs/new")
 def run_new_post(
@@ -1571,7 +1574,6 @@ async def run_edit_post(run_id: int, request: Request, session: Session = Depend
     return RedirectResponse(f"/runs/{run.id}", status_code=302)
 
 
-@app.get("/runs/{run_id}/entry/new", response_class=HTMLResponse)
 @app.get("/runs/{run_id}/entry/new", response_class=HTMLResponse)
 def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -2737,6 +2739,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
