@@ -1101,19 +1101,42 @@ def mrr_doc_inline(doc_id: int, request: Request, session: Session = Depends(get
         headers={"Content-Disposition": f'inline; filename="{os.path.basename(doc.file_path)}"'},
     )
 
-@app.get("/mrr/docs/{doc_id}/view", response_class=HTMLResponse)
+@app.get("/mrr/docs/{doc_id}/view")
 def mrr_doc_view(doc_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
     doc = session.get(MrrDocument, doc_id)
-    if not doc or not os.path.exists(doc.file_path):
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    # ✅ IMPORTANT: resolve path exactly like download
+    resolved = resolve_mrr_doc_path(doc.file_path)
+
+    if not resolved or not os.path.exists(resolved):
         raise HTTPException(404, "File not found")
 
-    # Render a page with iframe
-    return templates.TemplateResponse(
-        "mrr_doc_view.html",
-        {"request": request, "user": user, "doc": doc},
+    # Try to guess content type for in-browser viewing
+    ext = (os.path.splitext(resolved)[1] or "").lower()
+    media_type = "application/octet-stream"
+    if ext == ".pdf":
+        media_type = "application/pdf"
+    elif ext in [".jpg", ".jpeg"]:
+        media_type = "image/jpeg"
+    elif ext == ".png":
+        media_type = "image/png"
+    elif ext == ".webp":
+        media_type = "image/webp"
+
+    # ✅ Force browser inline preview (not download)
+    return FileResponse(
+        resolved,
+        media_type=media_type,
+        filename=os.path.basename(resolved),
+        headers={
+            "Content-Disposition": f'inline; filename="{os.path.basename(resolved)}"'
+        },
     )
+
 
 @app.post("/mrr/{lot_id}/docs/submit")
 def mrr_docs_submit(
@@ -3024,6 +3047,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
