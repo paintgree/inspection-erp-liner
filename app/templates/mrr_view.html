@@ -124,7 +124,11 @@
                 <td class="wrap">{{ d.doc_name or "-" }}</td>
                 <td>{{ d.doc_number or "-" }}</td>
                 <td class="wrap">{{ d.uploaded_by_user_name }}</td>
-                <td><a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/download">Download</a></td>
+                <td>
+                  <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/view">View</a>
+                  <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/download">Download</a>
+                </td>
+
               </tr>
             {% endfor %}
           </tbody>
