@@ -218,10 +218,21 @@
             </div>
           </div>
 
-          <div class="toolbar mt">
-            <button class="btn" type="submit">Save Documentation</button>
-          </div>
-        </form>
+          <h3>Inspector Documentation</h3>
+
+          <form method="post" action="/mrr/{{ lot.id }}/docs/submit" class="mt">
+            <label>PO Number (must match ticket PO)</label>
+            <input name="inspector_po_number" value="{{ lot.po_number }}" required>
+          
+            <div class="toolbar mt">
+              <button class="btn" type="submit">Save Documentation</button>
+            </div>
+          
+            <div class="muted mt">
+              Shipment details (Delivery Note + Quantity + Unit) are entered when you start a <b>New Shipment Inspection</b>.
+            </div>
+          </form>
+
 
         <form method="post" action="/mrr/{{ lot.id }}/docs/confirm" class="mt">
           <button class="btn btn-primary" type="submit">Confirm Documentation Complete</button>
