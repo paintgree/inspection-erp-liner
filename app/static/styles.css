@@ -262,33 +262,40 @@ tr.row-pending td{background:#fffbeb;}
 tr.row-rejected td{background:#fef2f2;}
 
 /* =========================
-   Mobile table fix (no vertical text)
+   MOBILE: Fix "vertical letters" in tables
    ========================= */
 @media (max-width: 768px) {
 
-  /* Let tables scroll horizontally on small screens */
+  /* The wrapper must scroll */
   .tablewrap {
-    overflow-x: auto;
+    width: 100%;
+    overflow-x: auto !important;
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Prevent breaking words into vertical letters */
-  table.table th,
-  table.table td {
-    white-space: nowrap;
-    word-break: normal;
-    overflow-wrap: normal;
+  /* Force the table to be wider than the phone so it scrolls */
+  .tablewrap table.table {
+    width: max-content !important;
+    min-width: 720px !important;   /* adjust 650–900 depending on columns */
+    table-layout: auto !important;
   }
 
-  /* Slightly smaller text so more fits */
-  table.table {
-    font-size: 13px;
+  /* Hard stop: never break words/letters */
+  .tablewrap table.table th,
+  .tablewrap table.table td,
+  .tablewrap table.table .wrap {
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow-wrap: normal !important;
+    hyphens: none !important;
   }
 
-  /* Optional: reduce padding to fit more columns */
-  table.table th,
-  table.table td {
-    padding: 10px 8px;
+  /* Smaller text + tighter padding so it fits better */
+  .tablewrap table.table {
+    font-size: 13px !important;
+  }
+  .tablewrap table.table th,
+  .tablewrap table.table td {
+    padding: 10px 8px !important;
   }
 }
-
