@@ -3,30 +3,37 @@
 
 <a class="btn btn-ghost" href="/mrr/{{ lot.id }}">← Back</a>
 
-<div class="card">
+<div class="card mt">
   <div class="runheader">
     <div>
       <h1>New Shipment for Ticket #{{ lot.id }}</h1>
       <div class="muted">
-        PO: <b>{{ lot.po_number }}</b> • PO Qty: <b>{{ lot.quantity }} {{ lot.quantity_unit }}</b>
+        PO: <b>{{ lot.po_number }}</b> • PO Qty:
+        <b>{{ lot.quantity if lot.quantity is not none else 0 }} {{ lot.quantity_unit or "" }}</b>
       </div>
     </div>
     <div class="actions">
-      <span class="pill">Remaining: <b>{{ remaining }}</b> (normalized)</span>
-      <span class="pill">Shipment #: <b>{{ next_seq }}</b></span>
+      <span class="badge">Remaining: {{ remaining_label }}</span>
+      <span class="badge">Shipment #: {{ next_seq }}</span>
     </div>
   </div>
-{% set err = request.query_params.get("error", "") %}
-{% if err %}
-  <div class="alert alert-error mt">{{ err }}</div>
-{% endif %}
+
+  {% if draft %}
+  <div class="alert mt">
+    <b>Draft shipment found.</b>
+    You already started a shipment but didn’t submit it yet.
+    <div class="toolbar mt">
+      <a class="btn btn-primary" href="/mrr/{{ lot.id }}/inspection/{{ draft.id }}">Resume Draft Shipment</a>
+    </div>
+  </div>
+  {% endif %}
 
   <div class="alert mt">
-    <b>Important:</b> Upload the Delivery Note document first as <b>DELIVERY_NOTE</b> and set the
-    <b>Document Number</b> exactly equal to the Delivery Note number you will enter here.
+    <b>Important:</b> Upload the Delivery Note document first as <b>DELIVERY_NOTE</b>
+    and set the <b>Document Number</b> exactly equal to the Delivery Note number you will enter here.
   </div>
 
-  <form method="post" class="mt">
+  <form method="post" action="/mrr/{{ lot.id }}/inspection/new" class="mt" id="shipmentForm">
     <div class="grid2">
       <div class="fieldbox">
         <label>Delivery Note Number (required)</label>
@@ -44,7 +51,7 @@
             <select name="qty_unit" required>
               <option value="KG">KG</option>
               <option value="T">Ton (T)</option>
-              <option value="PCS">PCS</option>
+              <option value="PC">PC</option>
             </select>
           </div>
         </div>
@@ -56,5 +63,21 @@
     </div>
   </form>
 </div>
+
+<!-- Popup style error -->
+{% if error %}
+<div id="popupOverlay" style="position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; z-index:9999;">
+  <div style="width:min(520px, 92vw); background:#fff; border-radius:14px; padding:18px; box-shadow:0 20px 60px rgba(0,0,0,.25);">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+      <h3 style="margin:0;">Cannot create shipment</h3>
+      <button class="btn btn-ghost" type="button" onclick="document.getElementById('popupOverlay').remove()">✕</button>
+    </div>
+    <div class="alert alert-error mt" style="margin-bottom:0;">{{ error }}</div>
+    <div class="toolbar mt">
+      <button class="btn btn-primary" type="button" onclick="document.getElementById('popupOverlay').remove()">OK</button>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 {% endblock %}
