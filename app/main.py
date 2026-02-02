@@ -68,18 +68,26 @@ UNIT_MULTIPLIER = {
     "T": 1000.0,   # 1 Ton = 1000 KG
 }
 
-def normalize_qty_to_kg(qty: float, unit: str) -> float:
+def normalize_qty(qty: float, unit: str) -> float:
     u = (unit or "KG").upper().strip()
-    mul = UNIT_MULTIPLIER.get(u)
-    if mul is None:
-        mul = 1.0
+    if u == "PCS":
+        return float(qty)  # PCS stays PCS
+    mul = UNIT_MULTIPLIER.get(u, 1.0)
     return float(qty) * mul
 
-def generate_report_no(ticket_id: int) -> str:
-    # simple stable format
-    from datetime import datetime
+def units_compatible(po_unit: str, arrived_unit: str) -> bool:
+    pu = (po_unit or "").upper().strip()
+    au = (arrived_unit or "").upper().strip()
+    # KG and T compatible, PCS only with PCS
+    if pu == "PCS" or au == "PCS":
+        return pu == au
+    return True
+
+def generate_report_no(ticket_id: int, seq: int) -> str:
+    # MRR-YYYY-MM-<ticket>-<shipment>
     now = datetime.utcnow()
-    return f"MRR-{now.year}-{now.month:02d}-{ticket_id:04d}"
+    return f"MRR-{now.year}-{now.month:02d}-{ticket_id:04d}-{seq:02d}"
+
 
 app = FastAPI()
 
@@ -1312,6 +1320,114 @@ def mrr_pending(request: Request, session: Session = Depends(get_session)):
         },
     )
 
+@app.get("/mrr/{lot_id}/inspection/new", response_class=HTMLResponse)
+def new_shipment_inspection_page(
+    lot_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    # compute remaining
+    po_norm = normalize_qty(lot.quantity, lot.quantity_unit)
+    remaining = max(po_norm - float(lot.received_total or 0.0), 0.0)
+
+    # count shipments already created
+    shipments_count = session.exec(
+        select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id == lot_id)
+    ).all()
+    next_seq = len(shipments_count) + 1
+
+    return templates.TemplateResponse(
+        "mrr_new_shipment.html",
+        {
+            "request": request,
+            "user": user,
+            "lot": lot,
+            "remaining": remaining,
+            "next_seq": next_seq,
+        },
+    )
+
+
+@app.post("/mrr/{lot_id}/inspection/new")
+def create_shipment_inspection(
+    lot_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    delivery_note_no: str = Form(...),
+    qty_arrived: float = Form(...),
+    qty_unit: str = Form(...),
+):
+    user = get_current_user(request, session)
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    qty_unit = (qty_unit or "KG").upper().strip()
+    if not units_compatible(lot.quantity_unit, qty_unit):
+        raise HTTPException(400, f"Unit mismatch: PO is {lot.quantity_unit}, arrived is {qty_unit}")
+
+    # remaining check
+    po_norm = normalize_qty(lot.quantity, lot.quantity_unit)
+    received = float(lot.received_total or 0.0)
+    remaining = max(po_norm - received, 0.0)
+
+    arrived_norm = normalize_qty(float(qty_arrived), qty_unit)
+
+    if arrived_norm <= 0:
+        raise HTTPException(400, "Arrived quantity must be > 0")
+
+    if arrived_norm > remaining:
+        raise HTTPException(400, f"Arrived exceeds remaining balance ({remaining}). Provide correct quantity.")
+
+    # require Delivery Note attachment exists (uploaded doc)
+    dn_doc = session.exec(
+        select(MrrDocument).where(
+            (MrrDocument.ticket_id == lot_id) &
+            (MrrDocument.doc_type == "DELIVERY_NOTE") &
+            (MrrDocument.doc_number == delivery_note_no.strip())
+        )
+    ).first()
+    if not dn_doc:
+        raise HTTPException(
+            400,
+            "Delivery Note attachment is required. Upload DELIVERY NOTE with same Document Number first."
+        )
+
+    # shipment sequence
+    existing = session.exec(select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id == lot_id)).all()
+    seq = len(existing) + 1
+
+    insp = MrrReceivingInspection(
+        ticket_id=lot_id,
+        inspector_id=user.id,
+        inspector_name=user.display_name,
+        delivery_note_no=delivery_note_no.strip(),
+        qty_arrived=float(qty_arrived),
+        qty_unit=qty_unit,
+        report_no=generate_report_no(lot_id, seq),
+        template_type=lot.lot_type or "RAW",
+        inspection_json="{}",
+        inspector_confirmed=False,
+        manager_approved=False,
+    )
+
+    session.add(insp)
+
+    # update received_total + status immediately when shipment is created
+    lot.received_total = received + arrived_norm
+    lot.status = "PARTIAL" if lot.received_total < po_norm else "PENDING"
+
+    session.add(lot)
+    session.commit()
+
+    # go fill the inspection template for this shipment
+    return RedirectResponse(f"/mrr/{lot_id}/inspection/{insp.id}", status_code=303)
+
 
 @app.get("/runs/new", response_class=HTMLResponse)
 def run_new_get(request: Request, session: Session = Depends(get_session)):
@@ -1321,6 +1437,39 @@ def run_new_get(request: Request, session: Session = Depends(get_session)):
 
     return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": ""})
 
+@app.get("/mrr/{lot_id}/inspection/{inspection_id}", response_class=HTMLResponse)
+def shipment_inspection_form(
+    lot_id: int,
+    inspection_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    inspection = session.get(MrrReceivingInspection, inspection_id)
+    if not inspection or inspection.ticket_id != lot_id:
+        raise HTTPException(404, "Shipment inspection not found")
+
+    import json
+    try:
+        data = json.loads(inspection.inspection_json or "{}")
+    except Exception:
+        data = {}
+
+    return templates.TemplateResponse(
+        "mrr_inspection.html",
+        {
+            "request": request,
+            "user": user,
+            "lot": lot,
+            "inspection": inspection,
+            "inspection_data": data,
+        },
+    )
 
 
 @app.post("/runs/new")
@@ -2770,6 +2919,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
