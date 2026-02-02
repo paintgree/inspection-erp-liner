@@ -1,149 +1,109 @@
 {% extends "base.html" %}
 {% block content %}
 
-<a class="btn btn-ghost" href="/dashboard">← Back</a>
-
 <div class="card">
   <div class="runheader">
     <div>
       <h1>MRR — Material Receiving Register</h1>
       <div class="muted">Tickets are approved for production only after Receiving Inspection is manager-approved.</div>
     </div>
+    <div class="actions">
+      {% if user.role and user.role|upper == "MANAGER" %}
+        <a class="btn btn-warn" href="/mrr/pending">Pending approvals</a>
+      {% endif %}
+    </div>
   </div>
-
-  {% if error %}
-    <div class="alert">{{ error }}</div>
-  {% endif %}
-
-  {# ✅ Manager-only: create new ticket #}
-  {% if user.role and user.role|upper == "MANAGER" %}
-  <div class="card inner mt">
-    <h2>New MRR Ticket</h2>
-
-    <form method="post" action="/mrr/new">
-      <div class="grid3 mt">
-        <div>
-          <label>Type</label>
-          <select name="lot_type" required>
-            <option value="RAW">RAW</option>
-            <option value="OUTSOURCED">OUTSOURCED</option>
-          </select>
-        </div>
-
-        <div>
-          <label>Material Name</label>
-          <input name="material_name" placeholder="e.g. SABIC white">
-        </div>
-
-        <div>
-          <label>Supplier</label>
-          <input name="supplier_name" placeholder="e.g. SABIC">
-        </div>
-
-        <div>
-          <label>PO Number</label>
-          <input name="po_number" placeholder="Required for documentation match">
-        </div>
-
-       <div class="grid2 mt">
-         <div>
-           <label>PO Quantity (required)</label>
-           <input name="quantity" type="number" step="0.01" required>
-         </div>
-         <div>
-           <label>Unit</label>
-           <select name="quantity_unit" required>
-             <option value="KG">KG</option>
-             <option value="T">Ton (T)</option>
-             <option value="PCS">PCS</option>
-           </select>
-         </div>
-       </div>
-
-
-      <div class="toolbar mt">
-        <button class="btn btn-primary" type="submit">+ Create Ticket</button>
-      </div>
-    </form>
-  </div>
-  {% endif %}
 
   <div class="card inner mt">
     <h2>Tickets</h2>
 
-    {% if lots|length == 0 %}
-      <div class="muted">No MRR tickets yet.</div>
-    {% else %}
-      <div class="tablewrap">
-        <table class="table wide">
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Type</th>
-              <th>Batch No</th>
-              <th>Material</th>
-              <th>Supplier</th>
-              <th>PO</th>
-              <th>Docs</th>
-              <th>Inspection</th>
-              <th>Status</th>
-              <th style="width:220px;">Actions</th>
+    <div class="tablewrap mt">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Type</th>
+            <th class="wrap">Batch No</th>
+            <th class="wrap">Material</th>
+            <th class="wrap">Supplier</th>
+            <th class="wrap">PO</th>
+            <th>Docs</th>
+            <th>Inspection</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for lot in lots %}
+            {% set rec = receiving_map.get(lot.id) %}
+            {% set insp = inspection_map.get(lot.id) %}
+
+            {% set docs_ok = (rec and (rec.inspector_confirmed_po or rec.manager_confirmed_po)) %}
+            {% set insp_submitted = (insp and insp.inspector_confirmed) %}
+            {% set insp_ok = (insp and insp.manager_approved) %}
+
+            {% set st = (lot.status or "PENDING")|upper %}
+
+            {% if st == "APPROVED" %}
+              {% set row_class = "row-approved" %}
+            {% elif st == "PARTIAL" %}
+              {% set row_class = "row-partial" %}
+            {% elif st == "REJECTED" %}
+              {% set row_class = "row-rejected" %}
+            {% else %}
+              {% set row_class = "row-pending" %}
+            {% endif %}
+
+            <tr class="{{ row_class }}">
+              <td>{{ lot.id }}</td>
+              <td><b>{{ lot.lot_type or "-" }}</b></td>
+              <td class="wrap"><b>{{ lot.batch_no or "-" }}</b></td>
+              <td class="wrap">{{ lot.material_name or "-" }}</td>
+              <td class="wrap">{{ lot.supplier_name or "-" }}</td>
+              <td class="wrap">{{ lot.po_number or "-" }}</td>
+
+              <td>
+                {% if docs_ok %}
+                  <span class="badge badge-ok">Cleared</span>
+                {% elif rec %}
+                  <span class="badge badge-warn">Saved</span>
+                {% else %}
+                  <span class="badge badge-muted">Pending</span>
+                {% endif %}
+              </td>
+
+              <td>
+                {% if insp_ok %}
+                  <span class="badge badge-ok">Approved</span>
+                {% elif insp_submitted %}
+                  <span class="badge badge-warn">Submitted</span>
+                {% else %}
+                  <span class="badge badge-muted">Pending</span>
+                {% endif %}
+              </td>
+
+              <td>
+                {% if st == "APPROVED" %}
+                  <span class="badge badge-ok">APPROVED</span>
+                {% elif st == "PARTIAL" %}
+                  <span class="badge badge-partial">PARTIAL</span>
+                {% elif st == "REJECTED" %}
+                  <span class="badge badge-bad">REJECTED</span>
+                {% else %}
+                  <span class="badge badge-muted">PENDING</span>
+                {% endif %}
+              </td>
+
+              <td>
+                <a class="btn btn-sm" href="/mrr/{{ lot.id }}">Open</a>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {% for lot in lots %}
-              {% set rec = receiving_map.get(lot.id) %}
-              {% set insp = inspection_map.get(lot.id) %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
 
-              {% set docs_ok = (rec and (rec.inspector_confirmed_po or rec.manager_confirmed_po)) %}
-              {% set insp_submitted = (insp and insp.inspector_confirmed) %}
-              {% set insp_ok = (insp and insp.manager_approved) %}
-
-              <tr>
-                <td>{{ lot.id }}</td>
-                <td>{{ lot.lot_type or "-" }}</td>
-                <td><b>{{ lot.batch_no }}</b></td>
-                <td>{{ lot.material_name or "-" }}</td>
-                <td>{{ lot.supplier_name or "-" }}</td>
-                <td>{{ lot.po_number or "-" }}</td>
-
-                <td>
-                  {% if docs_ok %}
-                    <b>Cleared</b>
-                  {% elif rec %}
-                    <span class="muted">Saved</span>
-                  {% else %}
-                    <span class="muted">Pending</span>
-                  {% endif %}
-                </td>
-
-                <td>
-                  {% if insp_ok %}
-                    <b>Approved</b>
-                  {% elif insp_submitted %}
-                    <span class="muted">Submitted</span>
-                  {% else %}
-                    <span class="muted">Pending</span>
-                  {% endif %}
-                </td>
-
-                <td><b>{{ lot.status }}</b></td>
-
-                <td>
-                  <a class="btn" href="/mrr/{{ lot.id }}">Open</a>
-
-                  {% if user.role and user.role|upper == "MANAGER" %}
-                    <form method="post" action="/mrr/{{ lot.id }}/reject" style="display:inline;">
-                      <button class="btn btn-warn" type="submit">Reject</button>
-                    </form>
-                  {% endif %}
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    {% endif %}
   </div>
 </div>
 
