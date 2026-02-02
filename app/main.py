@@ -890,7 +890,9 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
     inspection = session.exec(
         select(MrrReceivingInspection)
         .where(MrrReceivingInspection.ticket_id == lot_id)
+        .order_by(MrrReceivingInspection.created_at.desc())
     ).first()
+
 
     return templates.TemplateResponse(
         "mrr_view.html",
@@ -2772,6 +2774,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
