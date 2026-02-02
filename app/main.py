@@ -175,6 +175,37 @@ TEMPLATE_XLSX_MAP = {
     "REINFORCEMENT": os.path.join(BASE_DIR, "templates", "templates_xlsx", "reinforcement.xlsx"),
     "COVER": os.path.join(BASE_DIR, "templates", "templates_xlsx", "cover.xlsx"),
 }
+def resolve_mrr_doc_path(p: str) -> str:
+    """
+    Make MRR doc paths portable + backward compatible.
+
+    - If p is absolute and exists => return it
+    - If p is relative => try BASE_DIR/p
+    - Also try MRR_UPLOAD_DIR/(p) and MRR_UPLOAD_DIR/(basename)
+    """
+    if not p:
+        return ""
+
+    # already absolute?
+    if os.path.isabs(p) and os.path.exists(p):
+        return p
+
+    candidates = []
+
+    # relative to BASE_DIR
+    candidates.append(os.path.join(BASE_DIR, p))
+
+    # relative to MRR upload dir
+    candidates.append(os.path.join(MRR_UPLOAD_DIR, p))
+
+    # sometimes DB stored full/old path; try basename in current dir
+    candidates.append(os.path.join(MRR_UPLOAD_DIR, os.path.basename(p)))
+
+    for c in candidates:
+        if c and os.path.exists(c):
+            return c
+
+    return ""  # not found
 
 # =========================
 # MRR templates / backgrounds (separate from production runs)
@@ -991,37 +1022,19 @@ async def mrr_doc_upload(
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
 
-    dt = (doc_type or "").strip().upper()
-    doc_number_clean = (doc_number or "").strip()
-
-    if not doc_number_clean:
-        return RedirectResponse(f"/mrr/{lot_id}?error=Document+Number+is+required", status_code=303)
-
-    # ✅ prevent duplicate DELIVERY_NOTE numbers for same ticket
-    if dt == "DELIVERY_NOTE":
-        exists = session.exec(
-            select(MrrDocument).where(
-                (MrrDocument.ticket_id == lot_id) &
-                (MrrDocument.doc_type == "DELIVERY_NOTE") &
-                (MrrDocument.doc_number == doc_number_clean)
-            )
-        ).first()
-        if exists:
-            return RedirectResponse(
-                f"/mrr/{lot_id}?error=This+Delivery+Note+number+is+already+uploaded",
-                status_code=303
-            )
-
     os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
 
     safe_original = os.path.basename(file.filename or "upload.bin")
     filename = f"{lot_id}_{int(datetime.utcnow().timestamp())}_{safe_original}"
-    path = os.path.join(MRR_UPLOAD_DIR, filename)
+    abs_path = os.path.join(MRR_UPLOAD_DIR, filename)
 
-    with open(path, "wb") as f:
+    # write file
+    with open(abs_path, "wb") as f:
         f.write(await file.read())
 
-    # ✅ Auto doc name unless RELATED
+    dt = (doc_type or "").strip().upper()
+
+    # Auto doc name unless RELATED
     title = (doc_title or "").strip()
     if dt != "RELATED":
         title = {
@@ -1031,14 +1044,17 @@ async def mrr_doc_upload(
         }.get(dt, dt)
 
     if dt == "RELATED" and not title:
-        return RedirectResponse(f"/mrr/{lot_id}?error=Document+Name+is+required+for+RELATED", status_code=303)
+        raise HTTPException(400, "Document Name is required when type is RELATED")
+
+    # ✅ store RELATIVE path (portable)
+    rel_path = os.path.relpath(abs_path, BASE_DIR)
 
     doc = MrrDocument(
         ticket_id=lot_id,
         doc_type=dt,
         doc_name=title,
-        doc_number=doc_number_clean,
-        file_path=path,
+        doc_number=(doc_number or "").strip(),
+        file_path=rel_path,
         uploaded_by_user_id=user.id,
         uploaded_by_user_name=user.display_name,
     )
@@ -1051,18 +1067,24 @@ async def mrr_doc_upload(
 
 
 
+
 @app.get("/mrr/docs/{doc_id}/download")
 def mrr_doc_download(doc_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
     doc = session.get(MrrDocument, doc_id)
-    if not doc or not os.path.exists(doc.file_path):
+    if not doc:
+        raise HTTPException(404, "File not found")
+
+    real_path = resolve_mrr_doc_path(doc.file_path)
+    if not real_path:
         raise HTTPException(404, "File not found")
 
     return FileResponse(
-        doc.file_path,
-        filename=os.path.basename(doc.file_path),
+        real_path,
+        filename=os.path.basename(real_path),
     )
+
 @app.get("/mrr/docs/{doc_id}/inline")
 def mrr_doc_inline(doc_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -3002,6 +3024,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
