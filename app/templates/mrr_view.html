@@ -81,38 +81,61 @@
 
     <div class="mt">
       <h3>Upload Document</h3>
-
-      <form method="post" action="/mrr/{{ lot.id }}/docs/upload" enctype="multipart/form-data" class="mt">
+      
+      <form method="post" action="/mrr/{{ lot.id }}/docs/upload" enctype="multipart/form-data" class="mt" id="docUploadForm">
         <div class="grid2">
+          <!-- LEFT: Type + File + Upload button under file -->
           <div class="fieldbox">
             <label>Document Type</label>
-            <select name="doc_type" required>
+            <select name="doc_type" id="doc_type" required>
               <option value="PO">PO</option>
               <option value="DELIVERY_NOTE">Delivery Note</option>
               <option value="COA">COA / Lab Test</option>
               <option value="RELATED">Related</option>
             </select>
-
+      
             <label class="mt">Choose File</label>
             <input type="file" name="file" required>
-          </div>
-
-          <div class="fieldbox">
-            <label>Document Name (required)</label>
-            <input name="doc_title" required placeholder="e.g. PO Copy, Delivery Note scan, COA">
-
-            <label class="mt">Document Number (optional)</label>
-            <input name="doc_number" placeholder="e.g. DN-12345">
-
+      
+            <!-- ✅ Upload button under Choose File -->
             <div class="toolbar mt">
               <button class="btn btn-primary" type="submit">Upload</button>
             </div>
           </div>
+      
+          <!-- RIGHT: Conditional doc name + always doc number -->
+          <div class="fieldbox">
+            <!-- ✅ Only show this when type == RELATED -->
+            <div id="docNameWrap" style="display:none;">
+              <label>Document Name (required for Related)</label>
+              <input name="doc_title" id="doc_title" placeholder="e.g. Extra memo, special report">
+            </div>
+      
+            <!-- ✅ Always required -->
+            <label class="mt">Document Number (required)</label>
+            <input name="doc_number" required placeholder="e.g. DN-12345 / PO-009 / COA-778">
+          </div>
         </div>
       </form>
-    </div>
+      
+      <script>
+      (function(){
+        const typeEl = document.getElementById("doc_type");
+        const nameWrap = document.getElementById("docNameWrap");
+        const nameInput = document.getElementById("doc_title");
+      
+        function refresh(){
+          const v = (typeEl.value || "").toUpperCase();
+          const isRelated = (v === "RELATED");
+          nameWrap.style.display = isRelated ? "block" : "none";
+          nameInput.required = isRelated;
+          if(!isRelated) nameInput.value = "";
+        }
+        typeEl.addEventListener("change", refresh);
+        refresh();
+      })();
+      </script>
 
-    <div class="mt">
       <h3>Inspector Documentation</h3>
 
       {% if user.role and user.role|upper == "INSPECTOR" %}
