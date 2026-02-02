@@ -93,6 +93,26 @@ input:focus, select:focus, textarea:focus{border-color:#b7bce8}
   background:var(--warn-bg);
 }
 
+/* =========================
+   Run page diagram / image sizing
+   ========================= */
+
+.run-diagram {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.run-diagram img {
+  width: 100%;
+  max-width: 1000px;   /* stops it getting too wide on big screens */
+  max-height: 420px;   /* stops it getting too tall */
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
 .pill{
   display:inline-flex;
   align-items:center;
@@ -240,4 +260,5 @@ tr.row-partial td{background:#f5f3ff;}
 tr.row-approved td{background:#f0fdf4;}
 tr.row-pending td{background:#fffbeb;}
 tr.row-rejected td{background:#fef2f2;}
+
 
