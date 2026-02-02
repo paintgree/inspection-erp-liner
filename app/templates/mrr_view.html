@@ -214,15 +214,10 @@
               <select name="qty_unit" required>
                 <option value="KG" {% if receiving and receiving.qty_unit=='KG' %}selected{% endif %}>KG</option>
                 <option value="T" {% if receiving and receiving.qty_unit=='T' %}selected{% endif %}>Ton (T)</option>
+                <option value="PC" {% if receiving and receiving.qty_unit=='PC' %}selected{% endif %}>PC (PC)</option>
               </select>
             </div>
           </div>
-
-          <h3>Inspector Documentation</h3>
-
-          <form method="post" action="/mrr/{{ lot.id }}/docs/submit" class="mt">
-            <label>PO Number (must match ticket PO)</label>
-            <input name="inspector_po_number" value="{{ lot.po_number }}" required>
           
             <div class="toolbar mt">
               <button class="btn" type="submit">Save Documentation</button>
