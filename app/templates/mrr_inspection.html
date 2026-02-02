@@ -19,7 +19,7 @@
   <form method="post" class="mt">
 
     <div class="card inner">
-      <div class="sectiontitle accent-blue">Header (auto-copied from Documentation)</div>
+      <div class="sectiontitle accent-blue">Header (auto-filled from Ticket + Shipment)</div>
 
       <div class="grid3 mt">
         <div>
@@ -33,8 +33,10 @@
         </div>
 
         <div>
-          <label>Delivery Note</label>
-          <input name="delivery_note" value="{{ receiving.delivery_note_no if receiving else '' }}" placeholder="DN Number">
+          <label>Delivery Note (this shipment)</label>
+          <!-- Use the shipment record (inspection), not receiving -->
+          <input name="delivery_note" value="{{ inspection.delivery_note_no or inspection_data.delivery_note_no or '' }}" readonly>
+          <div class="muted tiny">To change DN, create a new shipment inspection.</div>
         </div>
       </div>
 
@@ -45,31 +47,35 @@
         </div>
 
         <div>
-          <label>Quantity Arrived</label>
+          <label>Quantity Arrived (this shipment)</label>
           <input name="qty_arrived" type="number" step="0.01"
-                 value="{{ receiving.qty_arrived if receiving and receiving.qty_arrived is not none else '' }}"
+                 value="{{ inspection.qty_arrived if inspection and inspection.qty_arrived is not none else (inspection_data.qty_arrived if inspection_data.qty_arrived is not none else '') }}"
                  required>
         </div>
 
         <div>
           <label>Unit</label>
-          <select name="qty_unit">
-            <option value="KG" {% if receiving and receiving.qty_unit=='KG' %}selected{% endif %}>KG</option>
-            <option value="T"  {% if receiving and receiving.qty_unit=='T' %}selected{% endif %}>Ton (T)</option>
+          <select name="qty_unit" required>
+            {% set u = (inspection.qty_unit if inspection and inspection.qty_unit else inspection_data.qty_unit) %}
+            <option value="KG" {% if (u or '') == 'KG' %}selected{% endif %}>KG</option>
+            <option value="T"  {% if (u or '') == 'T' %}selected{% endif %}>Ton (T)</option>
+            <option value="PC" {% if (u or '') == 'PC' %}selected{% endif %}>PC</option>
           </select>
+          <div class="muted tiny">Unit conversions are handled automatically when compatible (KG ↔ T).</div>
         </div>
       </div>
 
       <div class="mt">
+        {% set partial = inspection_data.is_partial_delivery if inspection_data and inspection_data.is_partial_delivery is not none else False %}
         <label>
-          <input type="checkbox" name="is_partial_delivery" {% if receiving and receiving.is_partial_delivery %}checked{% endif %}>
+          <input type="checkbox" name="is_partial_delivery" {% if partial %}checked{% endif %}>
           Partial delivery (ticket stays open)
         </label>
       </div>
 
       <div class="mt">
         <label>If quantity mismatch / partial delivery – Reason (required if arrived &gt; PO)</label>
-        <textarea name="qty_mismatch_reason" placeholder="Explain mismatch / partial delivery...">{{ receiving.qty_mismatch_reason if receiving else '' }}</textarea>
+        <textarea name="qty_mismatch_reason" placeholder="Explain mismatch / partial delivery...">{{ inspection_data.qty_mismatch_reason if inspection_data and inspection_data.qty_mismatch_reason else '' }}</textarea>
       </div>
     </div>
 
@@ -81,22 +87,22 @@
           <label>Packaging condition OK?</label>
           <select name="packaging_ok" required>
             <option value="">-- select --</option>
-            <option value="YES">YES</option>
-            <option value="NO">NO</option>
+            <option value="YES" {% if inspection_data.packaging_ok=='YES' %}selected{% endif %}>YES</option>
+            <option value="NO" {% if inspection_data.packaging_ok=='NO' %}selected{% endif %}>NO</option>
           </select>
 
           <label class="mt">Identification / marking as per specification?</label>
           <select name="marking_ok" required>
             <option value="">-- select --</option>
-            <option value="YES">YES</option>
-            <option value="NO">NO</option>
+            <option value="YES" {% if inspection_data.marking_ok=='YES' %}selected{% endif %}>YES</option>
+            <option value="NO" {% if inspection_data.marking_ok=='NO' %}selected{% endif %}>NO</option>
           </select>
 
           <label class="mt">Any physical damage / contamination?</label>
           <select name="damage_ok" required>
             <option value="">-- select --</option>
-            <option value="NO_DAMAGE">No damage</option>
-            <option value="HAS_DAMAGE">Has issues</option>
+            <option value="NO_DAMAGE" {% if inspection_data.damage_ok=='NO_DAMAGE' %}selected{% endif %}>No damage</option>
+            <option value="HAS_DAMAGE" {% if inspection_data.damage_ok=='HAS_DAMAGE' %}selected{% endif %}>Has issues</option>
           </select>
         </div>
 
@@ -104,30 +110,30 @@
           <label>Quantity matches delivery?</label>
           <select name="qty_ok" required>
             <option value="">-- select --</option>
-            <option value="YES">YES</option>
-            <option value="NO">NO</option>
+            <option value="YES" {% if inspection_data.qty_ok=='YES' %}selected{% endif %}>YES</option>
+            <option value="NO" {% if inspection_data.qty_ok=='NO' %}selected{% endif %}>NO</option>
           </select>
 
           <label class="mt">COA / PDS available and acceptable?</label>
           <select name="coa_ok" required>
             <option value="">-- select --</option>
-            <option value="YES">YES</option>
-            <option value="NO">NO</option>
+            <option value="YES" {% if inspection_data.coa_ok=='YES' %}selected{% endif %}>YES</option>
+            <option value="NO" {% if inspection_data.coa_ok=='NO' %}selected{% endif %}>NO</option>
           </select>
 
           <label class="mt">Material status</label>
           <select name="material_status" required>
             <option value="">-- select --</option>
-            <option value="VERIFIED_CONFIRMED">Verified and Confirmed</option>
-            <option value="ON_HOLD">On Hold</option>
-            <option value="NON_CONFORMITY">Non-Conformity</option>
+            <option value="VERIFIED_CONFIRMED" {% if inspection_data.material_status=='VERIFIED_CONFIRMED' %}selected{% endif %}>Verified and Confirmed</option>
+            <option value="ON_HOLD" {% if inspection_data.material_status=='ON_HOLD' %}selected{% endif %}>On Hold</option>
+            <option value="NON_CONFORMITY" {% if inspection_data.material_status=='NON_CONFORMITY' %}selected{% endif %}>Non-Conformity</option>
           </select>
         </div>
       </div>
 
       <div class="mt">
         <label>If On Hold / Non-Conformity: Reason / Comments</label>
-        <textarea name="hold_comments" placeholder="Write reason / NCR reference / actions..."></textarea>
+        <textarea name="hold_comments" placeholder="Write reason / NCR reference / actions...">{{ inspection_data.hold_comments if inspection_data and inspection_data.hold_comments else '' }}</textarea>
       </div>
     </div>
 
@@ -135,12 +141,12 @@
       <div class="sectiontitle accent-blue">Remarks</div>
 
       <label>General remarks</label>
-      <textarea name="remarks" placeholder="General remarks..."></textarea>
+      <textarea name="remarks" placeholder="General remarks...">{{ inspection_data.remarks if inspection_data and inspection_data.remarks else '' }}</textarea>
 
       <div class="grid2 mt">
         <div>
           <label>Inspected by</label>
-          <input name="inspected_by" value="{{ user.display_name }}">
+          <input name="inspected_by" value="{{ inspection_data.inspected_by if inspection_data and inspection_data.inspected_by else user.display_name }}">
         </div>
         <div>
           <label>&nbsp;</label>
