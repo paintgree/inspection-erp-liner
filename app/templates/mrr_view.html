@@ -261,13 +261,16 @@
       Ticket becomes <b>APPROVED</b> for production only after manager approves Receiving Inspection.
     </div>
 
-    {% if user.role and user.role|upper == "INSPECTOR" %}
-      {% if docs_ok %}
-        <a class="btn btn-primary mt" href="/mrr/{{ lot.id }}/inspection">Start / Continue Receiving Inspection</a>
-      {% else %}
-        <div class="alert mt">Complete documentation first to start Receiving Inspection.</div>
-      {% endif %}
-    {% endif %}
+   <div class="toolbar mt">
+     <a class="btn btn-primary" href="/mrr/{{ lot.id }}/inspection/new">
+       {% if lot.status and lot.status|upper == "PARTIAL" %}
+         New Shipment Inspection (Partial Delivery)
+       {% else %}
+         Start Shipment Inspection
+       {% endif %}
+     </a>
+   </div>
+
 
     {% if user.role and user.role|upper == "MANAGER" %}
       <a class="btn mt" href="/mrr/pending">View all pending approvals</a>
