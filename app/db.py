@@ -76,6 +76,53 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE materiallot ADD COLUMN received_total REAL DEFAULT 0",
     )
 
+    # --- materiallot ---
+    _add_column_if_missing(
+        "materiallot",
+        "quantity_unit",
+        "ALTER TABLE materiallot ADD COLUMN IF NOT EXISTS quantity_unit VARCHAR(10) DEFAULT 'KG'",
+        "ALTER TABLE materiallot ADD COLUMN quantity_unit TEXT DEFAULT 'KG'",
+    )
+    _add_column_if_missing(
+        "materiallot",
+        "received_total",
+        "ALTER TABLE materiallot ADD COLUMN IF NOT EXISTS received_total DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE materiallot ADD COLUMN received_total REAL DEFAULT 0",
+    )
+    
+    # --- mrrreceivinginspection (shipment based) ---
+    _add_column_if_missing(
+        "mrrreceivinginspection",
+        "created_at",
+        "ALTER TABLE mrrreceivinginspection ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()",
+        "ALTER TABLE mrrreceivinginspection ADD COLUMN created_at TEXT",
+    )
+    _add_column_if_missing(
+        "mrrreceivinginspection",
+        "delivery_note_no",
+        "ALTER TABLE mrrreceivinginspection ADD COLUMN IF NOT EXISTS delivery_note_no TEXT DEFAULT ''",
+        "ALTER TABLE mrrreceivinginspection ADD COLUMN delivery_note_no TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
+        "mrrreceivinginspection",
+        "qty_arrived",
+        "ALTER TABLE mrrreceivinginspection ADD COLUMN IF NOT EXISTS qty_arrived DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE mrrreceivinginspection ADD COLUMN qty_arrived REAL DEFAULT 0",
+    )
+    _add_column_if_missing(
+        "mrrreceivinginspection",
+        "qty_unit",
+        "ALTER TABLE mrrreceivinginspection ADD COLUMN IF NOT EXISTS qty_unit VARCHAR(10) DEFAULT 'KG'",
+        "ALTER TABLE mrrreceivinginspection ADD COLUMN qty_unit TEXT DEFAULT 'KG'",
+    )
+    _add_column_if_missing(
+        "mrrreceivinginspection",
+        "report_no",
+        "ALTER TABLE mrrreceivinginspection ADD COLUMN IF NOT EXISTS report_no TEXT DEFAULT ''",
+        "ALTER TABLE mrrreceivinginspection ADD COLUMN report_no TEXT DEFAULT ''",
+    )
+
+
 
 def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
@@ -85,3 +132,4 @@ def create_db_and_tables() -> None:
 def get_session():
     with Session(engine) as session:
         yield session
+
