@@ -16,6 +16,10 @@
       <span class="pill">Shipment #: <b>{{ next_seq }}</b></span>
     </div>
   </div>
+{% set err = request.query_params.get("error", "") %}
+{% if err %}
+  <div class="alert alert-error mt">{{ err }}</div>
+{% endif %}
 
   <div class="alert mt">
     <b>Important:</b> Upload the Delivery Note document first as <b>DELIVERY_NOTE</b> and set the
