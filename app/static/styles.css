@@ -201,3 +201,43 @@ input:focus, select:focus, textarea:focus{border-color:#b7bce8}
     grid-template-columns:1fr;
   }
 }
+.alert{
+  padding:12px 14px;
+  border-radius:12px;
+  border:1px solid var(--line);
+  background:#fff;
+  font-weight:700;
+}
+
+.alert-error{
+  background:#fef2f2;
+  border-color:#fecaca;
+  color:#7f1d1d;
+}
+
+.alert-success{
+  background:#ecfdf5;
+  border-color:#bbf7d0;
+  color:#14532d;
+}
+
+.mt{ margin-top:12px; }
+.status-pill{
+  display:inline-block;
+  padding:4px 10px;
+  border-radius:999px;
+  font-weight:900;
+  font-size:12px;
+  border:1px solid var(--line);
+}
+
+.status-pending{background:#fff7ed;border-color:#fed7aa;}
+.status-partial{background:#eef2ff;border-color:#c7d2fe;}
+.status-approved{background:#ecfdf5;border-color:#bbf7d0;}
+.status-rejected{background:#fef2f2;border-color:#fecaca;}
+
+tr.row-partial td{background:#f5f3ff;}
+tr.row-approved td{background:#f0fdf4;}
+tr.row-pending td{background:#fffbeb;}
+tr.row-rejected td{background:#fef2f2;}
+
