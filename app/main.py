@@ -1772,6 +1772,14 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
             else:
                 slot_inspectors[e.slot_time] = ""
 
+            # ✅ NEW: actual times per slot (for header display)
+            slot_actual_times: Dict[str, str] = {s: "" for s in SLOTS}
+            for e in entries:
+                if not e.slot_time or e.slot_time not in SLOTS:
+                    continue
+                slot_actual_times[e.slot_time] = e.actual_time or ""
+
+
             vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id)).all()
             for v in vals:
                 grid[e.slot_time][v.param_key] = {
@@ -1808,6 +1816,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
                 "progress": progress,
                 "raw_batches": raw_batches,
                 "tools": tools,
+                "slot_actual_times": slot_actual_times,
                
             },
         )
@@ -3145,6 +3154,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
