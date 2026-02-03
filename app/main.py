@@ -1408,6 +1408,25 @@ def mrr_pending(request: Request, session: Session = Depends(get_session)):
             "lot_map": lot_map,
         },
     )
+@app.get("/mrr/canceled", response_class=HTMLResponse)
+def mrr_canceled(request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    lots = session.exec(
+        select(MaterialLot)
+        .where(MaterialLot.status == "CANCELED")
+        .order_by(MaterialLot.created_at.desc())
+    ).all()
+
+    return templates.TemplateResponse(
+        "mrr_canceled.html",
+        {
+            "request": request,
+            "user": user,
+            "lots": lots,
+        },
+    )
 
 @app.get("/mrr/{lot_id}/inspection/new", response_class=HTMLResponse)
 def new_shipment_inspection_page(
@@ -3168,6 +3187,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
