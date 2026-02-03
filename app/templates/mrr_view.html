@@ -68,6 +68,13 @@
     <div class="actions">
       <a class="btn" href="/mrr/{{ lot.id }}/export/xlsx">Export XLSX</a>
       <a class="btn" href="/mrr/{{ lot.id }}/export/pdf">Export PDF</a>
+      {% if user.role and user.role|upper == "MANAGER" and (lot.status or "")|upper != "CANCELED" %}
+        <form method="post" action="/mrr/{{ lot.id }}/cancel" style="display:inline;"
+              onsubmit="return confirm('Cancel this ticket? It will be hidden from normal list and actions will be blocked.')">
+          <button class="btn btn-warn" type="submit">Cancel Ticket</button>
+        </form>
+      {% endif %}
+
       {% if user.role and user.role|upper == "MANAGER" %}
         <a class="btn btn-warn" href="/mrr/pending">Pending approvals</a>
       {% endif %}
