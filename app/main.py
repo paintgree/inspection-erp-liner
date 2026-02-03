@@ -1004,51 +1004,66 @@ def mrr_cancel(lot_id: int, request: Request, session: Session = Depends(get_ses
 
 
     
+from fastapi.responses import HTMLResponse
+
 @app.get("/mrr/{lot_id}", response_class=HTMLResponse)
 def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_session)):
-    user = get_current_user(request, session)
+    try:
+        user = get_current_user(request, session)
 
-    lot = session.get(MaterialLot, lot_id)
-    if not lot:
-        raise HTTPException(404, "MRR Ticket not found")
-    block_if_mrr_canceled(lot)
+        lot = session.get(MaterialLot, lot_id)
+        if not lot:
+            raise HTTPException(404, "MRR Ticket not found")
 
-    docs = session.exec(
-        select(MrrDocument)
-        .where(MrrDocument.ticket_id == lot_id)
-        .order_by(MrrDocument.created_at.desc())
-    ).all()
+        # allow opening canceled tickets (read-only view)
+        is_canceled = (lot.status or "").upper() == "CANCELED"
 
-    receiving = session.exec(
-        select(MrrReceiving)
-        .where(MrrReceiving.ticket_id == lot_id)
-    ).first()
+        docs = session.exec(
+            select(MrrDocument)
+            .where(MrrDocument.ticket_id == lot_id)
+            .order_by(MrrDocument.created_at.desc())
+        ).all()
 
-    inspection = session.exec(
-        select(MrrReceivingInspection)
-        .where(MrrReceivingInspection.ticket_id == lot_id)
-        .order_by(MrrReceivingInspection.created_at.desc())
-    ).first()
+        receiving = session.exec(
+            select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
+        ).first()
 
-    docs_ok = bool(receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po))
-    insp_submitted = bool(inspection and getattr(inspection, 'inspector_confirmed', False))
-    insp_ok = bool(inspection and getattr(inspection, 'manager_approved', False))
+        inspection = session.exec(
+            select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id == lot_id)
+        ).first()
 
-    return templates.TemplateResponse(
-        "mrr_view.html",
-        {
-            "request": request,
-            "user": user,
-            "lot": lot,
-            "docs": docs,
-            "receiving": receiving,
-            "docs_ok": docs_ok,
-            "insp_submitted": insp_submitted,
-            "insp_ok": insp_ok,
-            "inspection": inspection,
-            "error": request.query_params.get("error", ""),
-        },
-    )
+        # ✅ compute these in backend (prevents template undefined issues)
+        docs_ok = bool(receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po))
+        insp_submitted = bool(inspection and inspection.inspector_confirmed)
+        insp_ok = bool(inspection and inspection.manager_approved)
+
+        error = request.query_params.get("error", "")
+
+        return templates.TemplateResponse(
+            "mrr_view.html",
+            {
+                "request": request,
+                "user": user,
+                "lot": lot,
+                "docs": docs,
+                "receiving": receiving,
+                "inspection": inspection,
+                "docs_ok": docs_ok,
+                "insp_submitted": insp_submitted,
+                "insp_ok": insp_ok,
+                "is_canceled": is_canceled,
+                "error": error,
+            },
+        )
+
+    except Exception:
+        # ✅ show the REAL error on screen (temporary debug)
+        return HTMLResponse(
+            "<pre style='white-space:pre-wrap;font-size:14px'>"
+            + traceback.format_exc()
+            + "</pre>",
+            status_code=500,
+        )
 
 
 @app.post("/mrr/{lot_id}/docs/upload")
@@ -3123,6 +3138,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
