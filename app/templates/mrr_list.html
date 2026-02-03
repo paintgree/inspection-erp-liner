@@ -10,9 +10,8 @@
    <div class="actions">
       <!-- ✅ NEW: Create ticket -->
       {% if user.role and user.role|upper == "MANAGER" %}
-        <form method="post" action="/mrr/new" style="display:inline;" onsubmit="return confirm('Create a new MRR ticket?')">
-          <button class="btn btn-primary" type="submit">+ New Ticket</button>
-        </form>
+        <a class="btn btn-primary" href="/mrr/new">+ New Ticket</a>
+
     
         <a class="btn btn-warn" href="/mrr/pending">Pending approvals</a>
         <a class="btn btn-sm btn-warn" href="/mrr/canceled">View Canceled Tickets</a>
