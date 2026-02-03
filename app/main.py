@@ -1233,16 +1233,13 @@ def is_mrr_canceled(lot):
     return bool(lot and (getattr(lot, "status", "") or "").upper() == MRR_CANCELED_STATUS)
 
 def block_if_mrr_canceled(lot):
+    """Guard helper: prevent actions on canceled MRR tickets."""
     if is_mrr_canceled(lot):
-        raise HTTPException(403, "This MRR Ticket is canceled")
-
-    return rec.inspector_confirmed_po or rec.manager_confirmed_po
-    
+        raise HTTPException(status_code=403, detail="This MRR Ticket is canceled")
 
 
 
 
-@app.post("/mrr/{lot_id}/inspection/approve")
 def mrr_inspection_approve(lot_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     require_manager(user)
@@ -3061,5 +3058,12 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
+
+
+
+
+
+
 
 
