@@ -862,6 +862,19 @@ def mrr_list_canceled(request: Request, session: Session = Depends(get_session))
         {"request": request, "user": user, "lots": lots, "showing_canceled": True},
     )
 
+@app.get("/mrr/new", response_class=HTMLResponse)
+def mrr_new_get(request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    return templates.TemplateResponse(
+        "mrr_new.html",
+        {
+            "request": request,
+            "user": user,
+            "error": "",
+        },
+    )
 
 @app.post("/mrr/new")
 async def mrr_new(request: Request, session: Session = Depends(get_session)):
@@ -3176,6 +3189,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
