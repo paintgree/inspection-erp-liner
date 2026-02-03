@@ -299,3 +299,15 @@ tr.row-rejected td{background:#fef2f2;}
     padding: 10px 8px !important;
   }
 }
+
+/* Highlight LENGTH row always */
+tr.length-row td{
+  background:#fff7cc;      /* light highlight */
+  font-weight:900;
+  border-top:2px solid #e5c100;
+  border-bottom:2px solid #e5c100;
+}
+
+tr.length-row td .celllink{
+  font-weight:900;
+}
