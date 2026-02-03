@@ -882,6 +882,24 @@ def mrr_list(request: Request, session: Session = Depends(get_session)):
 
 
 
+@app.get("/mrr/canceled", response_class=HTMLResponse)
+def mrr_list_canceled(request: Request, session: Session = Depends(get_session)):
+    """Show canceled (soft-deleted) MRR tickets for audit/review."""
+    user = get_current_user(request, session)
+    forbid_guest(user)
+
+    lots = session.exec(
+        select(MaterialLot)
+        .where(func.upper(MaterialLot.status) == "CANCELED")
+        .order_by(MaterialLot.id.desc())
+    ).all()
+
+    return templates.TemplateResponse(
+        "mrr_list.html",
+        {"request": request, "user": user, "lots": lots, "showing_canceled": True},
+    )
+
+
 @app.post("/mrr/new")
 async def mrr_new(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -1012,6 +1030,9 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         .order_by(MrrReceivingInspection.created_at.desc())
     ).first()
 
+    docs_ok = bool(receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po))
+    insp_submitted = bool(inspection and getattr(inspection, 'inspector_confirmed', False))
+    insp_ok = bool(inspection and getattr(inspection, 'manager_approved', False))
 
     return templates.TemplateResponse(
         "mrr_view.html",
@@ -1021,6 +1042,9 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
             "lot": lot,
             "docs": docs,
             "receiving": receiving,
+            "docs_ok": docs_ok,
+            "insp_submitted": insp_submitted,
+            "insp_ok": insp_ok,
             "inspection": inspection,
             "error": request.query_params.get("error", ""),
         },
@@ -3099,5 +3123,22 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
