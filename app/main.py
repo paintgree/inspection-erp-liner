@@ -2783,14 +2783,13 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
             continue
         slot_idx = SLOTS.index(e.slot_time)
         col = openpyxl.utils.get_column_letter(col_start + slot_idx)
-            # ✅ write ACTUAL time under the slot header (export uses actual time)
+        # ✅ write ACTUAL time under the slot header (export uses actual time)
         try:
             hh, mm = (e.actual_time or "00:00").split(":")
             _set_cell_safe(ws, f"{col}{time_row}", dtime(int(hh), int(mm)), number_format="h:mm")
         except Exception:
             # if actual_time is weird, keep it blank instead of crashing export
             pass
-       
 
 
         inspector_name = user_map.get(e.inspector_id).display_name if e.inspector_id in user_map else ""
@@ -2955,15 +2954,14 @@ def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> 
         for slot_idx, slot in enumerate(SLOTS):
             col = openpyxl.utils.get_column_letter(col_start + slot_idx)
             _set_cell_safe(ws, f"{col}{date_row}", day)
-
-       # ----- Time header row: blank by default (we will write actual times if entry exists) -----
+        # ----- Time header row: blank by default (we will write actual times if entry exists) -----
         time_row = 21
         for slot_idx, _slot in enumerate(SLOTS):
             col = openpyxl.utils.get_column_letter(col_start + slot_idx)
             _set_cell_safe(ws, f"{col}{time_row}", "", number_format="h:mm")
-        
-                # ✅ print setup (important for PDF export)
-                apply_pdf_page_setup(ws)
+
+        # ✅ print setup (important for PDF export)
+        apply_pdf_page_setup(ws)
                 
 
         
@@ -3164,8 +3162,6 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
-
-
 
 
 
