@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import mimetypes
 import traceback
 from datetime import datetime, date, time as dtime
 from io import BytesIO
@@ -142,18 +143,6 @@ def generate_report_no(ticket_id: int, seq: int) -> str:
     # MRR-YYYY-MM-<ticket>-<shipment>
     now = datetime.utcnow()
     return f"MRR-{now.year}-{now.month:02d}-{ticket_id:04d}-{seq:02d}"
-
-
-# =========================
-# MRR helpers (ticket cancel)
-# =========================
-
-def is_canceled_lot(lot: "MaterialLot") -> bool:
-    return (getattr(lot, "status", "") or "").strip().upper() == "CANCELED"
-
-def block_if_canceled(lot: "MaterialLot"):
-    if is_canceled_lot(lot):
-        raise HTTPException(400, "This MRR Ticket is canceled.")
 
 
 app = FastAPI()
@@ -796,11 +785,7 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
     progress_map = {r.id: get_progress_percent(session, r) for r in runs}
 
     # â MRR status summary (simple + useful)
-    lots = session.exec(
-        select(MaterialLot)
-        .where(MaterialLot.status != "CANCELED")
-        .order_by(MaterialLot.created_at.desc())
-    ).all()
+    lots = session.exec(select(MaterialLot).order_by(MaterialLot.created_at.desc())).all()
     lot_ids = [l.id for l in lots if l and l.id is not None]
 
     receiving_map = {}
@@ -864,9 +849,7 @@ def mrr_list(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
     lots = session.exec(
-        select(MaterialLot)
-        .where(MaterialLot.status != "CANCELED")
-        .order_by(MaterialLot.created_at.desc())
+        select(MaterialLot).order_by(MaterialLot.created_at.desc())
     ).all()
 
     lot_ids = [l.id for l in lots if l and l.id is not None]
@@ -982,25 +965,6 @@ def mrr_reject(lot_id: int, request: Request, session: Session = Depends(get_ses
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
 
 
-@app.post("/mrr/{lot_id}/cancel")
-def mrr_cancel(lot_id: int, request: Request, session: Session = Depends(get_session)):
-    """
-    Soft-cancel an MRR ticket (keeps history, blocks further processing, hides from normal lists).
-    """
-    user = get_current_user(request, session)
-    require_manager(user)
-
-    lot = session.get(MaterialLot, lot_id)
-    if not lot:
-        raise HTTPException(404, "MRR Ticket not found")
-
-    lot.status = "CANCELED"
-    session.add(lot)
-    session.commit()
-
-    return RedirectResponse("/mrr", status_code=303)
-
-
 
     
 @app.get("/mrr/{lot_id}", response_class=HTMLResponse)
@@ -1010,8 +974,6 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
-    block_if_canceled(lot)
-
 
     docs = session.exec(
         select(MrrDocument)
@@ -1060,8 +1022,6 @@ async def mrr_doc_upload(
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
-    block_if_canceled(lot)
-
 
     os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
 
@@ -1128,21 +1088,36 @@ def mrr_doc_download(doc_id: int, request: Request, session: Session = Depends(g
 
 @app.get("/mrr/docs/{doc_id}/inline")
 def mrr_doc_inline(doc_id: int, request: Request, session: Session = Depends(get_session)):
+    """
+    Open document in browser (inline). Used by the "View" button in templates.
+
+    Important:
+    - Always resolve the stored file_path via resolve_mrr_doc_path(), because old records might store
+      absolute paths from a different machine, or relative paths.
+    """
     user = get_current_user(request, session)
+    forbid_none(user)
 
     doc = session.get(MrrDocument, doc_id)
-    if not doc or not os.path.exists(doc.file_path):
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    resolved = resolve_mrr_doc_path(doc.file_path)
+    if not resolved or not os.path.exists(resolved):
         raise HTTPException(404, "File not found")
 
-    # Try to let browser render it
+    media_type, _ = mimetypes.guess_type(resolved)
+    media_type = media_type or "application/octet-stream"
     return FileResponse(
-        doc.file_path,
-        media_type="application/octet-stream",
-        filename=os.path.basename(doc.file_path),
-        headers={"Content-Disposition": f'inline; filename="{os.path.basename(doc.file_path)}"'},
+        resolved,
+        media_type=media_type,
+        filename=os.path.basename(resolved),
+        headers={"Content-Disposition": f'inline; filename="{os.path.basename(resolved)}"'},
     )
 
+
 @app.get("/mrr/docs/{doc_id}/view")
+
 def mrr_doc_view(doc_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
@@ -1191,8 +1166,6 @@ def mrr_docs_submit(
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
-    block_if_canceled(lot)
-
 
     # create or load receiving record (this is ONLY for PO verification now)
     receiving = session.exec(
@@ -1293,12 +1266,6 @@ def mrr_inspection_approve(lot_id: int, request: Request, session: Session = Dep
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
-    block_if_canceled(lot)
-
-    block_if_canceled(lot)
-
-    block_if_canceled(lot)
-
 
     lot.status = "APPROVED"   # <-- makes it appear in production dropdown
     session.add(lot)
@@ -1347,8 +1314,6 @@ def new_shipment_inspection_page(
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
-    block_if_canceled(lot)
-
 
     # Remaining qty (kg/t compatible)
     po_unit = (lot.quantity_unit or "KG").upper().strip()
@@ -1490,8 +1455,6 @@ def create_shipment_inspection(
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
-    block_if_canceled(lot)
-
 
     dn = (delivery_note_no or "").strip()
     if not dn:
@@ -1613,8 +1576,6 @@ def shipment_inspection_form(
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
-    block_if_canceled(lot)
-
 
     inspection = session.get(MrrReceivingInspection, inspection_id)
     if not inspection or inspection.ticket_id != lot_id:
@@ -3102,4 +3063,3 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
-
