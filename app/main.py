@@ -785,7 +785,7 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
     progress_map = {r.id: get_progress_percent(session, r) for r in runs}
 
     # â MRR status summary (simple + useful)
-    lots = session.exec(select(MaterialLot).order_by(MaterialLot.created_at.desc())).all()
+    lots = session.exec(select(MaterialLot).where(MaterialLot.status != MRR_CANCELED_STATUS).order_by(MaterialLot.created_at.desc())).all()
     lot_ids = [l.id for l in lots if l and l.id is not None]
 
     receiving_map = {}
@@ -849,7 +849,7 @@ def mrr_list(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
     lots = session.exec(
-        select(MaterialLot).order_by(MaterialLot.created_at.desc())
+        select(MaterialLot).where(MaterialLot.status != MRR_CANCELED_STATUS).order_by(MaterialLot.created_at.desc())
     ).all()
 
     lot_ids = [l.id for l in lots if l and l.id is not None]
@@ -966,6 +966,25 @@ def mrr_reject(lot_id: int, request: Request, session: Session = Depends(get_ses
 
 
 
+@app.post("/mrr/{lot_id}/cancel")
+def mrr_cancel(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    lot.status = MRR_CANCELED_STATUS
+    session.add(lot)
+    session.commit()
+
+    return RedirectResponse("/mrr", status_code=303)
+
+
+
+
+
     
 @app.get("/mrr/{lot_id}", response_class=HTMLResponse)
 def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_session)):
@@ -974,6 +993,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
+    block_if_mrr_canceled(lot)
 
     docs = session.exec(
         select(MrrDocument)
@@ -1022,6 +1042,7 @@ async def mrr_doc_upload(
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
+    block_if_mrr_canceled(lot)
 
     os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
 
@@ -1166,6 +1187,7 @@ def mrr_docs_submit(
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
+    block_if_mrr_canceled(lot)
 
     # create or load receiving record (this is ONLY for PO verification now)
     receiving = session.exec(
@@ -1239,6 +1261,19 @@ def mrr_docs_are_cleared(session: Session, lot_id: int) -> bool:
     if not rec:
         return False
 
+
+# =========================
+# MRR Cancel helpers (soft delete)
+# =========================
+MRR_CANCELED_STATUS = "CANCELED"
+
+def is_mrr_canceled(lot):
+    return bool(lot and (getattr(lot, "status", "") or "").upper() == MRR_CANCELED_STATUS)
+
+def block_if_mrr_canceled(lot):
+    if is_mrr_canceled(lot):
+        raise HTTPException(403, "This MRR Ticket is canceled")
+
     return rec.inspector_confirmed_po or rec.manager_confirmed_po
     
 
@@ -1266,6 +1301,7 @@ def mrr_inspection_approve(lot_id: int, request: Request, session: Session = Dep
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
+    block_if_mrr_canceled(lot)
 
     lot.status = "APPROVED"   # <-- makes it appear in production dropdown
     session.add(lot)
@@ -3063,3 +3099,5 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
+
