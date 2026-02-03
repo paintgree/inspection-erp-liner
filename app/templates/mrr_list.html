@@ -10,6 +10,7 @@
     <div class="actions">
       {% if user.role and user.role|upper == "MANAGER" %}
         <a class="btn btn-warn" href="/mrr/pending">Pending approvals</a>
+        <a class="btn btn-sm btn-warn" href="/mrr/canceled">View Canceled Tickets</a>
       {% endif %}
     </div>
   </div>
