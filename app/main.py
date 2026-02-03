@@ -56,8 +56,8 @@ from .models import (
     MaterialUseEvent,
     MrrDocument,
     MrrReceiving,
-    MrrReceivingInspection,  # â required because your code uses this name
-    MrrInspection,           # â now works (alias in models.py)
+    MrrReceivingInspection,  # ✅ required because your code uses this name
+    MrrInspection,           # ✅ now works (alias in models.py)
 )
 
 # =========================
@@ -148,15 +148,22 @@ def generate_report_no(ticket_id: int, seq: int) -> str:
 app = FastAPI()
 
 BASE_DIR = os.path.dirname(__file__)
+
+# =========================
+# Upload storage (local FS)
+# =========================
+DATA_DIR = os.environ.get("DATA_DIR", "/tmp/inspection_erp_data")
+MRR_UPLOAD_DIR = os.path.join(DATA_DIR, "mrr_uploads")
+os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
+
+
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 # =========================
 # File upload directories
 # =========================
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-MRR_UPLOAD_DIR = os.path.join(UPLOAD_DIR, "mrr")
 
-os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
 
 
 IMAGE_MAP = {
@@ -177,106 +184,37 @@ TEMPLATE_XLSX_MAP = {
     "COVER": os.path.join(BASE_DIR, "templates", "templates_xlsx", "cover.xlsx"),
 }
 def resolve_mrr_doc_path(p: str) -> str:
-    """
-    Make MRR doc paths portable + backward compatible.
+    """Resolve stored MRR document path to an existing file on disk.
 
-    - If p is absolute and exists => return it
-    - If p is relative => try BASE_DIR/p
-    - Also try MRR_UPLOAD_DIR/(p) and MRR_UPLOAD_DIR/(basename)
+    Backward compatible with rows that stored absolute paths, relative paths, or just filenames.
     """
     if not p:
         return ""
 
-    # already absolute?
-    if os.path.isabs(p) and os.path.exists(p):
-        return p
+    p_norm = p.replace("\\", "/").lstrip("/")
 
-    candidates = []
+    # absolute
+    try:
+        if os.path.isabs(p) and os.path.exists(p):
+            return p
+    except Exception:
+        pass
 
-    # relative to BASE_DIR
-    candidates.append(os.path.join(BASE_DIR, p))
-
-    # relative to MRR upload dir
-    candidates.append(os.path.join(MRR_UPLOAD_DIR, p))
-
-    # sometimes DB stored full/old path; try basename in current dir
-    candidates.append(os.path.join(MRR_UPLOAD_DIR, os.path.basename(p)))
+    candidates = [
+        p_norm,
+        os.path.join(BASE_DIR, p_norm) if 'BASE_DIR' in globals() else p_norm,
+        os.path.join(DATA_DIR, p_norm) if 'DATA_DIR' in globals() else p_norm,
+        os.path.join(MRR_UPLOAD_DIR, p_norm),
+        os.path.join(MRR_UPLOAD_DIR, os.path.basename(p_norm)),
+    ]
 
     for c in candidates:
         if c and os.path.exists(c):
             return c
 
-    return ""  # not found
-
-# =========================
-# MRR templates / backgrounds (separate from production runs)
-# =========================
-MRR_PAPER_BG_MAP = {
-    "RAW": os.path.join(BASE_DIR, "static", "papers", "mrr_raw_bg.pdf"),
-    "OUTSOURCED": os.path.join(BASE_DIR, "static", "papers", "mrr_outsourced_bg.pdf"),
-}
-
-MRR_TEMPLATE_XLSX_MAP = {
-    "RAW": os.path.join(BASE_DIR, "templates", "templates_xlsx", "mrr_raw.xlsx"),
-    "OUTSOURCED": os.path.join(BASE_DIR, "templates", "templates_xlsx", "mrr_outsourced.xlsx"),
-}
+    return ""
 
 
-SLOTS = ["00:00","02:00","04:00","06:00","08:00","10:00","12:00","14:00","16:00","18:00","20:00","22:00"]
-
-LINER_COVER_PARAMS = [
-    ("length_m", "Length (Mtr)", "m"),
-    ("od_mm", "OD (mm)", "mm"),
-    ("wall_thickness_mm", "Wall Thickness (mm)", "mm"),
-    ("cooling_water_c", "Cooling Water (Â°C)", "Â°C"),
-    ("line_speed_m_min", "Line Speed (m/min)", "m/min"),
-    ("tractor_pressure_mpa", "Tractor Pressure (MPa)", "MPa"),
-    ("body_temp_zone_1_c", "Body Temp Zone 1 (Â°C)", "Â°C"),
-    ("body_temp_zone_2_c", "Body Temp Zone 2 (Â°C)", "Â°C"),
-    ("body_temp_zone_3_c", "Body Temp Zone 3 (Â°C)", "Â°C"),
-    ("body_temp_zone_4_c", "Body Temp Zone 4 (Â°C)", "Â°C"),
-    ("body_temp_zone_5_c", "Body Temp Zone 5 (Â°C)", "Â°C"),
-    ("noising_temp_zone_1_c", "Noising Temp Zone 1 (Â°C)", "Â°C"),
-    ("noising_temp_zone_2_c", "Noising Temp Zone 2 (Â°C)", "Â°C"),
-    ("noising_temp_zone_3_c", "Noising Temp Zone 3 (Â°C)", "Â°C"),
-    ("noising_temp_zone_4_c", "Noising Temp Zone 4 (Â°C)", "Â°C"),
-    ("noising_temp_zone_5_c", "Noising Temp Zone 5 (Â°C)", "Â°C"),
-]
-
-REINF_PARAMS = [
-    ("length_m", "Length (Mtr)", "m"),
-    ("annular_od_70_1", "Annular OD (mm) (â  70Â°) #1", "mm"),
-    ("annular_od_70_2", "Annular OD (mm) (â  70Â°) #2", "mm"),
-    ("annular_od_45_3", "Annular OD (mm) (â  45Â°) #3", "mm"),
-    ("annular_od_45_4", "Annular OD (mm) (â  45Â°) #4", "mm"),
-    ("core_mould_dia_mm", "Core Mould Dia. (mm)", "mm"),
-    ("annular_width_1_mm", "Annular Width (mm) #1", "mm"),
-    ("annular_width_2_mm", "Annular Width (mm) #2", "mm"),
-    ("screw_yarn_width_1_mm", "Screw Yarn Width (mm) #1", "mm"),
-    ("screw_yarn_width_2_mm", "Screw Yarn Width (mm) #2", "mm"),
-    ("tractor_speed_m_min", "Tractor Speed (m/min)", "m/min"),
-    ("clamping_gas_p1_mpa", "Clamping Gas Pressure (MPa) #1", "MPa"),
-    ("clamping_gas_p2_mpa", "Clamping Gas Pressure (MPa) #2", "MPa"),
-    ("thrust_gas_p_mpa", "Thrust Gas Pressure (MPa)", "MPa"),
-]
-
-PROCESS_PARAMS = {"LINER": LINER_COVER_PARAMS, "COVER": LINER_COVER_PARAMS, "REINFORCEMENT": REINF_PARAMS}
-
-ROW_MAP_LINER_COVER = {
-    "length_m": 22, "od_mm": 23, "wall_thickness_mm": 24, "cooling_water_c": 25,
-    "line_speed_m_min": 26, "tractor_pressure_mpa": 27, "body_temp_zone_1_c": 28,
-    "body_temp_zone_2_c": 29, "body_temp_zone_3_c": 30, "body_temp_zone_4_c": 31,
-    "body_temp_zone_5_c": 32, "noising_temp_zone_1_c": 33, "noising_temp_zone_2_c": 34,
-    "noising_temp_zone_3_c": 35, "noising_temp_zone_4_c": 36, "noising_temp_zone_5_c": 37,
-}
-
-ROW_MAP_REINF = {
-    "length_m": 21, "annular_od_70_1": 22, "annular_od_70_2": 23, "annular_od_45_3": 24,
-    "annular_od_45_4": 25, "core_mould_dia_mm": 26, "annular_width_1_mm": 27,
-    "annular_width_2_mm": 28, "screw_yarn_width_1_mm": 29, "screw_yarn_width_2_mm": 30,
-    "tractor_speed_m_min": 31, "clamping_gas_p1_mpa": 32, "clamping_gas_p2_mpa": 33,
-    "thrust_gas_p_mpa": 34,
-}
 
 @app.get("/health")
 def health():
@@ -515,8 +453,8 @@ def slot_from_time_str(t: str) -> str:
     - HH:00 .. HH+1:30  -> HH:00
     - HH+1:31 .. HH+2:00 -> HH+2:00
     Example:
-      02:00â03:30 -> 02:00
-      03:31â04:00 -> 04:00
+      02:00–03:30 -> 02:00
+      03:31–04:00 -> 04:00
       07:00 -> 06:00
     """
     parts = t.split(":")
@@ -593,7 +531,7 @@ def get_day_latest_trace(session: Session, run_id: int, day: date) -> dict:
 
 
 def get_last_known_trace_before_day(session: Session, run_id: int, day: date) -> dict:
-    # â Get last known RAW batch from MaterialUseEvent (not from entries)
+    # ✅ Get last known RAW batch from MaterialUseEvent (not from entries)
     raw = ""
 
     last_ev = session.exec(
@@ -723,7 +661,7 @@ def format_spec_for_export(rule: str, mn: float | None, mx: float | None):
     if rule == "RANGE" and mn is not None and mx is not None:
         set_value = (mn + mx) / 2.0
         tol = abs(mx - mn) / 2.0
-        return set_value, f"Â±{tol:g}"
+        return set_value, f"±{tol:g}"
 
     if rule == "MAX_ONLY" and mx is not None:
         return mx, "max"   # you requested: set=35, tol=max (like temperature max 35C)
@@ -784,7 +722,7 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
 
     progress_map = {r.id: get_progress_percent(session, r) for r in runs}
 
-    # â MRR status summary (simple + useful)
+    # ✅ MRR status summary (simple + useful)
     lots = session.exec(select(MaterialLot).where(MaterialLot.status != MRR_CANCELED_STATUS).order_by(MaterialLot.created_at.desc())).all()
     lot_ids = [l.id for l in lots if l and l.id is not None]
 
@@ -956,7 +894,7 @@ def mrr_approve(lot_id: int, request: Request, session: Session = Depends(get_se
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
 
-    # â Do NOT approve the lot for production here anymore.
+    # ✅ Do NOT approve the lot for production here anymore.
     # This button now only confirms the ticket is valid to proceed (still not production-approved).
     # We'll mark it as PENDING and rely on Receiving Inspection approval to set APPROVED.
     lot.status = "PENDING"
@@ -1004,72 +942,52 @@ def mrr_cancel(lot_id: int, request: Request, session: Session = Depends(get_ses
 
 
     
-from fastapi.responses import HTMLResponse
-
 @app.get("/mrr/{lot_id}", response_class=HTMLResponse)
 def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_session)):
-    try:
-        user = get_current_user(request, session)
+    user = get_current_user(request, session)
 
-        lot = session.get(MaterialLot, lot_id)
-        if not lot:
-            raise HTTPException(404, "MRR Ticket not found")
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+    block_if_mrr_canceled(lot)
 
-        # allow opening canceled tickets (read-only view)
-        is_canceled = (lot.status or "").upper() == "CANCELED"
+    docs = session.exec(
+        select(MrrDocument)
+        .where(MrrDocument.ticket_id == lot_id)
+        .order_by(MrrDocument.created_at.desc())
+    ).all()
 
-        docs = session.exec(
-            select(MrrDocument)
-            .where(MrrDocument.ticket_id == lot_id)
-            .order_by(MrrDocument.created_at.desc())
-        ).all()
+    receiving = session.exec(
+        select(MrrReceiving)
+        .where(MrrReceiving.ticket_id == lot_id)
+    ).first()
 
-        receiving = session.exec(
-            select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
-        ).first()
+    inspection = session.exec(
+        select(MrrReceivingInspection)
+        .where(MrrReceivingInspection.ticket_id == lot_id)
+        .order_by(MrrReceivingInspection.created_at.desc())
+    ).first()
 
-        inspection = session.exec(
-            select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id == lot_id)
-        ).first()
+    docs_ok = bool(receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po))
+    insp_submitted = bool(inspection and getattr(inspection, 'inspector_confirmed', False))
+    insp_ok = bool(inspection and getattr(inspection, 'manager_approved', False))
 
-        # ✅ compute these in backend (prevents template undefined issues)
-        docs_ok = bool(receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po))
-        insp_submitted = bool(inspection and inspection.inspector_confirmed)
-        insp_ok = bool(inspection and inspection.manager_approved)
+    return templates.TemplateResponse(
+        "mrr_view.html",
+        {
+            "request": request,
+            "user": user,
+            "lot": lot,
+            "docs": docs,
+            "receiving": receiving,
+            "docs_ok": docs_ok,
+            "insp_submitted": insp_submitted,
+            "insp_ok": insp_ok,
+            "inspection": inspection,
+            "error": request.query_params.get("error", ""),
+        },
+    )
 
-        error = request.query_params.get("error", "")
-
-        return templates.TemplateResponse(
-            "mrr_view.html",
-            {
-                "request": request,
-                "user": user,
-                "lot": lot,
-                "docs": docs,
-                "receiving": receiving,
-                "inspection": inspection,
-                "docs_ok": docs_ok,
-                "insp_submitted": insp_submitted,
-                "insp_ok": insp_ok,
-                "is_canceled": is_canceled,
-                "error": error,
-            },
-        )
-
-    except Exception:
-        # ✅ show the REAL error on screen (temporary debug)
-        return HTMLResponse(
-            "<pre style='white-space:pre-wrap;font-size:14px'>"
-            + traceback.format_exc()
-            + "</pre>",
-            status_code=500,
-        )
-
-
-from fastapi import HTTPException
-from fastapi.responses import RedirectResponse
-import os
-from datetime import datetime
 
 @app.post("/mrr/{lot_id}/docs/upload")
 async def mrr_doc_upload(
@@ -1085,48 +1003,20 @@ async def mrr_doc_upload(
 
     lot = session.get(MaterialLot, lot_id)
     if not lot:
-        return RedirectResponse(f"/mrr/{lot_id}?error=MRR+Ticket+not+found", status_code=303)
+        raise HTTPException(404, "MRR Ticket not found")
+    block_if_mrr_canceled(lot)
 
-    # prevent upload into canceled tickets
-    if (lot.status or "").upper() == "CANCELED":
-        return RedirectResponse(f"/mrr/{lot_id}?error=This+ticket+is+canceled", status_code=303)
-
-    os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
-
-    dt = (doc_type or "").strip().upper()
-    if dt not in ["PO", "DELIVERY_NOTE", "COA", "RELATED"]:
-        return RedirectResponse(f"/mrr/{lot_id}?error=Invalid+document+type", status_code=303)
-
-    doc_number_clean = (doc_number or "").strip()
-    if not doc_number_clean:
-        return RedirectResponse(f"/mrr/{lot_id}?error=Document+Number+is+required", status_code=303)
-
-    # Enforce: same Delivery Note number cannot be used for different shipments/doc records
-    # (You can relax this later if needed)
-    if dt == "DELIVERY_NOTE":
-        existing_dn = session.exec(
-            select(MrrDocument).where(
-                (MrrDocument.ticket_id == lot_id) &
-                (MrrDocument.doc_type == "DELIVERY_NOTE") &
-                (MrrDocument.doc_number == doc_number_clean)
-            )
-        ).first()
-        if existing_dn:
-            return RedirectResponse(
-                f"/mrr/{lot_id}?error=This+Delivery+Note+number+is+already+uploaded",
-                status_code=303,
-            )
+    
 
     safe_original = os.path.basename(file.filename or "upload.bin")
     filename = f"{lot_id}_{int(datetime.utcnow().timestamp())}_{safe_original}"
-    path = os.path.join(MRR_UPLOAD_DIR, filename)
+    abs_path = os.path.join(MRR_UPLOAD_DIR, filename)
 
-    try:
-        content = await file.read()
-        with open(path, "wb") as f:
-            f.write(content)
-    except Exception:
-        return RedirectResponse(f"/mrr/{lot_id}?error=Failed+to+save+file", status_code=303)
+    # write file
+    with open(abs_path, "wb") as f:
+        f.write(await file.read())
+
+    dt = (doc_type or "").strip().upper()
 
     # Auto doc name unless RELATED
     title = (doc_title or "").strip()
@@ -1138,14 +1028,17 @@ async def mrr_doc_upload(
         }.get(dt, dt)
 
     if dt == "RELATED" and not title:
-        return RedirectResponse(f"/mrr/{lot_id}?error=Document+Name+is+required+for+RELATED", status_code=303)
+        raise HTTPException(400, "Document Name is required when type is RELATED")
+
+    # ✅ store RELATIVE path (portable)
+    rel_path = os.path.relpath(abs_path, BASE_DIR)
 
     doc = MrrDocument(
         ticket_id=lot_id,
         doc_type=dt,
         doc_name=title,
-        doc_number=doc_number_clean,
-        file_path=path,
+        doc_number=(doc_number or "").strip(),
+        file_path=rel_path,
         uploaded_by_user_id=user.id,
         uploaded_by_user_name=user.display_name,
     )
@@ -1215,7 +1108,7 @@ def mrr_doc_view(doc_id: int, request: Request, session: Session = Depends(get_s
     if not doc:
         raise HTTPException(404, "Document not found")
 
-    # â IMPORTANT: resolve path exactly like download
+    # ✅ IMPORTANT: resolve path exactly like download
     resolved = resolve_mrr_doc_path(doc.file_path)
 
     if not resolved or not os.path.exists(resolved):
@@ -1233,7 +1126,7 @@ def mrr_doc_view(doc_id: int, request: Request, session: Session = Depends(get_s
     elif ext == ".webp":
         media_type = "image/webp"
 
-    # â Force browser inline preview (not download)
+    # ✅ Force browser inline preview (not download)
     return FileResponse(
         resolved,
         media_type=media_type,
@@ -1362,11 +1255,11 @@ def mrr_inspection_approve(lot_id: int, request: Request, session: Session = Dep
     if not insp:
         raise HTTPException(404, "Receiving Inspection not found")
 
-    # â Manager approves the receiving inspection
+    # ✅ Manager approves the receiving inspection
     insp.manager_approved = True
     session.add(insp)
 
-    # â THIS is the ONLY place the batch becomes usable in production
+    # ✅ THIS is the ONLY place the batch becomes usable in production
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
@@ -1406,25 +1299,6 @@ def mrr_pending(request: Request, session: Session = Depends(get_session)):
             "user": user,
             "pending": pending,
             "lot_map": lot_map,
-        },
-    )
-@app.get("/mrr/canceled", response_class=HTMLResponse)
-def mrr_canceled(request: Request, session: Session = Depends(get_session)):
-    user = get_current_user(request, session)
-    require_manager(user)
-
-    lots = session.exec(
-        select(MaterialLot)
-        .where(MaterialLot.status == "CANCELED")
-        .order_by(MaterialLot.created_at.desc())
-    ).all()
-
-    return templates.TemplateResponse(
-        "mrr_canceled.html",
-        {
-            "request": request,
-            "user": user,
-            "lots": lots,
         },
     )
 
@@ -1545,7 +1419,7 @@ async def shipment_inspection_submit(
     insp.inspector_confirmed = True
     session.add(insp)
 
-    # â NOW we consume qty into received_total (only on SUBMIT)
+    # ✅ NOW we consume qty into received_total (only on SUBMIT)
     po_unit = (lot.quantity_unit or "KG").upper().strip()
     received_total = float(lot.received_total or 0.0)
 
@@ -1651,7 +1525,7 @@ def create_shipment_inspection(
     ).all()
     seq = len(existing) + 1
 
-    # â Create shipment as DRAFT (DO NOT change lot.received_total here)
+    # ✅ Create shipment as DRAFT (DO NOT change lot.received_total here)
     insp = MrrReceivingInspection(
         ticket_id=lot_id,
         inspector_id=user.id,
@@ -1836,7 +1710,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
             .order_by(InspectionEntry.created_at)
         ).all()
         
-        # â NEW: for the UI to know which slots have an InspectionEntry
+        # ✅ NEW: for the UI to know which slots have an InspectionEntry
         slot_entry_ids: Dict[str, int] = {}
         for e in entries:
             if not e.slot_time or e.slot_time not in SLOTS:
@@ -2043,12 +1917,12 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
         .order_by(MaterialLot.batch_no)
     ).all()
 
-    # â TRUE check: does the run already have any batch event?
+    # ✅ TRUE check: does the run already have any batch event?
     has_any_event = session.exec(
         select(MaterialUseEvent.id).where(MaterialUseEvent.run_id == run_id).limit(1)
     ).first() is not None
 
-    # â Show current batch as the latest batch in the run (not today 00:00)
+    # ✅ Show current batch as the latest batch in the run (not today 00:00)
     today_lot = get_latest_material_lot_for_run(session, run_id)
 
     return templates.TemplateResponse(
@@ -2157,7 +2031,7 @@ async def entry_new_post(
     tool2_name: str = Form(""),
     tool2_serial: str = Form(""),
     tool2_calib_due: str = Form(""),
-    start_lot_id: str = Form(""),   # â for first ever entry
+    start_lot_id: str = Form(""),   # ✅ for first ever entry
 ):
     user = get_current_user(request, session)
     forbid_boss(user)
@@ -2190,7 +2064,7 @@ async def entry_new_post(
     batch_changed = str(form.get("batch_changed", "")).strip() == "1"
     new_lot_id_raw = str(form.get("new_lot_id", "")).strip()
     
-    # â If user selected a new lot from dropdown, treat it as batch changed (even if checkbox not ticked)
+    # ✅ If user selected a new lot from dropdown, treat it as batch changed (even if checkbox not ticked)
     if new_lot_id_raw.isdigit():
         batch_changed = True
 
@@ -2235,7 +2109,7 @@ async def entry_new_post(
     session.commit()
     session.refresh(entry)
 
-    # â FIRST entry: create starting MaterialUseEvent at this slot
+    # ✅ FIRST entry: create starting MaterialUseEvent at this slot
     if not has_any_event:
         session.add(MaterialUseEvent(
             run_id=run_id,
@@ -2246,7 +2120,7 @@ async def entry_new_post(
         ))
         session.commit()
 
-    # â Batch changed: create new event
+    # ✅ Batch changed: create new event
     if batch_changed:
         if not new_lot_id_raw.isdigit():
             msg = "Please select the NEW approved RAW batch when 'batch changed' is checked."
@@ -2266,7 +2140,7 @@ async def entry_new_post(
         ))
         session.commit()
 
-    # â NOW we can read the current batch (because the events exist) and save it into the entry
+    # ✅ NOW we can read the current batch (because the events exist) and save it into the entry
     current_lot = get_current_material_lot_for_slot(session, run_id, day_obj, slot_time)
     entry.raw_material_batch_no = (current_lot.batch_no or "").strip() if current_lot else ""
     session.add(entry)
@@ -2715,12 +2589,12 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
     wb = openpyxl.load_workbook(template_path)
     ws = wb.worksheets[0]
 
-    # â Print setup (keep 1-page)
+    # ✅ Print setup (keep 1-page)
     apply_pdf_page_setup(ws)
     apply_specs_to_template(ws, run, session)
     
 
-    # â Per-process coordinates (THIS was missing and causing crashes)
+    # ✅ Per-process coordinates (THIS was missing and causing crashes)
     if run.process in ["LINER", "COVER"]:
         col_start = 5  # E
         date_row = 20
@@ -2747,7 +2621,7 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
         op2_row = 37
         row_map = ROW_MAP_REINF
 
-        # â IMPORTANT:
+        # ✅ IMPORTANT:
         # Put ONLY the reinforcement header cells here (do NOT write E5/I5 again)
         # Use the real cells from your reinforcement.xlsx template
         _set_cell_safe(ws, "D4", run.dhtp_batch_no)
@@ -2766,12 +2640,12 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
         _set_cell_safe(ws, f"M{r}", name)
         _set_cell_safe(ws, f"P{r}", tag)
     
-    # â Date row (IMPORTANT: format as DATE so it doesn't show 12:00 AM)
+    # ✅ Date row (IMPORTANT: format as DATE so it doesn't show 12:00 AM)
     for slot_idx, slot in enumerate(SLOTS):
         col = openpyxl.utils.get_column_letter(col_start + slot_idx)
         _set_cell_safe(ws, f"{col}{date_row}", day, number_format="m/d/yyyy")
     
-    # â Time row (format as time)
+    # ✅ Time row (format as time)
     for slot_idx, slot in enumerate(SLOTS):
         col = openpyxl.utils.get_column_letter(col_start + slot_idx)
         hh, mm = slot.split(":")
@@ -2993,7 +2867,7 @@ def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> 
             ws[cell_addr].value = dtime(int(hh), int(mm))
             ws[cell_addr].number_format = "h:mm"
 
-        # â print setup (important for PDF export)
+        # ✅ print setup (important for PDF export)
         apply_pdf_page_setup(ws)
         
 
@@ -3140,7 +3014,7 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
 
     writer = PdfWriter()
 
-    # â pick correct paper background by process
+    # ✅ pick correct paper background by process
     background_path = PAPER_BG_MAP.get(run.process, "")
 
     for day in days:
@@ -3150,7 +3024,7 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
         # 2) Convert to PDF
         pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
 
-        # â 3) Stamp background UNDER the page
+        # ✅ 3) Stamp background UNDER the page
         if background_path:
             pdf_bytes = stamp_background_pdf(pdf_bytes, background_path)
 
@@ -3177,7 +3051,7 @@ def apply_pdf_page_setup(ws):
     ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
     ws.page_setup.paperSize = ws.PAPERSIZE_A4
 
-    # â Back to "everything in 1 page"
+    # ✅ Back to "everything in 1 page"
     ws.page_setup.fitToWidth = 1
     ws.page_setup.fitToHeight = 1
     ws.sheet_properties.pageSetUpPr.fitToPage = True
@@ -3187,25 +3061,5 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
