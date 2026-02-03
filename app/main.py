@@ -1148,7 +1148,7 @@ def mrr_doc_view(doc_id: int, request: Request, session: Session = Depends(get_s
     inline Content-Disposition.
     """
     user = get_current_user(request, session)
-    require_login(user)
+    
 
     doc = session.get(MrrDocument, doc_id)
     if not doc:
@@ -3189,6 +3189,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
