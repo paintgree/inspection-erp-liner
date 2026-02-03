@@ -2607,8 +2607,9 @@ def convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
             str(xlsx_path),
         ]
         # capture output for debugging
+        # run conversion and capture output
         try:
-            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            r = subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except FileNotFoundError:
             raise RuntimeError("PDF export failed: LibreOffice 'soffice' is not installed / not found on this server.")
         except subprocess.CalledProcessError as e:
@@ -2616,10 +2617,48 @@ def convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
             err = (e.stderr or b"").decode("utf-8", errors="ignore")
             raise RuntimeError(
                 "PDF export failed: LibreOffice conversion error.\n\n"
-                f"CMD: {' '.join(cmd)}\n\n"
-                f"STDOUT:\n{out}\n\n"
-                f"STDERR:\n{err}\n"
+                f"CMD: {' '.join(cmd)}\n\nSTDOUT:\n{out}\n\nSTDERR:\n{err}\n"
             )
+
+        # find produced pdf
+        pdfs = list(out_dir.glob("*.pdf"))
+        if not pdfs:
+            out = (r.stdout or b"").decode("utf-8", errors="ignore")
+            err = (r.stderr or b"").decode("utf-8", errors="ignore")
+            raise RuntimeError(
+                "PDF conversion failed: LibreOffice produced no PDF output.\n\n"
+                f"CMD: {' '.join(cmd)}\n\nSTDOUT:\n{out}\n\nSTDERR:\n{err}\n"
+            )
+
+        pdf_path = pdfs[0]
+        pdf_bytes = pdf_path.read_bytes()
+
+        # ✅ critical validation
+        if not pdf_bytes or len(pdf_bytes) < 10:
+            out = (r.stdout or b"").decode("utf-8", errors="ignore")
+            err = (r.stderr or b"").decode("utf-8", errors="ignore")
+            raise RuntimeError(
+                "PDF conversion failed: LibreOffice created an EMPTY PDF (0 bytes).\n\n"
+                f"PDF path: {pdf_path}\n"
+                f"PDF size: {len(pdf_bytes)} bytes\n\n"
+                f"CMD: {' '.join(cmd)}\n\nSTDOUT:\n{out}\n\nSTDERR:\n{err}\n"
+            )
+
+        # optional but very helpful: check pdf signature
+        if not pdf_bytes.startswith(b"%PDF"):
+            out = (r.stdout or b"").decode("utf-8", errors="ignore")
+            err = (r.stderr or b"").decode("utf-8", errors="ignore")
+            head = pdf_bytes[:80]
+            raise RuntimeError(
+                "PDF conversion failed: output is not a valid PDF.\n\n"
+                f"PDF path: {pdf_path}\n"
+                f"PDF size: {len(pdf_bytes)} bytes\n"
+                f"First bytes: {head!r}\n\n"
+                f"CMD: {' '.join(cmd)}\n\nSTDOUT:\n{out}\n\nSTDERR:\n{err}\n"
+            )
+
+        return pdf_bytes
+
 
 def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> bytes:
     run = session.get(ProductionRun, run_id)
