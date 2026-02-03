@@ -1830,6 +1830,20 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
             status_code=500,
         )
 
+@app.post("/runs/{run_id}/close")
+def run_close(run_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)  # only manager can close
+
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    run.status = "CLOSED"
+    session.add(run)
+    session.commit()
+
+    return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
 
 @app.get("/runs/{run_id}/edit", response_class=HTMLResponse)
@@ -3162,6 +3176,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
