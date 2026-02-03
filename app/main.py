@@ -2589,12 +2589,19 @@ def convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
             str(xlsx_path),
         ]
         # capture output for debugging
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-        pdfs = list(out_dir.glob("*.pdf"))
-        if not pdfs:
-            raise RuntimeError("PDF conversion failed: no output produced")
-        return pdfs[0].read_bytes()
+        try:
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except FileNotFoundError:
+            raise RuntimeError("PDF export failed: LibreOffice 'soffice' is not installed / not found on this server.")
+        except subprocess.CalledProcessError as e:
+            out = (e.stdout or b"").decode("utf-8", errors="ignore")
+            err = (e.stderr or b"").decode("utf-8", errors="ignore")
+            raise RuntimeError(
+                "PDF export failed: LibreOffice conversion error.\n\n"
+                f"CMD: {' '.join(cmd)}\n\n"
+                f"STDOUT:\n{out}\n\n"
+                f"STDERR:\n{err}\n"
+            )
 
 def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> bytes:
     run = session.get(ProductionRun, run_id)
@@ -3081,6 +3088,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
