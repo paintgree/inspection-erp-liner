@@ -690,6 +690,24 @@ def _safe_float(x: Optional[str]) -> Optional[float]:
         return float(x)
     except Exception:
         return None
+# =========================
+# Excel row maps (template coordinates)
+# =========================
+# These map param_key -> Excel row number in the template (the row where the value goes).
+# You MUST match your template files exactly.
+
+ROW_MAP_LINER_COVER = {
+    # مثال / Example:
+    # "length_m": 23,
+    # "id_mm": 24,
+    # "od_mm": 25,
+}
+
+ROW_MAP_REINF = {
+    # Example:
+    # "length_m": 22,
+    # "angle_deg": 23,
+}
 
 
 def apply_specs_to_template(ws, run: ProductionRun, session: Session):
@@ -3088,6 +3106,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
