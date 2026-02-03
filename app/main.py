@@ -3109,7 +3109,7 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
         pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
 
         # ✅ 3) Stamp background UNDER the page
-        if background_path:
+        if background_path and pdf_bytes and pdf_bytes.startswith(b"%PDF"):
             pdf_bytes = stamp_background_pdf(pdf_bytes, background_path)
 
         # 4) Merge into final output
@@ -3145,6 +3145,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
