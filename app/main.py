@@ -59,6 +59,11 @@ from .models import (
     MrrReceivingInspection,  # ✅ required because your code uses this name
     MrrInspection,           # ✅ now works (alias in models.py)
 )
+SLOTS = [
+    "00:00", "02:00", "04:00", "06:00",
+    "08:00", "10:00", "12:00", "14:00",
+    "16:00", "18:00", "20:00", "22:00"
+]
 
 # =========================
 # MRR helpers (units + report no)
@@ -3076,6 +3081,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
