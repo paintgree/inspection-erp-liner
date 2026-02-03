@@ -1066,6 +1066,11 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         )
 
 
+from fastapi import HTTPException
+from fastapi.responses import RedirectResponse
+import os
+from datetime import datetime
+
 @app.post("/mrr/{lot_id}/docs/upload")
 async def mrr_doc_upload(
     lot_id: int,
@@ -1080,20 +1085,48 @@ async def mrr_doc_upload(
 
     lot = session.get(MaterialLot, lot_id)
     if not lot:
-        raise HTTPException(404, "MRR Ticket not found")
-    block_if_mrr_canceled(lot)
+        return RedirectResponse(f"/mrr/{lot_id}?error=MRR+Ticket+not+found", status_code=303)
+
+    # prevent upload into canceled tickets
+    if (lot.status or "").upper() == "CANCELED":
+        return RedirectResponse(f"/mrr/{lot_id}?error=This+ticket+is+canceled", status_code=303)
 
     os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
 
+    dt = (doc_type or "").strip().upper()
+    if dt not in ["PO", "DELIVERY_NOTE", "COA", "RELATED"]:
+        return RedirectResponse(f"/mrr/{lot_id}?error=Invalid+document+type", status_code=303)
+
+    doc_number_clean = (doc_number or "").strip()
+    if not doc_number_clean:
+        return RedirectResponse(f"/mrr/{lot_id}?error=Document+Number+is+required", status_code=303)
+
+    # Enforce: same Delivery Note number cannot be used for different shipments/doc records
+    # (You can relax this later if needed)
+    if dt == "DELIVERY_NOTE":
+        existing_dn = session.exec(
+            select(MrrDocument).where(
+                (MrrDocument.ticket_id == lot_id) &
+                (MrrDocument.doc_type == "DELIVERY_NOTE") &
+                (MrrDocument.doc_number == doc_number_clean)
+            )
+        ).first()
+        if existing_dn:
+            return RedirectResponse(
+                f"/mrr/{lot_id}?error=This+Delivery+Note+number+is+already+uploaded",
+                status_code=303,
+            )
+
     safe_original = os.path.basename(file.filename or "upload.bin")
     filename = f"{lot_id}_{int(datetime.utcnow().timestamp())}_{safe_original}"
-    abs_path = os.path.join(MRR_UPLOAD_DIR, filename)
+    path = os.path.join(MRR_UPLOAD_DIR, filename)
 
-    # write file
-    with open(abs_path, "wb") as f:
-        f.write(await file.read())
-
-    dt = (doc_type or "").strip().upper()
+    try:
+        content = await file.read()
+        with open(path, "wb") as f:
+            f.write(content)
+    except Exception:
+        return RedirectResponse(f"/mrr/{lot_id}?error=Failed+to+save+file", status_code=303)
 
     # Auto doc name unless RELATED
     title = (doc_title or "").strip()
@@ -1105,17 +1138,14 @@ async def mrr_doc_upload(
         }.get(dt, dt)
 
     if dt == "RELATED" and not title:
-        raise HTTPException(400, "Document Name is required when type is RELATED")
-
-    # â store RELATIVE path (portable)
-    rel_path = os.path.relpath(abs_path, BASE_DIR)
+        return RedirectResponse(f"/mrr/{lot_id}?error=Document+Name+is+required+for+RELATED", status_code=303)
 
     doc = MrrDocument(
         ticket_id=lot_id,
         doc_type=dt,
         doc_name=title,
-        doc_number=(doc_number or "").strip(),
-        file_path=rel_path,
+        doc_number=doc_number_clean,
+        file_path=path,
         uploaded_by_user_id=user.id,
         uploaded_by_user_name=user.display_name,
     )
@@ -3138,6 +3168,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
