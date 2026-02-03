@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import mimetypes
 import traceback
-from datetime import datetime, date, time as dtime
+from datetime import datetime, date, time as dtime, timedelta
 from io import BytesIO
 from typing import Dict, List, Optional, Tuple
 
@@ -447,15 +447,14 @@ def users_post(
     return RedirectResponse("/users", status_code=302)
 
 
-def slot_from_time_str(t: str) -> str:
+def slot_from_time_str(t: str) -> tuple[str, int]:
     """
     HARD RULE (2-hour slots):
     - HH:00 .. HH+1:30  -> HH:00
     - HH+1:31 .. HH+2:00 -> HH+2:00
-    Example:
-      02:00–03:30 -> 02:00
-      03:31–04:00 -> 04:00
-      07:00 -> 06:00
+
+    Special rule for end of day:
+    - If the calculated next slot becomes 24:00, return ("00:00", 1) meaning next day.
     """
     parts = t.split(":")
     hh = int(parts[0])
@@ -477,13 +476,16 @@ def slot_from_time_str(t: str) -> str:
     else:
         slot_min = base_min + 120
 
-    # clamp to valid range 00:00..22:00
+    # If we rolled past midnight (24:00), move to next day 00:00
+    if slot_min >= 24 * 60:
+        return "00:00", 1
+
+    # Normal clamp low end (shouldn't happen, but safe)
     if slot_min < 0:
         slot_min = 0
-    if slot_min > 22 * 60:
-        slot_min = 22 * 60
 
-    return f"{slot_min // 60:02d}:00"
+    return f"{slot_min // 60:02d}:00", 0
+
 
 
 def get_progress_percent(session: Session, run: ProductionRun) -> int:
@@ -2056,8 +2058,8 @@ async def entry_new_post(
     if run.status in ["CLOSED", "APPROVED"] and user.role != "MANAGER":
         raise HTTPException(403, "Run is not open")
 
-    slot_time = slot_from_time_str(actual_time)
-    day_obj = date.fromisoformat(actual_date)
+    slot_time, day_add = slot_from_time_str(actual_time)
+    day_obj = date.fromisoformat(actual_date) + timedelta(days=day_add)
 
     # prevent duplicate slot entry
     existing_for_slot = session.exec(
@@ -3074,6 +3076,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
