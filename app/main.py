@@ -1100,42 +1100,58 @@ def mrr_doc_inline(doc_id: int, request: Request, session: Session = Depends(get
 
 
 @app.get("/mrr/docs/{doc_id}/view")
-
 def mrr_doc_view(doc_id: int, request: Request, session: Session = Depends(get_session)):
+    """
+    View an uploaded MRR document in the browser (PDF/images inline).
+    Falls back to download for other file types.
+
+    NOTE: We intentionally do NOT rely on the `filename=` parameter here because
+    some Starlette versions behave differently on mobile Safari when combined with
+    inline Content-Disposition.
+    """
     user = get_current_user(request, session)
+    require_login(user)
 
     doc = session.get(MrrDocument, doc_id)
     if not doc:
         raise HTTPException(404, "Document not found")
 
-    # ✅ IMPORTANT: resolve path exactly like download
-    resolved = resolve_mrr_doc_path(doc.file_path)
-
+    resolved = resolve_mrr_doc_path(doc.file_path or "")
     if not resolved or not os.path.exists(resolved):
+        # Keep same behavior as download: explicit 404
         raise HTTPException(404, "File not found")
 
-    # Try to guess content type for in-browser viewing
-    ext = (os.path.splitext(resolved)[1] or "").lower()
-    media_type = "application/octet-stream"
-    if ext == ".pdf":
-        media_type = "application/pdf"
-    elif ext in [".jpg", ".jpeg"]:
-        media_type = "image/jpeg"
-    elif ext == ".png":
-        media_type = "image/png"
-    elif ext == ".webp":
-        media_type = "image/webp"
+    # Guess content-type
+    ctype, _ = mimetypes.guess_type(resolved)
+    ctype = ctype or "application/octet-stream"
 
-    # ✅ Force browser inline preview (not download)
-    return FileResponse(
-        resolved,
-        media_type=media_type,
-        filename=os.path.basename(resolved),
-        headers={
-            "Content-Disposition": f'inline; filename="{os.path.basename(resolved)}"'
-        },
+    # Inline only for types browsers can render nicely
+    is_inline = (
+        ctype.startswith("image/") or
+        ctype in ("application/pdf",)
     )
 
+    safe_name = os.path.basename(resolved)
+
+    headers = {}
+    if is_inline:
+        headers["Content-Disposition"] = f'inline; filename="{safe_name}"'
+    else:
+        headers["Content-Disposition"] = f'attachment; filename="{safe_name}"'
+
+    try:
+        return FileResponse(resolved, media_type=ctype, headers=headers)
+    except Exception as e:
+        # If FileResponse fails for any environment-specific reason, stream it.
+        def file_iter():
+            with open(resolved, "rb") as f:
+                while True:
+                    chunk = f.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    yield chunk
+
+        return StreamingResponse(file_iter(), media_type=ctype, headers=headers)
 
 @app.post("/mrr/{lot_id}/docs/submit")
 def mrr_docs_submit(
@@ -3058,10 +3074,6 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
-
-
-
-
 
 
 
