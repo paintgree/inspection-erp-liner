@@ -2738,11 +2738,11 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
         col = openpyxl.utils.get_column_letter(col_start + slot_idx)
         _set_cell_safe(ws, f"{col}{date_row}", day, number_format="m/d/yyyy")
     
-    # ✅ Time row (format as time)
-    for slot_idx, slot in enumerate(SLOTS):
+    # ✅ Time row: leave blank by default (we will fill actual times from entries)
+    for slot_idx, _slot in enumerate(SLOTS):
         col = openpyxl.utils.get_column_letter(col_start + slot_idx)
-        hh, mm = slot.split(":")
-        _set_cell_safe(ws, f"{col}{time_row}", dtime(int(hh), int(mm)), number_format="h:mm")
+        _set_cell_safe(ws, f"{col}{time_row}", "", number_format="h:mm")
+    
 
 
     # Trace for THIS day: raw batch + tools
@@ -2783,6 +2783,14 @@ def build_one_day_workbook_bytes(run_id: int, day: date, session: Session) -> by
             continue
         slot_idx = SLOTS.index(e.slot_time)
         col = openpyxl.utils.get_column_letter(col_start + slot_idx)
+            # ✅ write ACTUAL time under the slot header (export uses actual time)
+            try:
+                hh, mm = (e.actual_time or "00:00").split(":")
+                _set_cell_safe(ws, f"{col}{time_row}", dtime(int(hh), int(mm)), number_format="h:mm")
+            except Exception:
+                # if actual_time is weird, keep it blank instead of crashing export
+                pass
+
 
         inspector_name = user_map.get(e.inspector_id).display_name if e.inspector_id in user_map else ""
         _set_cell_safe(ws, f"{col}{inspector_row}", inspector_name)
@@ -2947,22 +2955,15 @@ def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> 
             col = openpyxl.utils.get_column_letter(col_start + slot_idx)
             _set_cell_safe(ws, f"{col}{date_row}", day)
 
-        # ----- Time header row (optional) -----
+       # ----- Time header row: blank by default (we will write actual times if entry exists) -----
         time_row = 21
-        for slot_idx, slot in enumerate(SLOTS):
+        for slot_idx, _slot in enumerate(SLOTS):
             col = openpyxl.utils.get_column_letter(col_start + slot_idx)
-            hh, mm = slot.split(":")
-            cell_addr = f"{col}{time_row}"
-            for rng in ws.merged_cells.ranges:
-                if cell_addr in rng:
-                    cell_addr = rng.coord.split(":")[0]
-                    break
-            ws[cell_addr].value = dtime(int(hh), int(mm))
-            ws[cell_addr].number_format = "h:mm"
-
-        # ✅ print setup (important for PDF export)
-        apply_pdf_page_setup(ws)
+            _set_cell_safe(ws, f"{col}{time_row}", "", number_format="h:mm")
         
+                # ✅ print setup (important for PDF export)
+                apply_pdf_page_setup(ws)
+                
 
         
         # ----- Fill per-slot inspector/operators + values -----
@@ -2995,6 +2996,14 @@ def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> 
                 if not r:
                     continue
                 _set_cell_safe(ws, f"{col}{r}", v.value)
+
+            # ✅ write ACTUAL time for this slot
+            try:
+                hh, mm = (e.actual_time or "00:00").split(":")
+                _set_cell_safe(ws, f"{col}{time_row}", dtime(int(hh), int(mm)), number_format="h:mm")
+            except Exception:
+                pass
+
 
     out = BytesIO()
     base_wb.save(out)
@@ -3154,6 +3163,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
