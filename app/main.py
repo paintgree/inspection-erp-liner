@@ -1403,7 +1403,7 @@ def new_shipment_inspection_page(
         },
     )
 
-@app.post("/mrr/{lot_id}/inspection/{inspection_id}")
+@app.post("/mrr/{lot_id}/inspection/{inspection_id}/submit")
 async def shipment_inspection_submit(
     lot_id: int,
     inspection_id: int,
@@ -3190,6 +3190,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
