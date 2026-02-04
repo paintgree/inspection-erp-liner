@@ -3243,17 +3243,6 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
         # ✅ 3) Stamp background UNDER the page
         if background_path and pdf_bytes and pdf_bytes.startswith(b"%PDF"):
             pdf_bytes = stamp_background_pdf(pdf_bytes, background_path)
-
-        if (run.status or "").upper() == "APPROVED":
-        pdf_bytes = stamp_approval_on_pdf(
-            pdf_bytes,
-            approved_by=getattr(run, "approved_by_user_name", "") or "",
-            approved_at_utc=getattr(run, "approved_at_utc", None),
-        )
-        
-        # ✅ 3) Stamp background UNDER the page
-        if background_path:
-            pdf_bytes = stamp_background_pdf(pdf_bytes, background_path)
         
         # ✅ 3.5) Stamp approval signature ON TOP (only if approved)
         if (run.status or "").upper() == "APPROVED":
@@ -3262,23 +3251,23 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
                 approved_by=getattr(run, "approved_by_user_name", "") or "",
                 approved_at_utc=getattr(run, "approved_at_utc", None),
             )
-
-
-        # 4) Merge into final output
+        
+        # ✅ 4) Merge into final output
         reader = PdfReader(BytesIO(pdf_bytes))
         for page in reader.pages:
             writer.add_page(page)
-
-    out = BytesIO()
-    writer.write(out)
-    out.seek(0)
-
-    filename = f"{run.process}_{run.dhtp_batch_no}_ALL_DAYS.pdf"
-    return Response(
-        content=out.getvalue(),
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+        
+        
+            out = BytesIO()
+            writer.write(out)
+            out.seek(0)
+        
+            filename = f"{run.process}_{run.dhtp_batch_no}_ALL_DAYS.pdf"
+            return Response(
+                content=out.getvalue(),
+                media_type="application/pdf",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
 
 
 
@@ -3297,6 +3286,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
