@@ -300,7 +300,19 @@ def make_approval_stamp_pdf(page_w: float, page_h: float, text_lines: list[str])
     buf.seek(0)
     return buf.getvalue()
 
-def stamp_approval_on_pdf(pdf_bytes: bytes, approved_by: str, approved_at_utc: datetime | None) -> bytes:
+from io import BytesIO
+from datetime import datetime
+from PyPDF2 import PdfReader, PdfWriter
+
+def stamp_approval_on_pdf(
+    pdf_bytes: bytes,
+    approved_by: str,
+    approved_at_utc: datetime | None
+) -> bytes:
+    """
+    Pure helper: stamps APPROVED info on every page.
+    Does NOT query DB, does NOT need session.
+    """
     if not approved_by or not approved_at_utc:
         return pdf_bytes
 
@@ -312,25 +324,16 @@ def stamp_approval_on_pdf(pdf_bytes: bytes, approved_by: str, approved_at_utc: d
     for page in reader.pages:
         w = float(page.mediabox.width)
         h = float(page.mediabox.height)
-        
-        approval = session.exec(
-            select(RunApproval)
-            .where(RunApproval.run_id == run.id)
-            .order_by(RunApproval.approved_at_utc.desc())
-        ).first()
-        
-        approved_by = approval.approved_by_name if approval else ""
-        approved_at_utc = approval.approved_at_utc if approval else None
-        
 
         stamp_pdf = make_approval_stamp_pdf(
             w, h,
             [
                 "APPROVED",
                 f"By: {approved_by}",
-                f"At: {approved_local}",
+                f"At: {approved_local} (Oman)",
             ],
         )
+
         stamp_reader = PdfReader(BytesIO(stamp_pdf))
         page.merge_page(stamp_reader.pages[0])
         writer.add_page(page)
@@ -339,6 +342,7 @@ def stamp_approval_on_pdf(pdf_bytes: bytes, approved_by: str, approved_at_utc: d
     writer.write(out)
     out.seek(0)
     return out.getvalue()
+
 
 def get_current_user(request: Request, session: Session) -> User:
     username = request.cookies.get("user")
@@ -3250,6 +3254,9 @@ def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_se
 
 
 
+from fastapi import HTTPException
+from starlette.responses import Response
+
 @app.get("/runs/{run_id}/export/pdf")
 def export_pdf(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -3264,9 +3271,6 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
 
     writer = PdfWriter()
 
-    # ✅ pick correct paper background by process
-    background_path = PAPER_BG_MAP.get(run.process, "")
-
     for day in days:
         # 1) Build 1-day excel
         xlsx_bytes = build_one_day_workbook_bytes(run_id, day, session)
@@ -3274,32 +3278,30 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
         # 2) Convert to PDF
         pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
 
-        
-        
-        # ✅ 3.5) Stamp approval signature ON TOP (only if approved)
+        # 3) Stamp approval if approved
         if (run.status or "").upper() == "APPROVED":
             pdf_bytes = stamp_approval_on_pdf(
                 pdf_bytes,
                 approved_by=getattr(run, "approved_by_user_name", "") or "",
                 approved_at_utc=getattr(run, "approved_at_utc", None),
             )
-        
-        # ✅ 4) Merge into final output
+
+        # 4) Merge pages
         reader = PdfReader(BytesIO(pdf_bytes))
         for page in reader.pages:
             writer.add_page(page)
-        
-        
-            out = BytesIO()
-            writer.write(out)
-            out.seek(0)
-        
-            filename = f"{run.process}_{run.dhtp_batch_no}_ALL_DAYS.pdf"
-            return Response(
-                content=out.getvalue(),
-                media_type="application/pdf",
-                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-            )
+
+    # 5) Write final output ONCE
+    out = BytesIO()
+    writer.write(out)
+    out.seek(0)
+
+    filename = f"{run.process}_{run.dhtp_batch_no}_ALL_DAYS.pdf"
+    return Response(
+        content=out.getvalue(),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 
@@ -3318,6 +3320,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
