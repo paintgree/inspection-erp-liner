@@ -6,6 +6,10 @@ import traceback
 from datetime import datetime, date, time as dtime, timedelta
 from io import BytesIO
 from typing import Dict, List, Optional, Tuple
+from zoneinfo import ZoneInfo
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+
 
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
@@ -265,6 +269,65 @@ def ensure_default_users():
         session.commit()
 
 
+OMAN_TZ = ZoneInfo("Asia/Muscat")
+
+def format_oman_dt(dt_utc: datetime | None) -> str:
+    if not dt_utc:
+        return ""
+    # dt_utc is stored as naive UTC in DB
+    dt_local = dt_utc.replace(tzinfo=ZoneInfo("UTC")).astimezone(OMAN_TZ)
+    return dt_local.strftime("%Y-%m-%d %H:%M")
+
+def make_approval_stamp_pdf(page_w: float, page_h: float, text_lines: list[str]) -> bytes:
+    """
+    Create a 1-page transparent PDF with approval text in bottom-right corner.
+    """
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=(page_w, page_h))
+
+    # position (bottom-right)
+    x = page_w - 40
+    y = 60
+
+    c.setFont("Helvetica-Bold", 10)
+    for line in text_lines:
+        c.drawRightString(x, y, line)
+        y -= 12
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return buf.getvalue()
+
+def stamp_approval_on_pdf(pdf_bytes: bytes, approved_by: str, approved_at_utc: datetime | None) -> bytes:
+    if not approved_by or not approved_at_utc:
+        return pdf_bytes
+
+    approved_local = format_oman_dt(approved_at_utc)
+
+    reader = PdfReader(BytesIO(pdf_bytes))
+    writer = PdfWriter()
+
+    for page in reader.pages:
+        w = float(page.mediabox.width)
+        h = float(page.mediabox.height)
+
+        stamp_pdf = make_approval_stamp_pdf(
+            w, h,
+            [
+                "APPROVED",
+                f"By: {approved_by}",
+                f"At: {approved_local} (Oman)",
+            ],
+        )
+        stamp_reader = PdfReader(BytesIO(stamp_pdf))
+        page.merge_page(stamp_reader.pages[0])
+        writer.add_page(page)
+
+    out = BytesIO()
+    writer.write(out)
+    out.seek(0)
+    return out.getvalue()
 
 def get_current_user(request: Request, session: Session) -> User:
     username = request.cookies.get("user")
@@ -1870,7 +1933,12 @@ def run_approve(run_id: int, request: Request, session: Session = Depends(get_se
     # If you want only CLOSED runs to be approved, keep this:
     if (run.status or "").upper() != "CLOSED":
         raise HTTPException(400, "Run must be CLOSED before approving")
-
+   
+    from datetime import datetime
+    
+    run.approved_by_user_id = user.id
+    run.approved_by_user_name = user.display_name or ""
+    run.approved_at_utc = datetime.utcnow()
     run.status = "APPROVED"
     session.add(run)
     session.commit()
@@ -3176,6 +3244,14 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
         if background_path and pdf_bytes and pdf_bytes.startswith(b"%PDF"):
             pdf_bytes = stamp_background_pdf(pdf_bytes, background_path)
 
+        if (run.status or "").upper() == "APPROVED":
+        pdf_bytes = stamp_approval_on_pdf(
+            pdf_bytes,
+            approved_by=getattr(run, "approved_by_user_name", "") or "",
+            approved_at_utc=getattr(run, "approved_at_utc", None),
+        )
+
+
         # 4) Merge into final output
         reader = PdfReader(BytesIO(pdf_bytes))
         for page in reader.pages:
@@ -3209,6 +3285,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
