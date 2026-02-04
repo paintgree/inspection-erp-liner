@@ -311,13 +311,23 @@ def stamp_approval_on_pdf(pdf_bytes: bytes, approved_by: str, approved_at_utc: d
     for page in reader.pages:
         w = float(page.mediabox.width)
         h = float(page.mediabox.height)
+        
+        approval = session.exec(
+            select(RunApproval)
+            .where(RunApproval.run_id == run.id)
+            .order_by(RunApproval.approved_at_utc.desc())
+        ).first()
+        
+        approved_by = approval.approved_by_name if approval else ""
+        approved_at_utc = approval.approved_at_utc if approval else None
+        
 
         stamp_pdf = make_approval_stamp_pdf(
             w, h,
             [
                 "APPROVED",
                 f"By: {approved_by}",
-                f"At: {approved_local} (Oman)",
+                f"At: {approved_local}",
             ],
         )
         stamp_reader = PdfReader(BytesIO(stamp_pdf))
@@ -1953,6 +1963,17 @@ def run_approve(run_id: int, request: Request, session: Session = Depends(get_se
     run.approved_by_user_name = user.display_name or ""
     run.approved_at_utc = datetime.utcnow()
     run.status = "APPROVED"
+    from datetime import datetime, timezone
+
+    # wherever you have your logged-in user object:
+    approved_name = (user.display_name or user.username or "Manager").strip()
+    
+    session.add(RunApproval(
+        run_id=run.id,
+        approved_by_name=approved_name,
+        approved_at_utc=datetime.now(timezone.utc),
+    ))
+ 
     session.add(run)
     session.commit()
 
@@ -3257,6 +3278,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
