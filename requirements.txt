@@ -9,6 +9,8 @@ passlib
 pypdf
 psycopg2-binary
 reportlab
+pypdf==4.2.0
+
 
 
 
