@@ -797,8 +797,8 @@ def apply_specs_to_template(ws, run: ProductionRun, session: Session):
         else:
             approved_at_str = ""
     
-        ws["B45"] = f"Approved by: {approved_name}"
-        ws["B46"] = f"Approved on: {approved_at_str}"
+        ws["M43"] = f"Approved by: {approved_name}"
+        ws["M43"] = f"Approved on: {approved_at_str}"
 
     for p in params:
         r = row_map.get(p.param_key)
@@ -3257,6 +3257,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
