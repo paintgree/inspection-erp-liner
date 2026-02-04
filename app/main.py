@@ -302,7 +302,11 @@ def make_approval_stamp_pdf(page_w: float, page_h: float, text_lines: list[str])
 
 from io import BytesIO
 from datetime import datetime
-from PyPDF2 import PdfReader, PdfWriter
+try:
+    from pypdf import PdfReader, PdfWriter
+except Exception:
+    from PyPDF2 import PdfReader, PdfWriter
+
 
 def stamp_approval_on_pdf(
     pdf_bytes: bytes,
@@ -3320,6 +3324,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
