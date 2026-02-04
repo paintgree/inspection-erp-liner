@@ -1858,6 +1858,26 @@ def run_close(run_id: int, request: Request, session: Session = Depends(get_sess
 
     return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
+    @app.post("/runs/{run_id}/approve")
+def run_approve(run_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)  # only manager can approve
+
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    # Optional rule: only allow approving after closing
+    # If you don't want this restriction, delete these 2 lines.
+    if (run.status or "").upper() != "CLOSED":
+        raise HTTPException(400, "Run must be CLOSED before approving")
+
+    run.status = "APPROVED"
+    session.add(run)
+    session.commit()
+
+    return RedirectResponse(f"/runs/{run_id}", status_code=302)
+
 
 @app.get("/runs/{run_id}/edit", response_class=HTMLResponse)
 def run_edit_get(run_id: int, request: Request, session: Session = Depends(get_session)):
@@ -3189,6 +3209,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
