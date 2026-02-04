@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
+from sqlalchemy import func
 
 
 from typing import Dict, List, Optional, Tuple
@@ -1979,6 +1980,27 @@ def run_approve(run_id: int, request: Request, session: Session = Depends(get_se
 
     return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
+@app.post("/runs/{run_id}/reopen")
+def run_reopen(run_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    require_manager(user)  # only manager can reopen
+
+    run = session.get(ProductionRun, run_id)
+    if not run:
+        raise HTTPException(404, "Run not found")
+
+    # Reopen allowed from CLOSED or APPROVED
+    run.status = "OPEN"
+
+    # If it was approved before, clear approval fields so it behaves like a normal open run again
+    run.approved_by_user_id = None
+    run.approved_by_user_name = ""
+    run.approved_at_utc = None
+
+    session.add(run)
+    session.commit()
+
+    return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
 
 @app.get("/runs/{run_id}/edit", response_class=HTMLResponse)
@@ -3278,6 +3300,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
