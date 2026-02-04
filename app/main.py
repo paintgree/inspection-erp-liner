@@ -3250,6 +3250,18 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
             approved_by=getattr(run, "approved_by_user_name", "") or "",
             approved_at_utc=getattr(run, "approved_at_utc", None),
         )
+        
+        # ✅ 3) Stamp background UNDER the page
+        if background_path:
+            pdf_bytes = stamp_background_pdf(pdf_bytes, background_path)
+        
+        # ✅ 3.5) Stamp approval signature ON TOP (only if approved)
+        if (run.status or "").upper() == "APPROVED":
+            pdf_bytes = stamp_approval_on_pdf(
+                pdf_bytes,
+                approved_by=getattr(run, "approved_by_user_name", "") or "",
+                approved_at_utc=getattr(run, "approved_at_utc", None),
+            )
 
 
         # 4) Merge into final output
@@ -3285,6 +3297,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
