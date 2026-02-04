@@ -1530,7 +1530,7 @@ def create_shipment_inspection(
     # 2) If there is a DRAFT shipment with same DN => resume it
     draft = get_draft_shipment_by_dn(session, lot_id, dn)
     if draft:
-        return RedirectResponse(f"/mrr/{lot_id}/inspection/{draft.id}", status_code=303)
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{draft.id}", status_code=303)
 
     # 3) If there is a SUBMITTED shipment with same DN => block
     used = get_submitted_shipment_by_dn(session, lot_id, dn)
@@ -1681,7 +1681,7 @@ def run_new_post(
     return RedirectResponse("/dashboard", status_code=302)
 
 @app.get("/mrr/{lot_id}/inspection/id/{inspection_id}", response_class=HTMLResponse)
-def shipment_inspection_form(lot_id: int, inspection_id: int, request: Request, session: Session = Depends(get_session)):
+def shipment_inspection_form(
     lot_id: int,
     inspection_id: int,
     request: Request,
@@ -1700,7 +1700,6 @@ def shipment_inspection_form(lot_id: int, inspection_id: int, request: Request, 
     # Header source of truth:
     # - PO = ticket
     # - Report/DN/Qty/Unit = shipment record
-    import json
     try:
         data = json.loads(inspection.inspection_json or "{}")
     except Exception:
@@ -1708,12 +1707,11 @@ def shipment_inspection_form(lot_id: int, inspection_id: int, request: Request, 
 
     # Ensure report_no exists even for older drafts
     if not getattr(inspection, "report_no", None):
-        # fallback (should not happen if your model has report_no)
         data["report_no"] = data.get("report_no") or generate_report_no(lot_id, 1)
     else:
         data["report_no"] = inspection.report_no
 
-    # Mirror shipment fields into json (template reads inspection + data)
+    # Mirror shipment fields into json
     data["delivery_note_no"] = inspection.delivery_note_no or ""
     data["qty_arrived"] = inspection.qty_arrived if inspection.qty_arrived is not None else ""
     data["qty_unit"] = inspection.qty_unit or "KG"
@@ -1728,6 +1726,7 @@ def shipment_inspection_form(lot_id: int, inspection_id: int, request: Request, 
             "inspection_data": data,
         },
     )
+
 
 @app.get("/runs/{run_id}", response_class=HTMLResponse)
 def run_view(run_id: int, request: Request, session: Session = Depends(get_session)):
@@ -3190,6 +3189,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
