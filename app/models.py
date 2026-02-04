@@ -38,6 +38,10 @@ class ProductionRun(SQLModel, table=True):
 
     total_length_m: float = Field(default=0.0)
     status: str = Field(default="OPEN")  # OPEN / CLOSED / APPROVED
+      # ✅ Approval audit fields
+    approved_by_user_id: Optional[int] = Field(default=None, index=True)
+    approved_by_user_name: str = Field(default="")
+    approved_at_utc: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -248,6 +252,7 @@ class MrrReceivingInspection(SQLModel, table=True):
 # Your main.py imports MrrInspection, but the real model you use everywhere
 # is MrrReceivingInspection. This alias fixes the import error cleanly.
 MrrInspection = MrrReceivingInspection
+
 
 
 
