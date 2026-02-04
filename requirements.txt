@@ -8,5 +8,7 @@ openpyxl
 passlib
 pypdf
 psycopg2-binary
+reportlab
+
 
 
