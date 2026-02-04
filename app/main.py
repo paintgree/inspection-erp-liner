@@ -1107,7 +1107,8 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
-    block_if_mrr_canceled(lot)
+
+    readonly = is_mrr_canceled(lot)  # ✅ canceled tickets = view-only
 
     docs = session.exec(
         select(MrrDocument)
@@ -1116,8 +1117,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
     ).all()
 
     receiving = session.exec(
-        select(MrrReceiving)
-        .where(MrrReceiving.ticket_id == lot_id)
+        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
     ).first()
 
     inspection = session.exec(
@@ -1127,8 +1127,8 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
     ).first()
 
     docs_ok = bool(receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po))
-    insp_submitted = bool(inspection and getattr(inspection, 'inspector_confirmed', False))
-    insp_ok = bool(inspection and getattr(inspection, 'manager_approved', False))
+    insp_submitted = bool(inspection and getattr(inspection, "inspector_confirmed", False))
+    insp_ok = bool(inspection and getattr(inspection, "manager_approved", False))
 
     return templates.TemplateResponse(
         "mrr_view.html",
@@ -1142,6 +1142,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
             "insp_submitted": insp_submitted,
             "insp_ok": insp_ok,
             "inspection": inspection,
+            "readonly": readonly,  # ✅ NEW
             "error": request.query_params.get("error", ""),
         },
     )
@@ -3324,6 +3325,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
