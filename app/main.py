@@ -1430,7 +1430,7 @@ async def shipment_inspection_submit(
     # DN must match the shipment DN (no editing here)
     dn = (insp.delivery_note_no or "").strip()
     if not dn:
-        return RedirectResponse(f"/mrr/{lot_id}/inspection/{inspection_id}", status_code=303)
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{insp.id}", status_code=303)
 
     # Block only if ANOTHER submitted shipment already used this DN
     used = session.exec(
@@ -1599,7 +1599,7 @@ def create_shipment_inspection(
     session.commit()
     session.refresh(insp)
 
-    return RedirectResponse(f"/mrr/{lot_id}/inspection/{insp.id}", status_code=303)
+    return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{insp.id}", status_code=303)
 
 
 
@@ -1680,8 +1680,8 @@ def run_new_post(
 
     return RedirectResponse("/dashboard", status_code=302)
 
-@app.get("/mrr/{lot_id}/inspection/{inspection_id}", response_class=HTMLResponse)
-def shipment_inspection_form(
+@app.get("/mrr/{lot_id}/inspection/id/{inspection_id}", response_class=HTMLResponse)
+def shipment_inspection_form(lot_id: int, inspection_id: int, request: Request, session: Session = Depends(get_session)):
     lot_id: int,
     inspection_id: int,
     request: Request,
@@ -3190,6 +3190,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
