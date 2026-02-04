@@ -5,6 +5,16 @@ from typing import Optional
 
 from sqlmodel import SQLModel, Field
 
+from datetime import datetime
+from typing import Optional
+from sqlmodel import SQLModel, Field
+
+class RunApproval(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    run_id: int = Field(index=True)
+
+    approved_by_name: str
+    approved_at_utc: datetime = Field(index=True)
 
 # =========================
 # USERS
@@ -221,6 +231,7 @@ class MrrReceiving(SQLModel, table=True):
 
 
 
+
 class MrrReceivingInspection(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -252,6 +263,7 @@ class MrrReceivingInspection(SQLModel, table=True):
 # Your main.py imports MrrInspection, but the real model you use everywhere
 # is MrrReceivingInspection. This alias fixes the import error cleanly.
 MrrInspection = MrrReceivingInspection
+
 
 
 
