@@ -940,13 +940,37 @@ def mrr_list_canceled(request: Request, session: Session = Depends(get_session))
 
     lots = session.exec(
         select(MaterialLot)
-        .where(func.upper(MaterialLot.status) == "CANCELED")
+        .where(MaterialLot.status == MRR_CANCELED_STATUS)
         .order_by(MaterialLot.id.desc())
     ).all()
 
+    lot_ids = [l.id for l in lots if l and l.id is not None]
+
+    receiving_map = {}
+    inspection_map = {}
+
+    if lot_ids:
+        receivings = session.exec(
+            select(MrrReceiving).where(MrrReceiving.ticket_id.in_(lot_ids))
+        ).all()
+        receiving_map = {r.ticket_id: r for r in receivings}
+
+        inspections = session.exec(
+            select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id.in_(lot_ids))
+        ).all()
+        inspection_map = {i.ticket_id: i for i in inspections}
+
     return templates.TemplateResponse(
         "mrr_list.html",
-        {"request": request, "user": user, "lots": lots, "showing_canceled": True},
+        {
+            "request": request,
+            "user": user,
+            "lots": lots,
+            "receiving_map": receiving_map,
+            "inspection_map": inspection_map,
+            "error": "",
+            "showing_canceled": True,
+        },
     )
 
 @app.get("/mrr/new", response_class=HTMLResponse)
@@ -3300,6 +3324,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
