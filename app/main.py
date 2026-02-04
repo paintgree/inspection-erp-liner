@@ -936,7 +936,8 @@ def mrr_list(request: Request, session: Session = Depends(get_session)):
 def mrr_list_canceled(request: Request, session: Session = Depends(get_session)):
     """Show canceled (soft-deleted) MRR tickets for audit/review."""
     user = get_current_user(request, session)
-    forbid_guest(user)
+    forbid_operator(user)
+
 
     lots = session.exec(
         select(MaterialLot)
@@ -3324,6 +3325,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
