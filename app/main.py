@@ -1970,40 +1970,33 @@ def run_close(run_id: int, request: Request, session: Session = Depends(get_sess
 
     return RedirectResponse(f"/runs/{run_id}", status_code=302)
 
+from datetime import datetime
+from fastapi import HTTPException
+from starlette.responses import RedirectResponse
+
 @app.post("/runs/{run_id}/approve")
 def run_approve(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
-    require_manager(user)
+    require_manager(user)  # only managers can approve
 
     run = session.get(ProductionRun, run_id)
     if not run:
-        raise HTTPException(404, "Run not found")
+        raise HTTPException(status_code=404, detail="Run not found")
 
-    # If you want only CLOSED runs to be approved, keep this:
+    # Require CLOSED before approving (keep or remove depending on your rule)
     if (run.status or "").upper() != "CLOSED":
-        raise HTTPException(400, "Run must be CLOSED before approving")
-   
-    from datetime import datetime
-    
+        raise HTTPException(status_code=400, detail="Run must be CLOSED before approving")
+
+    run.status = "APPROVED"
     run.approved_by_user_id = user.id
     run.approved_by_user_name = user.display_name or ""
     run.approved_at_utc = datetime.utcnow()
-    run.status = "APPROVED"
-    from datetime import datetime, timezone
 
-    # wherever you have your logged-in user object:
-    approved_name = (user.display_name or user.username or "Manager").strip()
-    
-    session.add(RunApproval(
-        run_id=run.id,
-        approved_by_name=approved_name,
-        approved_at_utc=datetime.now(timezone.utc),
-    ))
- 
     session.add(run)
     session.commit()
 
-    return RedirectResponse(f"/runs/{run_id}", status_code=302)
+    return RedirectResponse(url=f"/runs/{run_id}", status_code=302)
+
 
 @app.post("/runs/{run_id}/reopen")
 def run_reopen(run_id: int, request: Request, session: Session = Depends(get_session)):
@@ -3325,6 +3318,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
