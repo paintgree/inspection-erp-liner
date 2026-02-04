@@ -786,6 +786,19 @@ def apply_specs_to_template(ws, run: ProductionRun, session: Session):
     else:  # REINFORCEMENT
         SPEC_COL = "D"
         TOL_COL = "E"
+        
+    if (run.status or "").upper() == "APPROVED":
+        approved_name = run.approved_by_user_name or ""
+        approved_at = run.approved_at_utc
+    
+        if approved_at:
+            oman_time = approved_at.astimezone(ZoneInfo("Asia/Muscat"))
+            approved_at_str = oman_time.strftime("%d-%m-%Y %H:%M")
+        else:
+            approved_at_str = ""
+    
+        ws["B45"] = f"Approved by: {approved_name}"
+        ws["B46"] = f"Approved on: {approved_at_str}"
 
     for p in params:
         r = row_map.get(p.param_key)
@@ -2935,43 +2948,6 @@ from pypdf import Transformation
 from io import BytesIO
 import os
 
-def stamp_background_pdf(data_pdf_bytes: bytes, background_pdf_path: str, y_shift_pts: float = -50) -> bytes:
-    """
-    Stamp background UNDER the page, then place the data on top,
-    but shift the data DOWN by y_shift_pts points.
-
-    y_shift_pts:
-      -18 means move down ~6.35mm (good starting point)
-      try -12, -18, -24 until perfect.
-    """
-    if not background_pdf_path or not os.path.exists(background_pdf_path):
-        return data_pdf_bytes
-
-    data_reader = PdfReader(BytesIO(data_pdf_bytes))
-    bg_reader = PdfReader(background_pdf_path)
-
-    writer = PdfWriter()
-    bg_pages = bg_reader.pages
-    bg_count = len(bg_pages)
-
-    for i, data_page in enumerate(data_reader.pages):
-        bg_page = bg_pages[i] if (bg_count > 1 and i < bg_count) else bg_pages[0]
-
-        w = float(data_page.mediabox.width)
-        h = float(data_page.mediabox.height)
-        new_page = writer.add_blank_page(width=w, height=h)
-
-        # Background first
-        new_page.merge_page(bg_page)
-
-        # Data second, shifted DOWN
-        t = Transformation().translate(tx=0, ty=y_shift_pts)
-        new_page.merge_transformed_page(data_page, t)
-
-    out = BytesIO()
-    writer.write(out)
-    out.seek(0)
-    return out.getvalue()
 
 
 
@@ -3190,10 +3166,7 @@ def mrr_export_pdf(lot_id: int, request: Request, session: Session = Depends(get
     # 2) Convert to PDF
     pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
 
-    # 3) Stamp MRR background (NOT the production PAPER_BG_MAP)
-    bg_path = MRR_PAPER_BG_MAP.get(template_kind, "")
-    if bg_path:
-        pdf_bytes = stamp_background_pdf(pdf_bytes, bg_path, y_shift_pts=-30)
+   
 
     filename = f"MRR_{template_kind}_{lot_id}.pdf"
     return Response(
@@ -3240,9 +3213,7 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
         # 2) Convert to PDF
         pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
 
-        # ✅ 3) Stamp background UNDER the page
-        if background_path and pdf_bytes and pdf_bytes.startswith(b"%PDF"):
-            pdf_bytes = stamp_background_pdf(pdf_bytes, background_path)
+        
         
         # ✅ 3.5) Stamp approval signature ON TOP (only if approved)
         if (run.status or "").upper() == "APPROVED":
@@ -3286,6 +3257,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
