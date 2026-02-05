@@ -816,8 +816,19 @@ def apply_specs_to_template(ws, run: ProductionRun, session: Session):
         else:
             approved_at_str = ""
     
-        ws["M43"] = f"Approved by: {approved_name}"
-        ws["M43"] = f"Approved on: {approved_at_str}"
+        # --- Approval stamp cell differs by template/process ---
+        proc = (run.process or "").strip().upper()
+        
+        if proc == "REINFORCEMENT":
+            # Reinforcement template: merged stamp area starts at M42
+            ws["M42"] = f"Approved by: {approved_name}"
+            # if you also set time/date, put it in the same merged cell:
+            # ws["M42"] = f"Approved by: {approved_name}\nApproved at: {approved_time}"
+        else:
+            # Liner + Cover templates (your original behavior)
+            ws["M43"] = f"Approved by: {approved_name}"
+            # ws["M44"] = f"Approved at: {approved_time}"  # if you had this line originally
+        
 
     for p in params:
         r = row_map.get(p.param_key)
@@ -3325,6 +3336,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
