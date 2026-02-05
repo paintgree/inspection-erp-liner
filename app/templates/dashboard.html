@@ -1,152 +1,283 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="card">
-  <div class="runheader">
-    <div>
-      <h1>Dashboard</h1>
-      <div class="muted">Welcome, {{ user.display_name }}</div>
+{# =============================
+   Small counters for KPIs
+============================= #}
+{% set ns = namespace(total_runs=0, open_runs=0, closed_runs=0, approved_runs=0) %}
+{% for batch, batch_runs in grouped.items() %}
+  {% for r in batch_runs %}
+    {% set ns.total_runs = ns.total_runs + 1 %}
+    {% set st = (r.status or "")|upper %}
+    {% if st == "OPEN" %}{% set ns.open_runs = ns.open_runs + 1 %}{% endif %}
+    {% if st == "CLOSED" %}{% set ns.closed_runs = ns.closed_runs + 1 %}{% endif %}
+    {% if st == "APPROVED" %}{% set ns.approved_runs = ns.approved_runs + 1 %}{% endif %}
+  {% endfor %}
+{% endfor %}
+
+<div class="dash-shell">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="dash-side">
+    <div class="dash-brand">
+      <div class="dash-logo">ERP</div>
+      <div>
+        <div class="dash-title">Inspection ERP</div>
+        <div class="dash-sub">Logged in: {{ user.display_name }}</div>
+      </div>
     </div>
 
-    <div class="actions">
-      <a class="btn" href="/mrr">MRR</a>
+    <nav class="dash-nav">
+      <a class="dash-link active" href="/dashboard">
+        <span class="dash-ico">
+          <!-- home -->
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1v-10.5z"/></svg>
+        </span>
+        Overview
+      </a>
+
+      <div class="dash-section">Quality Control</div>
+
+      <a class="dash-link" href="/mrr">
+        <span class="dash-ico">
+          <!-- clipboard -->
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6a2 2 0 0 1 2 2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2-2zm0 2v2h6V4H9zm-4 4v12h14V8H5z"/></svg>
+        </span>
+        MRR
+      </a>
+
+      <a class="dash-link" href="#runs">
+        <span class="dash-ico">
+          <!-- chart -->
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16v2H2V3h2v16zm4-2H6V9h2v8zm6 0h-2V5h2v12zm6 0h-2v-6h2v6z"/></svg>
+        </span>
+        Inspection Runs
+      </a>
+
+      <div class="dash-section">Warehouse</div>
+
+      <a class="dash-link disabled" href="javascript:void(0)">
+        <span class="dash-ico">
+          <!-- box -->
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8.5 12 3 3 8.5V20a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8.5zM12 5.2l6.5 3.6L12 12 5.5 8.8 12 5.2zM5 10.6l6 3.3V19H5v-8.4zm14 0V19h-6v-5.1l6-3.3z"/></svg>
+        </span>
+        Warehouse
+        <span class="pill pill-muted">Coming soon</span>
+      </a>
+    </nav>
+
+    <div class="dash-bottom">
       {% if user.role and (user.role|upper == "MANAGER" or user.role|upper == "RUN_CREATOR") %}
-        <a class="btn btn-primary" href="/runs/new">+ New Production Run</a>
+        <a class="btn btn-primary w100" href="/runs/new">+ New Production Run</a>
       {% endif %}
+
       {% if user.role and user.role|upper == "MANAGER" %}
-        <a class="btn" href="/users">Users</a>
+        <a class="btn w100 mt8" href="/users">Users</a>
       {% endif %}
-      <a class="btn btn-ghost" href="/logout">Logout</a>
+
+      <a class="btn btn-ghost w100 mt8" href="/logout">Logout</a>
     </div>
-  </div>
+  </aside>
 
-  <!-- =========================
-       MRR SUMMARY
-  ========================== -->
-  <div class="card inner mt">
-    <h2>MRR Summary</h2>
+  <!-- ============ MAIN ============ -->
+  <main class="dash-main">
 
-    <div class="grid3 mt">
-      <div class="card inner">
-        <div class="muted">Pending Documentation</div>
-        <h2 style="margin:6px 0;">{{ mrr_stats.pending_docs }}</h2>
+    <!-- Topbar -->
+    <div class="dash-top">
+      <div>
+        <h1 class="dash-h1">Operations Overview</h1>
+        <div class="muted">Real-time overview across Quality Control (MRR + Inspection Runs).</div>
       </div>
 
-      <div class="card inner">
-        <div class="muted">Docs Cleared (waiting inspection)</div>
-        <h2 style="margin:6px 0;">{{ mrr_stats.docs_cleared }}</h2>
-      </div>
-
-      <div class="card inner">
-        <div class="muted">Inspection Submitted (needs manager)</div>
-        <h2 style="margin:6px 0;">{{ mrr_stats.insp_submitted }}</h2>
+      <div class="dash-top-actions">
+        <a class="btn" href="/dashboard">Refresh</a>
+        <a class="btn btn-ghost" href="/mrr">Open MRR</a>
       </div>
     </div>
 
-    <div class="mt">
-      <div class="muted">Production Approved (usable batches)</div>
-      <h2 style="margin:6px 0;">{{ mrr_stats.final_approved }}</h2>
-      <a class="btn mt" href="/mrr">Open MRR</a>
-    </div>
-  </div>
-
-  <!-- =========================
-       PROCESS ICONS (NEW)
-       Requires backend to pass:
-         process_stats: dict like:
-           {
-             "LINER": {"icon": "/static/images/liner.png", "open":1,"closed":2,"approved":3,"avg_progress":55},
-             "REINFORCEMENT": {...},
-             "COVER": {...},
-           }
-         selected_process: string or "" (optional)
-  ========================== -->
-  {% if process_stats %}
-    <div class="card inner mt">
-      <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:12px;">
-        <div>
-          <h2 style="margin:0;">Processes</h2>
-          <div class="muted">Click an icon to view runs for that process.</div>
-        </div>
-
-        {% if selected_process %}
-          <a class="btn btn-ghost" href="/dashboard">Show all</a>
-        {% endif %}
-      </div>
-
-      <div class="proc-grid mt">
-        {% for proc, st in process_stats.items() %}
-          <a class="proc-card {% if selected_process == proc %}active{% endif %}"
-             href="/dashboard{% if selected_process == proc %}{% else %}?process={{ proc }}{% endif %}">
-
-            <div class="proc-icon">
-              {% if st.icon %}
-                <img src="{{ st.icon }}" alt="{{ proc }}">
-              {% else %}
-                <div class="proc-fallback">{{ proc[0] }}</div>
-              {% endif %}
-            </div>
-
-            <div class="proc-meta">
-              <div class="proc-title">{{ proc }}</div>
-
-              <div class="proc-sub">
-                Avg progress: <b>{{ st.avg_progress }}%</b>
-              </div>
-
-              <div class="proc-badges">
-                <span class="badge badge-ok">Open: {{ st.open }}</span>
-                <span class="badge badge-warn">Closed: {{ st.closed }}</span>
-                <span class="badge badge-muted">Approved: {{ st.approved }}</span>
-              </div>
-            </div>
-          </a>
-        {% endfor %}
-      </div>
-    </div>
-  {% endif %}
-
-  <!-- =========================
-       PRODUCTION RUNS
-  ========================== -->
-  <div class="card inner mt">
-    <h2>Production Runs</h2>
-
-    {% if grouped|length == 0 %}
-      <div class="muted">No runs yet.</div>
-    {% else %}
-      {% for batch, batch_runs in grouped.items() %}
-        <div class="card inner mt">
-          <h3 style="margin:0 0 8px 0;">Batch: {{ batch }}</h3>
-
-          <div class="tablewrap">
-            <table class="table wide">
-              <thead>
-                <tr>
-                  <th>Process</th>
-                  <th>Status</th>
-                  <th>Progress</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for r in batch_runs %}
-                  <tr>
-                    <td><b>{{ r.process }}</b></td>
-                    <td>{{ r.status }}</td>
-                    <td>{{ progress_map.get(r.id, 0) }}%</td>
-                    <td>
-                      <a class="btn" href="/runs/{{ r.id }}">Open</a>
-                    </td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+    <!-- KPI CARDS -->
+    <div class="kpi-row">
+      <div class="kpi-card">
+        <div class="kpi-head">
+          <div class="kpi-ico">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h10v2H7V2zM5 6h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zm0 2v12h14V8H5z"/></svg>
           </div>
+          <div class="kpi-title">Pending Documentation</div>
         </div>
-      {% endfor %}
-    {% endif %}
-  </div>
+        <div class="kpi-value">{{ mrr_stats.pending_docs }}</div>
+        <div class="kpi-sub">MRR tickets missing required docs/confirmation</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-head">
+          <div class="kpi-ico">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.2 4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+          </div>
+          <div class="kpi-title">Docs Cleared</div>
+        </div>
+        <div class="kpi-value">{{ mrr_stats.docs_cleared }}</div>
+        <div class="kpi-sub">Ready for Receiving Inspection</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-head">
+          <div class="kpi-ico">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 11H7v-2h4V7h2z"/></svg>
+          </div>
+          <div class="kpi-title">Inspection Submitted</div>
+        </div>
+        <div class="kpi-value">{{ mrr_stats.insp_submitted }}</div>
+        <div class="kpi-sub">Waiting manager approval</div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-head">
+          <div class="kpi-ico">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5zm0 7L2 4v6l10 5 10-5V4l-10 5zm0 6L2 10v7l10 5 10-5v-7l-10 5z"/></svg>
+          </div>
+          <div class="kpi-title">Usable Batches</div>
+        </div>
+        <div class="kpi-value">{{ mrr_stats.final_approved }}</div>
+        <div class="kpi-sub">Production-approved RAW batches</div>
+      </div>
+    </div>
+
+    <!-- MODULE TILES -->
+    <div class="tile-row">
+      <a class="tile" href="/mrr">
+        <div class="tile-ico">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2h6a2 2 0 0 1 2 2h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2a2 2 0 0 1 2-2zm0 2v2h6V4H9zm-4 4v12h14V8H5z"/></svg>
+        </div>
+        <div class="tile-body">
+          <div class="tile-title">MRR</div>
+          <div class="tile-sub">Material Receiving Register</div>
+        </div>
+        <div class="tile-meta">
+          <span class="pill pill-warn">Pending: {{ mrr_stats.pending_docs }}</span>
+          <span class="pill pill-ok">Usable: {{ mrr_stats.final_approved }}</span>
+        </div>
+      </a>
+
+      <a class="tile" href="#runs">
+        <div class="tile-ico">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19h16v2H2V3h2v16zm4-2H6V9h2v8zm6 0h-2V5h2v12zm6 0h-2v-6h2v6z"/></svg>
+        </div>
+        <div class="tile-body">
+          <div class="tile-title">Inspection Runs</div>
+          <div class="tile-sub">In-process inspection tracking</div>
+        </div>
+        <div class="tile-meta">
+          <span class="pill pill-muted">Total: {{ ns.total_runs }}</span>
+          <span class="pill pill-ok">Approved: {{ ns.approved_runs }}</span>
+        </div>
+      </a>
+
+      <div class="tile disabled">
+        <div class="tile-ico">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8.5 12 3 3 8.5V20a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8.5zM12 5.2l6.5 3.6L12 12 5.5 8.8 12 5.2z"/></svg>
+        </div>
+        <div class="tile-body">
+          <div class="tile-title">Warehouse</div>
+          <div class="tile-sub">Incoming / outgoing / stock (later)</div>
+        </div>
+        <div class="tile-meta">
+          <span class="pill pill-muted">Coming soon</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROCESS SHORTCUTS -->
+    <div class="card dash-panel mt" id="runs">
+      <div class="panel-head">
+        <div>
+          <h2 style="margin:0;">Quality Control</h2>
+          <div class="muted">Quick access by process</div>
+        </div>
+      </div>
+
+      <div class="process-row">
+        <a class="process-card" href="#runs-table">
+          <div class="process-icon">🧪</div>
+          <div class="process-title">LINER</div>
+          <div class="process-sub">In-process (liner)</div>
+        </a>
+
+        <a class="process-card" href="#runs-table">
+          <div class="process-icon">🧵</div>
+          <div class="process-title">REINFORCEMENT</div>
+          <div class="process-sub">In-process (reinforcement)</div>
+        </a>
+
+        <a class="process-card" href="#runs-table">
+          <div class="process-icon">🧱</div>
+          <div class="process-title">COVER</div>
+          <div class="process-sub">In-process (cover)</div>
+        </a>
+      </div>
+    </div>
+
+    <!-- RUNS TABLE -->
+    <div class="card dash-panel mt" id="runs-table">
+      <div class="panel-head">
+        <div>
+          <h2 style="margin:0;">Production Runs</h2>
+          <div class="muted">Grouped by batch number</div>
+        </div>
+        <div class="panel-kpis">
+          <span class="pill pill-muted">Open: {{ ns.open_runs }}</span>
+          <span class="pill pill-muted">Closed: {{ ns.closed_runs }}</span>
+          <span class="pill pill-ok">Approved: {{ ns.approved_runs }}</span>
+        </div>
+      </div>
+
+      {% if grouped|length == 0 %}
+        <div class="muted mt">No runs yet.</div>
+      {% else %}
+        {% for batch, batch_runs in grouped.items() %}
+          <div class="batch-block mt">
+            <div class="batch-head">
+              <div class="batch-title">Batch: {{ batch }}</div>
+            </div>
+
+            <div class="tablewrap">
+              <table class="table wide">
+                <thead>
+                  <tr>
+                    <th>Process</th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for r in batch_runs %}
+                    <tr>
+                      <td><b>{{ r.process }}</b></td>
+                      <td>
+                        {% set st = (r.status or "")|upper %}
+                        <span class="status-pill status-{{ st|lower }}">{{ st }}</span>
+                      </td>
+                      <td>
+                        <div class="progressbar">
+                          {% set pct = progress_map.get(r.id, 0) %}
+                          <div class="progressfill" style="width: {{ pct }}%;"></div>
+                        </div>
+                        <div class="muted tiny">{{ pct }}%</div>
+                      </td>
+                      <td>
+                        <a class="btn" href="/runs/{{ r.id }}">Open</a>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+
+  </main>
 </div>
 
 {% endblock %}
