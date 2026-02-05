@@ -775,21 +775,57 @@ def _safe_float(x: Optional[str]) -> Optional[float]:
 # =========================
 # Excel row maps (template coordinates)
 # =========================
-# These map param_key -> Excel row number in the template (the row where the value goes).
-# You MUST match your template files exactly.
+# Map param_key (from RunParameter.param_key / edit page "key: ...")
+# -> Excel ROW number where that parameter's value belongs in the template.
+#
+# Liner + Cover template:
+#   Spec column = C, Tol column = D (your apply_specs_to_template already uses this)
+#
+# Reinforcement template:
+#   Spec column = D, Tol column = E
 
 ROW_MAP_LINER_COVER = {
-    # مثال / Example:
-    # "length_m": 23,
-    # "id_mm": 24,
-    # "od_mm": 25,
+    # From your liner screenshot (sheet: In-process (Liner)):
+    "length_m": 22,
+    "od_mm": 23,
+    "wall_thickness_mm": 24,
+    "cooling_water_c": 25,
+    "line_speed_m_min": 26,
+    "tractor_pressure_mpa": 27,
+
+    # If your edit page keys match these (very likely):
+    "body_temp_1": 28,
+    "body_temp_2": 29,
+    "body_temp_3": 30,
+    "body_temp_4": 31,
+    "body_temp_5": 32,
+
+    "noising_temp_1": 33,
+    "noising_temp_2": 34,
+    "noising_temp_3": 35,
+    "noising_temp_4": 36,
+    "noising_temp_5": 37,
 }
 
 ROW_MAP_REINF = {
-    # Example:
-    # "length_m": 22,
-    # "angle_deg": 23,
+    # From your reinforcement screenshot (sheet: In-process (Reinforcement)):
+    "length_m": 21,
+
+    # IMPORTANT:
+    # These keys MUST match what your edit page shows as: key: ....
+    # If your keys are different, keep the row numbers but rename the keys.
+    "annular_od_1_mm": 22,
+    "annular_od_2_mm": 23,
+    "internal_tensile_od_mm": 24,
+    "external_tensile_od_mm": 25,
+    "core_mould_dia_mm": 26,
+    "annular_width_1_mm": 27,
+    "annular_width_2_mm": 28,
+
+    # Next visible row in your screenshot looks like it continues at 29:
+    "screw_yarn_width_mm": 29,
 }
+
 
 
 def apply_specs_to_template(ws, run: ProductionRun, session: Session):
@@ -3338,6 +3374,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
