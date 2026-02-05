@@ -311,3 +311,74 @@ tr.length-row td{
 tr.length-row td .celllink{
   font-weight:900;
 }
+.proc-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap:14px;
+}
+
+.proc-card{
+  display:flex;
+  gap:14px;
+  align-items:center;
+  padding:14px;
+  border:1px solid #e6e9ef;
+  border-radius:14px;
+  background:#fff;
+  text-decoration:none;
+  color:inherit;
+  transition:transform .08s ease, box-shadow .08s ease, border-color .08s ease;
+}
+
+.proc-card:hover{
+  transform: translateY(-1px);
+  box-shadow:0 8px 20px rgba(0,0,0,0.06);
+  border-color:#d5dbe7;
+}
+
+.proc-card.active{
+  border-color:#9db5ff;
+  box-shadow:0 10px 24px rgba(80,120,255,0.12);
+}
+
+.proc-icon{
+  width:56px;
+  height:56px;
+  border-radius:14px;
+  border:1px solid #eef1f6;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#fafbfe;
+  overflow:hidden;
+}
+
+.proc-icon img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.proc-fallback{
+  font-weight:800;
+  font-size:22px;
+}
+
+.proc-title{
+  font-size:16px;
+  font-weight:800;
+}
+
+.proc-sub{
+  font-size:12px;
+  opacity:.75;
+  margin-top:2px;
+}
+
+.proc-badges{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:8px;
+}
+
