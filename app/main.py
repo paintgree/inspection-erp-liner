@@ -882,8 +882,17 @@ def apply_specs_to_template(ws, run: ProductionRun, session: Session):
 def dashboard(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
-    # Production runs
-    runs = session.exec(select(ProductionRun).order_by(ProductionRun.created_at.desc())).all()
+    # Optional filter (?process=LINER)
+    q_process = (request.query_params.get("process") or "").strip().upper()
+    if q_process and q_process not in ["LINER", "REINFORCEMENT", "COVER"]:
+        q_process = ""
+
+    # Production runs (optionally filtered)
+    q = select(ProductionRun).order_by(ProductionRun.created_at.desc())
+    if q_process:
+        q = q.where(ProductionRun.process == q_process)
+
+    runs = session.exec(q).all()
 
     grouped: Dict[str, List[ProductionRun]] = {}
     for r in runs:
@@ -891,8 +900,43 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
 
     progress_map = {r.id: get_progress_percent(session, r) for r in runs}
 
-    # ✅ MRR status summary (simple + useful)
-    lots = session.exec(select(MaterialLot).where(MaterialLot.status != MRR_CANCELED_STATUS).order_by(MaterialLot.created_at.desc())).all()
+    # ---------- Process tiles stats ----------
+    # Always compute tiles from ALL runs (not filtered), so user can switch easily.
+    all_runs = session.exec(select(ProductionRun).order_by(ProductionRun.created_at.desc())).all()
+
+    process_stats = {}
+    for proc in ["LINER", "REINFORCEMENT", "COVER"]:
+        proc_runs = [r for r in all_runs if (r.process or "").upper() == proc]
+        if not proc_runs:
+            continue
+
+        open_cnt = sum(1 for r in proc_runs if (r.status or "").upper() == "OPEN")
+        closed_cnt = sum(1 for r in proc_runs if (r.status or "").upper() == "CLOSED")
+        approved_cnt = sum(1 for r in proc_runs if (r.status or "").upper() == "APPROVED")
+
+        # Average progress (safe)
+        if proc_runs:
+            avg_progress = int(
+                sum(get_progress_percent(session, r) for r in proc_runs) / max(1, len(proc_runs))
+            )
+        else:
+            avg_progress = 0
+
+        process_stats[proc] = {
+            "open": open_cnt,
+            "closed": closed_cnt,
+            "approved": approved_cnt,
+            "avg_progress": avg_progress,
+            "icon": IMAGE_MAP.get(proc, ""),  # you already have icons in static/images
+        }
+
+    # ---------- MRR status summary ----------
+    lots = session.exec(
+        select(MaterialLot)
+        .where(MaterialLot.status != MRR_CANCELED_STATUS)
+        .order_by(MaterialLot.created_at.desc())
+    ).all()
+
     lot_ids = [l.id for l in lots if l and l.id is not None]
 
     receiving_map = {}
@@ -922,7 +966,7 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
         insp_submitted = bool(insp and insp.inspector_confirmed)
         insp_ok = bool(insp and insp.manager_approved)
 
-        if lot.status == "APPROVED":
+        if (lot.status or "").upper() == "APPROVED":
             mrr_final_approved += 1
         else:
             if not docs_ok:
@@ -948,8 +992,11 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
             "grouped": grouped,
             "progress_map": progress_map,
             "mrr_stats": mrr_stats,
+            "process_stats": process_stats,   # ✅ NEW
+            "selected_process": q_process,    # ✅ NEW
         },
     )
+
 
 @app.get("/mrr", response_class=HTMLResponse)
 def mrr_list(request: Request, session: Session = Depends(get_session)):
@@ -3374,6 +3421,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
