@@ -7,36 +7,48 @@
        Sidebar (Dashboard only)
        ========================= -->
   <aside class="dash-sidebar">
-    <div class="dash-nav-title">Menu</div>
+  <div class="dash-nav-title">Processes</div>
 
-    <a class="dash-nav-item active" href="/dashboard">
-      <span class="dash-nav-ico">▦</span>
-      <span>Overview</span>
-    </a>
+  <a class="dash-nav-item active" href="/dashboard">
+    <span class="dash-nav-ico">▦</span>
+    <span>Overview</span>
+  </a>
 
-    <a class="dash-nav-item" href="/mrr">
-      <span class="dash-nav-ico">✓</span>
-      <span>Quality Control</span>
-    </a>
+  <a class="dash-nav-item" href="/runs">
+    <span class="dash-nav-ico">🧪</span>
+    <span>In-Process Inspection</span>
+  </a>
 
-    <a class="dash-nav-item disabled" href="#" onclick="return false;">
-      <span class="dash-nav-ico">⬚</span>
-      <span>Warehouse</span>
-      <span class="dash-nav-badge">Soon</span>
-    </a>
+  <a class="dash-nav-item" href="/mrr">
+    <span class="dash-nav-ico">📦</span>
+    <span>Material Receiving (MRR)</span>
+  </a>
 
-    <a class="dash-nav-item" href="/dashboard">
-      <span class="dash-nav-ico">⚙</span>
-      <span>Production</span>
-    </a>
+  <a class="dash-nav-item disabled" href="#" onclick="return false;">
+    <span class="dash-nav-ico">💥</span>
+    <span>Burst Testing</span>
+    <span class="dash-nav-badge">Soon</span>
+  </a>
 
-    <div class="dash-nav-spacer"></div>
+  <a class="dash-nav-item disabled" href="#" onclick="return false;">
+    <span class="dash-nav-ico">💧</span>
+    <span>Hydro Testing</span>
+    <span class="dash-nav-badge">Soon</span>
+  </a>
 
-    <a class="dash-nav-item" href="/logout">
-      <span class="dash-nav-ico">⎋</span>
-      <span>Logout</span>
-    </a>
-  </aside>
+  <a class="dash-nav-item disabled" href="#" onclick="return false;">
+    <span class="dash-nav-ico">✔</span>
+    <span>Final Inspection</span>
+    <span class="dash-nav-badge">Soon</span>
+  </a>
+
+  <div class="dash-nav-spacer"></div>
+
+  <a class="dash-nav-item" href="/logout">
+    <span class="dash-nav-ico">⎋</span>
+    <span>Logout</span>
+  </a>
+</aside>
 
 
   <!-- =========================
@@ -152,3 +164,4 @@
 </div>
 
 {% endblock %}
+
