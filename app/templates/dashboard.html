@@ -20,17 +20,23 @@
     </div>
   </div>
 
+  <!-- =========================
+       MRR SUMMARY
+  ========================== -->
   <div class="card inner mt">
     <h2>MRR Summary</h2>
+
     <div class="grid3 mt">
       <div class="card inner">
         <div class="muted">Pending Documentation</div>
         <h2 style="margin:6px 0;">{{ mrr_stats.pending_docs }}</h2>
       </div>
+
       <div class="card inner">
         <div class="muted">Docs Cleared (waiting inspection)</div>
         <h2 style="margin:6px 0;">{{ mrr_stats.docs_cleared }}</h2>
       </div>
+
       <div class="card inner">
         <div class="muted">Inspection Submitted (needs manager)</div>
         <h2 style="margin:6px 0;">{{ mrr_stats.insp_submitted }}</h2>
@@ -44,6 +50,65 @@
     </div>
   </div>
 
+  <!-- =========================
+       PROCESS ICONS (NEW)
+       Requires backend to pass:
+         process_stats: dict like:
+           {
+             "LINER": {"icon": "/static/images/liner.png", "open":1,"closed":2,"approved":3,"avg_progress":55},
+             "REINFORCEMENT": {...},
+             "COVER": {...},
+           }
+         selected_process: string or "" (optional)
+  ========================== -->
+  {% if process_stats %}
+    <div class="card inner mt">
+      <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:12px;">
+        <div>
+          <h2 style="margin:0;">Processes</h2>
+          <div class="muted">Click an icon to view runs for that process.</div>
+        </div>
+
+        {% if selected_process %}
+          <a class="btn btn-ghost" href="/dashboard">Show all</a>
+        {% endif %}
+      </div>
+
+      <div class="proc-grid mt">
+        {% for proc, st in process_stats.items() %}
+          <a class="proc-card {% if selected_process == proc %}active{% endif %}"
+             href="/dashboard{% if selected_process == proc %}{% else %}?process={{ proc }}{% endif %}">
+
+            <div class="proc-icon">
+              {% if st.icon %}
+                <img src="{{ st.icon }}" alt="{{ proc }}">
+              {% else %}
+                <div class="proc-fallback">{{ proc[0] }}</div>
+              {% endif %}
+            </div>
+
+            <div class="proc-meta">
+              <div class="proc-title">{{ proc }}</div>
+
+              <div class="proc-sub">
+                Avg progress: <b>{{ st.avg_progress }}%</b>
+              </div>
+
+              <div class="proc-badges">
+                <span class="badge badge-ok">Open: {{ st.open }}</span>
+                <span class="badge badge-warn">Closed: {{ st.closed }}</span>
+                <span class="badge badge-muted">Approved: {{ st.approved }}</span>
+              </div>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- =========================
+       PRODUCTION RUNS
+  ========================== -->
   <div class="card inner mt">
     <h2>Production Runs</h2>
 
