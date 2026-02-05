@@ -900,8 +900,44 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
 
     progress_map = {r.id: get_progress_percent(session, r) for r in runs}
 
+    # Build "batch cards" for the dashboard UI
+    batch_cards = []
+    for batch_no, batch_runs in grouped.items():
+        if not batch_no:
+            continue
+
+        batch_runs_sorted = sorted(
+            batch_runs,
+            key=lambda r: (r.created_at or datetime.min),
+            reverse=True,
+        )
+        rep = batch_runs_sorted[0]
+
+        pcts = [progress_map.get(r.id, 0) for r in batch_runs if r.id is not None]
+        avg_progress = int(sum(pcts) / max(1, len(pcts)))
+
+        any_open = any((r.status or "").upper() == "OPEN" for r in batch_runs)
+        priority = "HIGH PRIORITY" if any_open else ""
+
+        processes = sorted({(r.process or "").strip().upper() for r in batch_runs if r.process})
+
+        batch_cards.append(
+            {
+                "batch_no": batch_no,
+                "client_name": rep.client_name or "",
+                "po_number": rep.po_number or "",
+                "itp_number": rep.itp_number or "",
+                "created_at": rep.created_at,
+                "avg_progress": avg_progress,
+                "priority": priority,
+                "processes": processes,
+                "run_count": len(batch_runs),
+            }
+        )
+
+    batch_cards.sort(key=lambda x: x.get("created_at") or datetime.min, reverse=True)
+
     # ---------- Process tiles stats ----------
-    # Always compute tiles from ALL runs (not filtered), so user can switch easily.
     all_runs = session.exec(select(ProductionRun).order_by(ProductionRun.created_at.desc())).all()
 
     process_stats = {}
@@ -914,20 +950,16 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
         closed_cnt = sum(1 for r in proc_runs if (r.status or "").upper() == "CLOSED")
         approved_cnt = sum(1 for r in proc_runs if (r.status or "").upper() == "APPROVED")
 
-        # Average progress (safe)
-        if proc_runs:
-            avg_progress = int(
-                sum(get_progress_percent(session, r) for r in proc_runs) / max(1, len(proc_runs))
-            )
-        else:
-            avg_progress = 0
+        avg_progress = int(
+            sum(get_progress_percent(session, r) for r in proc_runs) / max(1, len(proc_runs))
+        )
 
         process_stats[proc] = {
             "open": open_cnt,
             "closed": closed_cnt,
             "approved": approved_cnt,
             "avg_progress": avg_progress,
-            "icon": IMAGE_MAP.get(proc, ""),  # you already have icons in static/images
+            "icon": IMAGE_MAP.get(proc, ""),
         }
 
     # ---------- MRR status summary ----------
@@ -992,8 +1024,47 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
             "grouped": grouped,
             "progress_map": progress_map,
             "mrr_stats": mrr_stats,
-            "process_stats": process_stats,   # ✅ NEW
-            "selected_process": q_process,    # ✅ NEW
+            "process_stats": process_stats,
+            "selected_process": q_process,
+            "batch_cards": batch_cards,
+        },
+    )
+@app.get("/batches/{batch_no}", response_class=HTMLResponse)
+def batch_detail(batch_no: str, request: Request, session: Session = Depends(get_session)):
+    """Batch detail page: shows all production runs (processes) under the same batch."""
+    user = get_current_user(request, session)
+
+    batch_no = (batch_no or "").strip()
+    if not batch_no:
+        return RedirectResponse("/dashboard", status_code=302)
+
+    runs = session.exec(
+        select(ProductionRun)
+        .where(ProductionRun.dhtp_batch_no == batch_no)
+        .order_by(ProductionRun.created_at.desc())
+    ).all()
+
+    if not runs:
+        return RedirectResponse("/dashboard", status_code=302)
+
+    progress_map = {r.id: get_progress_percent(session, r) for r in runs}
+
+    rep = runs[0]
+    pcts = [progress_map.get(r.id, 0) for r in runs if r.id is not None]
+    avg_progress = int(sum(pcts) / max(1, len(pcts)))
+
+    return templates.TemplateResponse(
+        "batch_detail.html",
+        {
+            "request": request,
+            "user": user,
+            "batch_no": batch_no,
+            "runs": runs,
+            "progress_map": progress_map,
+            "avg_progress": avg_progress,
+            "client_name": rep.client_name or "",
+            "po_number": rep.po_number or "",
+            "itp_number": rep.itp_number or "",
         },
     )
 
@@ -3421,6 +3492,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
