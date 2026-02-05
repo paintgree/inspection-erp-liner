@@ -805,30 +805,31 @@ def apply_specs_to_template(ws, run: ProductionRun, session: Session):
     else:  # REINFORCEMENT
         SPEC_COL = "D"
         TOL_COL = "E"
-        
+
     if (run.status or "").upper() == "APPROVED":
         approved_name = run.approved_by_user_name or ""
         approved_at = run.approved_at_utc
-    
+
         if approved_at:
             oman_time = approved_at.astimezone(ZoneInfo("Asia/Muscat"))
             approved_at_str = oman_time.strftime("%d-%m-%Y %H:%M")
         else:
             approved_at_str = ""
-    
+
         # --- Approval stamp cell differs by template/process ---
         proc = (run.process or "").strip().upper()
-        
-        if proc == "REINFORCEMENT":
-            # Reinforcement template: merged stamp area starts at M42
+
+        # ✅ IMPORTANT FIX: proc is uppercase, so compare uppercase
+        if "REINFORCEMENT" in proc:
+            # Reinforcement template: merged stamp area starts at M42 (covers M42:M44)
             ws["M42"] = f"Approved by: {approved_name}"
-            # if you also set time/date, put it in the same merged cell:
-            # ws["M42"] = f"Approved by: {approved_name}\nApproved at: {approved_time}"
+            if approved_at_str:
+                ws["M42"] = f"Approved by: {approved_name}\nApproved at: {approved_at_str}"
         else:
             # Liner + Cover templates (your original behavior)
             ws["M43"] = f"Approved by: {approved_name}"
-            # ws["M44"] = f"Approved at: {approved_time}"  # if you had this line originally
-        
+            # If you have a separate cell for date/time in liner/cover, keep it:
+            # ws["M44"] = f"Approved at: {approved_at_str}"
 
     for p in params:
         r = row_map.get(p.param_key)
@@ -839,6 +840,7 @@ def apply_specs_to_template(ws, run: ProductionRun, session: Session):
 
         _set_cell_safe(ws, f"{SPEC_COL}{r}", set_val if set_val is not None else "")
         _set_cell_safe(ws, f"{TOL_COL}{r}", tol_txt)
+
 
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, session: Session = Depends(get_session)):
@@ -3336,6 +3338,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
