@@ -16,8 +16,12 @@
     </div>
   </div>
 
-  <form method="post" class="mt">
+  <!-- ✅ IMPORTANT: submit to the correct route -->
+  <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/submit" class="mt">
 
+    <!-- =========================
+         Header (Auto)
+    ========================== -->
     <div class="card inner">
       <div class="sectiontitle accent-blue">Header (auto-filled from Ticket + Shipment)</div>
 
@@ -34,7 +38,6 @@
 
         <div>
           <label>Delivery Note (this shipment)</label>
-          <!-- Use the shipment record (inspection), not receiving -->
           <input name="delivery_note" value="{{ inspection.delivery_note_no or inspection_data.delivery_note_no or '' }}" readonly>
           <div class="muted tiny">To change DN, create a new shipment inspection.</div>
         </div>
@@ -79,8 +82,153 @@
       </div>
     </div>
 
+    <!-- =========================
+         Material Classification (NEW)
+    ========================== -->
     <div class="card inner mt">
-      <div class="sectiontitle accent-green">Visual & Physical Inspection (RAW)</div>
+      <div class="sectiontitle accent-blue">Material Classification (Raw Material)</div>
+
+      <div class="grid3 mt">
+        <div>
+          <label>Material Type</label>
+          {% set fam = inspection_data.material_family if inspection_data and inspection_data.material_family else '' %}
+          <select name="material_family" id="material_family" required>
+            <option value="">-- select --</option>
+            <option value="PE" {% if fam == 'PE' %}selected{% endif %}>Polyethylene (PE / PERT / PE100)</option>
+            <option value="FIBER" {% if fam == 'FIBER' %}selected{% endif %}>Polyester Fiber</option>
+          </select>
+          <div class="muted tiny">This controls which property table is shown.</div>
+        </div>
+
+        <div>
+          <label>Material Model</label>
+          {% set model = inspection_data.material_model if inspection_data and inspection_data.material_model else '' %}
+          <select name="material_model" id="material_model" required>
+            <option value="">-- select --</option>
+            <option value="PERT_WHITE" {% if model == 'PERT_WHITE' %}selected{% endif %}>PERT-White</option>
+            <option value="PE100_BLACK" {% if model == 'PE100_BLACK' %}selected{% endif %}>PE100-Black</option>
+            <option value="FIBER_36000D" {% if model == 'FIBER_36000D' %}selected{% endif %}>Polyester Fiber 36000D</option>
+            <option value="FIBER_45000D" {% if model == 'FIBER_45000D' %}selected{% endif %}>Polyester Fiber 45000D</option>
+          </select>
+          <div class="muted tiny">We’ll later link these models to LINER / REINFORCEMENT / COVER usage rules.</div>
+        </div>
+
+        <div>
+          <label>Intended Process (optional)</label>
+          {% set ip = inspection_data.intended_process if inspection_data and inspection_data.intended_process else '' %}
+          <select name="intended_process">
+            <option value="" {% if ip == '' %}selected{% endif %}>-- optional --</option>
+            <option value="LINER" {% if ip == 'LINER' %}selected{% endif %}>LINER</option>
+            <option value="REINFORCEMENT" {% if ip == 'REINFORCEMENT' %}selected{% endif %}>REINFORCEMENT</option>
+            <option value="COVER" {% if ip == 'COVER' %}selected{% endif %}>COVER</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================
+         Properties Table - PE (from your Excel)
+    ========================== -->
+    <div class="card inner mt" id="pe_table" style="display:none;">
+      <div class="sectiontitle accent-green">Raw Material Properties (PE)</div>
+
+      <div class="tablewrap mt">
+        <table class="table wide">
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Unit</th>
+              <th class="wrap">Test Method</th>
+              <th class="wrap">Acceptance Criteria</th>
+              <th class="wrap">PDS/COA Results</th>
+              <th class="wrap">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set pe_rows = [
+              {"k":"density","p":"Density","u":"g/cm³","m":"ASTM D1505 / ISO-1183","a":"0.935–0.965 g/cm³"},
+              {"k":"mfr","p":"Melt Flow Rate (MFR) -190°C / 5kg","u":"g/10 min","m":"ASTM D1238 / ISO 1133","a":"0.2–0.4 g/10 min"},
+              {"k":"flexural","p":"Flexural Modulus","u":"MPa","m":"ASTM D790","a":"700–1200 MPa"},
+              {"k":"t_yield","p":"Tensile Strength at Yield","u":"MPa","m":"ISO 527-2","a":"≥ 19 MPa"},
+              {"k":"t_break","p":"Tensile Strength at Break","u":"MPa","m":"ISO 527-2","a":"> 22 MPa"},
+              {"k":"elong","p":"Elongation at Break","u":"%","m":"ISO 527-2","a":"≥ 350%"},
+              {"k":"escr","p":"(ESCR)","u":"Hours","m":"ASTM D1693","a":"≥ 1000 hrs"},
+              {"k":"oit","p":"Oxidative Induction Time (OIT)","u":"Minutes","m":"ASTM D3895","a":"≥ 20 min"},
+              {"k":"hdb","p":"HDB (23C°) / MRS (20C°)","u":"MPa","m":"ISO 12162","a":"10.0 MPa"},
+              {"k":"cbc","p":"Carbon Black Content","u":"%","m":"ISO 6964","a":"%"},
+              {"k":"mp","p":"Melting Point","u":"C°","m":"","a":""}
+            ] %}
+
+            {% for r in pe_rows %}
+              <tr>
+                <td><b>{{ r.p }}</b></td>
+                <td>{{ r.u }}</td>
+                <td class="wrap">{{ r.m }}</td>
+                <td class="wrap">{{ r.a }}</td>
+                <td class="wrap">
+                  <input name="pe_result__{{ r.k }}" value="{{ inspection_data['pe_result__' ~ r.k] if inspection_data and ('pe_result__' ~ r.k) in inspection_data else '' }}" placeholder="Enter result...">
+                </td>
+                <td class="wrap">
+                  <input name="pe_remark__{{ r.k }}" value="{{ inspection_data['pe_remark__' ~ r.k] if inspection_data and ('pe_remark__' ~ r.k) in inspection_data else '' }}" placeholder="Remarks...">
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- =========================
+         Properties Table - FIBER (from your Excel)
+    ========================== -->
+    <div class="card inner mt" id="fiber_table" style="display:none;">
+      <div class="sectiontitle accent-green">Raw Material Properties (Fiber)</div>
+
+      <div class="tablewrap mt">
+        <table class="table wide">
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Unit</th>
+              <th class="wrap">Test Method</th>
+              <th class="wrap">Acceptance Criteria</th>
+              <th class="wrap">PDS/COA Results</th>
+              <th class="wrap">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set fiber_rows = [
+              {"k":"linear_density","p":"Linear Density","u":"dtex","m":"GB/T 16604-2008","a":""},
+              {"k":"breaking_strength","p":"Breaking Strength","u":"cN","m":"GB/T 16604-2008","a":""},
+              {"k":"tenacity","p":"Tenacity","u":"cN/dtex","m":"GB/T 16604-2008","a":""},
+              {"k":"elong_break","p":"Elongation at Break","u":"%","m":"GB/T 16604-2008","a":""},
+              {"k":"mp","p":"Melting Point","u":"C°","m":"","a":""}
+            ] %}
+
+            {% for r in fiber_rows %}
+              <tr>
+                <td><b>{{ r.p }}</b></td>
+                <td>{{ r.u }}</td>
+                <td class="wrap">{{ r.m }}</td>
+                <td class="wrap">{{ r.a }}</td>
+                <td class="wrap">
+                  <input name="fiber_result__{{ r.k }}" value="{{ inspection_data['fiber_result__' ~ r.k] if inspection_data and ('fiber_result__' ~ r.k) in inspection_data else '' }}" placeholder="Enter result...">
+                </td>
+                <td class="wrap">
+                  <input name="fiber_remark__{{ r.k }}" value="{{ inspection_data['fiber_remark__' ~ r.k] if inspection_data and ('fiber_remark__' ~ r.k) in inspection_data else '' }}" placeholder="Remarks...">
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- =========================
+         Visual & Physical Inspection (keep your existing section)
+    ========================== -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-green">Visual & Physical Inspection</div>
 
       <div class="grid2 mt">
         <div class="fieldbox">
@@ -137,6 +285,9 @@
       </div>
     </div>
 
+    <!-- =========================
+         Remarks + submit
+    ========================== -->
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">Remarks</div>
 
@@ -157,5 +308,23 @@
 
   </form>
 </div>
+
+<script>
+  function toggleMaterialTables() {
+    const fam = (document.getElementById("material_family") || {}).value || "";
+    const pe = document.getElementById("pe_table");
+    const fb = document.getElementById("fiber_table");
+
+    if (pe) pe.style.display = (fam === "PE") ? "block" : "none";
+    if (fb) fb.style.display = (fam === "FIBER") ? "block" : "none";
+  }
+
+  // Run on load and on change
+  document.addEventListener("DOMContentLoaded", function () {
+    const famSel = document.getElementById("material_family");
+    if (famSel) famSel.addEventListener("change", toggleMaterialTables);
+    toggleMaterialTables();
+  });
+</script>
 
 {% endblock %}
