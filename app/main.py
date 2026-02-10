@@ -3439,25 +3439,134 @@ def build_export_xlsx_bytes(run_id: int, request: Request, session: Session) -> 
 # MRR EXPORT (per MaterialLot)
 # =========================
 
-def build_mrr_xlsx_bytes(lot_id: int, session: Session, template_kind: str = "RAW") -> bytes:
+def build_mrr_xlsx_bytes(lot_id: int, session: Session) -> bytes:
+    """
+    Build an MRR XLSX directly in code (no template file needed).
+    This avoids missing-template issues and makes export stable.
+    """
     lot = session.get(MaterialLot, lot_id)
     if not lot:
-        raise HTTPException(404, "Lot not found")
+        raise HTTPException(404, "MRR Ticket not found")
 
-    template_path = MRR_TEMPLATE_XLSX_MAP.get(template_kind)
-    if not template_path or not os.path.exists(template_path):
-        raise HTTPException(404, f"MRR template not found: {template_path}")
+    docs = session.exec(
+        select(MrrDocument)
+        .where(MrrDocument.ticket_id == lot_id)
+        .order_by(MrrDocument.created_at.asc())
+    ).all()
 
-    wb = openpyxl.load_workbook(template_path)
-    ws = wb.worksheets[0]
+    receiving = session.exec(
+        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
+    ).first()
 
-    # IMPORTANT: You MUST adjust these cell addresses to match your MRR template
-    # (These are EXAMPLES so export works immediately and you can change them later.)
-    _set_cell_safe(ws, "C6", lot.batch_no or "")
-    _set_cell_safe(ws, "C7", lot.material_name or "")
-    _set_cell_safe(ws, "C8", lot.supplier_name or "")
-    _set_cell_safe(ws, "C9", lot.status or "")
-    _set_cell_safe(ws, "C10", (lot.created_at.date().isoformat() if getattr(lot, "created_at", None) else ""))
+    shipments = session.exec(
+        select(MrrReceivingInspection)
+        .where(
+            (MrrReceivingInspection.ticket_id == lot_id) &
+            (MrrReceivingInspection.inspector_confirmed == True)
+        )
+        .order_by(MrrReceivingInspection.created_at.asc())
+    ).all()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "MRR"
+
+    # Basic formatting
+    ws["A1"] = f"MRR Ticket #{lot.id}"
+    ws["A1"].font = openpyxl.styles.Font(bold=True, size=16)
+
+    row = 3
+    def put(label, value):
+        nonlocal row
+        ws[f"A{row}"] = label
+        ws[f"B{row}"] = value
+        ws[f"A{row}"].font = openpyxl.styles.Font(bold=True)
+        row += 1
+
+    put("Type", lot.lot_type or "")
+    put("Batch No", lot.batch_no or "")
+    put("Status", lot.status or "")
+    put("Material", lot.material_name or "")
+    put("Supplier", lot.supplier_name or "")
+    put("PO Number", lot.po_number or "")
+    put("PO Quantity", f"{lot.quantity or 0} {lot.quantity_unit or ''}".strip())
+
+    # received_total is stored normalized in KG for weight units
+    unit = (lot.quantity_unit or "KG").upper().strip()
+    if unit in ["PC", "PCS"]:
+        put("Received Total", f"{lot.received_total or 0} {unit}")
+    else:
+        put("Received Total", f"{lot.received_total or 0} KG (normalized)")
+
+    row += 1
+
+    # Documentation status
+    ws[f"A{row}"] = "Documentation"
+    ws[f"A{row}"].font = openpyxl.styles.Font(bold=True, size=12)
+    row += 1
+
+    if receiving:
+        put("Saved", "YES")
+        cleared = bool(receiving.inspector_confirmed_po or receiving.manager_confirmed_po)
+        put("Cleared", "YES" if cleared else "NO")
+        put("Inspector PO No.", receiving.inspector_po_number or "")
+        put("Inspector PO Qty", f"{receiving.inspector_po_qty or ''} {receiving.inspector_po_unit or ''}".strip())
+    else:
+        put("Saved", "NO")
+        put("Cleared", "NO")
+
+    row += 1
+
+    # Documents table
+    ws[f"A{row}"] = "Documents"
+    ws[f"A{row}"].font = openpyxl.styles.Font(bold=True, size=12)
+    row += 1
+
+    headers = ["Type", "Name", "Number", "Uploaded By", "Uploaded At"]
+    for col, h in enumerate(headers, start=1):
+        cell = ws.cell(row=row, column=col, value=h)
+        cell.font = openpyxl.styles.Font(bold=True)
+    row += 1
+
+    for d in docs:
+        ws.cell(row=row, column=1, value=d.doc_type or "")
+        ws.cell(row=row, column=2, value=d.doc_name or "")
+        ws.cell(row=row, column=3, value=d.doc_number or "")
+        ws.cell(row=row, column=4, value=d.uploaded_by_user_name or "")
+        ws.cell(row=row, column=5, value=str(getattr(d, "created_at", "") or ""))
+        row += 1
+
+    row += 1
+
+    # Shipments table
+    ws[f"A{row}"] = "Submitted Shipments"
+    ws[f"A{row}"].font = openpyxl.styles.Font(bold=True, size=12)
+    row += 1
+
+    ship_headers = ["#", "DN", "Arrived Qty", "Unit", "Report No", "Submitted", "Manager Approved"]
+    for col, h in enumerate(ship_headers, start=1):
+        cell = ws.cell(row=row, column=col, value=h)
+        cell.font = openpyxl.styles.Font(bold=True)
+    row += 1
+
+    for idx, s in enumerate(shipments, start=1):
+        ws.cell(row=row, column=1, value=idx)
+        ws.cell(row=row, column=2, value=s.delivery_note_no or "")
+        ws.cell(row=row, column=3, value=float(s.qty_arrived or 0))
+        ws.cell(row=row, column=4, value=s.qty_unit or "")
+        ws.cell(row=row, column=5, value=s.report_no or "")
+        ws.cell(row=row, column=6, value="YES" if s.inspector_confirmed else "NO")
+        ws.cell(row=row, column=7, value="YES" if s.manager_approved else "NO")
+        row += 1
+
+    # Column widths
+    ws.column_dimensions["A"].width = 22
+    ws.column_dimensions["B"].width = 40
+    ws.column_dimensions["C"].width = 18
+    ws.column_dimensions["D"].width = 20
+    ws.column_dimensions["E"].width = 22
+    ws.column_dimensions["F"].width = 18
+    ws.column_dimensions["G"].width = 18
 
     apply_pdf_page_setup(ws)
 
@@ -3467,30 +3576,11 @@ def build_mrr_xlsx_bytes(lot_id: int, session: Session, template_kind: str = "RA
     return out.getvalue()
 
 
-@app.get("/mrr/{lot_id}/export/xlsx")
-def mrr_export_xlsx(lot_id: int, request: Request, session: Session = Depends(get_session)):
-    user = get_current_user(request, session)
-    require_manager(user)
-
-    # for now default RAW (later we add a field)
-    template_kind = "RAW"
-
-    xlsx_bytes = build_mrr_xlsx_bytes(lot_id, session, template_kind=template_kind)
-    filename = f"MRR_{template_kind}_{lot_id}.xlsx"
-
-    return Response(
-        content=xlsx_bytes,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
 def build_mrr_photo_appendix_pdf_bytes(lot_id: int, session: Session) -> bytes:
     """
-    Build a PDF appendix containing all photo evidence (grouped) for SUBMITTED shipments.
-    This appendix is appended to the normal MRR PDF.
+    Build a PDF appendix containing all photo evidence (grouped) for submitted shipments.
+    Appended to the base MRR PDF.
     """
-    # Only include submitted inspections (finalized)
     submitted_inspections = session.exec(
         select(MrrReceivingInspection)
         .where(
@@ -3500,10 +3590,6 @@ def build_mrr_photo_appendix_pdf_bytes(lot_id: int, session: Session) -> bytes:
         .order_by(MrrReceivingInspection.created_at.asc())
     ).all()
 
-    if not submitted_inspections:
-        return b""
-
-    insp_by_id = {i.id: i for i in submitted_inspections if i.id is not None}
     insp_ids = [i.id for i in submitted_inspections if i.id is not None]
     if not insp_ids:
         return b""
@@ -3520,23 +3606,20 @@ def build_mrr_photo_appendix_pdf_bytes(lot_id: int, session: Session) -> bytes:
     if not photos:
         return b""
 
-    # Group: inspection -> group_name -> list[photo]
+    insp_by_id = {i.id: i for i in submitted_inspections if i.id is not None}
+
     grouped: Dict[int, Dict[str, List[MrrInspectionPhoto]]] = {}
     for p in photos:
-        iid = int(p.inspection_id)
-        grouped.setdefault(iid, {})
+        grouped.setdefault(int(p.inspection_id), {})
         g = (p.group_name or "General").strip() or "General"
-        grouped[iid].setdefault(g, []).append(p)
+        grouped[int(p.inspection_id)].setdefault(g, []).append(p)
 
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=A4)
     page_w, page_h = A4
-    margin = 0.65 * inch
+    margin = 46  # ~0.65 inch
 
-    def new_page():
-        c.showPage()
-
-    def draw_header(title: str, subtitle: str = ""):
+    def header(title: str, subtitle: str = ""):
         y = page_h - margin
         c.setFont("Helvetica-Bold", 16)
         c.drawString(margin, y, title)
@@ -3549,17 +3632,14 @@ def build_mrr_photo_appendix_pdf_bytes(lot_id: int, session: Session) -> bytes:
         c.line(margin, y, page_w - margin, y)
         return y - 16
 
-    # Appendix cover page
-    y = draw_header(
-        "MRR Photo Evidence Appendix",
-        f"Ticket #{lot_id} — generated on {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
-    )
-
+    y = header("MRR Photo Evidence Appendix", f"Ticket #{lot_id}")
     c.setFont("Helvetica", 10)
     c.drawString(margin, y, "This appendix contains photo evidence attached to submitted shipment inspections.")
-    new_page()
+    c.showPage()
 
-    # Draw photos
+    max_w = page_w - 2 * margin
+    max_h = 320  # keep room for captions
+
     for iid in insp_ids:
         insp = insp_by_id.get(iid)
         if not insp:
@@ -3567,86 +3647,59 @@ def build_mrr_photo_appendix_pdf_bytes(lot_id: int, session: Session) -> bytes:
 
         dn = (insp.delivery_note_no or "").strip() or "-"
         rep = (insp.report_no or "").strip() or "-"
-        y = draw_header(f"Shipment Inspection", f"DN: {dn}   |   Report: {rep}   |   Inspection ID: {iid}")
 
-        groups = grouped.get(iid, {})
-        for gname, items in groups.items():
-            # Group title
-            if y < margin + 140:
-                new_page()
-                y = draw_header(f"Shipment Inspection", f"DN: {dn}   |   Report: {rep}   |   Inspection ID: {iid}")
+        y = header("Shipment Inspection Photos", f"DN: {dn} | Report: {rep} | Inspection ID: {iid}")
+
+        for gname, items in grouped.get(iid, {}).items():
+            if y < margin + 160:
+                c.showPage()
+                y = header("Shipment Inspection Photos", f"DN: {dn} | Report: {rep} | Inspection ID: {iid}")
 
             c.setFont("Helvetica-Bold", 12)
             c.drawString(margin, y, f"Group: {gname}")
-            y -= 14
+            y -= 16
 
             for p in items:
                 path = p.file_path or ""
                 if not path or not os.path.exists(path):
                     continue
 
-                # Caption
                 caption = (p.caption or "").strip()
 
-                # Fit image box
-                max_w = page_w - 2 * margin
-                max_h = 4.5 * inch  # keep room for captions and multiple photos per page
-
-                # Start new page if not enough space
-                required_h = max_h + (30 if caption else 18)
-                if y < margin + required_h:
-                    new_page()
-                    y = draw_header(f"Shipment Inspection", f"DN: {dn}   |   Report: {rep}   |   Inspection ID: {iid}")
+                needed = max_h + (40 if caption else 20)
+                if y < margin + needed:
+                    c.showPage()
+                    y = header("Shipment Inspection Photos", f"DN: {dn} | Report: {rep} | Inspection ID: {iid}")
                     c.setFont("Helvetica-Bold", 12)
                     c.drawString(margin, y, f"Group: {gname}")
-                    y -= 14
+                    y -= 16
 
                 try:
                     img = ImageReader(path)
                     iw, ih = img.getSize()
                     if iw <= 0 or ih <= 0:
                         continue
-
                     scale = min(max_w / iw, max_h / ih)
                     dw = iw * scale
                     dh = ih * scale
 
-                    # Draw image
                     c.drawImage(img, margin, y - dh, width=dw, height=dh, preserveAspectRatio=True, mask="auto")
                     y -= dh + 8
 
-                    # Draw caption
                     if caption:
                         c.setFont("Helvetica", 9)
-                        # simple wrap
-                        words = caption.split()
-                        line = ""
-                        lines_out = []
-                        for w in words:
-                            test = (line + " " + w).strip()
-                            if c.stringWidth(test, "Helvetica", 9) > max_w:
-                                lines_out.append(line)
-                                line = w
-                            else:
-                                line = test
-                        if line:
-                            lines_out.append(line)
-
-                        for ln in lines_out[:4]:
-                            c.drawString(margin, y, ln)
-                            y -= 12
+                        c.drawString(margin, y, caption[:180])
+                        y -= 14
                     else:
-                        y -= 10
+                        y -= 8
 
                     c.setLineWidth(0.3)
                     c.line(margin, y, page_w - margin, y)
                     y -= 12
-
                 except Exception:
-                    # skip bad images
                     continue
 
-        new_page()
+        c.showPage()
 
     c.save()
     out = buf.getvalue()
@@ -3655,9 +3708,6 @@ def build_mrr_photo_appendix_pdf_bytes(lot_id: int, session: Session) -> bytes:
 
 
 def merge_pdf_bytes(base_pdf: bytes, appendix_pdf: bytes) -> bytes:
-    """
-    Merge two PDFs into one. If appendix is empty, return base.
-    """
     if not appendix_pdf:
         return base_pdf
 
@@ -3676,22 +3726,35 @@ def merge_pdf_bytes(base_pdf: bytes, appendix_pdf: bytes) -> bytes:
     return out.getvalue()
 
 
+@app.get("/mrr/{lot_id}/export/xlsx")
+def mrr_export_xlsx(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)  # allow any logged-in reviewer
+
+    xlsx_bytes = build_mrr_xlsx_bytes(lot_id, session)
+    filename = f"MRR_{lot_id}.xlsx"
+
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
 @app.get("/mrr/{lot_id}/export/pdf")
 def mrr_export_pdf(lot_id: int, request: Request, session: Session = Depends(get_session)):
-    # ✅ Anyone logged in can export/view the PDF report (not manager only)
-    user = get_current_user(request, session)
+    user = get_current_user(request, session)  # allow any logged-in reviewer
 
-    template_kind = "RAW"
+    # 1) Build XLSX
+    xlsx_bytes = build_mrr_xlsx_bytes(lot_id, session)
 
-    # 1) Build XLSX -> PDF (existing behavior)
-    xlsx_bytes = build_mrr_xlsx_bytes(lot_id, session, template_kind=template_kind)
+    # 2) Convert to PDF (existing pipeline)
     pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
 
-    # 2) Build photo appendix + merge into one PDF
-    appendix_bytes = build_mrr_photo_appendix_pdf_bytes(lot_id, session)
-    final_pdf = merge_pdf_bytes(pdf_bytes, appendix_bytes)
+    # 3) Append photos
+    appendix = build_mrr_photo_appendix_pdf_bytes(lot_id, session)
+    final_pdf = merge_pdf_bytes(pdf_bytes, appendix)
 
-    filename = f"MRR_{template_kind}_{lot_id}.pdf"
+    filename = f"MRR_{lot_id}.pdf"
     return Response(
         content=final_pdf,
         media_type="application/pdf",
@@ -3921,6 +3984,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
