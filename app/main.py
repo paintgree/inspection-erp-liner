@@ -9,6 +9,8 @@ from typing import Dict, List, Optional, Tuple
 from zoneinfo import ZoneInfo
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
+from reportlab.lib.units import inch
 from sqlalchemy import func
 
 
@@ -3465,24 +3467,215 @@ def mrr_export_xlsx(lot_id: int, request: Request, session: Session = Depends(ge
     )
 
 
+def build_mrr_photo_appendix_pdf_bytes(lot_id: int, session: Session) -> bytes:
+    """
+    Build a PDF appendix containing all photo evidence (grouped) for SUBMITTED shipments.
+    This appendix is appended to the normal MRR PDF.
+    """
+    # Only include submitted inspections (finalized)
+    submitted_inspections = session.exec(
+        select(MrrReceivingInspection)
+        .where(
+            (MrrReceivingInspection.ticket_id == lot_id) &
+            (MrrReceivingInspection.inspector_confirmed == True)
+        )
+        .order_by(MrrReceivingInspection.created_at.asc())
+    ).all()
+
+    if not submitted_inspections:
+        return b""
+
+    insp_by_id = {i.id: i for i in submitted_inspections if i.id is not None}
+    insp_ids = [i.id for i in submitted_inspections if i.id is not None]
+    if not insp_ids:
+        return b""
+
+    photos = session.exec(
+        select(MrrInspectionPhoto)
+        .where(
+            (MrrInspectionPhoto.ticket_id == lot_id) &
+            (MrrInspectionPhoto.inspection_id.in_(insp_ids))
+        )
+        .order_by(MrrInspectionPhoto.created_at.asc())
+    ).all()
+
+    if not photos:
+        return b""
+
+    # Group: inspection -> group_name -> list[photo]
+    grouped: Dict[int, Dict[str, List[MrrInspectionPhoto]]] = {}
+    for p in photos:
+        iid = int(p.inspection_id)
+        grouped.setdefault(iid, {})
+        g = (p.group_name or "General").strip() or "General"
+        grouped[iid].setdefault(g, []).append(p)
+
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    page_w, page_h = A4
+    margin = 0.65 * inch
+
+    def new_page():
+        c.showPage()
+
+    def draw_header(title: str, subtitle: str = ""):
+        y = page_h - margin
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(margin, y, title)
+        y -= 18
+        if subtitle:
+            c.setFont("Helvetica", 10)
+            c.drawString(margin, y, subtitle)
+            y -= 14
+        c.setLineWidth(0.8)
+        c.line(margin, y, page_w - margin, y)
+        return y - 16
+
+    # Appendix cover page
+    y = draw_header(
+        "MRR Photo Evidence Appendix",
+        f"Ticket #{lot_id} — generated on {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}",
+    )
+
+    c.setFont("Helvetica", 10)
+    c.drawString(margin, y, "This appendix contains photo evidence attached to submitted shipment inspections.")
+    new_page()
+
+    # Draw photos
+    for iid in insp_ids:
+        insp = insp_by_id.get(iid)
+        if not insp:
+            continue
+
+        dn = (insp.delivery_note_no or "").strip() or "-"
+        rep = (insp.report_no or "").strip() or "-"
+        y = draw_header(f"Shipment Inspection", f"DN: {dn}   |   Report: {rep}   |   Inspection ID: {iid}")
+
+        groups = grouped.get(iid, {})
+        for gname, items in groups.items():
+            # Group title
+            if y < margin + 140:
+                new_page()
+                y = draw_header(f"Shipment Inspection", f"DN: {dn}   |   Report: {rep}   |   Inspection ID: {iid}")
+
+            c.setFont("Helvetica-Bold", 12)
+            c.drawString(margin, y, f"Group: {gname}")
+            y -= 14
+
+            for p in items:
+                path = p.file_path or ""
+                if not path or not os.path.exists(path):
+                    continue
+
+                # Caption
+                caption = (p.caption or "").strip()
+
+                # Fit image box
+                max_w = page_w - 2 * margin
+                max_h = 4.5 * inch  # keep room for captions and multiple photos per page
+
+                # Start new page if not enough space
+                required_h = max_h + (30 if caption else 18)
+                if y < margin + required_h:
+                    new_page()
+                    y = draw_header(f"Shipment Inspection", f"DN: {dn}   |   Report: {rep}   |   Inspection ID: {iid}")
+                    c.setFont("Helvetica-Bold", 12)
+                    c.drawString(margin, y, f"Group: {gname}")
+                    y -= 14
+
+                try:
+                    img = ImageReader(path)
+                    iw, ih = img.getSize()
+                    if iw <= 0 or ih <= 0:
+                        continue
+
+                    scale = min(max_w / iw, max_h / ih)
+                    dw = iw * scale
+                    dh = ih * scale
+
+                    # Draw image
+                    c.drawImage(img, margin, y - dh, width=dw, height=dh, preserveAspectRatio=True, mask="auto")
+                    y -= dh + 8
+
+                    # Draw caption
+                    if caption:
+                        c.setFont("Helvetica", 9)
+                        # simple wrap
+                        words = caption.split()
+                        line = ""
+                        lines_out = []
+                        for w in words:
+                            test = (line + " " + w).strip()
+                            if c.stringWidth(test, "Helvetica", 9) > max_w:
+                                lines_out.append(line)
+                                line = w
+                            else:
+                                line = test
+                        if line:
+                            lines_out.append(line)
+
+                        for ln in lines_out[:4]:
+                            c.drawString(margin, y, ln)
+                            y -= 12
+                    else:
+                        y -= 10
+
+                    c.setLineWidth(0.3)
+                    c.line(margin, y, page_w - margin, y)
+                    y -= 12
+
+                except Exception:
+                    # skip bad images
+                    continue
+
+        new_page()
+
+    c.save()
+    out = buf.getvalue()
+    buf.close()
+    return out
+
+
+def merge_pdf_bytes(base_pdf: bytes, appendix_pdf: bytes) -> bytes:
+    """
+    Merge two PDFs into one. If appendix is empty, return base.
+    """
+    if not appendix_pdf:
+        return base_pdf
+
+    base_reader = PdfReader(BytesIO(base_pdf))
+    app_reader = PdfReader(BytesIO(appendix_pdf))
+
+    w = PdfWriter()
+    for p in base_reader.pages:
+        w.add_page(p)
+    for p in app_reader.pages:
+        w.add_page(p)
+
+    out = BytesIO()
+    w.write(out)
+    out.seek(0)
+    return out.getvalue()
+
+
 @app.get("/mrr/{lot_id}/export/pdf")
 def mrr_export_pdf(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    # ✅ Anyone logged in can export/view the PDF report (not manager only)
     user = get_current_user(request, session)
-    require_manager(user)
 
     template_kind = "RAW"
 
-    # 1) Build XLSX
+    # 1) Build XLSX -> PDF (existing behavior)
     xlsx_bytes = build_mrr_xlsx_bytes(lot_id, session, template_kind=template_kind)
-
-    # 2) Convert to PDF
     pdf_bytes = convert_xlsx_bytes_to_pdf_bytes(xlsx_bytes)
 
-   
+    # 2) Build photo appendix + merge into one PDF
+    appendix_bytes = build_mrr_photo_appendix_pdf_bytes(lot_id, session)
+    final_pdf = merge_pdf_bytes(pdf_bytes, appendix_bytes)
 
     filename = f"MRR_{template_kind}_{lot_id}.pdf"
     return Response(
-        content=pdf_bytes,
+        content=final_pdf,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
@@ -3710,6 +3903,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
