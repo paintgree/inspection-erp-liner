@@ -258,11 +258,32 @@ class MrrReceivingInspection(SQLModel, table=True):
 
 
 # =========================
+# MRR INSPECTION PHOTOS
+# =========================
+class MrrInspectionPhoto(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    ticket_id: int = Field(index=True)
+    inspection_id: int = Field(index=True)
+
+    group_name: str = Field(default="General")   # e.g., Packaging / Labeling / Damage
+    caption: str = Field(default="")            # optional
+
+    file_path: str = Field(default="")
+
+    uploaded_by_user_id: Optional[int] = Field(default=None, index=True)
+    uploaded_by_user_name: str = Field(default="")
+
+
+# =========================
 # COMPATIBILITY ALIAS
 # =========================
 # Your main.py imports MrrInspection, but the real model you use everywhere
 # is MrrReceivingInspection. This alias fixes the import error cleanly.
 MrrInspection = MrrReceivingInspection
+
+
 
 
 
