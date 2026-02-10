@@ -125,6 +125,16 @@
         {{ lot.quantity_unit if lot.quantity_unit else "" }}
       </b>
     </div>
+    <div class="kv">
+      <span>Used Delivery Note(s)</span>
+      <b>
+        {% if used_dns and used_dns|length > 0 %}
+          {{ used_dns | join(", ") }}
+        {% else %}
+          -
+        {% endif %}
+      </b>
+    </div>
   </div>
 
   <!-- =========================
