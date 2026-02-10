@@ -1688,9 +1688,15 @@ def new_shipment_inspection_page(
     has_po_doc = any((d.doc_type or "").upper() == "PO" for d in docs)
     docs_ok = bool(receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po))
 
-    if (not has_po_doc) or (not docs_ok):
+    if not receiving:
         return RedirectResponse(
-            f"/mrr/{lot_id}?error=Upload%20PO%20document%20and%20Confirm%20Documentation%20Complete%20before%20starting%20Receiving%20Inspection",
+            f"/mrr/{lot_id}?error=Documentation%20is%20not%20saved.%20Please%20open%20Documentation%20page%20and%20click%20Save%20first",
+            status_code=303,
+        )
+
+    if not docs_ok:
+        return RedirectResponse(
+            f"/mrr/{lot_id}?error=Documentation%20is%20not%20cleared.%20Please%20click%20Confirm%20Documentation%20Complete%20before%20starting%20Receiving%20Inspection",
             status_code=303,
         )
 
@@ -1847,9 +1853,21 @@ def create_shipment_inspection(
 
     has_po_doc = any((d.doc_type or "").upper() == "PO" for d in docs)
     docs_ok = bool(receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po))
-    if (not has_po_doc) or (not docs_ok):
+    if not has_po_doc:
         return RedirectResponse(
-            f"/mrr/{lot_id}?error=Upload%20PO%20document%20and%20Confirm%20Documentation%20Complete%20before%20starting%20Receiving%20Inspection",
+            f"/mrr/{lot_id}?error=Upload%20PO%20document%20first%20(Type:%20PO)%20before%20starting%20Receiving%20Inspection",
+            status_code=303,
+        )
+
+    if not receiving:
+        return RedirectResponse(
+            f"/mrr/{lot_id}?error=Documentation%20is%20not%20saved.%20Please%20open%20Documentation%20page%20and%20click%20Save%20first",
+            status_code=303,
+        )
+
+    if not docs_ok:
+        return RedirectResponse(
+            f"/mrr/{lot_id}?error=Documentation%20is%20not%20cleared.%20Please%20click%20Confirm%20Documentation%20Complete%20before%20starting%20Receiving%20Inspection",
             status_code=303,
         )
 
@@ -3903,6 +3921,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
