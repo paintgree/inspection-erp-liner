@@ -5,9 +5,6 @@
 
 <div class="card">
 
-  <!-- =========================
-       HEADER
-  ========================== -->
   <div class="runheader">
     <div>
       <h1>MRR Ticket #{{ lot.id }}</h1>
@@ -23,32 +20,78 @@
       <a class="btn" href="/mrr/{{ lot.id }}/export/pdf">Export PDF</a>
 
       {% if user.role and user.role|upper == "MANAGER" %}
-        <a class="btn" href="/mrr/{{ lot.id }}/pending">Pending approvals</a>
+        <a class="btn btn-warn" href="/mrr/pending">Pending approvals</a>
       {% endif %}
 
-      {% if not readonly and user.role and user.role|upper == "MANAGER" %}
-        <form method="post" action="/mrr/{{ lot.id }}/cancel" style="display:inline;">
-          <button class="btn btn-danger" type="submit">Cancel Ticket</button>
+      {% if user.role and user.role|upper == "MANAGER"
+            and not readonly
+            and (lot.status or "")|upper != "CANCELED" %}
+        <form method="post" action="/mrr/{{ lot.id }}/cancel" style="display:inline;"
+              onsubmit="return confirm('Cancel this ticket? It will be hidden from normal list and actions will be blocked.')">
+          <button class="btn btn-warn" type="submit">Cancel Ticket</button>
         </form>
       {% endif %}
     </div>
   </div>
 
+  {% set docs_ok = (receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po)) %}
+  {% set insp_submitted = (inspection and inspection.inspector_confirmed) %}
+  {% set insp_ok = (inspection and inspection.manager_approved) %}
+
   {% if error %}
     <div class="alert alert-error mt">{{ error }}</div>
   {% endif %}
 
-  <!-- =========================
-       WHAT'S PENDING
-  ========================== -->
+  {% if readonly %}
+    <div class="alert alert-warn mt">
+      This MRR Ticket is <b>CANCELED</b>. You are viewing it in <b>read-only</b> mode.
+    </div>
+  {% endif %}
+
+  <!-- WHAT'S PENDING -->
   <div class="card inner mt">
     <h2>What’s pending?</h2>
-    <ul class="checklist">
-      <li>{% if docs and docs|length > 0 %}✅{% else %}❌{% endif %} Documents uploaded</li>
-      <li>{% if receiving %}✅{% else %}❌{% endif %} Documentation saved</li>
-      <li>{% if docs_ok %}✅{% else %}❌{% endif %} Documentation cleared (ready for inspection)</li>
-      <li>{% if insp_submitted %}✅{% else %}❌{% endif %} Receiving Inspection submitted</li>
-      <li>{% if insp_ok %}✅{% else %}⏳{% endif %} Waiting for manager approval</li>
+
+    <ul class="muted" style="margin:8px 0 0 18px; line-height:1.8;">
+      <li>
+        {% if docs and docs|length > 0 %}
+          ✅ Documents uploaded
+        {% else %}
+          ❌ Upload required documents (PO / Delivery Note / COA)
+        {% endif %}
+      </li>
+
+      <li>
+        {% if receiving %}
+          ✅ Documentation saved
+        {% else %}
+          ❌ Documentation NOT saved (fill the form below and click Save)
+        {% endif %}
+      </li>
+
+      <li>
+        {% if docs_ok %}
+          ✅ Documentation cleared (ready for inspection)
+        {% else %}
+          ❌ Confirm Documentation Complete
+        {% endif %}
+      </li>
+
+      <li>
+        {% if insp_submitted %}
+          ✅ Receiving Inspection submitted
+        {% else %}
+          ❌ Start Receiving Inspection
+        {% endif %}
+      </li>
+
+      <li>
+        {% if insp_ok %}
+          ✅ Manager approved (ticket ready for production)
+        {% else %}
+          ⏳ Waiting for manager approval
+        {% endif %}
+      </li>
 
       {% if lot.status and lot.status|upper == "PARTIAL" %}
         <li>⚠️ Ticket is <b>PARTIAL</b>: remaining quantity can be received later using the same ticket.</li>
@@ -56,9 +99,7 @@
     </ul>
   </div>
 
-  <!-- =========================
-       BASIC INFO
-  ========================== -->
+  <!-- BASIC INFO -->
   <div class="card inner mt">
     <h2>Basic Info</h2>
     <div class="kv"><span>Material</span><b>{{ lot.material_name or "-" }}</b></div>
@@ -78,10 +119,7 @@
 
     <div class="kv">
       <span>Quantity (PO)</span>
-      <b>
-        {{ lot.quantity if lot.quantity is not none else "-" }}
-        {{ lot.quantity_unit or "" }}
-      </b>
+      <b>{{ lot.quantity if lot.quantity is not none else "-" }} {{ lot.quantity_unit if lot.quantity_unit else "" }}</b>
     </div>
 
     <div class="kv">
@@ -97,19 +135,17 @@
     </div>
   </div>
 
-  <!-- =========================
-       DOCUMENTS
-  ========================== -->
+  <!-- DOCUMENTS -->
   <div class="card inner mt">
     <h2>Documents</h2>
 
     {% if docs and docs|length > 0 %}
       <div class="tablewrap mt">
-        <table class="table wide">
+        <table class="table">
           <thead>
             <tr>
               <th>Type</th>
-              <th>Name</th>
+              <th class="wrap">Name</th>
               <th>No.</th>
               <th>By</th>
               <th>File</th>
@@ -118,13 +154,14 @@
           <tbody>
             {% for d in docs %}
               <tr>
-                <td>{{ d.doc_type }}</td>
-                <td>{{ d.doc_name }}</td>
-                <td>{{ d.doc_number }}</td>
-                <td>{{ d.uploaded_by }}</td>
+                <td><b>{{ d.doc_type }}</b></td>
+                <td class="wrap">{{ d.doc_name or "-" }}</td>
+                <td>{{ d.doc_number or "-" }}</td>
+                <td class="wrap">{{ d.uploaded_by_user_name }}</td>
                 <td>
-                  <a class="btn btn-ghost btn-small" href="/mrr/{{ lot.id }}/docs/{{ d.id }}/view">View</a>
-                  <a class="btn btn-ghost btn-small" href="/mrr/{{ lot.id }}/docs/{{ d.id }}/download">Download</a>
+                  <!-- ✅ FIXED ROUTES -->
+                  <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/view">View</a>
+                  <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/download">Download</a>
                 </td>
               </tr>
             {% endfor %}
@@ -136,15 +173,100 @@
     {% endif %}
 
     {% if not readonly %}
-      <div class="toolbar mt">
-        <a class="btn" href="/mrr/{{ lot.id }}/docs/upload">Upload Document</a>
+      <!-- UPLOAD FORM (not a link) -->
+      <div class="mt">
+        <h3>Upload Document</h3>
+
+        <form method="post" action="/mrr/{{ lot.id }}/docs/upload" enctype="multipart/form-data" class="mt" id="docUploadForm">
+          <div class="grid2">
+            <div class="fieldbox">
+              <label>Document Type</label>
+              <select name="doc_type" id="doc_type" required>
+                <option value="PO">PO</option>
+                <option value="DELIVERY_NOTE">Delivery Note</option>
+                <option value="COA">COA / Lab Test</option>
+                <option value="RELATED">Related</option>
+              </select>
+
+              <label class="mt">Choose File</label>
+              <input type="file" name="file" required>
+
+              <div class="toolbar mt">
+                <button class="btn btn-primary" type="submit">Upload</button>
+              </div>
+            </div>
+
+            <div class="fieldbox">
+              <div id="docNameWrap" style="display:none;">
+                <label>Document Name (required for Related)</label>
+                <input name="doc_title" id="doc_title" placeholder="e.g. Extra memo, special report">
+              </div>
+
+              <label class="mt">Document Number (required)</label>
+              <input name="doc_number" required placeholder="e.g. DN-12345 / PO-009 / COA-778">
+            </div>
+          </div>
+        </form>
+
+        <script>
+        (function(){
+          const typeEl = document.getElementById("doc_type");
+          const nameWrap = document.getElementById("docNameWrap");
+          const nameInput = document.getElementById("doc_title");
+
+          function refresh(){
+            const v = (typeEl.value || "").toUpperCase();
+            const isRelated = (v === "RELATED");
+            nameWrap.style.display = isRelated ? "block" : "none";
+            nameInput.required = isRelated;
+            if(!isRelated) nameInput.value = "";
+          }
+          typeEl.addEventListener("change", refresh);
+          refresh();
+        })();
+        </script>
+      </div>
+
+      <!-- INSPECTOR DOCUMENTATION SECTION (THIS IS THE MISSING STEP) -->
+      <div class="mt" id="inspectorDocs">
+        <h3>Inspector Documentation</h3>
+
+        <form method="post" action="/mrr/{{ lot.id }}/docs/submit" class="mt">
+          <div>
+            <label>PO Number (must match ticket PO)</label>
+            <input name="inspector_po_number" required value="{{ receiving.inspector_po_number if receiving else '' }}">
+            <div class="muted tiny">Ticket PO: <b>{{ lot.po_number }}</b></div>
+          </div>
+
+          <div class="grid2 mt">
+            <div>
+              <label>PO Quantity</label>
+              <input name="inspector_po_qty" required value="{{ receiving.inspector_po_qty if receiving else '' }}">
+            </div>
+            <div>
+              <label>PO Unit</label>
+              <select name="inspector_po_unit" required>
+                {% set u = receiving.inspector_po_unit if receiving else (lot.quantity_unit or 'KG') %}
+                <option value="KG" {% if (u|upper)=='KG' %}selected{% endif %}>KG</option>
+                <option value="T" {% if (u|upper)=='T' %}selected{% endif %}>T</option>
+                <option value="PCS" {% if (u|upper)=='PCS' %}selected{% endif %}>PCS</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="toolbar mt">
+            <button class="btn btn-primary" type="submit">Save Documentation</button>
+          </div>
+        </form>
+
+        <form method="post" action="/mrr/{{ lot.id }}/docs/confirm" class="mt">
+          <button class="btn btn-secondary" type="submit">Confirm Documentation Complete</button>
+        </form>
       </div>
     {% endif %}
   </div>
 
-  <!-- =========================
-       SUBMITTED SHIPMENT REPORTS + PHOTOS
-  ========================== -->
+  <!-- SHIPMENT REPORTS + PHOTOS -->
   <div class="card inner mt">
     <h2>Shipment Inspection Reports</h2>
     <div class="muted tiny">Anyone reviewing this ticket can see submitted shipment reports and photo evidence below.</div>
@@ -167,7 +289,7 @@
                 <td>#{{ loop.index }}</td>
                 <td>{{ s.delivery_note_no or "-" }}</td>
                 <td>{{ s.qty_arrived }} {{ s.qty_unit }}</td>
-                <td><a class="btn btn-ghost btn-small" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}">Open</a></td>
+                <td><a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}">Open</a></td>
                 <td>{% if s.manager_approved %}APPROVED{% else %}SUBMITTED{% endif %}</td>
               </tr>
             {% endfor %}
@@ -178,7 +300,6 @@
       <style>
         .photo-thumb { width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; border: 1px solid rgba(0,0,0,0.08); }
         .photo-card { padding: 8px; }
-        .btn-small { padding: 6px 10px; font-size: 12px; }
       </style>
 
       <div class="mt">
@@ -206,48 +327,34 @@
           {% endif %}
         {% endfor %}
       </div>
-
     {% else %}
       <div class="muted mt">No submitted shipment inspections yet.</div>
     {% endif %}
   </div>
 
-  <!-- =========================
-       PROGRESS
-  ========================== -->
+  <!-- PROGRESS + ACTIONS -->
   <div class="card inner mt">
     <h2>Progress</h2>
-
-    <div class="kv">
-      <span>Documentation</span>
-      <b>{% if docs_ok %}CLEARED{% elif receiving %}SAVED{% else %}PENDING{% endif %}</b>
-    </div>
-
-    <div class="kv">
-      <span>Receiving Inspection</span>
-      <b>{% if insp_ok %}APPROVED{% elif insp_submitted %}SUBMITTED{% else %}PENDING{% endif %}</b>
-    </div>
-
-    <div class="mt muted">
-      Ticket becomes <b>APPROVED</b> for production only after manager approves Receiving Inspection.
-    </div>
+    <div class="kv"><span>Documentation</span><b>{% if docs_ok %}CLEARED{% elif receiving %}SAVED{% else %}PENDING{% endif %}</b></div>
+    <div class="kv"><span>Receiving Inspection</span><b>{% if insp_ok %}APPROVED{% elif insp_submitted %}SUBMITTED{% else %}PENDING{% endif %}</b></div>
 
     {% if not readonly %}
       <div class="toolbar mt">
+        {% if not receiving or not docs_ok %}
+          <!-- ✅ This is the button you wanted -->
+          <a class="btn btn-secondary" href="#inspectorDocs">Go to Documentation (Save & Confirm)</a>
+        {% endif %}
+
         <a class="btn btn-primary" href="/mrr/{{ lot.id }}/inspection/new">
           {% if lot.status and lot.status|upper == "PARTIAL" %}
-            New Shipment Inspection (Partial Delivery)
+            Start Shipment Inspection (Partial Delivery)
           {% else %}
             Start Shipment Inspection
           {% endif %}
         </a>
       </div>
     {% else %}
-      <div class="muted mt">Inspection actions are disabled because this ticket is canceled.</div>
-    {% endif %}
-
-    {% if user.role and user.role|upper == "MANAGER" %}
-      <a class="btn mt" href="/mrr/pending">View all pending approvals</a>
+      <div class="muted mt">Actions disabled (ticket canceled).</div>
     {% endif %}
   </div>
 
