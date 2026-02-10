@@ -1,12 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
 
-<style>
-  .photo-thumb { width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; border: 1px solid rgba(0,0,0,0.08); }
-  .photo-card { padding: 8px; }
-  .btn-small { padding: 6px 10px; font-size: 12px; }
-</style>
-
 <a class="btn btn-ghost" href="/mrr/{{ lot.id }}">← Back</a>
 
 <div class="card">
@@ -19,17 +13,53 @@
     </div>
     <div class="actions">
       <span class="pill">Report: <b>{{ inspection_data.report_no }}</b></span>
-      <span class="pill">DN: <b>{{ inspection_data.delivery_note_no }}</b></span>
-      <span class="pill">Arrived: <b>{{ inspection_data.qty_arrived }} {{ inspection_data.qty_unit }}</b></span>
     </div>
   </div>
 
-  {% if request.query_params.get("error") %}
-    <div class="alert alert-error mt">{{ request.query_params.get("error") }}</div>
-  {% endif %}
+  <!-- ✅ IMPORTANT: submit to the correct route -->
+  <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/submit" class="mt">
 
-  <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/submit">
+    <!-- =========================
+         Header (Auto)
+    ========================== -->
+    <div class="card inner">
+      <div class="sectiontitle accent-blue">Header (auto-filled from Ticket + Shipment)</div>
 
+      <div class="grid3 mt">
+        <div>
+          <label>Report No.</label>
+          <input value="{{ inspection_data.report_no }}" disabled>
+        </div>
+
+        <div>
+          <label>Delivery Note No.</label>
+          <input value="{{ inspection.delivery_note_no or '-' }}" disabled>
+        </div>
+
+        <div>
+          <label>Arrived Quantity</label>
+          <input value="{{ inspection.qty_arrived }} {{ inspection.qty_unit }}" disabled>
+        </div>
+      </div>
+
+      <div class="mt muted tiny">
+        Delivery Note + arrived quantity are defined when creating the shipment and cannot be edited here.
+      </div>
+    </div>
+
+    <!-- =========================
+         Partial delivery / mismatch reason
+    ========================== -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Partial delivery (ticket stays open)</div>
+
+      <label>If quantity mismatch / partial delivery – Reason (required if arrived &gt; PO)</label>
+      <textarea name="mismatch_reason" placeholder="Explain mismatch / partial delivery...">{{ inspection_data.mismatch_reason if inspection_data and inspection_data.mismatch_reason else '' }}</textarea>
+    </div>
+
+    <!-- =========================
+         Material classification
+    ========================== -->
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">Material Classification (Raw Material)</div>
 
@@ -50,13 +80,15 @@
           {% set model = inspection_data.material_model if inspection_data and inspection_data.material_model else '' %}
           <select name="material_model">
             <option value="">-- select --</option>
-            <option value="PERT-White" {% if model == 'PERT-White' %}selected{% endif %}>PERT-White</option>
-            <option value="PE100-Black" {% if model == 'PE100-Black' %}selected{% endif %}>PE100-Black</option>
-            <option value="Polyester Fiber 36000D" {% if model == 'Polyester Fiber 36000D' %}selected{% endif %}>Polyester Fiber 36000D</option>
-            <option value="Polyester Fiber 45000D" {% if model == 'Polyester Fiber 45000D' %}selected{% endif %}>Polyester Fiber 45000D</option>
+            <option value="PERT_WHITE" {% if model == 'PERT_WHITE' %}selected{% endif %}>PERT-White</option>
+            <option value="PE100_BLACK" {% if model == 'PE100_BLACK' %}selected{% endif %}>PE100-Black</option>
+            <option value="FIBER_36000D" {% if model == 'FIBER_36000D' %}selected{% endif %}>Polyester Fiber 36000D</option>
+            <option value="FIBER_45000D" {% if model == 'FIBER_45000D' %}selected{% endif %}>Polyester Fiber 45000D</option>
           </select>
+          <div class="muted tiny">We’ll later link these models to LINER / REINFORCEMENT / COVER usage rules.</div>
         </div>
 
+        <!-- ✅ REPLACED: Intended Process -> Material Grade (typed) -->
         <div>
           <label>Material Grade (optional)</label>
           {% set grade = inspection_data.material_grade if inspection_data and inspection_data.material_grade else '' %}
@@ -78,19 +110,114 @@
       </div>
     </div>
 
-    <!-- Your existing tables are kept as-is below -->
-    <div id="pe_table" class="card inner mt" style="display:none;">
-      <div class="sectiontitle accent-blue">Raw Material Properties (PE)</div>
-      <!-- existing PE property table content remains in your original file -->
-      {{ "" }}
+    <!-- =========================
+         Properties Table - PE (from your Excel)
+    ========================== -->
+    <div class="card inner mt" id="pe_table" style="display:none;">
+      <div class="sectiontitle accent-green">Raw Material Properties (PE)</div>
+
+      <div class="tablewrap mt">
+        <table class="table wide">
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Unit</th>
+              <th class="wrap">Test Method</th>
+              <th class="wrap">Acceptance Criteria</th>
+              <th class="wrap">PDS/COA Results</th>
+              <th class="wrap">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set pe_rows = [
+              {"k":"density","p":"Density","u":"g/cm³","m":"ASTM D1505 / ISO-1183","a":"0.935–0.965 g/cm³"},
+              {"k":"mfr","p":"Melt Flow Rate (MFR) -190°C / 5kg","u":"g/10 min","m":"ASTM D1238 / ISO 1133","a":"0.2–0.4 g/10 min"},
+              {"k":"flexural","p":"Flexural Modulus","u":"MPa","m":"ASTM D790","a":"700–1200 MPa"},
+              {"k":"tensile","p":"Tensile Strength at Yield","u":"MPa","m":"ASTM D638","a":"≥ 20 MPa"},
+              {"k":"elong","p":"Elongation at Break","u":"%","m":"ASTM D638","a":"≥ 600 %"},
+              {"k":"escr","p":"ESCR (Environmental Stress Crack Resistance)","u":"hours","m":"ASTM D1693 / ISO 22088","a":"≥ 1000 hours"},
+              {"k":"oits","p":"Oxidation Induction Time (OIT)","u":"min","m":"ASTM D3895","a":"≥ 20 min"},
+              {"k":"cb","p":"Carbon Black Content","u":"%","m":"ASTM D1603 / ISO 6964","a":"2.0–2.5 %"},
+              {"k":"cbd","p":"Carbon Black Dispersion","u":"Grade","m":"ASTM D5596 / ISO 18553","a":"≤ Grade 3"},
+              {"k":"mvd","p":"Volatile Matter","u":"%","m":"ISO 9895","a":"≤ 0.2 %"},
+              {"k":"ash","p":"Ash Content","u":"%","m":"ASTM D5630","a":"≤ 0.3 %"},
+              {"k":"moist","p":"Moisture","u":"%","m":"Internal / COA","a":"≤ 0.05 %"}
+            ] %}
+            {% for r in pe_rows %}
+              <tr>
+                <td>{{ r.p }}</td>
+                <td>{{ r.u }}</td>
+                <td class="wrap">{{ r.m }}</td>
+                <td class="wrap">{{ r.a }}</td>
+                <td>
+                  <input name="pe_{{ r.k }}_result"
+                         value="{{ inspection_data['pe_' ~ r.k ~ '_result'] if inspection_data and ('pe_' ~ r.k ~ '_result') in inspection_data else '' }}"
+                         placeholder="">
+                </td>
+                <td>
+                  <input name="pe_{{ r.k }}_remarks"
+                         value="{{ inspection_data['pe_' ~ r.k ~ '_remarks'] if inspection_data and ('pe_' ~ r.k ~ '_remarks') in inspection_data else '' }}"
+                         placeholder="">
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
 
-    <div id="fiber_table" class="card inner mt" style="display:none;">
-      <div class="sectiontitle accent-blue">Raw Material Properties (Fiber)</div>
-      <!-- existing Fiber property table content remains in your original file -->
-      {{ "" }}
+    <!-- =========================
+         Properties Table - Fiber
+    ========================== -->
+    <div class="card inner mt" id="fiber_table" style="display:none;">
+      <div class="sectiontitle accent-green">Raw Material Properties (Fiber)</div>
+
+      <div class="tablewrap mt">
+        <table class="table wide">
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Unit</th>
+              <th class="wrap">Test Method</th>
+              <th class="wrap">Acceptance Criteria</th>
+              <th class="wrap">PDS/COA Results</th>
+              <th class="wrap">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set fb_rows = [
+              {"k":"denier","p":"Denier","u":"D","m":"ASTM D1577 / ISO 2060","a":"As per grade"},
+              {"k":"tenacity","p":"Tenacity","u":"cN/tex","m":"ASTM D2256","a":"As per grade"},
+              {"k":"elong","p":"Elongation","u":"%","m":"ASTM D2256","a":"As per grade"},
+              {"k":"moist","p":"Moisture Content","u":"%","m":"Internal / COA","a":"≤ 0.5 %"},
+              {"k":"finish","p":"Finish content","u":"%","m":"Internal / COA","a":"As per grade"}
+            ] %}
+            {% for r in fb_rows %}
+              <tr>
+                <td>{{ r.p }}</td>
+                <td>{{ r.u }}</td>
+                <td class="wrap">{{ r.m }}</td>
+                <td class="wrap">{{ r.a }}</td>
+                <td>
+                  <input name="fb_{{ r.k }}_result"
+                         value="{{ inspection_data['fb_' ~ r.k ~ '_result'] if inspection_data and ('fb_' ~ r.k ~ '_result') in inspection_data else '' }}"
+                         placeholder="">
+                </td>
+                <td>
+                  <input name="fb_{{ r.k }}_remarks"
+                         value="{{ inspection_data['fb_' ~ r.k ~ '_remarks'] if inspection_data and ('fb_' ~ r.k ~ '_remarks') in inspection_data else '' }}"
+                         placeholder="">
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
 
+    <!-- =========================
+         Remarks + submit
+    ========================== -->
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">Remarks</div>
 
@@ -109,25 +236,27 @@
       </div>
     </div>
 
-    <!-- =========================
-         PHOTO EVIDENCE
-    ========================== -->
-    <div class="card inner mt">
-      <div class="sectiontitle accent-blue">Photo Evidence</div>
-      <div class="muted tiny">
-        Add photos as evidence (packaging, labeling, damage, etc.). You can capture from mobile camera or upload files.
-      </div>
+  </form>
 
-      {% if photo_error %}
-        <div class="alert alert-error mt">{{ photo_error }}</div>
-      {% endif %}
+  <!-- =========================
+       Photo Evidence (Upload + View)
+       (Visible to anyone reviewing the report)
+  ========================== -->
+  <div class="card inner mt">
+    <div class="sectiontitle accent-blue">Photo Evidence</div>
+    <div class="muted tiny">Add photos (packaging, labeling, damage, etc.). Anyone viewing this report will see them.</div>
 
+    {% if photo_error %}
+      <div class="alert alert-error mt">{{ photo_error }}</div>
+    {% endif %}
+
+    {% if not inspection.inspector_confirmed %}
       <form class="mt" action="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}/photos/upload" method="post" enctype="multipart/form-data">
         <div class="grid3">
           <div>
             <label>Group / Category</label>
             <input name="group_name" placeholder="e.g., Packaging / Labeling / Damage" required>
-            <div class="muted tiny">Tip: use the same group name to keep photos together.</div>
+            <div class="muted tiny">Use the same group name to keep photos together.</div>
           </div>
           <div>
             <label>Description (optional)</label>
@@ -136,47 +265,53 @@
           <div>
             <label>Photos</label>
             <input type="file" name="photos" accept="image/*" capture="environment" multiple required>
-            <div class="muted tiny">You can select multiple photos at once.</div>
+            <div class="muted tiny">Capture from camera or upload (multiple allowed).</div>
           </div>
         </div>
-
         <div class="mt">
           <button class="btn btn-secondary" type="submit">Upload Photos</button>
         </div>
       </form>
+    {% else %}
+      <div class="muted tiny mt">Inspection is submitted — photos are locked (view only).</div>
+    {% endif %}
 
-      {% if photo_groups and photo_groups|length > 0 %}
-        <div class="mt">
-          {% for gname, items in photo_groups.items() %}
-            <div class="card inner mt">
-              <div class="sectiontitle">{{ gname }}</div>
-              <div class="grid3 mt">
-                {% for p in items %}
-                  <div class="photo-card">
-                    <a href="/mrr/photos/{{ p.id }}/view" target="_blank">
-                      <img class="photo-thumb" src="/mrr/photos/{{ p.id }}/view" alt="photo">
-                    </a>
-                    {% if p.caption %}
-                      <div class="muted tiny mt">{{ p.caption }}</div>
-                    {% endif %}
+    <style>
+      .photo-thumb { width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; border: 1px solid rgba(0,0,0,0.08); }
+      .photo-card { padding: 8px; }
+      .btn-small { padding: 6px 10px; font-size: 12px; }
+    </style>
 
-                    {% if not inspection.inspector_confirmed %}
-                      <form class="mt" action="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}/photos/{{ p.id }}/delete" method="post">
-                        <button class="btn btn-ghost btn-small" type="submit">Delete</button>
-                      </form>
-                    {% endif %}
-                  </div>
-                {% endfor %}
-              </div>
+    {% if photo_groups and photo_groups|length > 0 %}
+      <div class="mt">
+        {% for gname, items in photo_groups.items() %}
+          <div class="card inner mt">
+            <div class="sectiontitle">{{ gname }}</div>
+            <div class="grid3 mt">
+              {% for p in items %}
+                <div class="photo-card">
+                  <a href="/mrr/photos/{{ p.id }}/view" target="_blank">
+                    <img class="photo-thumb" src="/mrr/photos/{{ p.id }}/view" alt="photo">
+                  </a>
+                  {% if p.caption %}
+                    <div class="muted tiny mt">{{ p.caption }}</div>
+                  {% endif %}
+                  {% if not inspection.inspector_confirmed %}
+                    <form class="mt" action="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}/photos/{{ p.id }}/delete" method="post">
+                      <button class="btn btn-ghost btn-small" type="submit">Delete</button>
+                    </form>
+                  {% endif %}
+                </div>
+              {% endfor %}
             </div>
-          {% endfor %}
-        </div>
-      {% else %}
-        <div class="muted tiny mt">No photos uploaded yet.</div>
-      {% endif %}
-    </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="muted tiny mt">No photos uploaded yet.</div>
+    {% endif %}
+  </div>
 
-  </form>
 </div>
 
 <script>
