@@ -1293,6 +1293,19 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         .order_by(MrrReceivingInspection.created_at.desc())
     ).first()
 
+        # --- NEW: show used Delivery Notes (submitted shipments only) ---
+    submitted_shipments = session.exec(
+        select(MrrReceivingInspection)
+        .where(
+            (MrrReceivingInspection.ticket_id == lot_id) &
+            (MrrReceivingInspection.inspector_confirmed == True)
+        )
+        .order_by(MrrReceivingInspection.created_at.asc())
+    ).all()
+
+    used_dns = [ (s.delivery_note_no or "").strip() for s in submitted_shipments if (s.delivery_note_no or "").strip() ]
+
+
     docs_ok = bool(receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po))
     insp_submitted = bool(inspection and getattr(inspection, "inspector_confirmed", False))
     insp_ok = bool(inspection and getattr(inspection, "manager_approved", False))
@@ -1311,6 +1324,8 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
             "inspection": inspection,
             "readonly": readonly,  # ✅ NEW
             "error": request.query_params.get("error", ""),
+            "used_dns": used_dns,
+
         },
     )
 
@@ -1648,22 +1663,41 @@ def new_shipment_inspection_page(
     session: Session = Depends(get_session),
 ):
     user = get_current_user(request, session)
+
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
+    block_if_mrr_canceled(lot)
+
+    # --- NEW: enforce PO doc + documentation cleared BEFORE allowing shipment inspection ---
+    receiving = session.exec(
+        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
+    ).first()
+
+    docs = session.exec(
+        select(MrrDocument).where(MrrDocument.ticket_id == lot_id)
+    ).all()
+
+    has_po_doc = any((d.doc_type or "").upper() == "PO" for d in docs)
+    docs_ok = bool(receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po))
+
+    if (not has_po_doc) or (not docs_ok):
+        return RedirectResponse(
+            f"/mrr/{lot_id}?error=Upload%20PO%20document%20and%20Confirm%20Documentation%20Complete%20before%20starting%20Receiving%20Inspection",
+            status_code=303,
+        )
 
     # Remaining qty (kg/t compatible)
     po_unit = (lot.quantity_unit or "KG").upper().strip()
     po_qty = float(lot.quantity or 0.0)
 
     if po_unit in ["PC", "PCS"]:
-        # PCS balance uses raw numbers
         received_total = float(lot.received_total or 0.0)
         remaining = max(po_qty - received_total, 0.0)
         remaining_label = f"{remaining:g} {po_unit}"
     else:
         po_kg = normalize_qty_to_kg(po_qty, po_unit)
-        received_total = float(lot.received_total or 0.0)  # we store as KG normalized
+        received_total = float(lot.received_total or 0.0)
         remaining_kg = max(po_kg - received_total, 0.0)
         remaining_label = f"{remaining_kg:g} KG (normalized)"
 
@@ -1690,6 +1724,7 @@ def new_shipment_inspection_page(
             "error": error,
         },
     )
+
 
 @app.post("/mrr/{lot_id}/inspection/{inspection_id}/submit")
 async def shipment_inspection_submit(
@@ -1792,6 +1827,23 @@ def create_shipment_inspection(
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
+    block_if_mrr_canceled(lot)
+
+    # --- NEW: enforce PO doc + documentation cleared BEFORE creating shipment ---
+    receiving = session.exec(
+        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
+    ).first()
+    docs = session.exec(
+        select(MrrDocument).where(MrrDocument.ticket_id == lot_id)
+    ).all()
+
+    has_po_doc = any((d.doc_type or "").upper() == "PO" for d in docs)
+    docs_ok = bool(receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po))
+    if (not has_po_doc) or (not docs_ok):
+        return RedirectResponse(
+            f"/mrr/{lot_id}?error=Upload%20PO%20document%20and%20Confirm%20Documentation%20Complete%20before%20starting%20Receiving%20Inspection",
+            status_code=303,
+        )
 
     dn = (delivery_note_no or "").strip()
     if not dn:
@@ -1820,7 +1872,7 @@ def create_shipment_inspection(
     if draft:
         return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{draft.id}", status_code=303)
 
-    # 3) If there is a SUBMITTED shipment with same DN => block
+    # 3) If there is a SUBMITTED shipment with same DN => block (DN consumed)
     used = get_submitted_shipment_by_dn(session, lot_id, dn)
     if used:
         return RedirectResponse(
@@ -1836,7 +1888,7 @@ def create_shipment_inspection(
             status_code=303,
         )
 
-    # 5) Remaining balance validation (IMPORTANT: use CURRENT received_total, do NOT change it here)
+    # 5) Remaining balance validation (use CURRENT received_total, do NOT change it here)
     po_qty = float(lot.quantity or 0.0)
     received_total = float(lot.received_total or 0.0)
 
@@ -1864,7 +1916,7 @@ def create_shipment_inspection(
     ).all()
     seq = len(existing) + 1
 
-    # ✅ Create shipment as DRAFT (DO NOT change lot.received_total here)
+    # Create shipment as DRAFT (DO NOT change lot.received_total here)
     insp = MrrReceivingInspection(
         ticket_id=lot_id,
         inspector_id=user.id,
@@ -3492,6 +3544,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
