@@ -1769,7 +1769,7 @@ async def shipment_inspection_submit(
     ).first()
     if used:
         return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/{inspection_id}?error=This%20Delivery%20Note%20was%20already%20used%20in%20another%20submitted%20shipment",
+            f"/mrr/{lot_id}/inspection/id/{inspection_id}?error=This%20Delivery%20Note%20was%20already%20used%20in%20another%20submitted%20shipment",
             status_code=303
         )
 
@@ -1812,6 +1812,7 @@ async def shipment_inspection_submit(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 
 @app.post("/mrr/{lot_id}/inspection/new")
 def create_shipment_inspection(
@@ -3544,6 +3545,7 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.right = 0.25
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
+
 
 
 
