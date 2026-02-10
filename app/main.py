@@ -63,6 +63,7 @@ from .models import (
     MrrReceiving,
     MrrReceivingInspection,  # ✅ required because your code uses this name
     MrrInspection,           # ✅ now works (alias in models.py)
+    MrrInspectionPhoto,      # ✅ NEW
 )
 SLOTS = [
     "00:00", "02:00", "04:00", "06:00",
@@ -164,7 +165,11 @@ BASE_DIR = os.path.dirname(__file__)
 # =========================
 DATA_DIR = os.environ.get("DATA_DIR", "/tmp/inspection_erp_data")
 MRR_UPLOAD_DIR = os.path.join(DATA_DIR, "mrr_uploads")
+MRR_PHOTO_DIR = os.path.join(DATA_DIR, "mrr_photos")
+
 os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
+os.makedirs(MRR_PHOTO_DIR, exist_ok=True)
+
 
 
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -2057,6 +2062,21 @@ def shipment_inspection_form(
     data["qty_arrived"] = inspection.qty_arrived if inspection.qty_arrived is not None else ""
     data["qty_unit"] = inspection.qty_unit or "KG"
 
+    # ✅ NEW: load photos for this inspection and group them
+    photos = session.exec(
+        select(MrrInspectionPhoto)
+        .where(
+            (MrrInspectionPhoto.ticket_id == lot_id) &
+            (MrrInspectionPhoto.inspection_id == inspection_id)
+        )
+        .order_by(MrrInspectionPhoto.created_at.asc())
+    ).all()
+
+    photo_groups: Dict[str, List[MrrInspectionPhoto]] = {}
+    for p in photos:
+        g = (p.group_name or "General").strip() or "General"
+        photo_groups.setdefault(g, []).append(p)
+
     return templates.TemplateResponse(
         "mrr_inspection.html",
         {
@@ -2065,6 +2085,8 @@ def shipment_inspection_form(
             "lot": lot,
             "inspection": inspection,
             "inspection_data": data,
+            "photo_groups": photo_groups,                 # ✅ NEW
+            "photo_error": request.query_params.get("photo_error", ""),  # ✅ NEW
         },
     )
 
@@ -3546,6 +3568,148 @@ def apply_pdf_page_setup(ws):
     ws.page_margins.top = 0.35
     ws.page_margins.bottom = 0.70
 
+
+# =========================
+# MRR PHOTO EVIDENCE
+# =========================
+
+def _safe_ext(filename: str) -> str:
+    name = (filename or "").lower().strip()
+    if "." not in name:
+        return ".jpg"
+    ext = "." + name.split(".")[-1]
+    if ext not in [".jpg", ".jpeg", ".png", ".webp"]:
+        return ".jpg"
+    return ext
+
+
+@app.get("/mrr/photos/{photo_id}/view")
+def mrr_photo_view(photo_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    p = session.get(MrrInspectionPhoto, photo_id)
+    if not p:
+        raise HTTPException(404, "Photo not found")
+
+    # (optional) basic permission gate: any logged-in user can view
+    # You can tighten later by checking ticket access rules if needed.
+
+    if not p.file_path or not os.path.exists(p.file_path):
+        raise HTTPException(404, "Photo file missing")
+
+    mt, _ = mimetypes.guess_type(p.file_path)
+    return FileResponse(p.file_path, media_type=mt or "image/jpeg")
+
+
+@app.post("/mrr/{lot_id}/inspection/id/{inspection_id}/photos/upload")
+async def mrr_photo_upload(
+    lot_id: int,
+    inspection_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    group_name: str = Form(...),
+    caption: str = Form(""),
+    photos: List[UploadFile] = File(...),
+):
+    user = get_current_user(request, session)
+    forbid_boss(user)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    insp = session.get(MrrReceivingInspection, inspection_id)
+    if not insp or insp.ticket_id != lot_id:
+        raise HTTPException(404, "Shipment inspection not found")
+
+    # Prevent edits after submit
+    if insp.inspector_confirmed:
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=Inspection%20already%20submitted.%20Photos%20cannot%20be%20changed.",
+            status_code=303,
+        )
+
+    g = (group_name or "General").strip() or "General"
+    cap = (caption or "").strip()
+
+    if not photos or len(photos) == 0:
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=Please%20select%20at%20least%20one%20photo",
+            status_code=303,
+        )
+
+    # Store under: DATA_DIR/mrr_photos/<ticket>/<inspection>/
+    base = os.path.join(MRR_PHOTO_DIR, f"ticket_{lot_id}", f"insp_{inspection_id}")
+    os.makedirs(base, exist_ok=True)
+
+    for f in photos:
+        # basic image validation
+        ct = (f.content_type or "").lower()
+        if not ct.startswith("image/"):
+            continue
+
+        ext = _safe_ext(f.filename)
+        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
+        out_path = os.path.join(base, f"{ts}{ext}")
+
+        content = await f.read()
+        with open(out_path, "wb") as w:
+            w.write(content)
+
+        rec = MrrInspectionPhoto(
+            ticket_id=lot_id,
+            inspection_id=inspection_id,
+            group_name=g,
+            caption=cap,
+            file_path=out_path,
+            uploaded_by_user_id=user.id,
+            uploaded_by_user_name=user.display_name,
+        )
+        session.add(rec)
+
+    session.commit()
+
+    return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
+
+@app.post("/mrr/{lot_id}/inspection/id/{inspection_id}/photos/{photo_id}/delete")
+def mrr_photo_delete(
+    lot_id: int,
+    inspection_id: int,
+    photo_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+    forbid_boss(user)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    insp = session.get(MrrReceivingInspection, inspection_id)
+    if not insp or insp.ticket_id != lot_id:
+        raise HTTPException(404, "Shipment inspection not found")
+
+    # Prevent edits after submit
+    if insp.inspector_confirmed:
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
+    p = session.get(MrrInspectionPhoto, photo_id)
+    if not p or p.ticket_id != lot_id or p.inspection_id != inspection_id:
+        raise HTTPException(404, "Photo not found")
+
+    # Delete file if exists
+    try:
+        if p.file_path and os.path.exists(p.file_path):
+            os.remove(p.file_path)
+    except Exception:
+        pass
+
+    session.delete(p)
+    session.commit()
+
+    return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
 
 
 
