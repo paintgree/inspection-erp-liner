@@ -114,14 +114,26 @@
         </div>
 
         <div>
-          <label>Intended Process (optional)</label>
-          {% set ip = inspection_data.intended_process if inspection_data and inspection_data.intended_process else '' %}
-          <select name="intended_process">
-            <option value="" {% if ip == '' %}selected{% endif %}>-- optional --</option>
-            <option value="LINER" {% if ip == 'LINER' %}selected{% endif %}>LINER</option>
-            <option value="REINFORCEMENT" {% if ip == 'REINFORCEMENT' %}selected{% endif %}>REINFORCEMENT</option>
-            <option value="COVER" {% if ip == 'COVER' %}selected{% endif %}>COVER</option>
-          </select>
+          <label>Material Grade (optional)</label>
+
+          {% set grade = inspection_data.material_grade if inspection_data and inspection_data.material_grade else '' %}
+
+          <input
+            type="text"
+            name="material_grade"
+            value="{{ grade }}"
+            placeholder="Type grade (example: PE100-Black / PERT-White / etc.)"
+            list="grade_suggestions"
+          />
+
+          <datalist id="grade_suggestions">
+            <option value="PERT-White"></option>
+            <option value="PE100-Black"></option>
+            <option value="Polyester Fiber 36000D"></option>
+            <option value="Polyester Fiber 45000D"></option>
+          </datalist>
+
+          <div class="muted tiny">You can type any grade. Suggestions are optional.</div>
         </div>
       </div>
     </div>
