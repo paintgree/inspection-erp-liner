@@ -31,6 +31,19 @@
           <button class="btn btn-warn" type="submit">Cancel Ticket</button>
         </form>
       {% endif %}
+
+      {% if user.role and user.role|upper == "MANAGER"
+            and inspection_to_approve
+            and inspection_to_approve.inspector_confirmed
+            and not inspection_to_approve.manager_approved %}
+        <form method="post"
+              action="/mrr/{{ lot.id }}/inspection/{{ inspection_to_approve.id }}/approve"
+              style="display:inline;"
+              onsubmit="return confirm('Approve this receiving inspection?')">
+          <button class="btn btn-primary" type="submit">Approve Receiving Inspection</button>
+        </form>
+      {% endif %}
+
     </div>
   </div>
 
