@@ -20,7 +20,7 @@
       <a class="btn" href="/mrr/{{ lot.id }}/export/pdf">Export PDF</a>
 
       {% if user.role and user.role|upper == "MANAGER" %}
-        <a class="btn btn-warn" href="/mrr/pending">Pending approvals</a>
+        <a class="btn btn-warn" href="/mrr/pending-approvals">Pending approvals</a>
       {% endif %}
 
       {% if user.role and user.role|upper == "MANAGER"
@@ -346,6 +346,14 @@
         {% endif %}
 
         <a class="btn btn-primary" href="/mrr/{{ lot.id }}/inspection/new">
+
+          {% if user.role and user.role|upper == "MANAGER" and inspection and inspection.inspector_confirmed and not inspection.manager_approved %}
+            <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/approve" style="display:inline;"
+                  onsubmit="return confirm('Approve this receiving inspection and allow production to use this batch?')">
+              <button class="btn btn-primary" type="submit">Approve Receiving Inspection</button>
+            </form>
+          {% endif %}
+
           {% if lot.status and lot.status|upper == "PARTIAL" %}
             Start Shipment Inspection (Partial Delivery)
           {% else %}
