@@ -1310,6 +1310,16 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         .order_by(MrrReceivingInspection.created_at.asc())
     ).all()
 
+        inspection_to_approve = session.exec(
+        select(MrrReceivingInspection)
+        .where(
+            (MrrReceivingInspection.ticket_id == lot_id) &
+            (MrrReceivingInspection.inspector_confirmed == True) &
+            (MrrReceivingInspection.manager_approved == False)
+        )
+        .order_by(MrrReceivingInspection.created_at.desc())
+    ).first()
+
     used_dns = [ (s.delivery_note_no or "").strip() for s in submitted_shipments if (s.delivery_note_no or "").strip() ]
 
 
@@ -1332,6 +1342,8 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
             "readonly": readonly,  # ✅ NEW
             "error": request.query_params.get("error", ""),
             "used_dns": used_dns,
+            "inspection_to_approve": inspection_to_approve,
+
 
         },
     )
@@ -3996,6 +4008,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
