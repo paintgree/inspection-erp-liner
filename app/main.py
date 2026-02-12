@@ -1632,7 +1632,7 @@ def mrr_inspection_approve(lot_id: int, request: Request, session: Session = Dep
     session.commit()
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
 
-@app.get("/mrr/pending-approvals", response_class=HTMLResponse)
+@app.get("/mrr-pending-approvals", response_class=HTMLResponse)
 def mrr_pending(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     require_manager(user)
@@ -3996,6 +3996,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
