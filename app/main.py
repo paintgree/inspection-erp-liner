@@ -1282,7 +1282,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
 
-    readonly = is_mrr_canceled(lot)  # ✅ canceled tickets = view-only
+    readonly = is_mrr_canceled(lot)
 
     docs = session.exec(
         select(MrrDocument)
@@ -1294,13 +1294,14 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
     ).first()
 
+    # latest inspection (draft or submitted)
     inspection = session.exec(
         select(MrrReceivingInspection)
         .where(MrrReceivingInspection.ticket_id == lot_id)
         .order_by(MrrReceivingInspection.created_at.desc())
     ).first()
 
-        # --- NEW: show used Delivery Notes (submitted shipments only) ---
+    # submitted shipments (for DN list + report table)
     submitted_shipments = session.exec(
         select(MrrReceivingInspection)
         .where(
@@ -1310,7 +1311,14 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         .order_by(MrrReceivingInspection.created_at.asc())
     ).all()
 
-        inspection_to_approve = session.exec(
+    used_dns = [
+        (s.delivery_note_no or "").strip()
+        for s in submitted_shipments
+        if (s.delivery_note_no or "").strip()
+    ]
+
+    # ✅ inspection that needs approval (latest submitted and not approved)
+    inspection_to_approve = session.exec(
         select(MrrReceivingInspection)
         .where(
             (MrrReceivingInspection.ticket_id == lot_id) &
@@ -1320,10 +1328,20 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         .order_by(MrrReceivingInspection.created_at.desc())
     ).first()
 
-    used_dns = [ (s.delivery_note_no or "").strip() for s in submitted_shipments if (s.delivery_note_no or "").strip() ]
+    # photos for all submitted shipments
+    all_photos = session.exec(
+        select(MrrInspectionPhoto)
+        .where(MrrInspectionPhoto.ticket_id == lot_id)
+        .order_by(MrrInspectionPhoto.created_at.asc())
+    ).all()
 
+    photos_by_inspection: Dict[int, Dict[str, List[MrrInspectionPhoto]]] = {}
+    for p in all_photos:
+        photos_by_inspection.setdefault(p.inspection_id, {})
+        g = (p.group_name or "General").strip() or "General"
+        photos_by_inspection[p.inspection_id].setdefault(g, []).append(p)
 
-    docs_ok = bool(receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po))
+    docs_ok = bool(receiving and (getattr(receiving, "inspector_confirmed_po", False) or getattr(receiving, "manager_confirmed_po", False)))
     insp_submitted = bool(inspection and getattr(inspection, "inspector_confirmed", False))
     insp_ok = bool(inspection and getattr(inspection, "manager_approved", False))
 
@@ -1339,14 +1357,15 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
             "insp_submitted": insp_submitted,
             "insp_ok": insp_ok,
             "inspection": inspection,
-            "readonly": readonly,  # ✅ NEW
+            "readonly": readonly,
             "error": request.query_params.get("error", ""),
             "used_dns": used_dns,
-            "inspection_to_approve": inspection_to_approve,
-
-
+            "submitted_shipments": submitted_shipments,
+            "photos_by_inspection": photos_by_inspection,
+            "inspection_to_approve": inspection_to_approve,  # ✅ needed for approve button
         },
     )
+
 
 
 @app.post("/mrr/{lot_id}/docs/upload")
@@ -4008,6 +4027,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
