@@ -1632,7 +1632,7 @@ def mrr_inspection_approve(lot_id: int, request: Request, session: Session = Dep
     session.commit()
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
 
-@app.get("/mrr/pending", response_class=HTMLResponse)
+@app.get("/mrr/pending-approvals", response_class=HTMLResponse)
 def mrr_pending(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     require_manager(user)
@@ -3507,10 +3507,22 @@ def build_mrr_xlsx_bytes(lot_id: int, session: Session) -> bytes:
 
     if receiving:
         put("Saved", "YES")
-        cleared = bool(receiving.inspector_confirmed_po or receiving.manager_confirmed_po)
+        cleared = bool(getattr(receiving, "inspector_confirmed_po", False) or getattr(receiving, "manager_confirmed_po", False))
         put("Cleared", "YES" if cleared else "NO")
-        put("Inspector PO No.", receiving.inspector_po_number or "")
-        put("Inspector PO Qty", f"{receiving.inspector_po_qty or ''} {receiving.inspector_po_unit or ''}".strip())
+
+        put("Inspector PO No.", getattr(receiving, "inspector_po_number", "") or "")
+
+        # Receiving doc qty fields (these DO exist in your model)
+        doc_qty = getattr(receiving, "qty_arrived", None)
+        doc_unit = getattr(receiving, "qty_unit", "KG") or "KG"
+        put("Arrived Qty (Doc)", f"{doc_qty if doc_qty is not None else ''} {doc_unit}".strip())
+
+        is_partial = bool(getattr(receiving, "is_partial_delivery", False))
+        put("Partial Delivery", "YES" if is_partial else "NO")
+        put("Mismatch/Partial Reason", getattr(receiving, "qty_mismatch_reason", "") or "")
+
+        put("Received Date", str(getattr(receiving, "received_date", "") or ""))
+        put("Remarks (Doc)", getattr(receiving, "remarks", "") or "")
     else:
         put("Saved", "NO")
         put("Cleared", "NO")
@@ -3984,6 +3996,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
