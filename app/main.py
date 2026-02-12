@@ -3804,6 +3804,64 @@ def mrr_export_pdf(lot_id: int, request: Request, session: Session = Depends(get
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
+        # =========================
+# MRR MANAGER APPROVAL
+# =========================
+
+@app.post("/mrr/{lot_id}/inspection/id/{inspection_id}/approve")
+def mrr_approve_receiving_inspection(
+    lot_id: int,
+    inspection_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    insp = session.get(MrrReceivingInspection, inspection_id)
+    if not insp or insp.ticket_id != lot_id:
+        raise HTTPException(404, "MRR Inspection not found")
+
+    # must be submitted first
+    if not insp.inspector_confirmed:
+        return RedirectResponse(
+            f"/mrr/{lot_id}?error=Inspection%20must%20be%20submitted%20before%20approval",
+            status_code=303,
+        )
+
+    # approve
+    insp.manager_approved = True
+    session.add(insp)
+
+    # update ticket status
+    # If there is remaining qty -> keep PARTIAL, else set APPROVED
+    remaining = None
+    try:
+        # if your lot has remaining_qty field use it, else compute from received_total
+        remaining = getattr(lot, "remaining_qty", None)
+    except Exception:
+        remaining = None
+
+    if remaining is not None:
+        lot.status = "PARTIAL" if float(remaining) > 0 else "APPROVED"
+    else:
+        # safe fallback: if received_total < qty => PARTIAL else APPROVED
+        try:
+            po_qty = float(lot.quantity or 0)
+            received = float(lot.received_total or 0)
+            lot.status = "PARTIAL" if received < po_qty else "APPROVED"
+        except Exception:
+            lot.status = "APPROVED"
+
+    session.add(lot)
+    session.commit()
+
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 
 @app.get("/runs/{run_id}/export/xlsx")
 def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_session)):
@@ -4027,6 +4085,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
