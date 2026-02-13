@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import mimetypes
 import traceback
+
 from datetime import datetime, date, time as dtime, timedelta
 from io import BytesIO
 from typing import Dict, List, Optional, Tuple
@@ -81,6 +82,15 @@ UNIT_MULTIPLIER = {
     "KG": 1.0,
     "T": 1000.0,   # 1 Ton = 1000 KG
 }
+def safe_json_loads(val):
+    if not val:
+        return {}
+    if isinstance(val, dict):
+        return val
+    try:
+        return json.loads(val)
+    except Exception:
+        return {}
 
 def normalize_qty_to_kg(qty: float, unit: str) -> float:
     u = (unit or "KG").upper().strip()
@@ -4268,6 +4278,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
