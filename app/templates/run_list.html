@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block content %}
+
+<a class="btn btn-ghost" href="/dashboard">← Back</a>
+
+<div class="card">
+  <div class="runheader">
+    <div>
+      <h1>In-Process Inspection — Runs</h1>
+      <div class="muted">Open a run to start filling inspection entries.</div>
+    </div>
+
+    <div class="actions">
+      {% if user.role and user.role|upper in ["MANAGER", "RUN_CREATOR"] %}
+        <a class="btn btn-primary" href="/runs/new">+ New Production Run</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card inner mt">
+    <h2>All Runs</h2>
+
+    {% if runs and runs|length > 0 %}
+      <div class="tablewrap mt">
+        <table class="table wide">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Process</th>
+              <th>Batch No</th>
+              <th>Client</th>
+              <th>PO</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in runs %}
+              <tr>
+                <td>{{ r.id }}</td>
+                <td><b>{{ r.process }}</b></td>
+                <td>{{ r.dhtp_batch_no }}</td>
+                <td>{{ r.client_name or "-" }}</td>
+                <td>{{ r.po_number or "-" }}</td>
+                <td>{{ r.status or "-" }}</td>
+                <td>
+                  <a class="btn btn-sm" href="/runs/{{ r.id }}">Open</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="muted mt">No runs created yet.</div>
+
+      {% if user.role and user.role|upper in ["MANAGER", "RUN_CREATOR"] %}
+        <div class="mt">
+          <a class="btn btn-primary" href="/runs/new">+ Create the first run</a>
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}
+ 
