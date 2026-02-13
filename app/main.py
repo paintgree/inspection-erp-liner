@@ -3849,6 +3849,93 @@ def mrr_approve_receiving_inspection(
 
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
 
+@app.post("/mrr/{lot_id}/inspection/id/{inspection_id}/unapprove")
+def mrr_unapprove_receiving_inspection(
+    lot_id: int,
+    inspection_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    if (lot.status or "").upper() == "CANCELED":
+        return RedirectResponse(f"/mrr/{lot_id}?error=Ticket%20is%20canceled", status_code=303)
+
+    insp = session.get(MrrReceivingInspection, inspection_id)
+    if not insp or insp.ticket_id != lot_id:
+        raise HTTPException(404, "MRR Inspection not found")
+
+    # Only unapprove if it was approved already
+    if not insp.manager_approved:
+        return RedirectResponse(
+            f"/mrr/{lot_id}?error=This%20inspection%20is%20not%20approved",
+            status_code=303,
+        )
+
+    # Unapprove
+    insp.manager_approved = False
+    session.add(insp)
+
+    # =========================
+    # Recompute totals after unapprove
+    # =========================
+    approved_shipments = session.exec(
+        select(MrrReceivingInspection).where(
+            (MrrReceivingInspection.ticket_id == lot_id)
+            & (MrrReceivingInspection.inspector_confirmed == True)
+            & (MrrReceivingInspection.manager_approved == True)
+        )
+    ).all()
+
+    po_unit = (lot.quantity_unit or "KG").upper().strip()
+    try:
+        po_qty = float(lot.quantity or 0.0)
+    except Exception:
+        po_qty = 0.0
+
+    approved_total = 0.0
+
+    if po_unit in ["PC", "PCS"]:
+        for s in approved_shipments:
+            try:
+                approved_total += float(s.qty_arrived or 0.0)
+            except Exception:
+                pass
+
+        remaining = po_qty - approved_total
+        if remaining < 0:
+            remaining = 0.0
+
+        lot.received_total = approved_total
+        # If nothing approved anymore -> go back to PENDING. Else PARTIAL.
+        lot.status = "PARTIAL" if approved_total > 0 else "PENDING"
+
+    else:
+        po_kg = normalize_qty_to_kg(po_qty, po_unit)
+
+        for s in approved_shipments:
+            try:
+                approved_total += float(normalize_qty_to_kg(float(s.qty_arrived or 0.0), s.qty_unit or "KG"))
+            except Exception:
+                pass
+
+        remaining_kg = po_kg - approved_total
+        if remaining_kg < 0:
+            remaining_kg = 0.0
+
+        lot.received_total = approved_total  # KG normalized
+        lot.status = "PARTIAL" if approved_total > 0 else "PENDING"
+
+    session.add(lot)
+    session.commit()
+
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 
 @app.get("/runs/{run_id}/export/xlsx")
 def export_xlsx(run_id: int, request: Request, session: Session = Depends(get_session)):
@@ -4072,6 +4159,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
