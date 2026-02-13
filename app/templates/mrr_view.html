@@ -10,8 +10,8 @@
       <h1>MRR Ticket #{{ lot.id }}</h1>
       <div class="muted">
         Type: <b>{{ lot.lot_type }}</b> •
-        Batch: <b>{{ lot.batch_no }}</b> •
-        Status: <b>{{ lot.status }}</b>
+        Batch: <b>{{ lot.batch_no or "-" }}</b> •
+        Status: <b>{{ lot.status or "-" }}</b>
       </div>
     </div>
 
@@ -54,9 +54,6 @@
           <button class="btn btn-warn" type="submit">Unapprove Last Approval</button>
         </form>
       {% endif %}
-
-
-
     </div>
   </div>
 
@@ -128,6 +125,7 @@
   <!-- BASIC INFO -->
   <div class="card inner mt">
     <h2>Basic Info</h2>
+
     <div class="kv"><span>Material</span><b>{{ lot.material_name or "-" }}</b></div>
     <div class="kv"><span>Supplier</span><b>{{ lot.supplier_name or "-" }}</b></div>
     <div class="kv"><span>PO</span><b>{{ lot.po_number or "-" }}</b></div>
@@ -185,7 +183,6 @@
                 <td>{{ d.doc_number or "-" }}</td>
                 <td class="wrap">{{ d.uploaded_by_user_name }}</td>
                 <td>
-                  <!-- ✅ FIXED ROUTES -->
                   <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/view">View</a>
                   <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/download">Download</a>
                 </td>
@@ -199,7 +196,6 @@
     {% endif %}
 
     {% if not readonly %}
-      <!-- UPLOAD FORM (not a link) -->
       <div class="mt">
         <h3>Upload Document</h3>
 
@@ -232,7 +228,6 @@
                 <label class="mt">Document Number (required)</label>
                 <input id="doc_number" name="doc_number" required placeholder="e.g. DN-12345 / PO-009 / COA-778">
               </div>
-
             </div>
           </div>
         </form>
@@ -242,42 +237,38 @@
           const typeEl = document.getElementById("doc_type");
           const nameWrap = document.getElementById("docNameWrap");
           const nameInput = document.getElementById("doc_title");
-        
+
           const numWrap = document.getElementById("docNumberWrap");
           const numInput = document.getElementById("doc_number");
-        
+
           const ticketPo = "{{ lot.po_number }}";
-        
+
           function refresh(){
             const v = (typeEl.value || "").toUpperCase();
-        
-            // RELATED name behavior
+
             const isRelated = (v === "RELATED");
             nameWrap.style.display = isRelated ? "block" : "none";
             nameInput.required = isRelated;
             if(!isRelated) nameInput.value = "";
-        
-            // ✅ PO doc number auto behavior
+
             const isPo = (v === "PO");
             if (isPo) {
               numWrap.style.display = "none";
               numInput.required = false;
-              numInput.value = ticketPo; // submit it hidden
+              numInput.value = ticketPo;
             } else {
               numWrap.style.display = "block";
               numInput.required = true;
               if (numInput.value === ticketPo) numInput.value = "";
             }
           }
-        
+
           typeEl.addEventListener("change", refresh);
           refresh();
         })();
         </script>
-
       </div>
 
-      <!-- INSPECTOR DOCUMENTATION SECTION (THIS IS THE MISSING STEP) -->
       <div class="mt" id="inspectorDocs">
         <h3>Inspector Documentation</h3>
 
@@ -329,18 +320,41 @@
               <th>Shipment</th>
               <th>DN</th>
               <th>Arrived</th>
+              <th>Batch No(s)</th>
               <th>Report</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
             {% for s in submitted_shipments %}
+              {% set data = s.inspection_json or {} %}
+              {% set batches = data.get("batch_numbers", []) %}
               <tr>
                 <td>#{{ loop.index }}</td>
                 <td>{{ s.delivery_note_no or "-" }}</td>
                 <td>{{ s.qty_arrived }} {{ s.qty_unit }}</td>
-                <td><a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}">Open</a></td>
-                <td>{% if s.manager_approved %}APPROVED{% else %}SUBMITTED{% endif %}</td>
+
+                <td>
+                  {% if batches %}
+                    {% for b in batches %}
+                      <div>{{ b }}</div>
+                    {% endfor %}
+                  {% else %}
+                    <span class="muted">-</span>
+                  {% endif %}
+                </td>
+
+                <td>
+                  <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}">Open</a>
+                </td>
+
+                <td>
+                  {% if s.manager_approved %}
+                    <span class="badge badge-ok">APPROVED</span>
+                  {% else %}
+                    <span class="badge badge-warn">SUBMITTED</span>
+                  {% endif %}
+                </td>
               </tr>
             {% endfor %}
           </tbody>
@@ -377,6 +391,7 @@
           {% endif %}
         {% endfor %}
       </div>
+
     {% else %}
       <div class="muted mt">No submitted shipment inspections yet.</div>
     {% endif %}
@@ -391,36 +406,20 @@
     {% if not readonly %}
       <div class="toolbar mt">
         {% if not receiving or not docs_ok %}
-          <!-- ✅ This is the button you wanted -->
           <a class="btn btn-secondary" href="#inspectorDocs">Go to Documentation (Save & Confirm)</a>
         {% endif %}
 
-    {% if (lot.status or "")|upper != "APPROVED" %}
-      <a class="btn btn-primary" href="/mrr/{{ lot.id }}/inspection/new">
-        {% if lot.status and lot.status|upper == "PARTIAL" %}
-          Start Shipment Inspection (Partial Delivery)
+        {% if (lot.status or "")|upper != "APPROVED" %}
+          <a class="btn btn-primary" href="/mrr/{{ lot.id }}/inspection/new">
+            {% if lot.status and lot.status|upper == "PARTIAL" %}
+              Start Shipment Inspection (Partial Delivery)
+            {% else %}
+              Start Shipment Inspection
+            {% endif %}
+          </a>
         {% else %}
-          Start Shipment Inspection
+          <div class="muted mt">✅ Ticket is <b>APPROVED</b> — receiving is closed (no further inspections allowed).</div>
         {% endif %}
-      </a>
-    {% else %}
-      <div class="muted mt">✅ Ticket is <b>APPROVED</b> — receiving is closed (no further inspections allowed).</div>
-    {% endif %}
-
-
-          {% if user.role and user.role|upper == "MANAGER" and inspection and inspection.inspector_confirmed and not inspection.manager_approved %}
-            <form method="post"  action="/mrr/{{ lot.id }}/inspection/id/{{ inspection_to_approve.id }}/approve" style="display:inline;"
-                  onsubmit="return confirm('Approve this receiving inspection and allow production to use this batch?')">
-              <button class="btn btn-primary" type="submit">Approve Receiving Inspection</button>
-            </form>
-          {% endif %}
-
-          {% if lot.status and lot.status|upper == "PARTIAL" %}
-            Start Shipment Inspection (Partial Delivery)
-          {% else %}
-            Start Shipment Inspection
-          {% endif %}
-        </a>
       </div>
     {% else %}
       <div class="muted mt">Actions disabled (ticket canceled).</div>
