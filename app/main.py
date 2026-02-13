@@ -1294,14 +1294,14 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
     ).first()
 
-    # latest inspection (draft or submitted)
+    # Latest inspection (could be draft OR submitted)
     inspection = session.exec(
         select(MrrReceivingInspection)
         .where(MrrReceivingInspection.ticket_id == lot_id)
         .order_by(MrrReceivingInspection.created_at.desc())
     ).first()
 
-    # submitted shipments (for DN list + report table)
+    # Submitted shipments (for showing DN list + photos)
     submitted_shipments = session.exec(
         select(MrrReceivingInspection)
         .where(
@@ -1317,7 +1317,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         if (s.delivery_note_no or "").strip()
     ]
 
-    # ✅ inspection that needs approval (latest submitted and not approved)
+    # ✅ Needs-approval inspection (latest submitted not approved)
     inspection_to_approve = session.exec(
         select(MrrReceivingInspection)
         .where(
@@ -1328,8 +1328,8 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         .order_by(MrrReceivingInspection.created_at.desc())
     ).first()
 
-
-        latest_approved_inspection = session.exec(
+    # ✅ Latest approved inspection (for Unapprove button)
+    latest_approved_inspection = session.exec(
         select(MrrReceivingInspection)
         .where(
             (MrrReceivingInspection.ticket_id == lot_id) &
@@ -1339,7 +1339,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         .order_by(MrrReceivingInspection.created_at.desc())
     ).first()
 
-    # photos for all submitted shipments
+    # Photos grouped by inspection
     all_photos = session.exec(
         select(MrrInspectionPhoto)
         .where(MrrInspectionPhoto.ticket_id == lot_id)
@@ -1348,11 +1348,16 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
 
     photos_by_inspection: Dict[int, Dict[str, List[MrrInspectionPhoto]]] = {}
     for p in all_photos:
-        photos_by_inspection.setdefault(p.inspection_id, {})
+        photos_by_inspection.setdefault(int(p.inspection_id), {})
         g = (p.group_name or "General").strip() or "General"
-        photos_by_inspection[p.inspection_id].setdefault(g, []).append(p)
+        photos_by_inspection[int(p.inspection_id)].setdefault(g, []).append(p)
 
-    docs_ok = bool(receiving and (getattr(receiving, "inspector_confirmed_po", False) or getattr(receiving, "manager_confirmed_po", False)))
+    docs_ok = bool(
+        receiving and (
+            getattr(receiving, "inspector_confirmed_po", False) or
+            getattr(receiving, "manager_confirmed_po", False)
+        )
+    )
     insp_submitted = bool(inspection and getattr(inspection, "inspector_confirmed", False))
     insp_ok = bool(inspection and getattr(inspection, "manager_approved", False))
 
@@ -1362,20 +1367,19 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
             "request": request,
             "user": user,
             "lot": lot,
+            "readonly": readonly,
+            "error": request.query_params.get("error", ""),
             "docs": docs,
             "receiving": receiving,
             "docs_ok": docs_ok,
+            "inspection": inspection,
             "insp_submitted": insp_submitted,
             "insp_ok": insp_ok,
-            "inspection": inspection,
-            "readonly": readonly,
-            "error": request.query_params.get("error", ""),
-            "used_dns": used_dns,
             "submitted_shipments": submitted_shipments,
+            "used_dns": used_dns,
             "photos_by_inspection": photos_by_inspection,
-            "inspection_to_approve": inspection_to_approve,  # ✅ needed for approve button
+            "inspection_to_approve": inspection_to_approve,
             "latest_approved_inspection": latest_approved_inspection,
-
         },
     )
 
@@ -4172,6 +4176,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
