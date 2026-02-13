@@ -17,6 +17,22 @@
     </div>
   </div>
 
+  <!-- ✅ SEARCH BAR (below the buttons) -->
+  <form method="get" action="/runs" class="row mt" style="gap:10px; align-items:center;">
+    <input
+      type="text"
+      name="q"
+      value="{{ q or '' }}"
+      placeholder="Search: run #, batch, process, client, PO, ITP, spec..."
+      style="max-width:520px;"
+    >
+    <button class="btn btn-primary" type="submit">Search</button>
+
+    {% if q %}
+      <a class="btn btn-outline-secondary" href="/runs">Clear</a>
+    {% endif %}
+  </form>
+
   <div class="card inner mt">
     <h2>All Runs</h2>
 
@@ -38,8 +54,8 @@
             {% for r in runs %}
               <tr>
                 <td>{{ r.id }}</td>
-                <td><b>{{ r.process }}</b></td>
-                <td>{{ r.dhtp_batch_no }}</td>
+                <td><b>{{ r.process or "-" }}</b></td>
+                <td>{{ r.dhtp_batch_no or "-" }}</td>
                 <td>{{ r.client_name or "-" }}</td>
                 <td>{{ r.po_number or "-" }}</td>
                 <td>{{ r.status or "-" }}</td>
@@ -52,7 +68,11 @@
         </table>
       </div>
     {% else %}
-      <div class="muted mt">No runs created yet.</div>
+      {% if q %}
+        <div class="muted mt">No runs match your search.</div>
+      {% else %}
+        <div class="muted mt">No runs created yet.</div>
+      {% endif %}
 
       {% if user.role and user.role|upper in ["MANAGER", "RUN_CREATOR"] %}
         <div class="mt">
@@ -64,4 +84,3 @@
 </div>
 
 {% endblock %}
- 
