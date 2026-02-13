@@ -31,7 +31,6 @@
           <tr>
             <th>ID</th>
             <th>Type</th>
-            <th class="wrap">Batch No</th>
             <th class="wrap">Material</th>
             <th class="wrap">Supplier</th>
             <th class="wrap">PO</th>
@@ -66,7 +65,6 @@
             <tr class="{{ row_class }}">
               <td>{{ lot.id }}</td>
               <td><b>{{ lot.lot_type or "-" }}</b></td>
-              <td class="wrap"><b>{{ lot.batch_no or "-" }}</b></td>
               <td class="wrap">{{ lot.material_name or "-" }}</td>
               <td class="wrap">{{ lot.supplier_name or "-" }}</td>
               <td class="wrap">{{ lot.po_number or "-" }}</td>
