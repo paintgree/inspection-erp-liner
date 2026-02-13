@@ -1695,80 +1695,65 @@ def mrr_pending(request: Request, session: Session = Depends(get_session)):
     )
 
 @app.get("/mrr/{lot_id}/inspection/new", response_class=HTMLResponse)
+@app.get("/mrr/{lot_id}/inspection/new", response_class=HTMLResponse)
 def new_shipment_inspection_page(
     lot_id: int,
     request: Request,
     session: Session = Depends(get_session),
 ):
     user = get_current_user(request, session)
+    forbid_boss(user)
 
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
-    block_if_mrr_canceled(lot)
 
-    # --- NEW: enforce PO doc + documentation cleared BEFORE allowing shipment inspection ---
-    receiving = session.exec(
-        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
-    ).first()
+    if (lot.status or "").upper() == "CANCELED":
+        return RedirectResponse(f"/mrr/{lot_id}?error=Ticket%20is%20canceled", status_code=303)
 
-    docs = session.exec(
-        select(MrrDocument).where(MrrDocument.ticket_id == lot_id)
-    ).all()
+    # ✅ LOCK: if ticket is approved (fully received) no new shipment inspection allowed
+    if (lot.status or "").upper() == "APPROVED":
+        return RedirectResponse(
+            f"/mrr/{lot_id}?error=Ticket%20is%20APPROVED%20(receiving%20closed).%20Manager%20must%20unapprove%20to%20reopen.",
+            status_code=303,
+        )
 
-    has_po_doc = any((d.doc_type or "").upper() == "PO" for d in docs)
-    docs_ok = bool(receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po))
+    # Documentation prerequisites
+    receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+
+    has_po_doc = session.exec(
+        select(MrrDocument).where((MrrDocument.ticket_id == lot_id) & (MrrDocument.doc_type == "PO"))
+    ).first() is not None
+
+    if not has_po_doc:
+        return RedirectResponse(
+            f"/mrr/{lot_id}?error=Upload%20PO%20document%20(Type:%20PO)%20before%20starting%20Receiving%20Inspection",
+            status_code=303,
+        )
 
     if not receiving:
         return RedirectResponse(
-            f"/mrr/{lot_id}?error=Documentation%20is%20not%20saved.%20Please%20open%20Documentation%20page%20and%20click%20Save%20first",
+            f"/mrr/{lot_id}?error=Documentation%20is%20not%20saved.%20Please%20fill%20Documentation%20and%20click%20Save%20first",
             status_code=303,
         )
 
+    docs_ok = bool(getattr(receiving, "inspector_confirmed_po", False) or getattr(receiving, "manager_confirmed_po", False))
     if not docs_ok:
         return RedirectResponse(
-            f"/mrr/{lot_id}?error=Documentation%20is%20not%20cleared.%20Please%20click%20Confirm%20Documentation%20Complete%20before%20starting%20Receiving%20Inspection",
+            f"/mrr/{lot_id}?error=Documentation%20is%20not%20cleared.%20Click%20Confirm%20Documentation%20Complete%20first",
             status_code=303,
         )
 
-    # Remaining qty (kg/t compatible)
-    po_unit = (lot.quantity_unit or "KG").upper().strip()
-    po_qty = float(lot.quantity or 0.0)
-
-    if po_unit in ["PC", "PCS"]:
-        received_total = float(lot.received_total or 0.0)
-        remaining = max(po_qty - received_total, 0.0)
-        remaining_label = f"{remaining:g} {po_unit}"
-    else:
-        po_kg = normalize_qty_to_kg(po_qty, po_unit)
-        received_total = float(lot.received_total or 0.0)
-        remaining_kg = max(po_kg - received_total, 0.0)
-        remaining_label = f"{remaining_kg:g} KG (normalized)"
-
-    # Shipment counter (how many shipments exist already)
-    shipments = session.exec(
-        select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id == lot_id)
-    ).all()
-    next_seq = len(shipments) + 1
-
-    # Draft resume (best UX)
-    draft = get_latest_draft_shipment(session, lot_id)
-
-    error = request.query_params.get("error", "").strip()
-
+    # If everything ok -> show your existing "new shipment" page
     return templates.TemplateResponse(
         "mrr_new_shipment.html",
         {
             "request": request,
             "user": user,
             "lot": lot,
-            "remaining_label": remaining_label,
-            "next_seq": next_seq,
-            "draft": draft,
-            "error": error,
+            "error": request.query_params.get("error", ""),
         },
     )
-
 
 @app.post("/mrr/{lot_id}/inspection/{inspection_id}/submit")
 async def shipment_inspection_submit(
@@ -1859,144 +1844,112 @@ async def shipment_inspection_submit(
 
 
 @app.post("/mrr/{lot_id}/inspection/new")
-def create_shipment_inspection(
+async def create_shipment_inspection(
     lot_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    delivery_note_no: str = Form(...),
-    qty_arrived: float = Form(...),
-    qty_unit: str = Form(...),
 ):
     user = get_current_user(request, session)
+    forbid_boss(user)
 
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
-    block_if_mrr_canceled(lot)
 
-    # --- NEW: enforce PO doc + documentation cleared BEFORE creating shipment ---
-    receiving = session.exec(
-        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
-    ).first()
-    docs = session.exec(
-        select(MrrDocument).where(MrrDocument.ticket_id == lot_id)
-    ).all()
+    if (lot.status or "").upper() == "CANCELED":
+        return RedirectResponse(f"/mrr/{lot_id}?error=Ticket%20is%20canceled", status_code=303)
 
-    has_po_doc = any((d.doc_type or "").upper() == "PO" for d in docs)
-    docs_ok = bool(receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po))
+    # ✅ LOCK
+    if (lot.status or "").upper() == "APPROVED":
+        return RedirectResponse(
+            f"/mrr/{lot_id}?error=Ticket%20is%20APPROVED%20(receiving%20closed).%20Manager%20must%20unapprove%20to%20reopen.",
+            status_code=303,
+        )
+
+    # Documentation prerequisites
+    receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+
+    has_po_doc = session.exec(
+        select(MrrDocument).where((MrrDocument.ticket_id == lot_id) & (MrrDocument.doc_type == "PO"))
+    ).first() is not None
+
     if not has_po_doc:
         return RedirectResponse(
-            f"/mrr/{lot_id}?error=Upload%20PO%20document%20first%20(Type:%20PO)%20before%20starting%20Receiving%20Inspection",
+            f"/mrr/{lot_id}?error=Upload%20PO%20document%20(Type:%20PO)%20before%20starting%20Receiving%20Inspection",
             status_code=303,
         )
 
     if not receiving:
         return RedirectResponse(
-            f"/mrr/{lot_id}?error=Documentation%20is%20not%20saved.%20Please%20open%20Documentation%20page%20and%20click%20Save%20first",
+            f"/mrr/{lot_id}?error=Documentation%20is%20not%20saved.%20Please%20fill%20Documentation%20and%20click%20Save%20first",
             status_code=303,
         )
 
+    docs_ok = bool(getattr(receiving, "inspector_confirmed_po", False) or getattr(receiving, "manager_confirmed_po", False))
     if not docs_ok:
         return RedirectResponse(
-            f"/mrr/{lot_id}?error=Documentation%20is%20not%20cleared.%20Please%20click%20Confirm%20Documentation%20Complete%20before%20starting%20Receiving%20Inspection",
+            f"/mrr/{lot_id}?error=Documentation%20is%20not%20cleared.%20Click%20Confirm%20Documentation%20Complete%20first",
             status_code=303,
         )
 
-    dn = (delivery_note_no or "").strip()
+    form = await request.form()
+
+    dn = (form.get("delivery_note_no") or "").strip()
+    qty_arrived = form.get("qty_arrived")
+    qty_unit = (form.get("qty_unit") or "KG").strip().upper()
+
     if not dn:
-        return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/new?error=Delivery%20Note%20number%20is%20required",
-            status_code=303
-        )
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/new?error=Delivery%20Note%20is%20required", status_code=303)
 
-    qty_unit = (qty_unit or "KG").upper().strip()
-    arrived_qty = float(qty_arrived or 0.0)
-    if arrived_qty <= 0:
-        return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/new?error=Arrived%20quantity%20must%20be%20greater%20than%200",
-            status_code=303
-        )
+    try:
+        qty_arrived_val = float(qty_arrived or 0.0)
+    except Exception:
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/new?error=Invalid%20quantity", status_code=303)
 
-    # 1) DN document must exist (uploaded as DELIVERY_NOTE with same doc_number)
-    if not dn_doc_exists(session, lot_id, dn):
-        return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/new?error=Upload%20Delivery%20Note%20document%20first%20(type%20DELIVERY_NOTE)%20with%20Document%20Number%20exactly%20matching%20this%20DN",
-            status_code=303,
-        )
+    if qty_arrived_val <= 0:
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/new?error=Quantity%20must%20be%20greater%20than%200", status_code=303)
 
-    # 2) If there is a DRAFT shipment with same DN => resume it
-    draft = get_draft_shipment_by_dn(session, lot_id, dn)
-    if draft:
-        return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{draft.id}", status_code=303)
-
-    # 3) If there is a SUBMITTED shipment with same DN => block (DN consumed)
-    used = get_submitted_shipment_by_dn(session, lot_id, dn)
-    if used:
-        return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/new?error=This%20Delivery%20Note%20was%20already%20used%20in%20a%20previous%20submitted%20shipment",
-            status_code=303,
-        )
-
-    # 4) Unit compatibility
-    po_unit = (lot.quantity_unit or "KG").upper().strip()
-    if not units_compatible(po_unit, qty_unit):
-        return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/new?error=Unit%20mismatch:%20PO%20is%20{po_unit},%20arrived%20is%20{qty_unit}",
-            status_code=303,
-        )
-
-    # 5) Remaining balance validation (use CURRENT received_total, do NOT change it here)
-    po_qty = float(lot.quantity or 0.0)
-    received_total = float(lot.received_total or 0.0)
-
-    if po_unit in ["PC", "PCS"]:
-        remaining = max(po_qty - received_total, 0.0)
-        if arrived_qty > remaining:
-            return RedirectResponse(
-                f"/mrr/{lot_id}/inspection/new?error=Arrived%20exceeds%20remaining%20balance%20({remaining:g}%20{po_unit})",
-                status_code=303,
+    # DN must not be reused in another SUBMITTED/APPROVED shipment
+    dn_used = session.exec(
+        select(MrrReceivingInspection).where(
+            (MrrReceivingInspection.ticket_id == lot_id)
+            & (MrrReceivingInspection.delivery_note_no == dn)
+            & (
+                (MrrReceivingInspection.inspector_confirmed == True)
+                | (MrrReceivingInspection.manager_approved == True)
             )
-        arrived_norm = arrived_qty
-    else:
-        po_kg = normalize_qty_to_kg(po_qty, po_unit)
-        remaining_kg = max(po_kg - received_total, 0.0)
-        arrived_norm = normalize_qty_to_kg(arrived_qty, qty_unit)
-        if arrived_norm > remaining_kg:
-            return RedirectResponse(
-                f"/mrr/{lot_id}/inspection/new?error=Arrived%20exceeds%20remaining%20balance%20({remaining_kg:g}%20KG%20normalized)",
-                status_code=303,
-            )
+        )
+    ).first()
 
-    # 6) Shipment sequence
-    existing = session.exec(
-        select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id == lot_id)
-    ).all()
-    seq = len(existing) + 1
+    if dn_used:
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/new?error=This%20Delivery%20Note%20was%20already%20used%20in%20a%20submitted%20shipment",
+            status_code=303,
+        )
 
-    # Create shipment as DRAFT (DO NOT change lot.received_total here)
+    # Create inspection record
+    report_no = generate_report_no(lot_id, 1)
+
     insp = MrrReceivingInspection(
         ticket_id=lot_id,
         inspector_id=user.id,
         inspector_name=user.display_name,
         delivery_note_no=dn,
-        qty_arrived=float(arrived_qty),
+        qty_arrived=qty_arrived_val,
         qty_unit=qty_unit,
-        report_no=generate_report_no(lot_id, seq),
-        template_type=lot.lot_type or "RAW",
-        inspection_json=json.dumps({
-            "delivery_note_no": dn,
-            "qty_arrived": float(arrived_qty),
-            "qty_unit": qty_unit,
-            "arrived_norm": float(arrived_norm),
-        }),
+        report_no=report_no,
+        template_type="RAW",
+        inspection_json="{}",
         inspector_confirmed=False,
         manager_approved=False,
     )
+
     session.add(insp)
     session.commit()
     session.refresh(insp)
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{insp.id}", status_code=303)
+
 
 
 
@@ -3822,40 +3775,74 @@ def mrr_approve_receiving_inspection(
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
 
+    if (lot.status or "").upper() == "CANCELED":
+        return RedirectResponse(f"/mrr/{lot_id}?error=Ticket%20is%20canceled", status_code=303)
+
     insp = session.get(MrrReceivingInspection, inspection_id)
     if not insp or insp.ticket_id != lot_id:
         raise HTTPException(404, "MRR Inspection not found")
 
-    # must be submitted first
+    # Must be submitted first
     if not insp.inspector_confirmed:
         return RedirectResponse(
             f"/mrr/{lot_id}?error=Inspection%20must%20be%20submitted%20before%20approval",
             status_code=303,
         )
 
-    # approve
+    # Approve this inspection
     insp.manager_approved = True
     session.add(insp)
 
-    # update ticket status
-    # If there is remaining qty -> keep PARTIAL, else set APPROVED
-    remaining = None
-    try:
-        # if your lot has remaining_qty field use it, else compute from received_total
-        remaining = getattr(lot, "remaining_qty", None)
-    except Exception:
-        remaining = None
+    # =========================
+    # Recompute totals from APPROVED shipments (source of truth)
+    # =========================
+    approved_shipments = session.exec(
+        select(MrrReceivingInspection).where(
+            (MrrReceivingInspection.ticket_id == lot_id)
+            & (MrrReceivingInspection.inspector_confirmed == True)
+            & (MrrReceivingInspection.manager_approved == True)
+        )
+    ).all()
 
-    if remaining is not None:
-        lot.status = "PARTIAL" if float(remaining) > 0 else "APPROVED"
+    po_unit = (lot.quantity_unit or "KG").upper().strip()
+    try:
+        po_qty = float(lot.quantity or 0.0)
+    except Exception:
+        po_qty = 0.0
+
+    approved_total = 0.0
+
+    # If PO is PCS/PC => sum as-is in PCS
+    if po_unit in ["PC", "PCS"]:
+        for s in approved_shipments:
+            try:
+                approved_total += float(s.qty_arrived or 0.0)
+            except Exception:
+                pass
+
+        remaining = po_qty - approved_total
+        if remaining < 0:
+            remaining = 0.0
+
+        lot.received_total = approved_total  # PCS total
+        lot.status = "APPROVED" if remaining <= 0 else ("PARTIAL" if approved_total > 0 else "PENDING")
+
     else:
-        # safe fallback: if received_total < qty => PARTIAL else APPROVED
-        try:
-            po_qty = float(lot.quantity or 0)
-            received = float(lot.received_total or 0)
-            lot.status = "PARTIAL" if received < po_qty else "APPROVED"
-        except Exception:
-            lot.status = "APPROVED"
+        # Weight-based => normalize everything into KG
+        po_kg = normalize_qty_to_kg(po_qty, po_unit)
+
+        for s in approved_shipments:
+            try:
+                approved_total += float(normalize_qty_to_kg(float(s.qty_arrived or 0.0), s.qty_unit or "KG"))
+            except Exception:
+                pass
+
+        remaining_kg = po_kg - approved_total
+        if remaining_kg < 0:
+            remaining_kg = 0.0
+
+        lot.received_total = approved_total  # KG normalized total
+        lot.status = "APPROVED" if remaining_kg <= 0 else ("PARTIAL" if approved_total > 0 else "PENDING")
 
     session.add(lot)
     session.commit()
@@ -4085,6 +4072,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
