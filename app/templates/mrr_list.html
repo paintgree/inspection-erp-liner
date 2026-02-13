@@ -7,37 +7,42 @@
       <h1>MRR — Material Receiving Register</h1>
       <div class="muted">Tickets are approved for production only after Receiving Inspection is manager-approved.</div>
     </div>
-   <div class="actions">
-    <!-- Back to dashboard (everyone can see this) -->
-    <a class="btn btn-outline-secondary" href="/dashboard">← Back to Dashboard</a>
-  
-    {% if user.role and user.role|upper == "MANAGER" %}
-      <a class="btn btn-primary" href="/mrr/new">+ New Ticket</a>
-      <a class="btn btn-warn" href="/mrr-pending-approvals">Pending approvals</a>
-  
-      {% if showing_canceled %}
-        <a href="/mrr" class="btn btn-outline-primary">← Back to Active Tickets</a>
-      {% else %}
-        <a href="/mrr/canceled" class="btn btn-outline-secondary">View Canceled Tickets</a>
+
+    <div class="actions">
+      <!-- Back to dashboard (everyone can see this) -->
+      <a class="btn btn-outline-secondary" href="/dashboard">← Back to Dashboard</a>
+
+      {% if user.role and user.role|upper == "MANAGER" %}
+        <a class="btn btn-primary" href="/mrr/new">+ New Ticket</a>
+        <a class="btn btn-warn" href="/mrr-pending-approvals">Pending approvals</a>
+
+        {% if showing_canceled %}
+          <a class="btn btn-outline-primary" href="/mrr">← Back to Active Tickets</a>
+        {% else %}
+          <a class="btn btn-outline-secondary" href="/mrr/canceled">View Canceled Tickets</a>
+        {% endif %}
       {% endif %}
-    {% endif %}
-
-
-     <form method="get" action="/mrr" class="row" style="gap:10px; align-items:center; margin-bottom:16px;">
-       <input type="text"
-              name="q"
-              value="{{ q or '' }}"
-              placeholder="Search: ticket #, supplier, PO, DN, report, batch, grade..."
-              style="max-width:520px;"
-       >
-       <button class="btn btn-primary" type="submit">Search</button>
-    
-       {% if q %}
-         <a class="btn btn-outline-secondary" href="/mrr">Clear</a>
-       {% endif %}
-     </form>
-
+    </div>
   </div>
+
+  <!-- Search Bar (below buttons) -->
+  <div class="mt" style="margin-top:16px;">
+    <form method="get" action="/mrr" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <input
+        type="text"
+        name="q"
+        value="{{ q or '' }}"
+        placeholder="Search: ticket #, supplier, PO, DN, report, batch, grade..."
+        style="max-width:520px; width:100%;"
+      >
+      <button class="btn btn-primary" type="submit">Search</button>
+
+      {% if q %}
+        <a class="btn btn-outline-secondary" href="/mrr">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
   <div class="card inner mt">
     <h2>Tickets</h2>
 
