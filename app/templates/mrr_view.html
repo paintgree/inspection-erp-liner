@@ -327,8 +327,7 @@
           </thead>
           <tbody>
             {% for s in submitted_shipments %}
-              {% set data = s.inspection_json or {} %}
-              {% set batches = data.get("batch_numbers", []) %}
+              {% set batches = s.batch_numbers if s.batch_numbers is defined else [] %}
               <tr>
                 <td>#{{ loop.index }}</td>
                 <td>{{ s.delivery_note_no or "-" }}</td>
@@ -368,22 +367,36 @@
 
       <div class="mt">
         {% for s in submitted_shipments %}
-          {% set insp_photos = photos_by_inspection.get(s.id) %}
-          {% if insp_photos %}
-            <div class="card inner mt">
-              <div class="sectiontitle accent-blue">Photos for DN: {{ s.delivery_note_no or "-" }} (Report: {{ s.report_no or "-" }})</div>
-              {% for gname, items in insp_photos.items() %}
-                <div class="mt">
-                  <div class="sectiontitle">{{ gname }}</div>
-                  <div class="grid3 mt">
-                    {% for p in items %}
-                      <div class="photo-card">
-                        <a href="/mrr/photos/{{ p.id }}/view" target="_blank">
-                          <img class="photo-thumb" src="/mrr/photos/{{ p.id }}/view" alt="photo">
-                        </a>
-                        {% if p.caption %}<div class="muted tiny mt">{{ p.caption }}</div>{% endif %}
-                      </div>
-                    {% endfor %}
+          {% set batches = s.batch_numbers if s.batch_numbers is defined else [] %}
+          <tr>
+            <td>#{{ loop.index }}</td>
+            <td>{{ s.delivery_note_no or "-" }}</td>
+            <td>{{ s.qty_arrived }} {{ s.qty_unit }}</td>
+        
+            <td>
+              {% if batches %}
+                {% for b in batches %}
+                  <div>{{ b }}</div>
+                {% endfor %}
+              {% else %}
+                <span class="muted">-</span>
+              {% endif %}
+            </td>
+        
+            <td>
+              <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}">Open</a>
+            </td>
+        
+            <td>
+              {% if s.manager_approved %}
+                <span class="badge badge-ok">APPROVED</span>
+              {% else %}
+                <span class="badge badge-warn">SUBMITTED</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+
                   </div>
                 </div>
               {% endfor %}
