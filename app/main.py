@@ -1084,64 +1084,102 @@ def mrr_list(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
     q = (request.query_params.get("q") or "").strip()
+    like = f"%{q}%"
 
     base_stmt = select(MaterialLot).where(MaterialLot.lot_type.in_(["RAW", "OUTSOURCED"]))
 
-    # If no query, show recent tickets (default ordering)
+    # ---- SEARCH FILTERING ----
     if not q:
         lots = session.exec(base_stmt.order_by(MaterialLot.id.desc())).all()
-        return templates.TemplateResponse(
-            "mrr_list.html",
-            {"request": request, "user": user, "lots": lots, "q": ""},
-        )
-
-    like = f"%{q}%"
-
-    # 1) Direct search on lot fields
-    lot_stmt = base_stmt.where(
-        or_(
-            cast(MaterialLot.id, SqlString).ilike(like),            # ticket number
-            (MaterialLot.material_name or "").ilike(like),          # material / grade keywords (if stored here)
-            (MaterialLot.supplier_name or "").ilike(like),          # supplier
-            (MaterialLot.po_number or "").ilike(like),              # PO number
-            (MaterialLot.batch_no or "").ilike(like),               # batch no (if you ever store it here)
-            (MaterialLot.status or "").ilike(like),                 # status keyword search
-        )
-    )
-
-    lots_direct = session.exec(lot_stmt.order_by(MaterialLot.id.desc())).all()
-    direct_ids = {l.id for l in lots_direct}
-
-    # 2) Search in inspections (DN, report no, JSON includes grade/batches)
-    insp_hits = session.exec(
-        select(MrrReceivingInspection.ticket_id).where(
+    else:
+        # Search on lots directly
+        lot_stmt = base_stmt.where(
             or_(
-                (MrrReceivingInspection.delivery_note_no or "").ilike(like),
-                (MrrReceivingInspection.report_no or "").ilike(like),
-                (MrrReceivingInspection.inspection_json or "").ilike(like),  # batch numbers / grade etc saved here
+                cast(MaterialLot.id, SqlString).ilike(like),
+                (MaterialLot.material_name or "").ilike(like),
+                (MaterialLot.supplier_name or "").ilike(like),
+                (MaterialLot.po_number or "").ilike(like),
+                (MaterialLot.batch_no or "").ilike(like),
+                (MaterialLot.status or "").ilike(like),
             )
         )
-    ).all()
+        lots_direct = session.exec(lot_stmt.order_by(MaterialLot.id.desc())).all()
+        direct_ids = {l.id for l in lots_direct}
 
-    insp_ticket_ids = {x for x in insp_hits if x is not None}
+        # Search on inspection side (DN, report no, JSON: batches/grade/etc)
+        insp_hits = session.exec(
+            select(MrrReceivingInspection.ticket_id).where(
+                or_(
+                    (MrrReceivingInspection.delivery_note_no or "").ilike(like),
+                    (MrrReceivingInspection.report_no or "").ilike(like),
+                    (MrrReceivingInspection.inspection_json or "").ilike(like),
+                )
+            )
+        ).all()
+        insp_ticket_ids = {x for x in insp_hits if x is not None}
 
-    # Merge ticket ids
-    all_ids = list(direct_ids.union(insp_ticket_ids))
+        all_ids = list(direct_ids.union(insp_ticket_ids))
 
-    if not all_ids:
-        return templates.TemplateResponse(
-            "mrr_list.html",
-            {"request": request, "user": user, "lots": [], "q": q},
-        )
+        if not all_ids:
+            lots = []
+        else:
+            lots = session.exec(
+                select(MaterialLot).where(MaterialLot.id.in_(all_ids)).order_by(MaterialLot.id.desc())
+            ).all()
 
-    lots = session.exec(
-        select(MaterialLot).where(MaterialLot.id.in_(all_ids)).order_by(MaterialLot.id.desc())
-    ).all()
+    # ---- BUILD MAPS REQUIRED BY TEMPLATE ----
+    lot_ids = [l.id for l in lots]
+
+    receiving_map = {}
+    inspection_map = {}
+    docs_status_map = {}
+
+    if lot_ids:
+        receivings = session.exec(
+            select(MrrReceiving).where(MrrReceiving.ticket_id.in_(lot_ids))
+        ).all()
+        receiving_map = {r.ticket_id: r for r in receivings}
+
+        inspections = session.exec(
+            select(MrrReceivingInspection)
+            .where(MrrReceivingInspection.ticket_id.in_(lot_ids))
+            .order_by(MrrReceivingInspection.created_at.desc())
+        ).all()
+
+        # latest inspection per ticket
+        for ins in inspections:
+            if ins.ticket_id not in inspection_map:
+                inspection_map[ins.ticket_id] = ins
+
+        docs = session.exec(
+            select(MrrDocument).where(MrrDocument.ticket_id.in_(lot_ids))
+        ).all()
+
+        # very lightweight docs status: Pending/Done
+        # (Your UI probably expects this)
+        docs_by_ticket = {}
+        for d in docs:
+            docs_by_ticket.setdefault(d.ticket_id, []).append(d)
+
+        for tid in lot_ids:
+            docs_list = docs_by_ticket.get(tid, [])
+            # Consider docs done if at least one PO exists (since you require PO)
+            has_po = any((x.doc_type or "").upper() == "PO" for x in docs_list)
+            docs_status_map[tid] = "Done" if has_po else "Pending"
 
     return templates.TemplateResponse(
         "mrr_list.html",
-        {"request": request, "user": user, "lots": lots, "q": q},
+        {
+            "request": request,
+            "user": user,
+            "lots": lots,
+            "q": q,
+            "receiving_map": receiving_map,
+            "inspection_map": inspection_map,
+            "docs_status_map": docs_status_map,
+        },
     )
+
 
 
 
@@ -4230,6 +4268,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
