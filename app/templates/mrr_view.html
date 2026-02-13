@@ -359,7 +359,18 @@
           <a class="btn btn-secondary" href="#inspectorDocs">Go to Documentation (Save & Confirm)</a>
         {% endif %}
 
-        <a class="btn btn-primary" href="/mrr/{{ lot.id }}/inspection/new">
+    {% if (lot.status or "")|upper != "APPROVED" %}
+      <a class="btn btn-primary" href="/mrr/{{ lot.id }}/inspection/new">
+        {% if lot.status and lot.status|upper == "PARTIAL" %}
+          Start Shipment Inspection (Partial Delivery)
+        {% else %}
+          Start Shipment Inspection
+        {% endif %}
+      </a>
+    {% else %}
+      <div class="muted mt">✅ Ticket is <b>APPROVED</b> — receiving is closed (no further inspections allowed).</div>
+    {% endif %}
+
 
           {% if user.role and user.role|upper == "MANAGER" and inspection and inspection.inspector_confirmed and not inspection.manager_approved %}
             <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/approve" style="display:inline;"
