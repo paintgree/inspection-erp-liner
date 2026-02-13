@@ -40,6 +40,51 @@
           <label>Arrived Quantity</label>
           <input value="{{ inspection.qty_arrived }} {{ inspection.qty_unit }}" disabled>
         </div>
+
+        <div>
+          <label>Batch Number(s) (required)</label>
+        
+          <div id="batchWrap">
+            <input name="batch_numbers" placeholder="e.g. BATCH-001" required>
+          </div>
+        
+          <button type="button" class="btn btn-outline-secondary mt" id="addBatchBtn">
+            + Add another batch
+          </button>
+        
+          <div class="muted tiny">
+            If this shipment contains multiple batches, add them all here.
+          </div>
+        </div>
+        
+        <script>
+        (function(){
+          const wrap = document.getElementById("batchWrap");
+          const addBtn = document.getElementById("addBatchBtn");
+        
+          // If page loads with existing batches from JSON, render them
+          const existing = {{ (inspection_data.batch_numbers if inspection_data.batch_numbers is defined else []) | tojson }};
+          if (Array.isArray(existing) && existing.length > 0) {
+            wrap.innerHTML = "";
+            existing.forEach((v, idx) => {
+              const input = document.createElement("input");
+              input.name = "batch_numbers";
+              input.placeholder = "e.g. BATCH-001";
+              input.value = v || "";
+              if (idx === 0) input.required = true;
+              wrap.appendChild(input);
+            });
+          }
+        
+          addBtn.addEventListener("click", () => {
+            const input = document.createElement("input");
+            input.name = "batch_numbers";
+            input.placeholder = "e.g. BATCH-001";
+            wrap.appendChild(input);
+          });
+        })();
+        </script>
+
       </div>
 
       <div class="mt muted tiny">
