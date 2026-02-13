@@ -2080,13 +2080,42 @@ async def create_shipment_inspection(
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{insp.id}", status_code=303)
 
 
+from sqlalchemy import or_  # ✅ add this import near your imports if not already
+
 @app.get("/runs", response_class=HTMLResponse)
-def runs_list(request: Request, session: Session = Depends(get_session)):
+def runs_list(
+    request: Request,
+    q: str | None = None,
+    session: Session = Depends(get_session),
+):
     user = get_current_user(request, session)
 
-    runs = session.exec(
-        select(ProductionRun).order_by(ProductionRun.id.desc())
-    ).all()
+    stmt = select(ProductionRun)
+
+    qv = (q or "").strip()
+    if qv:
+        pattern = f"%{qv}%"
+        conditions = []
+
+        # If user types a run id
+        if qv.isdigit():
+            conditions.append(ProductionRun.id == int(qv))
+
+        # Text fields (search-anything)
+        # (These names match the fields shown in your UI)
+        conditions.extend([
+            ProductionRun.process.ilike(pattern),
+            ProductionRun.dhtp_batch_no.ilike(pattern),
+            ProductionRun.client_name.ilike(pattern),
+            ProductionRun.po_number.ilike(pattern),
+            ProductionRun.itp_number.ilike(pattern),
+            ProductionRun.pipe_specification.ilike(pattern),
+            ProductionRun.raw_material_spec.ilike(pattern),
+        ])
+
+        stmt = stmt.where(or_(*conditions))
+
+    runs = session.exec(stmt.order_by(ProductionRun.id.desc())).all()
 
     return templates.TemplateResponse(
         "run_list.html",
@@ -2094,6 +2123,7 @@ def runs_list(request: Request, session: Session = Depends(get_session)):
             "request": request,
             "user": user,
             "runs": runs,
+            "q": qv,
         },
     )
 
@@ -4304,6 +4334,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
