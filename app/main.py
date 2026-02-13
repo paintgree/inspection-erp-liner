@@ -1389,10 +1389,12 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         .order_by(MrrReceivingInspection.created_at.asc())
     ).all()
 
-    # ✅ Decode batch numbers safely for template
+    # ✅ Build a map: inspection_id -> batch_numbers list (safe for SQLModel)
+    batch_numbers_map = {}
     for s in submitted_shipments:
         data = safe_json_loads(getattr(s, "inspection_json", None))
-        s.batch_numbers = data.get("batch_numbers", [])
+        batch_numbers_map[int(s.id)] = data.get("batch_numbers", []) or []
+
     
 
     used_dns = [
@@ -1464,6 +1466,8 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
             "photos_by_inspection": photos_by_inspection,
             "inspection_to_approve": inspection_to_approve,
             "latest_approved_inspection": latest_approved_inspection,
+            "batch_numbers_map": batch_numbers_map,
+
         },
     )
 
@@ -4284,6 +4288,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
