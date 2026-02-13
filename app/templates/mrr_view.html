@@ -228,8 +228,11 @@
                 <input name="doc_title" id="doc_title" placeholder="e.g. Extra memo, special report">
               </div>
 
-              <label class="mt">Document Number (required)</label>
-              <input name="doc_number" required placeholder="e.g. DN-12345 / PO-009 / COA-778">
+              <div id="docNumberWrap">
+                <label class="mt">Document Number (required)</label>
+                <input id="doc_number" name="doc_number" required placeholder="e.g. DN-12345 / PO-009 / COA-778">
+              </div>
+
             </div>
           </div>
         </form>
@@ -239,18 +242,39 @@
           const typeEl = document.getElementById("doc_type");
           const nameWrap = document.getElementById("docNameWrap");
           const nameInput = document.getElementById("doc_title");
-
+        
+          const numWrap = document.getElementById("docNumberWrap");
+          const numInput = document.getElementById("doc_number");
+        
+          const ticketPo = "{{ lot.po_number }}";
+        
           function refresh(){
             const v = (typeEl.value || "").toUpperCase();
+        
+            // RELATED name behavior
             const isRelated = (v === "RELATED");
             nameWrap.style.display = isRelated ? "block" : "none";
             nameInput.required = isRelated;
             if(!isRelated) nameInput.value = "";
+        
+            // ✅ PO doc number auto behavior
+            const isPo = (v === "PO");
+            if (isPo) {
+              numWrap.style.display = "none";
+              numInput.required = false;
+              numInput.value = ticketPo; // submit it hidden
+            } else {
+              numWrap.style.display = "block";
+              numInput.required = true;
+              if (numInput.value === ticketPo) numInput.value = "";
+            }
           }
+        
           typeEl.addEventListener("change", refresh);
           refresh();
         })();
         </script>
+
       </div>
 
       <!-- INSPECTOR DOCUMENTATION SECTION (THIS IS THE MISSING STEP) -->
