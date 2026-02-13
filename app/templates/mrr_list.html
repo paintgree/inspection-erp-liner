@@ -13,7 +13,7 @@
   
     {% if user.role and user.role|upper == "MANAGER" %}
       <a class="btn btn-primary" href="/mrr/new">+ New Ticket</a>
-      <a class="btn btn-warn" href="/mrr/pending">Pending approvals</a>
+      <a class="btn btn-warn" href="/mrr-pending-approvals">Pending approvals</a>
   
       {% if showing_canceled %}
         <a href="/mrr" class="btn btn-outline-primary">← Back to Active Tickets</a>
