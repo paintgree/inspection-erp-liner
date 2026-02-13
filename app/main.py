@@ -1391,7 +1391,7 @@ async def mrr_doc_upload(
     session: Session = Depends(get_session),
     doc_type: str = Form(...),
     doc_title: str = Form(""),
-    doc_number: str = Form(...),
+    doc_number: str = Form(""),
     file: UploadFile = File(...),
 ):
     user = get_current_user(request, session)
@@ -1412,6 +1412,10 @@ async def mrr_doc_upload(
         f.write(await file.read())
 
     dt = (doc_type or "").strip().upper()
+        # ✅ For PO docs, doc number is the ticket PO number (auto)
+    if dt == "PO":
+        doc_number = (lot.po_number or "").strip()
+
 
     # Auto doc name unless RELATED
     title = (doc_title or "").strip()
@@ -1427,6 +1431,10 @@ async def mrr_doc_upload(
 
     # ✅ store RELATIVE path (portable)
     rel_path = os.path.relpath(abs_path, BASE_DIR)
+
+    if dt != "PO" and not (doc_number or "").strip():
+        raise HTTPException(400, "Document Number is required")
+
 
     doc = MrrDocument(
         ticket_id=lot_id,
@@ -1795,6 +1803,20 @@ async def shipment_inspection_submit(
 
     form = await request.form()
 
+        # ✅ Required: at least 1 batch number
+    try:
+        batch_numbers = [str(x).strip() for x in form.getlist("batch_numbers")]
+    except Exception:
+        batch_numbers = []
+
+    batch_numbers = [b for b in batch_numbers if b]  # remove empties
+    if not batch_numbers:
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/id/{insp.id}?error=Batch%20Number%20is%20required",
+            status_code=303,
+        )
+
+
     # DN must match the shipment DN (no editing here)
     dn = (insp.delivery_note_no or "").strip()
     if not dn:
@@ -1830,13 +1852,15 @@ async def shipment_inspection_submit(
     data["qty_arrived"] = insp.qty_arrived
     data["qty_unit"] = insp.qty_unit
 
-    # Store the rest of inspection form inputs
+        # ✅ Store batch numbers as list
+    data["batch_numbers"] = batch_numbers
+
+    # Store the rest of inspection form inputs (skip batch_numbers because we handled it)
     for k in form.keys():
+        if k == "batch_numbers":
+            continue
         data[k] = str(form.get(k) or "").strip()
 
-    insp.inspection_json = json.dumps(data)
-    insp.inspector_confirmed = True
-    session.add(insp)
 
     # ✅ NOW we consume qty into received_total (only on SUBMIT)
     po_unit = (lot.quantity_unit or "KG").upper().strip()
@@ -4175,6 +4199,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
