@@ -398,7 +398,7 @@
 
 
           {% if user.role and user.role|upper == "MANAGER" and inspection and inspection.inspector_confirmed and not inspection.manager_approved %}
-            <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/approve" style="display:inline;"
+            <form method="post"  action="/mrr/{{ lot.id }}/inspection/id/{{ inspection_to_approve.id }}/approve" style="display:inline;"
                   onsubmit="return confirm('Approve this receiving inspection and allow production to use this batch?')">
               <button class="btn btn-primary" type="submit">Approve Receiving Inspection</button>
             </form>
