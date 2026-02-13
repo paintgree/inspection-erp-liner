@@ -2080,6 +2080,22 @@ async def create_shipment_inspection(
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{insp.id}", status_code=303)
 
 
+@app.get("/runs", response_class=HTMLResponse)
+def runs_list(request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    runs = session.exec(
+        select(ProductionRun).order_by(ProductionRun.id.desc())
+    ).all()
+
+    return templates.TemplateResponse(
+        "run_list.html",
+        {
+            "request": request,
+            "user": user,
+            "runs": runs,
+        },
+    )
 
 
 
@@ -4288,6 +4304,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
