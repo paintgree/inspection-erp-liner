@@ -44,6 +44,7 @@
         </form>
       {% endif %}
 
+
       {% if user.role and user.role|upper == "MANAGER"
             and latest_approved_inspection
             and latest_approved_inspection.manager_approved %}
