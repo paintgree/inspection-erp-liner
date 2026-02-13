@@ -327,7 +327,7 @@
           </thead>
           <tbody>
             {% for s in submitted_shipments %}
-              {% set batches = s.batch_numbers if s.batch_numbers is defined else [] %}
+              {% set batches = batch_numbers_map.get(s.id, []) %}
               <tr>
                 <td>#{{ loop.index }}</td>
                 <td>{{ s.delivery_note_no or "-" }}</td>
