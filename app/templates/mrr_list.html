@@ -21,6 +21,22 @@
         <a href="/mrr/canceled" class="btn btn-outline-secondary">View Canceled Tickets</a>
       {% endif %}
     {% endif %}
+
+
+     <form method="get" action="/mrr" class="row" style="gap:10px; align-items:center; margin-bottom:16px;">
+       <input type="text"
+              name="q"
+              value="{{ q or '' }}"
+              placeholder="Search: ticket #, supplier, PO, DN, report, batch, grade..."
+              style="max-width:520px;"
+       >
+       <button class="btn btn-primary" type="submit">Search</button>
+    
+       {% if q %}
+         <a class="btn btn-outline-secondary" href="/mrr">Clear</a>
+       {% endif %}
+     </form>
+
   </div>
   <div class="card inner mt">
     <h2>Tickets</h2>
