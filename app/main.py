@@ -1177,8 +1177,6 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
 
     form = await request.form()
 
-    tmp_batch = "TMP-" + datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-
     material_name = str(form.get("material_name", "")).strip()
     supplier_name = str(form.get("supplier_name", "")).strip()
 
@@ -1202,7 +1200,7 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
 
     lot = MaterialLot(
         lot_type=lot_type,
-        batch_no=tmp_batch,
+        batch_no="",  # ✅ DO NOT auto-generate batch here
         material_name=material_name,
         supplier_name=supplier_name,
         po_number=po_number,
@@ -1216,6 +1214,7 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
     session.commit()
 
     return RedirectResponse("/mrr", status_code=303)
+
 
 @app.post("/mrr/{lot_id}/approve")
 def mrr_approve(lot_id: int, request: Request, session: Session = Depends(get_session)):
@@ -4176,6 +4175,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
