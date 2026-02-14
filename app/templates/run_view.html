@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 
 {% block content %}
-<a class="btn btn-ghost" href="/dashboard">← Back</a>
+<a class="btn btn-ghost"
+   href="{% if request.query_params.get('back') %}{{ request.query_params.get('back') }}{% else %}/runs{% endif %}">
+  ← Back
+</a>
+
 
 <div class="card">
   <div class="runheader">
@@ -201,5 +205,6 @@
   </div>
 </div>
 {% endblock %}
+
 
 
