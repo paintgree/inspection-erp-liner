@@ -2082,48 +2082,108 @@ async def create_shipment_inspection(
 
 from sqlalchemy import or_  # ✅ add this import near your imports if not already
 
+from collections import defaultdict
+import hashlib
+from sqlalchemy import or_
+from sqlmodel import select
+
 @app.get("/runs", response_class=HTMLResponse)
 def runs_list(
     request: Request,
-    q: str | None = None,
+    q: str = "",
+    view: str = "open",   # open | approved
     session: Session = Depends(get_session),
 ):
     user = get_current_user(request, session)
 
+    # ✅ Only 2 views:
+    # - open: everything except APPROVED (includes CLOSED)
+    # - approved: only APPROVED
+    view = (view or "open").lower().strip()
+    if view not in ["open", "approved"]:
+        view = "open"
+
     stmt = select(ProductionRun)
 
-    qv = (q or "").strip()
-    if qv:
-        pattern = f"%{qv}%"
-        conditions = []
+    if view == "approved":
+        stmt = stmt.where(ProductionRun.status == "APPROVED")
+    else:
+        stmt = stmt.where(ProductionRun.status != "APPROVED")
 
-        # If user types a run id
-        if qv.isdigit():
-            conditions.append(ProductionRun.id == int(qv))
+    # ✅ Search across multiple fields
+    q_clean = (q or "").strip()
+    if q_clean:
+        like = f"%{q_clean}%"
+        stmt = stmt.where(
+            or_(
+                ProductionRun.dhtp_batch_no.ilike(like),
+                ProductionRun.process.ilike(like),
+                ProductionRun.client_name.ilike(like),
+                ProductionRun.po_number.ilike(like),
+                ProductionRun.itp_number.ilike(like),
+                ProductionRun.pipe_specification.ilike(like),
+                ProductionRun.raw_material_spec.ilike(like),
+            )
+        )
 
-        # Text fields (search-anything)
-        # (These names match the fields shown in your UI)
-        conditions.extend([
-            ProductionRun.process.ilike(pattern),
-            ProductionRun.dhtp_batch_no.ilike(pattern),
-            ProductionRun.client_name.ilike(pattern),
-            ProductionRun.po_number.ilike(pattern),
-            ProductionRun.itp_number.ilike(pattern),
-            ProductionRun.pipe_specification.ilike(pattern),
-            ProductionRun.raw_material_spec.ilike(pattern),
-        ])
+    stmt = stmt.order_by(ProductionRun.created_at.desc())
+    runs = session.exec(stmt).all()
 
-        stmt = stmt.where(or_(*conditions))
+    # ✅ Group by batch number
+    grouped = defaultdict(list)
+    for r in runs:
+        grouped[(r.dhtp_batch_no or "-").strip()].append(r)
 
-    runs = session.exec(stmt.order_by(ProductionRun.id.desc())).all()
+    # ✅ Build stable client colors (soft background)
+    def client_color(name: str) -> str:
+        n = (name or "").strip().lower()
+        if not n:
+            return "#f7f7f7"
+        h = hashlib.md5(n.encode("utf-8")).hexdigest()
+        hue = int(h[:2], 16) * 360 // 255
+        # very light HSL-like pastel using a fixed palette trick
+        # (keeps consistent color per client)
+        return f"hsl({hue}, 70%, 95%)"
+
+    client_bg = {}
+    for r in runs:
+        cn = (r.client_name or "").strip()
+        if cn and cn not in client_bg:
+            client_bg[cn] = client_color(cn)
+
+    # ✅ Convert dict to list (for template)
+    batch_cards = []
+    for batch_no, items in grouped.items():
+        # Sort processes inside each batch in a nice order
+        order = {"LINER": 1, "REINFORCEMENT": 2, "COVER": 3}
+        items_sorted = sorted(items, key=lambda x: order.get((x.process or "").upper(), 99))
+
+        # take summary info from first row
+        client_name = items_sorted[0].client_name if items_sorted else ""
+        po_number = items_sorted[0].po_number if items_sorted else ""
+
+        batch_cards.append({
+            "batch_no": batch_no,
+            "client_name": client_name,
+            "po_number": po_number,
+            "runs": items_sorted,
+        })
+
+    # Sort batches newest-first by newest run created_at
+    batch_cards.sort(
+        key=lambda b: b["runs"][0].created_at if b["runs"] else datetime.min,
+        reverse=True,
+    )
 
     return templates.TemplateResponse(
-        "run_list.html",
+        "runs_list.html",
         {
             "request": request,
             "user": user,
-            "runs": runs,
-            "q": qv,
+            "q": q_clean,
+            "view": view,
+            "batch_cards": batch_cards,
+            "client_bg": client_bg,
         },
     )
 
@@ -4334,6 +4394,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
