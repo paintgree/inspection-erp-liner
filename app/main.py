@@ -2176,7 +2176,7 @@ def runs_list(
     )
 
     return templates.TemplateResponse(
-        "runs.html",
+        "run_list.html",
         {
             "request": request,
             "user": user,
@@ -4394,6 +4394,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
