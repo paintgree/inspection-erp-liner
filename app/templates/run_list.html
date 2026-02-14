@@ -105,7 +105,11 @@
                   </td>
 
                   <td>
-                    <a class="btn btn-sm" href="/runs/{{ r.id }}">Open</a>
+                    <a class="btn btn-sm"
+                       href="/runs/{{ r.id }}?back={{ ('/runs?view=' ~ view ~ (q and ('&q=' ~ q|urlencode) or ''))|urlencode }}">
+                      Open
+                    </a>
+
                   </td>
                 </tr>
               {% endfor %}
