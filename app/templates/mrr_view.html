@@ -18,7 +18,6 @@
     <div class="actions">
       <a class="btn" href="/mrr/{{ lot.id }}/export/xlsx">Export XLSX</a>
       <a class="btn" href="/mrr/{{ lot.id }}/export/pdf">Export PDF</a>
-      <a class="btn" href="/mrr/{{ lot.id }}/docs">Documents</a>
 
 
       {% if user.role and user.role|upper == "MANAGER" %}
@@ -108,6 +107,194 @@
         {% endif %}
       </b>
     </div>
+  </div>
+  <!-- DOCUMENTATION + CHECKLIST (IN SAME PAGE) -->
+  <div class="card inner mt">
+    <h2>Documentation</h2>
+    <div class="muted tiny">
+      Upload required documents + confirm PO match. This section helps you see what is missing.
+    </div>
+
+    {% set has_po = false %}
+    {% set has_dn = false %}
+    {% set has_coa = false %}
+    {% if docs %}
+      {% for d in docs %}
+        {% if (d.doc_type or "")|upper == "PO" %}{% set has_po = true %}{% endif %}
+        {% if (d.doc_type or "")|upper == "DELIVERY_NOTE" %}{% set has_dn = true %}{% endif %}
+        {% if (d.doc_type or "")|upper == "COA" %}{% set has_coa = true %}{% endif %}
+      {% endfor %}
+    {% endif %}
+
+    {% set po_entered = (receiving and (receiving.inspector_po_number or "")|length > 0) %}
+    {% set po_match = (receiving and receiving.po_match) %}
+    {% set inspector_confirmed = (receiving and receiving.inspector_confirmed_po) %}
+    {% set manager_confirmed = (receiving and receiving.manager_confirmed_po) %}
+
+    <!-- CHECKLIST -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Checklist</div>
+
+      <div class="kv"><span>PO uploaded</span>
+        <b>{% if has_po %}✅ YES{% else %}❌ NO{% endif %}</b>
+      </div>
+
+      <div class="kv"><span>DN uploaded</span>
+        <b>{% if has_dn %}✅ YES{% else %}⚠️ NO{% endif %}</b>
+      </div>
+
+      <div class="kv"><span>COA uploaded</span>
+        <b>{% if has_coa %}✅ YES{% else %}⚠️ NO{% endif %}</b>
+      </div>
+
+      <div class="kv"><span>Ticket PO</span><b>{{ lot.po_number or "-" }}</b></div>
+
+      <div class="kv"><span>Inspector entered PO</span>
+        <b>{{ receiving.inspector_po_number if receiving else "-" }}</b>
+      </div>
+
+      <div class="kv"><span>PO Match</span>
+        <b>{% if po_match %}✅ YES{% elif po_entered %}❌ NO{% else %}-{% endif %}</b>
+      </div>
+
+      <div class="kv"><span>Inspector Confirmed Docs</span>
+        <b>{% if inspector_confirmed %}✅ YES{% else %}❌ NO{% endif %}</b>
+      </div>
+
+      <div class="kv"><span>Manager Approved Docs</span>
+        <b>{% if manager_confirmed %}✅ YES{% else %}❌ NO{% endif %}</b>
+      </div>
+    </div>
+
+    <!-- UPLOADED DOCS LIST -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Uploaded Documents</div>
+
+      {% if docs and docs|length > 0 %}
+        <div class="tablewrap mt">
+          <table class="table wide">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>No.</th>
+                <th>Name</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for d in docs %}
+                <tr>
+                  <td><b>{{ d.doc_type }}</b></td>
+                  <td>{{ d.doc_number or "-" }}</td>
+                  <td>{{ d.doc_name or "-" }}</td>
+                  <td>
+                    <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/view">View</a>
+                    <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/download">Download</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="muted mt">No documents uploaded yet.</div>
+      {% endif %}
+    </div>
+
+    <!-- UPLOAD AREA (WITH DROPDOWN) -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Upload Document</div>
+
+      {% if readonly %}
+        <div class="muted mt">Actions disabled (ticket canceled).</div>
+      {% else %}
+        <form class="mt" action="/mrr/{{ lot.id }}/docs/upload" method="post" enctype="multipart/form-data" id="docUploadForm">
+          <div class="grid3">
+            <div>
+              <label>Document Type</label>
+              <select name="doc_type" id="doc_type" required>
+                <option value="PO">PO</option>
+                <option value="DELIVERY_NOTE">DELIVERY NOTE</option>
+                <option value="COA">COA / Lab Test</option>
+                <option value="PACKING_LIST">PACKING LIST</option>
+                <option value="SDS">SDS / MSDS</option>
+                <option value="CERTIFICATE">CERTIFICATE</option>
+                <option value="RELATED">RELATED (Custom Name)</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Document Name</label>
+              <input name="doc_title" id="doc_title" placeholder="Auto (except RELATED)">
+              <div class="muted tiny">If you choose RELATED, Document Name becomes required.</div>
+            </div>
+
+            <div>
+              <label>Document Number</label>
+              <input name="doc_number" placeholder="Optional (PO is auto)">
+            </div>
+          </div>
+
+          <div class="mt">
+            <label>File</label>
+            <input type="file" name="file" required>
+          </div>
+
+          <div class="mt">
+            <button class="btn btn-secondary" type="submit">Upload</button>
+          </div>
+        </form>
+
+        <script>
+          (function(){
+            const type = document.getElementById("doc_type");
+            const title = document.getElementById("doc_title");
+            function sync(){
+              const v = (type.value || "").toUpperCase();
+              if(v === "RELATED"){
+                title.required = true;
+                title.placeholder = "Required for RELATED";
+              } else {
+                title.required = false;
+                title.placeholder = "Auto (except RELATED)";
+              }
+            }
+            type.addEventListener("change", sync);
+            sync();
+          })();
+        </script>
+      {% endif %}
+    </div>
+
+    <!-- PO CHECK + CONFIRM -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">PO Verification</div>
+
+      {% if readonly %}
+        <div class="muted mt">Actions disabled (ticket canceled).</div>
+      {% else %}
+        <form class="mt" action="/mrr/{{ lot.id }}/docs/submit" method="post">
+          <label>Inspector PO Number (type it exactly like the ticket PO)</label>
+          <input name="inspector_po_number" required value="{{ receiving.inspector_po_number if receiving else '' }}">
+          <div class="mt">
+            <button class="btn" type="submit">Save PO Check</button>
+          </div>
+        </form>
+
+        <form class="mt" action="/mrr/{{ lot.id }}/docs/confirm" method="post"
+              onsubmit="return confirm('Confirm documentation? This requires PO uploaded + PO match.')">
+          <button class="btn btn-primary" type="submit">Inspector Confirm Documentation</button>
+        </form>
+
+        {% if user.role and user.role|upper == "MANAGER" %}
+          <form class="mt" action="/mrr/{{ lot.id }}/docs/approve" method="post"
+                onsubmit="return confirm('Manager approve documentation?')">
+            <button class="btn btn-warn" type="submit">Manager Approve Documentation</button>
+          </form>
+        {% endif %}
+      {% endif %}
+    </div>
+
   </div>
 
   <!-- SHIPMENT REPORTS SUMMARY -->
