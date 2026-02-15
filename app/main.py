@@ -184,7 +184,7 @@ from fastapi.responses import Response
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-MRR_TEMPLATE_DIR = os.path.join(BASE_DIR, "report_templates")
+MRR_TEMPLATE_DIR = os.path.join(BASE_DIR, "templates" / "templates_xlsx")
 
 MRR_TEMPLATE_XLSX_MAP = {
     # Your official RAW material report template
@@ -4730,6 +4730,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
