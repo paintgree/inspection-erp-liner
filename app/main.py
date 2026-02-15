@@ -2098,13 +2098,17 @@ def mrr_docs_confirm(lot_id: int, request: Request, session: Session = Depends(g
     forbid_boss(user)
 
     lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+    block_if_mrr_canceled(lot)
+
     rec = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
     docs = session.exec(select(MrrDocument).where(MrrDocument.ticket_id == lot_id)).all()
 
     if not rec:
         raise HTTPException(400, "Documentation not saved")
 
-    has_po_doc = any(d.doc_type == "PO" for d in docs)
+    has_po_doc = any(((d.doc_type or "").strip().upper() == "PO") for d in docs)
     po_match = rec.inspector_po_number.strip() == (lot.po_number or "").strip()
 
     rec.po_match = po_match
@@ -4857,6 +4861,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
