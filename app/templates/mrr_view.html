@@ -18,6 +18,8 @@
     <div class="actions">
       <a class="btn" href="/mrr/{{ lot.id }}/export/xlsx">Export XLSX</a>
       <a class="btn" href="/mrr/{{ lot.id }}/export/pdf">Export PDF</a>
+      <a class="btn" href="/mrr/{{ lot.id }}/docs">Documents</a>
+
 
       {% if user.role and user.role|upper == "MANAGER" %}
         <a class="btn btn-warn" href="/mrr-pending-approvals">Pending approvals</a>
