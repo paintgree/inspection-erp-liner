@@ -2124,7 +2124,7 @@ def mrr_docs_confirm(lot_id: int, request: Request, session: Session = Depends(g
 
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
 
-    @app.post("/mrr/{lot_id}/docs/submit_and_confirm")
+@app.post("/mrr/{lot_id}/docs/submit_and_confirm")
 def mrr_docs_submit_and_confirm(
     lot_id: int,
     request: Request,
@@ -4861,6 +4861,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
