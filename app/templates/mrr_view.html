@@ -115,16 +115,16 @@
       Upload required documents + confirm PO match. This section helps you see what is missing.
     </div>
 
-    {% set has_po = false %}
-    {% set has_dn = false %}
-    {% set has_coa = false %}
+    {% set ns = namespace(has_po=false, has_dn=false, has_coa=false) %}
     {% if docs %}
       {% for d in docs %}
-        {% if (d.doc_type or "")|upper == "PO" %}{% set has_po = true %}{% endif %}
-        {% if (d.doc_type or "")|upper == "DELIVERY_NOTE" %}{% set has_dn = true %}{% endif %}
-        {% if (d.doc_type or "")|upper == "COA" %}{% set has_coa = true %}{% endif %}
+        {% set dt = (d.doc_type or "")|upper %}
+        {% if dt == "PO" %}{% set ns.has_po = true %}{% endif %}
+        {% if dt == "DELIVERY_NOTE" %}{% set ns.has_dn = true %}{% endif %}
+        {% if dt == "COA" %}{% set ns.has_coa = true %}{% endif %}
       {% endfor %}
     {% endif %}
+
 
     {% set po_entered = (receiving and (receiving.inspector_po_number or "")|length > 0) %}
     {% set po_match = (receiving and receiving.po_match) %}
