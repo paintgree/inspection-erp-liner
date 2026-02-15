@@ -330,13 +330,16 @@
       {% if readonly %}
         <div class="muted mt">Actions disabled (ticket canceled).</div>
       {% else %}
-        <form class="mt" action="/mrr/{{ lot.id }}/docs/submit" method="post">
+        <form class="mt" action="/mrr/{{ lot.id }}/docs/submit_and_confirm" method="post"
+              onsubmit="return confirm('This will save your PO number and confirm documentation (requires PO uploaded + PO match). Continue?')">
           <label>Inspector PO Number (type it exactly like the ticket PO)</label>
           <input name="inspector_po_number" required value="{{ receiving.inspector_po_number if receiving else '' }}">
+        
           <div class="mt">
-            <button class="btn" type="submit">Save PO Check</button>
+            <button class="btn btn-primary" type="submit">Save & Confirm Documentation</button>
           </div>
         </form>
+
 
         <form class="mt" action="/mrr/{{ lot.id }}/docs/confirm" method="post"
               onsubmit="return confirm('Confirm documentation? This requires PO uploaded + PO match.')">
