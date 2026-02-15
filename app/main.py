@@ -1864,6 +1864,30 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         },
     )
 
+@app.get("/mrr/{lot_id}/docs")
+def mrr_docs_page(lot_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+    docs = session.exec(select(MrrDocument).where(MrrDocument.ticket_id == lot_id).order_by(MrrDocument.created_at.desc())).all()
+
+    readonly = is_mrr_canceled(lot)
+
+    return render_template(
+        request,
+        "mrr_doc_upload.html",
+        {
+            "user": user,
+            "lot": lot,
+            "receiving": receiving,
+            "docs": docs,
+            "readonly": readonly,
+        },
+    )
 
 
 @app.post("/mrr/{lot_id}/docs/upload")
@@ -4792,6 +4816,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
