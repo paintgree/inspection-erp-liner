@@ -2120,6 +2120,50 @@ def mrr_docs_confirm(lot_id: int, request: Request, session: Session = Depends(g
 
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
 
+    @app.post("/mrr/{lot_id}/docs/submit_and_confirm")
+def mrr_docs_submit_and_confirm(
+    lot_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    inspector_po_number: str = Form(...),
+):
+    user = get_current_user(request, session)
+    forbid_boss(user)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+    block_if_mrr_canceled(lot)
+
+    # Load or create receiving record
+    rec = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+    if not rec:
+        rec = MrrReceiving(ticket_id=lot_id)
+
+    # Save inspector PO
+    rec.inspector_po_number = (inspector_po_number or "").strip()
+
+    # PO match
+    ticket_po = (lot.po_number or "").strip()
+    po_match = bool(rec.inspector_po_number and ticket_po and rec.inspector_po_number == ticket_po)
+    rec.po_match = po_match
+
+    # Check if PO document uploaded
+    docs = session.exec(select(MrrDocument).where(MrrDocument.ticket_id == lot_id)).all()
+    has_po_doc = any(((d.doc_type or "").strip().upper() == "PO") for d in docs)
+
+    # Confirm rules
+    if has_po_doc and po_match:
+        rec.inspector_confirmed_po = True
+    else:
+        rec.inspector_confirmed_po = False
+        rec.manager_confirmed_po = False
+
+    session.add(rec)
+    session.commit()
+
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 @app.post("/mrr/{lot_id}/docs/approve")
 def mrr_docs_manager_approve(lot_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -4813,6 +4857,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
