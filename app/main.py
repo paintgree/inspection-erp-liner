@@ -2105,10 +2105,15 @@ def runs_list(
 
     stmt = select(ProductionRun)
 
-    if view == "approved":
-        stmt = stmt.where(ProductionRun.status == "APPROVED")
-    else:
-        stmt = stmt.where(ProductionRun.status != "APPROVED")
+    # ✅ If user is searching, show ALL (open + approved) regardless of tab
+    # ✅ If no search, keep the split logic
+    q_clean = (q or "").strip()
+    if not q_clean:
+        if view == "approved":
+            stmt = stmt.where(ProductionRun.status == "APPROVED")
+        else:
+            stmt = stmt.where(ProductionRun.status != "APPROVED")
+
 
     # ✅ Search across multiple fields
     q_clean = (q or "").strip()
@@ -4394,6 +4399,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
