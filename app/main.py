@@ -167,6 +167,337 @@ def generate_report_no(ticket_id: int, seq: int) -> str:
     now = datetime.utcnow()
     return f"MRR-{now.year}-{now.month:02d}-{ticket_id:04d}-{seq:02d}"
 
+# =========================
+# MRR REPORT TEMPLATES PATHS
+# =========================
+import os
+import io
+import re
+import json
+import zipfile
+import subprocess
+from datetime import datetime, date
+
+import openpyxl
+from fastapi import HTTPException
+from fastapi.responses import Response
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+MRR_TEMPLATE_DIR = os.path.join(BASE_DIR, "report_templates")
+
+MRR_TEMPLATE_XLSX_MAP = {
+    # Your official RAW material report template
+    "RAW": os.path.join(MRR_TEMPLATE_DIR, "QAP0600-F01.xlsx"),
+}
+
+MRR_TEMPLATE_DOCX_MAP = {
+    # Future: outsourced template (docx). We'll wire this later.
+    "OUTSOURCED": os.path.join(MRR_TEMPLATE_DIR, "QAP0600-F02.docx"),
+}
+
+def _safe_upper(x: str | None) -> str:
+    return (x or "").strip().upper()
+
+def _to_float(x, default=0.0):
+    try:
+        if x is None or x == "":
+            return default
+        return float(x)
+    except Exception:
+        return default
+
+def _as_date_str(d) -> str:
+    if isinstance(d, (datetime, date)):
+        return d.strftime("%Y-%m-%d")
+    if isinstance(d, str) and d.strip():
+        return d.strip()
+    return ""
+
+def _normalize_key(s: str) -> str:
+    return re.sub(r"\s+", " ", (s or "").strip()).lower()
+
+def _xlsx_bytes_from_wb(wb) -> bytes:
+    bio = io.BytesIO()
+    wb.save(bio)
+    return bio.getvalue()
+
+
+# =========================
+# F01 (RAW) TEMPLATE FILLER
+# =========================
+def fill_mrr_f01_xlsx_bytes(
+    *,
+    lot,
+    receiving,
+    inspection,
+    docs: list,
+    photos_by_group: dict | None = None,
+) -> bytes:
+    """
+    Fills QAP0600-F01.xlsx using:
+    - ticket (lot)
+    - receiving (docs info / PO checks)
+    - inspection (shipment inspection values + inspection_json tables)
+    - docs (uploaded docs list)
+    - photos_by_group (optional, not written into xlsx; used later for PDF/package)
+    """
+    template_path = MRR_TEMPLATE_XLSX_MAP.get("RAW")
+    if not template_path or not os.path.exists(template_path):
+        raise HTTPException(500, f"RAW template missing. Put QAP0600-F01.xlsx in {MRR_TEMPLATE_DIR}")
+
+    wb = openpyxl.load_workbook(template_path)
+    ws = wb.active
+
+    # ---- HEADER MAP (based on your F01 layout) ----
+    # Labels we detected in your file:
+    # Report No -> D1
+    # Date -> D2
+    # Supplier -> B6
+    # PO number -> E6
+    # Material Type -> B7
+    # Order number -> E7 (we use ticket id/batch if you want; change if needed)
+    # Material Grade -> B8
+    # Delivery note -> E8
+    # Batch number -> B9
+    # Qty received -> E9
+
+    ws["D1"].value = inspection.report_no or ""
+    ws["D2"].value = _as_date_str(inspection.created_at or datetime.utcnow())
+
+    ws["B6"].value = getattr(lot, "supplier_name", "") or ""
+    ws["E6"].value = getattr(lot, "po_number", "") or ""
+
+    ws["B7"].value = getattr(lot, "material_name", "") or ""
+    ws["E7"].value = getattr(lot, "batch_no", "") or ""  # you can change this mapping any time
+
+    # Grade: prefer inspection_json.grade, fallback lot.material_grade if you add it later
+    data = {}
+    try:
+        data = json.loads(inspection.inspection_json or "{}")
+    except Exception:
+        data = {}
+
+    ws["B8"].value = (data.get("material_grade") or data.get("grade") or "").strip()
+    ws["E8"].value = inspection.delivery_note_no or ""
+
+    # Batch number(s): store as comma list (you told me multiple batches possible)
+    # Expecting inspection_json["batch_numbers"] = ["B1","B2"] OR string
+    bn = data.get("batch_numbers")
+    if isinstance(bn, list):
+        ws["B9"].value = ", ".join([str(x).strip() for x in bn if str(x).strip()])
+    elif isinstance(bn, str):
+        ws["B9"].value = bn.strip()
+    else:
+        ws["B9"].value = ""
+
+    ws["E9"].value = f"{_to_float(inspection.qty_arrived, 0)} {inspection.qty_unit or ''}".strip()
+
+    # ---- PROPERTIES TABLE FILL (generic matcher) ----
+    # F01 has property names in column A starting around row 13.
+    # We will fill:
+    # - Result -> Column G
+    # - Remarks -> Column H
+    #
+    # Expected JSON format (your form can store any of these; we read what exists):
+    # data["properties"] = [{"name": "...", "result": "...", "remarks": "..."}]
+    # or data["pe_properties"], data["fiber_properties"], etc.
+
+    def build_prop_map(items):
+        m = {}
+        if not isinstance(items, list):
+            return m
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            name = _normalize_key(str(it.get("name") or it.get("property") or ""))
+            if not name:
+                continue
+            m[name] = it
+        return m
+
+    prop_items = (
+        data.get("properties")
+        or data.get("pe_properties")
+        or data.get("raw_properties")
+        or []
+    )
+    prop_map = build_prop_map(prop_items)
+
+    # Scan the sheet for property names and fill matched rows
+    for r in range(1, ws.max_row + 1):
+        cell_val = ws.cell(r, 1).value  # col A
+        if not isinstance(cell_val, str):
+            continue
+        key = _normalize_key(cell_val)
+        if key in prop_map:
+            it = prop_map[key]
+            ws.cell(r, 7).value = it.get("result") or it.get("value") or ""   # col G
+            ws.cell(r, 8).value = it.get("remarks") or ""                    # col H
+
+    # ---- VISUAL INSPECTION Y/N (rows 34-37 are checklist in your file) ----
+    # If your JSON has:
+    # data["visual_checks"] = {"COA Available": true, ...}
+    vc = data.get("visual_checks")
+    if isinstance(vc, dict):
+        for r in range(34, 38):
+            label = ws.cell(r, 1).value
+            if isinstance(label, str):
+                v = vc.get(label)
+                if isinstance(v, bool):
+                    ws.cell(r, 7).value = "YES" if v else "NO"
+
+    # ---- SIGNATURES ----
+    # Inspector name goes to E45
+    ws["E45"].value = inspection.inspector_name or ""
+
+    # Manager approval stamp (if approved)
+    if getattr(inspection, "manager_approved", False):
+        # Put manager name if you store it later; for now keep generic
+        ws["H45"].value = "MANAGER"
+        ws["H46"].value = _as_date_str(datetime.utcnow())
+
+    return _xlsx_bytes_from_wb(wb)
+
+
+# ==========================================
+# EXPORT PER-INSPECTION (SEPARATE REPORTS)
+# ==========================================
+@app.get("/mrr/{lot_id}/inspection/id/{inspection_id}/export/xlsx")
+def mrr_export_inspection_xlsx(
+    lot_id: int,
+    inspection_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    insp = session.get(MrrReceivingInspection, inspection_id)
+    if not insp or insp.ticket_id != lot_id:
+        raise HTTPException(404, "MRR Inspection not found")
+
+    # Docs are ticket-level in your current DB
+    docs = session.exec(select(MrrDocument).where(MrrDocument.ticket_id == lot_id).order_by(MrrDocument.created_at.asc())).all()
+
+    receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+
+    # Only allow export if submitted (optional rule)
+    if not insp.inspector_confirmed:
+        raise HTTPException(400, "Inspection must be submitted before export")
+
+    # Decide template based on inspection.template_type
+    tpl = _safe_upper(getattr(insp, "template_type", "RAW"))
+    if tpl != "RAW":
+        raise HTTPException(400, f"Template type {tpl} export not wired yet (we will do F02 next)")
+
+    xlsx_bytes = fill_mrr_f01_xlsx_bytes(
+        lot=lot,
+        receiving=receiving,
+        inspection=insp,
+        docs=docs,
+        photos_by_group=None,
+    )
+
+    filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.xlsx"
+    return Response(
+        content=xlsx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
+    """
+    Best-effort conversion using LibreOffice.
+    If LO is not installed in your environment, we raise a clear error.
+    """
+    tmp_dir = "/tmp/mrr_export"
+    os.makedirs(tmp_dir, exist_ok=True)
+
+    xlsx_path = os.path.join(tmp_dir, "report.xlsx")
+    with open(xlsx_path, "wb") as f:
+        f.write(xlsx_bytes)
+
+    # Try LibreOffice headless conversion
+    cmd = [
+        "soffice",
+        "--headless",
+        "--nologo",
+        "--nolockcheck",
+        "--nodefault",
+        "--norestore",
+        "--convert-to",
+        "pdf",
+        "--outdir",
+        tmp_dir,
+        xlsx_path,
+    ]
+    try:
+        subprocess.check_call(cmd)
+    except FileNotFoundError:
+        raise HTTPException(
+            500,
+            "PDF export needs LibreOffice (soffice) installed on the server. "
+            "For now use Export XLSX, or tell me and I’ll add a pure-ReportLab PDF layout."
+        )
+    except Exception:
+        raise HTTPException(500, "Failed to convert XLSX to PDF (LibreOffice error).")
+
+    pdf_path = os.path.join(tmp_dir, "report.pdf")
+    if not os.path.exists(pdf_path):
+        raise HTTPException(500, "Conversion did not produce PDF output.")
+
+    with open(pdf_path, "rb") as f:
+        return f.read()
+
+
+@app.get("/mrr/{lot_id}/inspection/id/{inspection_id}/export/pdf")
+def mrr_export_inspection_pdf(
+    lot_id: int,
+    inspection_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+
+    lot = session.get(MaterialLot, lot_id)
+    if not lot:
+        raise HTTPException(404, "MRR Ticket not found")
+
+    insp = session.get(MrrReceivingInspection, inspection_id)
+    if not insp or insp.ticket_id != lot_id:
+        raise HTTPException(404, "MRR Inspection not found")
+
+    docs = session.exec(select(MrrDocument).where(MrrDocument.ticket_id == lot_id).order_by(MrrDocument.created_at.asc())).all()
+    receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+
+    if not insp.inspector_confirmed:
+        raise HTTPException(400, "Inspection must be submitted before export")
+
+    tpl = _safe_upper(getattr(insp, "template_type", "RAW"))
+    if tpl != "RAW":
+        raise HTTPException(400, f"Template type {tpl} export not wired yet (we will do F02 next)")
+
+    xlsx_bytes = fill_mrr_f01_xlsx_bytes(
+        lot=lot,
+        receiving=receiving,
+        inspection=insp,
+        docs=docs,
+        photos_by_group=None,
+    )
+
+    pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
+
+    filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 app = FastAPI()
 
@@ -4399,6 +4730,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
