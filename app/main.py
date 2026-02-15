@@ -360,6 +360,81 @@ def fill_mrr_f01_xlsx_bytes(
     return _xlsx_bytes_from_wb(wb)
 
 
+
+
+app = FastAPI()
+
+BASE_DIR = os.path.dirname(__file__)
+
+# =========================
+# Upload storage (local FS)
+# =========================
+DATA_DIR = os.environ.get("DATA_DIR", "/tmp/inspection_erp_data")
+MRR_UPLOAD_DIR = os.path.join(DATA_DIR, "mrr_uploads")
+MRR_PHOTO_DIR = os.path.join(DATA_DIR, "mrr_photos")
+
+os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
+os.makedirs(MRR_PHOTO_DIR, exist_ok=True)
+
+
+
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+# =========================
+# File upload directories
+# =========================
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+
+
+
+IMAGE_MAP = {
+    "LINER": "/static/images/liner.png",
+    "REINFORCEMENT": "/static/images/reinforcement.png",
+    "COVER": "/static/images/cover.png",
+}
+
+PAPER_BG_MAP = {
+    "LINER": os.path.join(BASE_DIR, "static", "papers", "liner_bg.pdf"),
+    "REINFORCEMENT": os.path.join(BASE_DIR, "static", "papers", "reinforcement_bg.pdf"),
+    "COVER": os.path.join(BASE_DIR, "static", "papers", "cover_bg.pdf"),
+}
+
+TEMPLATE_XLSX_MAP = {
+    "LINER": os.path.join(BASE_DIR, "templates", "templates_xlsx", "liner.xlsx"),
+    "REINFORCEMENT": os.path.join(BASE_DIR, "templates", "templates_xlsx", "reinforcement.xlsx"),
+    "COVER": os.path.join(BASE_DIR, "templates", "templates_xlsx", "cover.xlsx"),
+}
+def resolve_mrr_doc_path(p: str) -> str:
+    """Resolve stored MRR document path to an existing file on disk.
+
+    Backward compatible with rows that stored absolute paths, relative paths, or just filenames.
+    """
+    if not p:
+        return ""
+
+    p_norm = p.replace("\\", "/").lstrip("/")
+
+    # absolute
+    try:
+        if os.path.isabs(p) and os.path.exists(p):
+            return p
+    except Exception:
+        pass
+
+    candidates = [
+        p_norm,
+        os.path.join(BASE_DIR, p_norm) if 'BASE_DIR' in globals() else p_norm,
+        os.path.join(DATA_DIR, p_norm) if 'DATA_DIR' in globals() else p_norm,
+        os.path.join(MRR_UPLOAD_DIR, p_norm),
+        os.path.join(MRR_UPLOAD_DIR, os.path.basename(p_norm)),
+    ]
+
+    for c in candidates:
+        if c and os.path.exists(c):
+            return c
+
+    return ""
+
 # ==========================================
 # EXPORT PER-INSPECTION (SEPARATE REPORTS)
 # ==========================================
@@ -498,81 +573,6 @@ def mrr_export_inspection_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
-
-app = FastAPI()
-
-BASE_DIR = os.path.dirname(__file__)
-
-# =========================
-# Upload storage (local FS)
-# =========================
-DATA_DIR = os.environ.get("DATA_DIR", "/tmp/inspection_erp_data")
-MRR_UPLOAD_DIR = os.path.join(DATA_DIR, "mrr_uploads")
-MRR_PHOTO_DIR = os.path.join(DATA_DIR, "mrr_photos")
-
-os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
-os.makedirs(MRR_PHOTO_DIR, exist_ok=True)
-
-
-
-templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
-# =========================
-# File upload directories
-# =========================
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-
-
-
-IMAGE_MAP = {
-    "LINER": "/static/images/liner.png",
-    "REINFORCEMENT": "/static/images/reinforcement.png",
-    "COVER": "/static/images/cover.png",
-}
-
-PAPER_BG_MAP = {
-    "LINER": os.path.join(BASE_DIR, "static", "papers", "liner_bg.pdf"),
-    "REINFORCEMENT": os.path.join(BASE_DIR, "static", "papers", "reinforcement_bg.pdf"),
-    "COVER": os.path.join(BASE_DIR, "static", "papers", "cover_bg.pdf"),
-}
-
-TEMPLATE_XLSX_MAP = {
-    "LINER": os.path.join(BASE_DIR, "templates", "templates_xlsx", "liner.xlsx"),
-    "REINFORCEMENT": os.path.join(BASE_DIR, "templates", "templates_xlsx", "reinforcement.xlsx"),
-    "COVER": os.path.join(BASE_DIR, "templates", "templates_xlsx", "cover.xlsx"),
-}
-def resolve_mrr_doc_path(p: str) -> str:
-    """Resolve stored MRR document path to an existing file on disk.
-
-    Backward compatible with rows that stored absolute paths, relative paths, or just filenames.
-    """
-    if not p:
-        return ""
-
-    p_norm = p.replace("\\", "/").lstrip("/")
-
-    # absolute
-    try:
-        if os.path.isabs(p) and os.path.exists(p):
-            return p
-    except Exception:
-        pass
-
-    candidates = [
-        p_norm,
-        os.path.join(BASE_DIR, p_norm) if 'BASE_DIR' in globals() else p_norm,
-        os.path.join(DATA_DIR, p_norm) if 'DATA_DIR' in globals() else p_norm,
-        os.path.join(MRR_UPLOAD_DIR, p_norm),
-        os.path.join(MRR_UPLOAD_DIR, os.path.basename(p_norm)),
-    ]
-
-    for c in candidates:
-        if c and os.path.exists(c):
-            return c
-
-    return ""
-
-
 
 @app.get("/health")
 def health():
@@ -4730,6 +4730,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
