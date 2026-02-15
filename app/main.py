@@ -24,7 +24,9 @@ import os
 from datetime import datetime
 
 import openpyxl
+from openpyxl.drawing.image import Image as XLImage
 from pypdf import PdfWriter, PdfReader, Transformation
+
 
 from fastapi import (
     FastAPI,
@@ -277,19 +279,39 @@ def fill_mrr_f01_xlsx_bytes(
     _ws_set_value_safe(ws, "E7", getattr(lot, "batch_no", "") or "")
 
     data = {}
-    try:
+        try:
         data = json.loads(getattr(inspection, "inspection_json", None) or "{}")
     except Exception:
         data = {}
 
-    _ws_set_value_safe(ws, "B8", (data.get("material_grade") or data.get("grade") or "").strip())
+    grade = (data.get("material_grade") or data.get("grade") or "").strip()
+    fam = (data.get("material_fam") or data.get("material_type") or "").strip()
+    mat_name = (getattr(lot, "material_name", "") or "").strip()
+
+    _ws_set_value_safe(ws, "B8", grade)
     _ws_set_value_safe(ws, "E8", getattr(inspection, "delivery_note_no", "") or "")
+
+    # ---- Dynamic Template Titles ----
+    # Show only what user selected, remove hardcoded template names
+    title = ""
+    if fam and grade:
+        title = f"{fam} ({grade})"
+    elif fam:
+        title = fam
+    elif mat_name:
+        title = mat_name
+
+    _ws_set_value_safe(ws, "A11", title)
+    _ws_set_value_safe(ws, "E11", "")
+    _ws_set_value_safe(ws, "A24", "")
+    _ws_set_value_safe(ws, "D24", "")
 
     bn = data.get("batch_numbers")
     if isinstance(bn, list):
         _ws_set_value_safe(ws, "B9", ", ".join([str(x).strip() for x in bn if str(x).strip()]))
     elif isinstance(bn, str):
         _ws_set_value_safe(ws, "B9", bn.strip())
+
     else:
         _ws_set_value_safe(ws, "B9", "")
 
@@ -342,7 +364,7 @@ def fill_mrr_f01_xlsx_bytes(
                 if isinstance(v, bool):
                     ws.cell(r, 7).value = "YES" if v else "NO"
 
-        # ---- SIGNATURES ----
+           # ---- SIGNATURES ----
     _ws_set_value_safe(ws, "E45", getattr(inspection, "inspector_name", "") or "")
 
     if bool(getattr(inspection, "manager_approved", False)):
@@ -350,42 +372,53 @@ def fill_mrr_f01_xlsx_bytes(
         _ws_set_value_safe(ws, "H46", _as_date_str(datetime.utcnow()))
 
     # -------------------------
+    # LOGO (FIX)
+    # -------------------------
+    # Your logo is currently inside Excel HEADER (&G). When openpyxl saves,
+    # header images are not preserved => logo disappears in PDF.
+    # Solution: insert the logo as a normal sheet image.
+    try:
+        logo_path = os.path.join(BASE_DIR, "static", "images", "logo.png")
+        if os.path.exists(logo_path):
+            img = XLImage(logo_path)
+            # Place near top-left (adjust if you want)
+            img.anchor = "A1"
+            ws.add_image(img)
+    except Exception:
+        pass
+
+    # -------------------------
     # PDF EXPORT PAGE SETUP
     # -------------------------
     # Force the Excel template to print as ONE full A4 page.
-    # LibreOffice will respect these settings when converting XLSX -> PDF.
     try:
-        # Ensure fit-to-page takes precedence over any fixed scale
         ws.page_setup.scale = None
-
-        # A4 Portrait, fit all content into one page
         ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
         ws.page_setup.paperSize = ws.PAPERSIZE_A4
         ws.page_setup.fitToWidth = 1
         ws.page_setup.fitToHeight = 1
         ws.sheet_properties.pageSetUpPr.fitToPage = True
 
-        # Constrain printable region to the form body (prevents extra pages)
-        # F01 uses columns A..H and content down to row 46.
-        ws.print_area = "A1:H46"
+        # IMPORTANT: Use FULL template area (prevents "zoomed in" PDF)
+        ws.print_area = "A1:L64"
 
-        # Remove any manual page breaks embedded in the template
+        # Remove manual page breaks (template might contain them)
         try:
             ws.row_breaks.brk = []
             ws.col_breaks.brk = []
         except Exception:
             pass
 
-        # Margins for PDF printing
-        ws.page_margins.left = 0.25
-        ws.page_margins.right = 0.25
-        ws.page_margins.top = 0.35
-        ws.page_margins.bottom = 0.70
+        # Slight margins
+        ws.page_margins.left = 0.20
+        ws.page_margins.right = 0.20
+        ws.page_margins.top = 0.25
+        ws.page_margins.bottom = 0.45
     except Exception:
-        # Never fail export due to page setup; worst case PDF uses template defaults.
         pass
 
     return _xlsx_bytes_from_wb(wb)
+
 
 
 
@@ -4759,6 +4792,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
