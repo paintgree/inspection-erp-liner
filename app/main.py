@@ -342,14 +342,51 @@ def fill_mrr_f01_xlsx_bytes(
                 if isinstance(v, bool):
                     ws.cell(r, 7).value = "YES" if v else "NO"
 
-    # ---- SIGNATURES ----
+        # ---- SIGNATURES ----
     _ws_set_value_safe(ws, "E45", getattr(inspection, "inspector_name", "") or "")
 
     if bool(getattr(inspection, "manager_approved", False)):
         _ws_set_value_safe(ws, "H45", "MANAGER")
         _ws_set_value_safe(ws, "H46", _as_date_str(datetime.utcnow()))
 
+    # -------------------------
+    # PDF EXPORT PAGE SETUP
+    # -------------------------
+    # Force the Excel template to print as ONE full A4 page.
+    # LibreOffice will respect these settings when converting XLSX -> PDF.
+    try:
+        # Ensure fit-to-page takes precedence over any fixed scale
+        ws.page_setup.scale = None
+
+        # A4 Portrait, fit all content into one page
+        ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
+        ws.page_setup.paperSize = ws.PAPERSIZE_A4
+        ws.page_setup.fitToWidth = 1
+        ws.page_setup.fitToHeight = 1
+        ws.sheet_properties.pageSetUpPr.fitToPage = True
+
+        # Constrain printable region to the form body (prevents extra pages)
+        # F01 uses columns A..H and content down to row 46.
+        ws.print_area = "A1:H46"
+
+        # Remove any manual page breaks embedded in the template
+        try:
+            ws.row_breaks.brk = []
+            ws.col_breaks.brk = []
+        except Exception:
+            pass
+
+        # Margins for PDF printing
+        ws.page_margins.left = 0.25
+        ws.page_margins.right = 0.25
+        ws.page_margins.top = 0.35
+        ws.page_margins.bottom = 0.70
+    except Exception:
+        # Never fail export due to page setup; worst case PDF uses template defaults.
+        pass
+
     return _xlsx_bytes_from_wb(wb)
+
 
 
 
@@ -4722,6 +4759,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
