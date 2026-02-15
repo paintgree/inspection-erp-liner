@@ -144,7 +144,10 @@
                 </td>
                 <td>
                   <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}">Open</a>
+                  <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}/export/xlsx">XLSX</a>
+                  <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}/export/pdf">PDF</a>
                 </td>
+
                 <td>
                   {% if s.manager_approved %}
                     <span class="badge badge-ok">APPROVED</span>
