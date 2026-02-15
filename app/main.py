@@ -279,7 +279,7 @@ def fill_mrr_f01_xlsx_bytes(
     _ws_set_value_safe(ws, "E7", getattr(lot, "batch_no", "") or "")
 
     data = {}
-        try:
+    try:
         data = json.loads(getattr(inspection, "inspection_json", None) or "{}")
     except Exception:
         data = {}
@@ -301,6 +301,7 @@ def fill_mrr_f01_xlsx_bytes(
     elif mat_name:
         title = mat_name
 
+    # These cells in your template contain the hardcoded material headers
     _ws_set_value_safe(ws, "A11", title)
     _ws_set_value_safe(ws, "E11", "")
     _ws_set_value_safe(ws, "A24", "")
@@ -311,7 +312,6 @@ def fill_mrr_f01_xlsx_bytes(
         _ws_set_value_safe(ws, "B9", ", ".join([str(x).strip() for x in bn if str(x).strip()]))
     elif isinstance(bn, str):
         _ws_set_value_safe(ws, "B9", bn.strip())
-
     else:
         _ws_set_value_safe(ws, "B9", "")
 
@@ -320,9 +320,6 @@ def fill_mrr_f01_xlsx_bytes(
     _ws_set_value_safe(ws, "E9", f"{_to_float(qty_arrived, 0)} {qty_unit}".strip())
 
     # ---- PROPERTIES TABLE FILL (generic matcher) ----
-    # Expect JSON formats like:
-    # data["properties"] = [{"name":"...", "result":"...", "remarks":"..."}]
-    # or data["pe_properties"] / data["raw_properties"]
     def _build_prop_map(items):
         m = {}
         if not isinstance(items, list):
@@ -364,7 +361,7 @@ def fill_mrr_f01_xlsx_bytes(
                 if isinstance(v, bool):
                     ws.cell(r, 7).value = "YES" if v else "NO"
 
-           # ---- SIGNATURES ----
+    # ---- SIGNATURES ----
     _ws_set_value_safe(ws, "E45", getattr(inspection, "inspector_name", "") or "")
 
     if bool(getattr(inspection, "manager_approved", False)):
@@ -374,14 +371,14 @@ def fill_mrr_f01_xlsx_bytes(
     # -------------------------
     # LOGO (FIX)
     # -------------------------
-    # Your logo is currently inside Excel HEADER (&G). When openpyxl saves,
-    # header images are not preserved => logo disappears in PDF.
-    # Solution: insert the logo as a normal sheet image.
+    # Your logo was in Excel HEADER (&G). openpyxl does NOT preserve header images.
+    # So we insert the logo as a normal worksheet image.
     try:
-        logo_path = os.path.join(BASE_DIR, "static", "images", "logo.png")
+        base_dir = os.path.dirname(__file__)
+        logo_path = os.path.join(base_dir, "static", "images", "logo.png")
         if os.path.exists(logo_path):
+            from openpyxl.drawing.image import Image as XLImage
             img = XLImage(logo_path)
-            # Place near top-left (adjust if you want)
             img.anchor = "A1"
             ws.add_image(img)
     except Exception:
@@ -390,7 +387,7 @@ def fill_mrr_f01_xlsx_bytes(
     # -------------------------
     # PDF EXPORT PAGE SETUP
     # -------------------------
-    # Force the Excel template to print as ONE full A4 page.
+    # IMPORTANT: Use full template area so it does not zoom in.
     try:
         ws.page_setup.scale = None
         ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
@@ -399,17 +396,17 @@ def fill_mrr_f01_xlsx_bytes(
         ws.page_setup.fitToHeight = 1
         ws.sheet_properties.pageSetUpPr.fitToPage = True
 
-        # IMPORTANT: Use FULL template area (prevents "zoomed in" PDF)
+        # Full template range (adjust later if needed)
         ws.print_area = "A1:L64"
 
-        # Remove manual page breaks (template might contain them)
+        # Remove manual page breaks embedded in template
         try:
             ws.row_breaks.brk = []
             ws.col_breaks.brk = []
         except Exception:
             pass
 
-        # Slight margins
+        # Margins
         ws.page_margins.left = 0.20
         ws.page_margins.right = 0.20
         ws.page_margins.top = 0.25
@@ -4816,6 +4813,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
