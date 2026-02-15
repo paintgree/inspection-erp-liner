@@ -240,12 +240,35 @@ def _ws_set_value_safe(ws, addr: str, value):
 
     ws[addr].value = value
 
-# =========================
-# F01 (RAW) TEMPLATE FILLER
-# =========================
+
+def fill_mrr_f01_xlsx_bytes(
+    *,
+    lot,
+    receiving,
+    inspection,
+    docs: list,
+    photos_by_group: dict | None = None,
+) -> bytes:
+    """
+    Fills QAP0600-F01.xlsx using:
+    - ticket (lot)
+    - receiving (docs info / PO checks)
+    - inspection (shipment inspection values + inspection_json tables)
+    - docs (uploaded docs list)
+    """
+    template_path = MRR_TEMPLATE_XLSX_MAP.get("RAW")
+    if not template_path or not os.path.exists(template_path):
+        raise HTTPException(
+            500,
+            f"RAW template missing. Put QAP0600-F01.xlsx in {MRR_TEMPLATE_DIR}",
+        )
+
+    wb = openpyxl.load_workbook(template_path)
+    ws = wb.active
+
     # ---- HEADER MAP (F01) ----
     _ws_set_value_safe(ws, "D1", inspection.report_no or "")
-    _ws_set_value_safe(ws, "D2", _as_date_str(inspection.created_at or datetime.utcnow()))
+    _ws_set_value_safe(ws, "D2", _as_date_str(getattr(inspection, "created_at", None) or datetime.utcnow()))
 
     _ws_set_value_safe(ws, "B6", getattr(lot, "supplier_name", "") or "")
     _ws_set_value_safe(ws, "E6", getattr(lot, "po_number", "") or "")
@@ -255,12 +278,12 @@ def _ws_set_value_safe(ws, addr: str, value):
 
     data = {}
     try:
-        data = json.loads(inspection.inspection_json or "{}")
+        data = json.loads(getattr(inspection, "inspection_json", None) or "{}")
     except Exception:
         data = {}
 
     _ws_set_value_safe(ws, "B8", (data.get("material_grade") or data.get("grade") or "").strip())
-    _ws_set_value_safe(ws, "E8", inspection.delivery_note_no or "")
+    _ws_set_value_safe(ws, "E8", getattr(inspection, "delivery_note_no", "") or "")
 
     bn = data.get("batch_numbers")
     if isinstance(bn, list):
@@ -270,9 +293,15 @@ def _ws_set_value_safe(ws, addr: str, value):
     else:
         _ws_set_value_safe(ws, "B9", "")
 
-    _ws_set_value_safe(ws, "E9", f"{_to_float(inspection.qty_arrived, 0)} {inspection.qty_unit or ''}".strip())
+    qty_arrived = getattr(inspection, "qty_arrived", None)
+    qty_unit = getattr(inspection, "qty_unit", None) or ""
+    _ws_set_value_safe(ws, "E9", f"{_to_float(qty_arrived, 0)} {qty_unit}".strip())
 
-    def build_prop_map(items):
+    # ---- PROPERTIES TABLE FILL (generic matcher) ----
+    # Expect JSON formats like:
+    # data["properties"] = [{"name":"...", "result":"...", "remarks":"..."}]
+    # or data["pe_properties"] / data["raw_properties"]
+    def _build_prop_map(items):
         m = {}
         if not isinstance(items, list):
             return m
@@ -291,9 +320,8 @@ def _ws_set_value_safe(ws, addr: str, value):
         or data.get("raw_properties")
         or []
     )
-    prop_map = build_prop_map(prop_items)
+    prop_map = _build_prop_map(prop_items)
 
-    # Scan the sheet for property names and fill matched rows
     for r in range(1, ws.max_row + 1):
         cell_val = ws.cell(r, 1).value  # col A
         if not isinstance(cell_val, str):
@@ -301,29 +329,25 @@ def _ws_set_value_safe(ws, addr: str, value):
         key = _normalize_key(cell_val)
         if key in prop_map:
             it = prop_map[key]
-            ws.cell(r, 7).value = it.get("result") or it.get("value") or ""   # col G
-            ws.cell(r, 8).value = it.get("remarks") or ""                    # col H
+            ws.cell(r, 7).value = it.get("result") or it.get("value") or ""  # col G
+            ws.cell(r, 8).value = it.get("remarks") or ""                   # col H
 
-    # ---- VISUAL INSPECTION Y/N (rows 34-37 are checklist in your file) ----
-    # If your JSON has:
-    # data["visual_checks"] = {"COA Available": true, ...}
+    # ---- VISUAL CHECKS (optional) ----
     vc = data.get("visual_checks")
     if isinstance(vc, dict):
         for r in range(34, 38):
             label = ws.cell(r, 1).value
-            if isinstance(label, str):
+            if isinstance(label, str) and label in vc:
                 v = vc.get(label)
                 if isinstance(v, bool):
                     ws.cell(r, 7).value = "YES" if v else "NO"
 
     # ---- SIGNATURES ----
-    # Inspector name goes to E45
-     _ws_set_value_safe(ws, "E45", inspection.inspector_name or "")
+    _ws_set_value_safe(ws, "E45", getattr(inspection, "inspector_name", "") or "")
 
-    if getattr(inspection, "manager_approved", False):
+    if bool(getattr(inspection, "manager_approved", False)):
         _ws_set_value_safe(ws, "H45", "MANAGER")
         _ws_set_value_safe(ws, "H46", _as_date_str(datetime.utcnow()))
-
 
     return _xlsx_bytes_from_wb(wb)
 
@@ -4698,6 +4722,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
