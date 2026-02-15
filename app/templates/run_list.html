@@ -38,6 +38,13 @@
            style="max-width:620px; flex:1;">
     <button class="btn btn-primary" type="submit">Search</button>
     {% if q %}
+    
+    {% if q %}
+      <div class="muted tiny mt">
+        Showing <b>all runs</b> (Open + Approved) because search is active.
+      </div>
+    {% endif %}
+
       <a class="btn btn-outline-secondary" href="/runs?view={{ view }}">Clear</a>
     {% endif %}
   </form>
