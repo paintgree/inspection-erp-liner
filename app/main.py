@@ -223,86 +223,54 @@ def _xlsx_bytes_from_wb(wb) -> bytes:
     wb.save(bio)
     return bio.getvalue()
 
+from openpyxl.utils.cell import coordinate_to_tuple
+
+def _ws_set_value_safe(ws, addr: str, value):
+    """
+    Safely set a value even if the address points inside a merged cell.
+    Writes to the top-left cell of the merged range.
+    """
+    r, c = coordinate_to_tuple(addr)
+
+    # If addr is inside a merged cell, redirect to the merged range start
+    for mrange in ws.merged_cells.ranges:
+        if mrange.min_row <= r <= mrange.max_row and mrange.min_col <= c <= mrange.max_col:
+            ws.cell(mrange.min_row, mrange.min_col).value = value
+            return
+
+    ws[addr].value = value
 
 # =========================
 # F01 (RAW) TEMPLATE FILLER
 # =========================
-def fill_mrr_f01_xlsx_bytes(
-    *,
-    lot,
-    receiving,
-    inspection,
-    docs: list,
-    photos_by_group: dict | None = None,
-) -> bytes:
-    """
-    Fills QAP0600-F01.xlsx using:
-    - ticket (lot)
-    - receiving (docs info / PO checks)
-    - inspection (shipment inspection values + inspection_json tables)
-    - docs (uploaded docs list)
-    - photos_by_group (optional, not written into xlsx; used later for PDF/package)
-    """
-    template_path = MRR_TEMPLATE_XLSX_MAP.get("RAW")
-    if not template_path or not os.path.exists(template_path):
-        raise HTTPException(500, f"RAW template missing. Put QAP0600-F01.xlsx in {MRR_TEMPLATE_DIR}")
+    # ---- HEADER MAP (F01) ----
+    _ws_set_value_safe(ws, "D1", inspection.report_no or "")
+    _ws_set_value_safe(ws, "D2", _as_date_str(inspection.created_at or datetime.utcnow()))
 
-    wb = openpyxl.load_workbook(template_path)
-    ws = wb.active
+    _ws_set_value_safe(ws, "B6", getattr(lot, "supplier_name", "") or "")
+    _ws_set_value_safe(ws, "E6", getattr(lot, "po_number", "") or "")
 
-    # ---- HEADER MAP (based on your F01 layout) ----
-    # Labels we detected in your file:
-    # Report No -> D1
-    # Date -> D2
-    # Supplier -> B6
-    # PO number -> E6
-    # Material Type -> B7
-    # Order number -> E7 (we use ticket id/batch if you want; change if needed)
-    # Material Grade -> B8
-    # Delivery note -> E8
-    # Batch number -> B9
-    # Qty received -> E9
+    _ws_set_value_safe(ws, "B7", getattr(lot, "material_name", "") or "")
+    _ws_set_value_safe(ws, "E7", getattr(lot, "batch_no", "") or "")
 
-    ws["D1"].value = inspection.report_no or ""
-    ws["D2"].value = _as_date_str(inspection.created_at or datetime.utcnow())
-
-    ws["B6"].value = getattr(lot, "supplier_name", "") or ""
-    ws["E6"].value = getattr(lot, "po_number", "") or ""
-
-    ws["B7"].value = getattr(lot, "material_name", "") or ""
-    ws["E7"].value = getattr(lot, "batch_no", "") or ""  # you can change this mapping any time
-
-    # Grade: prefer inspection_json.grade, fallback lot.material_grade if you add it later
     data = {}
     try:
         data = json.loads(inspection.inspection_json or "{}")
     except Exception:
         data = {}
 
-    ws["B8"].value = (data.get("material_grade") or data.get("grade") or "").strip()
-    ws["E8"].value = inspection.delivery_note_no or ""
+    _ws_set_value_safe(ws, "B8", (data.get("material_grade") or data.get("grade") or "").strip())
+    _ws_set_value_safe(ws, "E8", inspection.delivery_note_no or "")
 
-    # Batch number(s): store as comma list (you told me multiple batches possible)
-    # Expecting inspection_json["batch_numbers"] = ["B1","B2"] OR string
     bn = data.get("batch_numbers")
     if isinstance(bn, list):
-        ws["B9"].value = ", ".join([str(x).strip() for x in bn if str(x).strip()])
+        _ws_set_value_safe(ws, "B9", ", ".join([str(x).strip() for x in bn if str(x).strip()]))
     elif isinstance(bn, str):
-        ws["B9"].value = bn.strip()
+        _ws_set_value_safe(ws, "B9", bn.strip())
     else:
-        ws["B9"].value = ""
+        _ws_set_value_safe(ws, "B9", "")
 
-    ws["E9"].value = f"{_to_float(inspection.qty_arrived, 0)} {inspection.qty_unit or ''}".strip()
-
-    # ---- PROPERTIES TABLE FILL (generic matcher) ----
-    # F01 has property names in column A starting around row 13.
-    # We will fill:
-    # - Result -> Column G
-    # - Remarks -> Column H
-    #
-    # Expected JSON format (your form can store any of these; we read what exists):
-    # data["properties"] = [{"name": "...", "result": "...", "remarks": "..."}]
-    # or data["pe_properties"], data["fiber_properties"], etc.
+    _ws_set_value_safe(ws, "E9", f"{_to_float(inspection.qty_arrived, 0)} {inspection.qty_unit or ''}".strip())
 
     def build_prop_map(items):
         m = {}
@@ -350,13 +318,12 @@ def fill_mrr_f01_xlsx_bytes(
 
     # ---- SIGNATURES ----
     # Inspector name goes to E45
-    ws["E45"].value = inspection.inspector_name or ""
+     _ws_set_value_safe(ws, "E45", inspection.inspector_name or "")
 
-    # Manager approval stamp (if approved)
     if getattr(inspection, "manager_approved", False):
-        # Put manager name if you store it later; for now keep generic
-        ws["H45"].value = "MANAGER"
-        ws["H46"].value = _as_date_str(datetime.utcnow())
+        _ws_set_value_safe(ws, "H45", "MANAGER")
+        _ws_set_value_safe(ws, "H46", _as_date_str(datetime.utcnow()))
+
 
     return _xlsx_bytes_from_wb(wb)
 
@@ -4731,6 +4698,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
