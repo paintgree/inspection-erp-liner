@@ -403,41 +403,52 @@
   </div>
 
   <!-- PROGRESS + ACTIONS -->
+    <!-- PROGRESS + ACTIONS -->
   <div class="card inner mt">
     <h2>Progress</h2>
-    <div class="kv"><span>Documentation</span><b>{% if docs_ok %}CLEARED{% elif receiving %}SAVED{% else %}PENDING{% endif %}</b></div>
-    <div class="kv"><span>Receiving Inspection</span><b>{% if insp_ok %}APPROVED{% elif insp_submitted %}SUBMITTED{% else %}PENDING{% endif %}</b></div>
-
+  
+    <div class="kv">
+      <span>Documentation</span>
+      <b>{% if docs_ok %}CLEARED{% elif receiving %}SAVED{% else %}PENDING{% endif %}</b>
+    </div>
+  
+    <div class="kv">
+      <span>Receiving Inspection</span>
+      <b>{% if insp_ok %}APPROVED{% elif insp_submitted %}SUBMITTED{% else %}PENDING{% endif %}</b>
+    </div>
+  
     {% if not readonly %}
       <div class="toolbar mt">
+  
         {% if (lot.status or "")|upper != "APPROVED" %}
-
-        {% if latest_draft_inspection and not readonly %}
-          <a class="btn btn-secondary" href="/mrr/{{ lot.id }}/inspection/id/{{ latest_draft_inspection.id }}">
-            Resume Draft Inspection
-          </a>
-        {% if inspection and not inspection.inspector_confirmed %}
-          <!-- Draft exists -->
-          <a class="btn btn-warn" href="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}">
-            Resume Draft Inspection
-          </a>
+  
+          {# If there is an existing inspection and it's not submitted yet = draft #}
+          {% if inspection and not inspection.inspector_confirmed %}
+            <a class="btn btn-warn" href="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}">
+              Resume Draft Inspection
+            </a>
+          {% else %}
+            <a class="btn btn-primary" href="/mrr/{{ lot.id }}/inspection/new">
+              {% if lot.status and lot.status|upper == "PARTIAL" %}
+                Start Shipment Inspection (Partial Delivery)
+              {% else %}
+                Start Shipment Inspection
+              {% endif %}
+            </a>
+          {% endif %}
+  
         {% else %}
-          <a class="btn btn-primary" href="/mrr/{{ lot.id }}/inspection/new">
-            {% if lot.status and lot.status|upper == "PARTIAL" %}
-              Start Shipment Inspection (Partial Delivery)
-            {% else %}
-              Start Shipment Inspection
-            {% endif %}
-          </a>
+          <div class="muted mt">
+            ✅ Ticket is <b>APPROVED</b> — receiving is closed (no further inspections allowed).
+          </div>
         {% endif %}
-
-          <div class="muted mt">✅ Ticket is <b>APPROVED</b> — receiving is closed (no further inspections allowed).</div>
-        {% endif %}
+  
       </div>
     {% else %}
       <div class="muted mt">Actions disabled (ticket canceled).</div>
     {% endif %}
   </div>
+
 
 </div>
 
