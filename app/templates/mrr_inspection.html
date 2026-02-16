@@ -13,10 +13,17 @@
     </div>
     <div class="actions">
       <span class="pill">Report: <b>{{ inspection_data.report_no }}</b></span>
+      {% if not inspection.inspector_confirmed and not inspection.manager_approved %}
+        <span class="pill warn">DRAFT</span>
+      {% endif %}
     </div>
   </div>
 
-  <!-- ✅ IMPORTANT: submit to the correct route -->
+  {% if request and request.query_params and request.query_params.get("saved") == "draft" %}
+    <div class="alert alert-ok mt">✅ Draft saved. You can come back and continue anytime.</div>
+  {% endif %}
+
+  <!-- ✅ Submit to the correct route -->
   <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/submit" class="mt">
 
     <!-- =========================
@@ -43,54 +50,77 @@
 
         <div>
           <label>Batch Number(s) (required)</label>
-        
-          <div id="batchWrap">
-            <input name="batch_numbers" placeholder="e.g. BATCH-001" required>
+
+          <div id="batchWrap" class="mt"></div>
+
+          <div class="toolbar mt">
+            <button type="button" class="btn btn-outline-secondary" id="addBatchBtn">
+              + Add another batch
+            </button>
           </div>
-        
-          <button type="button" class="btn btn-outline-secondary mt" id="addBatchBtn">
-            + Add another batch
-          </button>
-        
-          <div class="muted tiny">
+
+          <div class="muted tiny mt">
             If this shipment contains multiple batches, add them all here.
           </div>
         </div>
-        
-        <script>
-        (function(){
-          const wrap = document.getElementById("batchWrap");
-          const addBtn = document.getElementById("addBatchBtn");
-        
-          // If page loads with existing batches from JSON, render them
-          const existing = {{ (inspection_data.batch_numbers if inspection_data.batch_numbers is defined else []) | tojson }};
-          if (Array.isArray(existing) && existing.length > 0) {
-            wrap.innerHTML = "";
-            existing.forEach((v, idx) => {
-              const input = document.createElement("input");
-              input.name = "batch_numbers";
-              input.placeholder = "e.g. BATCH-001";
-              input.value = v || "";
-              if (idx === 0) input.required = true;
-              wrap.appendChild(input);
-            });
-          }
-        
-          addBtn.addEventListener("click", () => {
-            const input = document.createElement("input");
-            input.name = "batch_numbers";
-            input.placeholder = "e.g. BATCH-001";
-            wrap.appendChild(input);
-          });
-        })();
-        </script>
-
       </div>
 
       <div class="mt muted tiny">
         Delivery Note + arrived quantity are defined when creating the shipment and cannot be edited here.
       </div>
     </div>
+
+    <style>
+      .batchrow{ display:flex; gap:10px; align-items:center; margin-top:8px; }
+      .batchrow input{ flex:1; }
+      .btn-mini{ padding:6px 10px; font-size:12px; }
+    </style>
+
+    <script>
+      (function(){
+        const wrap = document.getElementById("batchWrap");
+        const addBtn = document.getElementById("addBatchBtn");
+
+        function addRow(value, required){
+          const row = document.createElement("div");
+          row.className = "batchrow";
+
+          const input = document.createElement("input");
+          input.name = "batch_numbers";
+          input.placeholder = "e.g. BATCH-001";
+          input.value = value || "";
+          if(required) input.required = true;
+
+          const del = document.createElement("button");
+          del.type = "button";
+          del.className = "btn btn-ghost btn-mini";
+          del.textContent = "Remove";
+          del.addEventListener("click", () => {
+            // never allow removing last required row
+            const rows = wrap.querySelectorAll(".batchrow");
+            if(rows.length <= 1) return;
+            row.remove();
+            // ensure first remaining is required
+            const first = wrap.querySelector(".batchrow input[name='batch_numbers']");
+            if(first) first.required = true;
+          });
+
+          row.appendChild(input);
+          row.appendChild(del);
+          wrap.appendChild(row);
+        }
+
+        // Render existing batches (from JSON) or at least one row
+        const existing = {{ (inspection_data.batch_numbers if inspection_data.batch_numbers is defined else []) | tojson }};
+        if(Array.isArray(existing) && existing.length > 0){
+          existing.forEach((v, idx) => addRow(v, idx === 0));
+        } else {
+          addRow("", true);
+        }
+
+        addBtn.addEventListener("click", () => addRow("", false));
+      })();
+    </script>
 
     <!-- =========================
          Partial delivery / mismatch reason
@@ -133,7 +163,6 @@
           <div class="muted tiny">We’ll later link these models to LINER / REINFORCEMENT / COVER usage rules.</div>
         </div>
 
-        <!-- ✅ REPLACED: Intended Process -> Material Grade (typed) -->
         <div>
           <label>Material Grade (optional)</label>
           {% set grade = inspection_data.material_grade if inspection_data and inspection_data.material_grade else '' %}
@@ -156,7 +185,7 @@
     </div>
 
     <!-- =========================
-         Properties Table - PE (from your Excel)
+         Properties Table - PE
     ========================== -->
     <div class="card inner mt" id="pe_table" style="display:none;">
       <div class="sectiontitle accent-green">Raw Material Properties (PE)</div>
@@ -196,13 +225,11 @@
                 <td class="wrap">{{ r.a }}</td>
                 <td>
                   <input name="pe_{{ r.k }}_result"
-                         value="{{ inspection_data['pe_' ~ r.k ~ '_result'] if inspection_data and ('pe_' ~ r.k ~ '_result') in inspection_data else '' }}"
-                         placeholder="">
+                         value="{{ inspection_data['pe_' ~ r.k ~ '_result'] if inspection_data and ('pe_' ~ r.k ~ '_result') in inspection_data else '' }}">
                 </td>
                 <td>
                   <input name="pe_{{ r.k }}_remarks"
-                         value="{{ inspection_data['pe_' ~ r.k ~ '_remarks'] if inspection_data and ('pe_' ~ r.k ~ '_remarks') in inspection_data else '' }}"
-                         placeholder="">
+                         value="{{ inspection_data['pe_' ~ r.k ~ '_remarks'] if inspection_data and ('pe_' ~ r.k ~ '_remarks') in inspection_data else '' }}">
                 </td>
               </tr>
             {% endfor %}
@@ -245,13 +272,11 @@
                 <td class="wrap">{{ r.a }}</td>
                 <td>
                   <input name="fb_{{ r.k }}_result"
-                         value="{{ inspection_data['fb_' ~ r.k ~ '_result'] if inspection_data and ('fb_' ~ r.k ~ '_result') in inspection_data else '' }}"
-                         placeholder="">
+                         value="{{ inspection_data['fb_' ~ r.k ~ '_result'] if inspection_data and ('fb_' ~ r.k ~ '_result') in inspection_data else '' }}">
                 </td>
                 <td>
                   <input name="fb_{{ r.k }}_remarks"
-                         value="{{ inspection_data['fb_' ~ r.k ~ '_remarks'] if inspection_data and ('fb_' ~ r.k ~ '_remarks') in inspection_data else '' }}"
-                         placeholder="">
+                         value="{{ inspection_data['fb_' ~ r.k ~ '_remarks'] if inspection_data and ('fb_' ~ r.k ~ '_remarks') in inspection_data else '' }}">
                 </td>
               </tr>
             {% endfor %}
@@ -261,7 +286,7 @@
     </div>
 
     <!-- =========================
-         Remarks + submit
+         Remarks + actions
     ========================== -->
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">Remarks</div>
@@ -274,9 +299,24 @@
           <label>Inspected by</label>
           <input name="inspected_by" value="{{ inspection_data.inspected_by if inspection_data and inspection_data.inspected_by else user.display_name }}">
         </div>
+
         <div>
           <label>&nbsp;</label>
-          <button class="btn btn-primary" type="submit">Submit Inspection</button>
+          <div class="toolbar">
+            <!-- ✅ Draft + Submit -->
+            <button class="btn btn-secondary" type="submit" name="action" value="draft">
+              Save Draft
+            </button>
+
+            <button class="btn btn-primary" type="submit" name="action" value="submit"
+                    onclick="return confirm('Submit this shipment inspection? After submit, edits/photos will be locked.')">
+              Submit Inspection
+            </button>
+          </div>
+
+          <div class="muted tiny mt">
+            Draft keeps the inspection editable. Submit will lock it.
+          </div>
         </div>
       </div>
     </div>
@@ -284,8 +324,7 @@
   </form>
 
   <!-- =========================
-       Photo Evidence (Upload + View)
-       (Visible to anyone reviewing the report)
+       Photo Evidence
   ========================== -->
   <div class="card inner mt">
     <div class="sectiontitle accent-blue">Photo Evidence</div>
