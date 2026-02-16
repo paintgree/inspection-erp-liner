@@ -40,6 +40,7 @@ from fastapi import (
 from fastapi.responses import (
     HTMLResponse,
     RedirectResponse,
+    JSONResponse,
     StreamingResponse,
     Response,
     FileResponse,
@@ -164,7 +165,7 @@ def get_latest_draft_shipment(session: Session, lot_id: int):
             (MrrReceivingInspection.ticket_id == lot_id) &
             (MrrReceivingInspection.inspector_confirmed == False) &
             (MrrReceivingInspection.manager_approved == False)
-        ).order_by(MrrReceivingInspection.created_at.desc())
+        ).order_by(MrrReceivingInspection.id.desc())
     ).first()
 
 
@@ -380,30 +381,24 @@ def fill_mrr_f01_xlsx_bytes(
         _ws_set_value_safe(ws, "H45", "MANAGER")
         _ws_set_value_safe(ws, "H46", _as_date_str(datetime.utcnow()))
 
-        # -------------------------
-    # LOGO (SIZE FIX)
     # -------------------------
-    # Insert logo as a normal worksheet image (openpyxl),
-    # but FORCE a safe size so it never overlaps the template.
+    # LOGO (FIX)
+    # -------------------------
+    # Your logo was in Excel HEADER (&G). openpyxl does NOT preserve header images.
+    # So we insert the logo as a normal worksheet image.
     try:
         base_dir = os.path.dirname(__file__)
         logo_path = os.path.join(base_dir, "static", "images", "logo.png")
         if os.path.exists(logo_path):
             from openpyxl.drawing.image import Image as XLImage
-
             img = XLImage(logo_path)
-
-            # ✅ IMPORTANT: force size (pixels)
-            # adjust if you want slightly bigger/smaller
+            # Keep logo small so it never overlaps the header/table
             img.width = 140
-            img.height = 70
-
-            # anchor top-left
+            img.height = 60
             img.anchor = "A1"
             ws.add_image(img)
     except Exception:
         pass
-
 
     # -------------------------
     # PDF EXPORT PAGE SETUP
@@ -1564,7 +1559,7 @@ def mrr_list(request: Request, session: Session = Depends(get_session)):
         inspections = session.exec(
             select(MrrReceivingInspection)
             .where(MrrReceivingInspection.ticket_id.in_(lot_ids))
-            .order_by(MrrReceivingInspection.created_at.desc())
+            .order_by(MrrReceivingInspection.id.desc())
         ).all()
 
         # latest inspection per ticket
@@ -1787,7 +1782,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
     inspection = session.exec(
         select(MrrReceivingInspection)
         .where(MrrReceivingInspection.ticket_id == lot_id)
-        .order_by(MrrReceivingInspection.created_at.desc())
+        .order_by(MrrReceivingInspection.id.desc())
     ).first()
 
     # Submitted shipments (for showing DN list + photos)
@@ -1799,6 +1794,20 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         )
         .order_by(MrrReceivingInspection.created_at.asc())
     ).all()
+
+    # Draft inspections (saved but not submitted) — allow inspector to resume
+    draft_inspections = session.exec(
+        select(MrrReceivingInspection)
+        .where(
+            (MrrReceivingInspection.ticket_id == lot_id) &
+            (MrrReceivingInspection.inspector_confirmed == False) &
+            (MrrReceivingInspection.manager_approved == False)
+        )
+        .order_by(MrrReceivingInspection.id.desc())
+    ).all()
+
+    latest_draft_inspection = draft_inspections[0] if draft_inspections else None
+
 
     # ✅ Build a map: inspection_id -> batch_numbers list (safe for SQLModel)
     batch_numbers_map = {}
@@ -1822,7 +1831,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
             (MrrReceivingInspection.inspector_confirmed == True) &
             (MrrReceivingInspection.manager_approved == False)
         )
-        .order_by(MrrReceivingInspection.created_at.desc())
+        .order_by(MrrReceivingInspection.id.desc())
     ).first()
 
     # ✅ Latest approved inspection (for Unapprove button)
@@ -1833,7 +1842,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
             (MrrReceivingInspection.inspector_confirmed == True) &
             (MrrReceivingInspection.manager_approved == True)
         )
-        .order_by(MrrReceivingInspection.created_at.desc())
+        .order_by(MrrReceivingInspection.id.desc())
     ).first()
 
     # Photos grouped by inspection
@@ -1873,6 +1882,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
             "insp_submitted": insp_submitted,
             "insp_ok": insp_ok,
             "submitted_shipments": submitted_shipments,
+            "latest_draft_inspection": latest_draft_inspection,
             "used_dns": used_dns,
             "photos_by_inspection": photos_by_inspection,
             "inspection_to_approve": inspection_to_approve,
@@ -2269,7 +2279,7 @@ def mrr_pending(request: Request, session: Session = Depends(get_session)):
         select(MrrReceivingInspection)
         .where(MrrReceivingInspection.inspector_confirmed == True)
         .where(MrrReceivingInspection.manager_approved == False)
-        .order_by(MrrReceivingInspection.created_at.desc())
+        .order_by(MrrReceivingInspection.id.desc())
     ).all()
 
     # Load lots to show ticket info
@@ -2366,22 +2376,22 @@ def mrr_inspection_submit(
     request: Request,
     session: Session = Depends(get_session),
 
-    # action decides draft vs submit
-    action: str = Form("draft"),
+    # NEW: action decides draft vs submit
+    action: str = Form("submit"),
 
-    # header fields
+    # header fields (if you already had them in your function, keep them here)
     delivery_note_no: str = Form(""),
     qty_arrived: float = Form(0.0),
     qty_unit: str = Form(""),
 
-    # form fields
+    # your form fields
     batch_numbers: List[str] = Form([]),
     mismatch_reason: str = Form(""),
     material_family: str = Form(""),
-    material_model: str = Form(""),   # (kept for backward compatibility)
+    material_model: str = Form(""),
     material_grade: str = Form(""),
 
-    # PE table fields
+    # PE table fields (keep as text)
     pe_density_result: str = Form(""),
     pe_density_remarks: str = Form(""),
     pe_mfr_result: str = Form(""),
@@ -2435,33 +2445,19 @@ def mrr_inspection_submit(
         raise HTTPException(404, "MRR Inspection not found")
 
     # Normalize action
-    action = (action or "draft").strip().lower()
-    if action not in ["draft", "submit"]:
-        action = "draft"
+    action = (action or "submit").strip().lower()
 
-    # Clean batches (allow empty for draft)
-    cleaned_batches = [str(x).strip() for x in (batch_numbers or []) if str(x).strip()]
-
-    # ✅ IMPORTANT RULE:
-    # - Draft: allow empty batch_numbers
-    # - Submit: batch_numbers MUST exist
-    if action == "submit" and not cleaned_batches:
-        # send back to the form with a clear error
-        return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/id/{inspection_id}?error=Batch%20Number%20is%20required%20before%20Submit",
-            status_code=303,
-        )
-
-    # Build JSON
+    # Build JSON exactly like your template expects
     inspection_data = {
         "report_no": getattr(insp, "report_no", "") or "",
-        "batch_numbers": cleaned_batches,
+        "batch_numbers": [x.strip() for x in (batch_numbers or []) if str(x).strip()],
         "mismatch_reason": (mismatch_reason or "").strip(),
 
         "material_family": (material_family or "").strip(),
-        "material_model": (material_model or "").strip(),   # kept (old data)
+        "material_model": (material_model or "").strip(),
         "material_grade": (material_grade or "").strip(),
 
+        # PE table
         "pe_density_result": (pe_density_result or "").strip(),
         "pe_density_remarks": (pe_density_remarks or "").strip(),
         "pe_mfr_result": (pe_mfr_result or "").strip(),
@@ -2487,6 +2483,7 @@ def mrr_inspection_submit(
         "pe_moist_result": (pe_moist_result or "").strip(),
         "pe_moist_remarks": (pe_moist_remarks or "").strip(),
 
+        # Fiber table
         "fb_denier_result": (fb_denier_result or "").strip(),
         "fb_denier_remarks": (fb_denier_remarks or "").strip(),
         "fb_tenacity_result": (fb_tenacity_result or "").strip(),
@@ -2498,8 +2495,9 @@ def mrr_inspection_submit(
         "fb_finish_result": (fb_finish_result or "").strip(),
         "fb_finish_remarks": (fb_finish_remarks or "").strip(),
 
+        # remarks
         "remarks": (remarks or "").strip(),
-        "inspected_by": (inspected_by or "").strip() or (user.display_name or ""),
+        "inspected_by": (inspected_by or "").strip() or getattr(user, "display_name", "") or "",
     }
 
     # Always save data (draft or submit)
@@ -2509,17 +2507,20 @@ def mrr_inspection_submit(
     insp.inspection_json = json.dumps(inspection_data, ensure_ascii=False)
 
     if action == "draft":
+        # Draft save only
         insp.inspector_confirmed = False
         session.add(insp)
         session.commit()
-        return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}?saved=draft", status_code=303)
+        # If this is an autosave call (AJAX), return JSON so the page doesn't redirect.
+        if request.headers.get("x-autosave", "").strip() == "1":
+            return JSONResponse({"ok": True, "saved": "draft"})
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}?saved=draft", status_code=302)
 
     # Final submit
     insp.inspector_confirmed = True
     session.add(insp)
     session.commit()
-    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
-
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=302)
 
 
 
@@ -4971,90 +4972,4 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
