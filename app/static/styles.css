@@ -452,7 +452,7 @@ tr.length-row td{
 .meta-label{font-size:11px;font-weight:900;color:var(--muted)}
 .meta-value{margin-top:6px;font-weight:900}
 
-/* Checklist compact UI */
+/* Checklist modern flat style */
 .chklist{
   display:grid;
   gap:10px;
@@ -462,11 +462,65 @@ tr.length-row td{
   display:flex;
   align-items:center;
   justify-content:space-between;
-  padding:12px 14px;
-  border:1px solid #eee;
-  border-radius:12px;
-  background:#fff;
+  padding:14px 18px;
+  border-radius:14px;
+  background:#f3f4f6;  /* soft grey */
+  border:1px solid #e5e7eb;
+  transition:all 0.2s ease;
 }
+
+.chkitem:hover{
+  background:#eef0f3;
+}
+
+.chkleft{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  font-size:14px;
+}
+
+.chkleft b{
+  font-weight:600;
+}
+
+.pill{
+  padding:6px 14px;
+  border-radius:999px;
+  font-weight:600;
+  font-size:12px;
+  border:1px solid transparent;
+}
+
+.ok{
+  background:#d1fae5;
+  border-color:#86efac;
+  color:#065f46;
+}
+
+.no{
+  background:#fee2e2;
+  border-color:#fca5a5;
+  color:#991b1b;
+}
+
+.warn{
+  background:#fef3c7;
+  border-color:#fcd34d;
+  color:#92400e;
+}
+
+.info{
+  background:#e0e7ff;
+  border-color:#c7d2fe;
+  color:#3730a3;
+}
+
+.mono{
+  font-family: ui-monospace, monospace;
+  font-size: 13px;
+}
+
 
 .chkleft{
   display:flex;
@@ -491,4 +545,5 @@ tr.length-row td{
 .no { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
 .warn { background:#fffbeb; border-color:#fde68a; color:#92400e; }
 .info { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+
 
