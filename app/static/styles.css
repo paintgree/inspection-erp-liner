@@ -70,6 +70,46 @@ h3{margin:0 0 10px 0;font-size:15px}
 }
 .btn-primary:hover{background:var(--primary-dark);border-color:var(--primary-dark)}
 
+/* secondary button (templates use btn-secondary) */
+.btn-secondary{
+  background:#fff;
+  color:var(--text);
+  border-color:var(--line);
+}
+.btn-secondary:hover{background:#f3f4f6}
+
+/* Fix mobile file-input (iOS/Android) looking like an empty white box */
+input[type="file"]{
+  color:var(--text);
+  background:#fff;
+}
+
+/* Modern browsers */
+input[type="file"]::file-selector-button{
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid var(--line);
+  background:#fff;
+  color:var(--text);
+  font-weight:800;
+  cursor:pointer;
+  margin-right:10px;
+}
+input[type="file"]::file-selector-button:hover{background:#f3f4f6}
+
+/* Safari / older webkit */
+input[type="file"]::-webkit-file-upload-button{
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid var(--line);
+  background:#fff;
+  color:var(--text);
+  font-weight:800;
+  cursor:pointer;
+  margin-right:10px;
+}
+input[type="file"]::-webkit-file-upload-button:hover{background:#f3f4f6}
+
 .btn-warn{background:#fff;border-color:#f1c27a}
 .btn-warn:hover{background:#fff2d8}
 
@@ -411,3 +451,4 @@ tr.length-row td{
 
 .meta-label{font-size:11px;font-weight:900;color:var(--muted)}
 .meta-value{margin-top:6px;font-weight:900}
+
