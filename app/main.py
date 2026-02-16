@@ -2476,6 +2476,20 @@ async def create_shipment_inspection(
             f"/mrr/{lot_id}?error=Ticket%20is%20APPROVED%20(receiving%20closed).%20Manager%20must%20unapprove%20to%20reopen.",
             status_code=303,
         )
+        
+    # ✅ NEW: Require at least one quality doc (COA/MTC/INSPECTION_REPORT) before inspection
+    has_quality_doc = session.exec(
+        select(MrrDocument).where(
+            (MrrDocument.ticket_id == lot_id)
+            & (MrrDocument.doc_type.in_(["COA", "MTC", "INSPECTION_REPORT"]))
+        )
+    ).first() is not None
+    
+    if not has_quality_doc:
+        return RedirectResponse(
+            f"/mrr/{lot_id}?error=Upload%20Quality%20Document%20(COA%20or%20MTC%20or%20INSPECTION%20REPORT)%20before%20starting%20Receiving%20Inspection",
+            status_code=303,
+        )
 
     # Documentation prerequisites
     receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
@@ -4888,6 +4902,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
