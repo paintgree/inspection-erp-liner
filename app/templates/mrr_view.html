@@ -132,29 +132,15 @@
     {% set inspector_confirmed = (receiving and receiving.inspector_confirmed_po) %}
     {% set manager_confirmed = (receiving and receiving.manager_confirmed_po) %}
 
-       <!-- CHECKLIST (CLEAN UI) -->
-<div class="card inner mt">
+<!-- CHECKLIST (COMPACT UI) -->
+<div class="mt">
   <div class="sectiontitle accent-blue">Checklist</div>
 
-  <style>
-    .chk { margin-top: 10px; display: grid; gap: 10px; }
-    .chkrow { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border:1px solid #eee; border-radius:10px; background:#fff; }
-    .chkleft { display:flex; align-items:center; gap:10px; }
-    .chkb { font-weight:700; }
-    .pill { padding:4px 10px; border-radius:999px; font-weight:700; font-size:12px; border:1px solid transparent; }
-    .ok { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
-    .no { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
-    .warn { background:#fffbeb; border-color:#fde68a; color:#92400e; }
-    .info { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 13px; }
-  </style>
+  <div class="chklist mt">
 
-  <div class="chk">
-
-    <!-- REQUIRED: PO Uploaded -->
-    <div class="chkrow">
+    <div class="chkitem">
       <div class="chkleft">
-        <span class="chkb">PO</span>
+        <b>PO</b>
         <span class="muted">Uploaded</span>
       </div>
       <span class="pill {% if ns.has_po %}ok{% else %}no{% endif %}">
@@ -162,10 +148,9 @@
       </span>
     </div>
 
-    <!-- REQUIRED: Quality Doc (ANY ONE) -->
-    <div class="chkrow">
+    <div class="chkitem">
       <div class="chkleft">
-        <span class="chkb">Quality Doc</span>
+        <b>Quality Doc</b>
         <span class="muted">COA / MTC / Inspection Report</span>
       </div>
       <span class="pill {% if ns.has_quality %}ok{% else %}no{% endif %}">
@@ -173,10 +158,9 @@
       </span>
     </div>
 
-    <!-- OPTIONAL: Delivery Note -->
-    <div class="chkrow">
+    <div class="chkitem">
       <div class="chkleft">
-        <span class="chkb">Delivery Note</span>
+        <b>Delivery Note</b>
         <span class="muted">Uploaded</span>
       </div>
       <span class="pill {% if ns.has_dn %}ok{% else %}warn{% endif %}">
@@ -184,43 +168,41 @@
       </span>
     </div>
 
-    <!-- Ticket PO + Entered PO -->
-    <div class="chkrow">
+    <div class="chkitem">
       <div class="chkleft">
-        <span class="chkb">Ticket PO</span>
+        <b>Ticket PO</b>
       </div>
       <span class="pill info mono">{{ lot.po_number or "-" }}</span>
     </div>
 
-    <div class="chkrow">
+    <div class="chkitem">
       <div class="chkleft">
-        <span class="chkb">Entered PO</span>
+        <b>Entered PO</b>
       </div>
       <span class="pill info mono">{{ receiving.inspector_po_number if receiving else "-" }}</span>
     </div>
 
-    <!-- Match + Confirmations -->
-    <div class="chkrow">
+    <div class="chkitem">
       <div class="chkleft">
-        <span class="chkb">PO Match</span>
+        <b>PO Match</b>
       </div>
       <span class="pill {% if po_match %}ok{% elif po_entered %}no{% else %}warn{% endif %}">
         {% if po_match %}✔ Match{% elif po_entered %}✖ Not Match{% else %}⚠ Not Checked{% endif %}
       </span>
     </div>
 
-    <div class="chkrow">
+    <div class="chkitem">
       <div class="chkleft">
-        <span class="chkb">Inspector Confirmation</span>
+        <b>Inspector Confirmation</b>
       </div>
       <span class="pill {% if inspector_confirmed %}ok{% else %}warn{% endif %}">
         {% if inspector_confirmed %}✔ Confirmed{% else %}⚠ Not Confirmed{% endif %}
       </span>
     </div>
 
-    <div class="chkrow">
+    <div class="chkitem">
       <div class="chkleft">
-        <span class="chkb">Manager Approval</span>
+        <b>Manager Approval</b>
       </div>
       <span class="pill {% if manager_confirmed %}ok{% else %}warn{% endif %}">
         {% if manager_confirmed %}✔ Approved{% else %}⚠ Pending{% endif %}
