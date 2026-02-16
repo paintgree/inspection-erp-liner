@@ -380,21 +380,30 @@ def fill_mrr_f01_xlsx_bytes(
         _ws_set_value_safe(ws, "H45", "MANAGER")
         _ws_set_value_safe(ws, "H46", _as_date_str(datetime.utcnow()))
 
+        # -------------------------
+    # LOGO (SIZE FIX)
     # -------------------------
-    # LOGO (FIX)
-    # -------------------------
-    # Your logo was in Excel HEADER (&G). openpyxl does NOT preserve header images.
-    # So we insert the logo as a normal worksheet image.
+    # Insert logo as a normal worksheet image (openpyxl),
+    # but FORCE a safe size so it never overlaps the template.
     try:
         base_dir = os.path.dirname(__file__)
         logo_path = os.path.join(base_dir, "static", "images", "logo.png")
         if os.path.exists(logo_path):
             from openpyxl.drawing.image import Image as XLImage
+
             img = XLImage(logo_path)
+
+            # ✅ IMPORTANT: force size (pixels)
+            # adjust if you want slightly bigger/smaller
+            img.width = 140
+            img.height = 70
+
+            # anchor top-left
             img.anchor = "A1"
             ws.add_image(img)
     except Exception:
         pass
+
 
     # -------------------------
     # PDF EXPORT PAGE SETUP
@@ -2357,22 +2366,22 @@ def mrr_inspection_submit(
     request: Request,
     session: Session = Depends(get_session),
 
-    # NEW: action decides draft vs submit
-    action: str = Form("submit"),
+    # action decides draft vs submit
+    action: str = Form("draft"),
 
-    # header fields (if you already had them in your function, keep them here)
+    # header fields
     delivery_note_no: str = Form(""),
     qty_arrived: float = Form(0.0),
     qty_unit: str = Form(""),
 
-    # your form fields
+    # form fields
     batch_numbers: List[str] = Form([]),
     mismatch_reason: str = Form(""),
     material_family: str = Form(""),
-    material_model: str = Form(""),
+    material_model: str = Form(""),   # (kept for backward compatibility)
     material_grade: str = Form(""),
 
-    # PE table fields (keep as text)
+    # PE table fields
     pe_density_result: str = Form(""),
     pe_density_remarks: str = Form(""),
     pe_mfr_result: str = Form(""),
@@ -2426,19 +2435,33 @@ def mrr_inspection_submit(
         raise HTTPException(404, "MRR Inspection not found")
 
     # Normalize action
-    action = (action or "submit").strip().lower()
+    action = (action or "draft").strip().lower()
+    if action not in ["draft", "submit"]:
+        action = "draft"
 
-    # Build JSON exactly like your template expects
+    # Clean batches (allow empty for draft)
+    cleaned_batches = [str(x).strip() for x in (batch_numbers or []) if str(x).strip()]
+
+    # ✅ IMPORTANT RULE:
+    # - Draft: allow empty batch_numbers
+    # - Submit: batch_numbers MUST exist
+    if action == "submit" and not cleaned_batches:
+        # send back to the form with a clear error
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/id/{inspection_id}?error=Batch%20Number%20is%20required%20before%20Submit",
+            status_code=303,
+        )
+
+    # Build JSON
     inspection_data = {
         "report_no": getattr(insp, "report_no", "") or "",
-        "batch_numbers": [x.strip() for x in (batch_numbers or []) if str(x).strip()],
+        "batch_numbers": cleaned_batches,
         "mismatch_reason": (mismatch_reason or "").strip(),
 
         "material_family": (material_family or "").strip(),
-        "material_model": (material_model or "").strip(),
+        "material_model": (material_model or "").strip(),   # kept (old data)
         "material_grade": (material_grade or "").strip(),
 
-        # PE table
         "pe_density_result": (pe_density_result or "").strip(),
         "pe_density_remarks": (pe_density_remarks or "").strip(),
         "pe_mfr_result": (pe_mfr_result or "").strip(),
@@ -2464,7 +2487,6 @@ def mrr_inspection_submit(
         "pe_moist_result": (pe_moist_result or "").strip(),
         "pe_moist_remarks": (pe_moist_remarks or "").strip(),
 
-        # Fiber table
         "fb_denier_result": (fb_denier_result or "").strip(),
         "fb_denier_remarks": (fb_denier_remarks or "").strip(),
         "fb_tenacity_result": (fb_tenacity_result or "").strip(),
@@ -2476,9 +2498,8 @@ def mrr_inspection_submit(
         "fb_finish_result": (fb_finish_result or "").strip(),
         "fb_finish_remarks": (fb_finish_remarks or "").strip(),
 
-        # remarks
         "remarks": (remarks or "").strip(),
-        "inspected_by": (inspected_by or "").strip() or getattr(user, "display_name", "") or "",
+        "inspected_by": (inspected_by or "").strip() or (user.display_name or ""),
     }
 
     # Always save data (draft or submit)
@@ -2488,17 +2509,17 @@ def mrr_inspection_submit(
     insp.inspection_json = json.dumps(inspection_data, ensure_ascii=False)
 
     if action == "draft":
-        # Draft save only
         insp.inspector_confirmed = False
         session.add(insp)
         session.commit()
-        return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}?saved=draft", status_code=302)
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}?saved=draft", status_code=303)
 
     # Final submit
     insp.inspector_confirmed = True
     session.add(insp)
     session.commit()
-    return RedirectResponse(f"/mrr/{lot_id}", status_code=302)
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+
 
 
 
@@ -4950,6 +4971,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
