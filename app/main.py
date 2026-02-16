@@ -2351,11 +2351,68 @@ def new_shipment_inspection_page(
     )
 
 @app.post("/mrr/{lot_id}/inspection/{inspection_id}/submit")
-async def shipment_inspection_submit(
+def mrr_inspection_submit(
     lot_id: int,
     inspection_id: int,
     request: Request,
     session: Session = Depends(get_session),
+
+    # NEW: action decides draft vs submit
+    action: str = Form("submit"),
+
+    # header fields (if you already had them in your function, keep them here)
+    delivery_note_no: str = Form(""),
+    qty_arrived: float = Form(0.0),
+    qty_unit: str = Form(""),
+
+    # your form fields
+    batch_numbers: List[str] = Form([]),
+    mismatch_reason: str = Form(""),
+    material_family: str = Form(""),
+    material_model: str = Form(""),
+    material_grade: str = Form(""),
+
+    # PE table fields (keep as text)
+    pe_density_result: str = Form(""),
+    pe_density_remarks: str = Form(""),
+    pe_mfr_result: str = Form(""),
+    pe_mfr_remarks: str = Form(""),
+    pe_flexural_result: str = Form(""),
+    pe_flexural_remarks: str = Form(""),
+    pe_tensile_result: str = Form(""),
+    pe_tensile_remarks: str = Form(""),
+    pe_elong_result: str = Form(""),
+    pe_elong_remarks: str = Form(""),
+    pe_escr_result: str = Form(""),
+    pe_escr_remarks: str = Form(""),
+    pe_oits_result: str = Form(""),
+    pe_oits_remarks: str = Form(""),
+    pe_cb_result: str = Form(""),
+    pe_cb_remarks: str = Form(""),
+    pe_cbd_result: str = Form(""),
+    pe_cbd_remarks: str = Form(""),
+    pe_mvd_result: str = Form(""),
+    pe_mvd_remarks: str = Form(""),
+    pe_ash_result: str = Form(""),
+    pe_ash_remarks: str = Form(""),
+    pe_moist_result: str = Form(""),
+    pe_moist_remarks: str = Form(""),
+
+    # Fiber table fields
+    fb_denier_result: str = Form(""),
+    fb_denier_remarks: str = Form(""),
+    fb_tenacity_result: str = Form(""),
+    fb_tenacity_remarks: str = Form(""),
+    fb_elong_result: str = Form(""),
+    fb_elong_remarks: str = Form(""),
+    fb_moist_result: str = Form(""),
+    fb_moist_remarks: str = Form(""),
+    fb_finish_result: str = Form(""),
+    fb_finish_remarks: str = Form(""),
+
+    # remarks
+    remarks: str = Form(""),
+    inspected_by: str = Form(""),
 ):
     user = get_current_user(request, session)
     forbid_boss(user)
@@ -2366,109 +2423,83 @@ async def shipment_inspection_submit(
 
     insp = session.get(MrrReceivingInspection, inspection_id)
     if not insp or insp.ticket_id != lot_id:
-        raise HTTPException(404, "Shipment inspection not found")
+        raise HTTPException(404, "MRR Inspection not found")
 
-    # Read form
-    form = await request.form()
-    action = (str(form.get("action") or "submit").strip().lower())
+    # Normalize action
+    action = (action or "submit").strip().lower()
 
-    # If already submitted, don't allow re-submit (but allow draft save if needed)
-    if insp.inspector_confirmed and action == "submit":
-        return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
+    # Build JSON exactly like your template expects
+    inspection_data = {
+        "report_no": getattr(insp, "report_no", "") or "",
+        "batch_numbers": [x.strip() for x in (batch_numbers or []) if str(x).strip()],
+        "mismatch_reason": (mismatch_reason or "").strip(),
 
-    # ✅ Required: at least 1 batch number (required for draft + submit)
-    try:
-        batch_numbers = [str(x).strip() for x in form.getlist("batch_numbers")]
-    except Exception:
-        batch_numbers = []
-    batch_numbers = [b for b in batch_numbers if b]
-    if not batch_numbers:
-        return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/id/{insp.id}?error=Batch%20Number%20is%20required",
-            status_code=303,
-        )
+        "material_family": (material_family or "").strip(),
+        "material_model": (material_model or "").strip(),
+        "material_grade": (material_grade or "").strip(),
 
-    # DN must exist (shipment header truth)
-    dn = (insp.delivery_note_no or "").strip()
-    if not dn:
-        return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{insp.id}", status_code=303)
+        # PE table
+        "pe_density_result": (pe_density_result or "").strip(),
+        "pe_density_remarks": (pe_density_remarks or "").strip(),
+        "pe_mfr_result": (pe_mfr_result or "").strip(),
+        "pe_mfr_remarks": (pe_mfr_remarks or "").strip(),
+        "pe_flexural_result": (pe_flexural_result or "").strip(),
+        "pe_flexural_remarks": (pe_flexural_remarks or "").strip(),
+        "pe_tensile_result": (pe_tensile_result or "").strip(),
+        "pe_tensile_remarks": (pe_tensile_remarks or "").strip(),
+        "pe_elong_result": (pe_elong_result or "").strip(),
+        "pe_elong_remarks": (pe_elong_remarks or "").strip(),
+        "pe_escr_result": (pe_escr_result or "").strip(),
+        "pe_escr_remarks": (pe_escr_remarks or "").strip(),
+        "pe_oits_result": (pe_oits_result or "").strip(),
+        "pe_oits_remarks": (pe_oits_remarks or "").strip(),
+        "pe_cb_result": (pe_cb_result or "").strip(),
+        "pe_cb_remarks": (pe_cb_remarks or "").strip(),
+        "pe_cbd_result": (pe_cbd_result or "").strip(),
+        "pe_cbd_remarks": (pe_cbd_remarks or "").strip(),
+        "pe_mvd_result": (pe_mvd_result or "").strip(),
+        "pe_mvd_remarks": (pe_mvd_remarks or "").strip(),
+        "pe_ash_result": (pe_ash_result or "").strip(),
+        "pe_ash_remarks": (pe_ash_remarks or "").strip(),
+        "pe_moist_result": (pe_moist_result or "").strip(),
+        "pe_moist_remarks": (pe_moist_remarks or "").strip(),
 
-    # Block only if ANOTHER SUBMITTED/APPROVED shipment already used this DN
-    used = session.exec(
-        select(MrrReceivingInspection).where(
-            (MrrReceivingInspection.ticket_id == lot_id)
-            & (MrrReceivingInspection.id != inspection_id)
-            & (MrrReceivingInspection.delivery_note_no == dn)
-            & (
-                (MrrReceivingInspection.inspector_confirmed == True)
-                | (MrrReceivingInspection.manager_approved == True)
-            )
-        )
-    ).first()
-    if used:
-        return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/id/{inspection_id}?error=This%20Delivery%20Note%20was%20already%20used%20in%20another%20submitted%20shipment",
-            status_code=303,
-        )
+        # Fiber table
+        "fb_denier_result": (fb_denier_result or "").strip(),
+        "fb_denier_remarks": (fb_denier_remarks or "").strip(),
+        "fb_tenacity_result": (fb_tenacity_result or "").strip(),
+        "fb_tenacity_remarks": (fb_tenacity_remarks or "").strip(),
+        "fb_elong_result": (fb_elong_result or "").strip(),
+        "fb_elong_remarks": (fb_elong_remarks or "").strip(),
+        "fb_moist_result": (fb_moist_result or "").strip(),
+        "fb_moist_remarks": (fb_moist_remarks or "").strip(),
+        "fb_finish_result": (fb_finish_result or "").strip(),
+        "fb_finish_remarks": (fb_finish_remarks or "").strip(),
 
-    # Load existing JSON (so draft save continues where he stopped)
-    try:
-        data = json.loads(insp.inspection_json or "{}")
-        if not isinstance(data, dict):
-            data = {}
-    except Exception:
-        data = {}
+        # remarks
+        "remarks": (remarks or "").strip(),
+        "inspected_by": (inspected_by or "").strip() or getattr(user, "display_name", "") or "",
+    }
 
-    # Keep header fields from shipment as truth (not editable)
-    data["report_no"] = insp.report_no
-    data["delivery_note_no"] = insp.delivery_note_no
-    data["qty_arrived"] = insp.qty_arrived
-    data["qty_unit"] = insp.qty_unit
+    # Always save data (draft or submit)
+    insp.delivery_note_no = (delivery_note_no or "").strip() or (getattr(insp, "delivery_note_no", "") or "")
+    insp.qty_arrived = qty_arrived
+    insp.qty_unit = (qty_unit or "").strip() or (getattr(insp, "qty_unit", "") or "")
+    insp.inspection_json = json.dumps(inspection_data, ensure_ascii=False)
 
-    # Store batch numbers list
-    data["batch_numbers"] = batch_numbers
-
-    # Store rest of inputs
-    for k in form.keys():
-        if k in ("batch_numbers", "action"):
-            continue
-        data[k] = str(form.get(k) or "").strip()
-
-    # Save JSON always (draft or submit)
-    insp.inspection_json = json.dumps(data, ensure_ascii=False)
-
-    # --- DRAFT: save only (no consume, not submitted) ---
     if action == "draft":
+        # Draft save only
         insp.inspector_confirmed = False
         session.add(insp)
         session.commit()
-        return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/id/{inspection_id}?saved=draft",
-            status_code=303,
-        )
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}?saved=draft", status_code=302)
 
-    # --- SUBMIT: mark confirmed + consume qty ---
+    # Final submit
     insp.inspector_confirmed = True
     session.add(insp)
-
-    po_unit = (lot.quantity_unit or "KG").upper().strip()
-    received_total = float(lot.received_total or 0.0)
-
-    if po_unit in ["PC", "PCS"]:
-        arrived_norm = float(insp.qty_arrived or 0.0)
-        lot.received_total = received_total + arrived_norm
-        lot.status = "PARTIAL" if lot.received_total < float(lot.quantity or 0.0) else "PENDING"
-    else:
-        arrived_norm = normalize_qty_to_kg(float(insp.qty_arrived or 0.0), insp.qty_unit or "KG")
-        lot.received_total = received_total + float(arrived_norm)
-
-        po_kg = normalize_qty_to_kg(float(lot.quantity or 0.0), po_unit)
-        lot.status = "PARTIAL" if lot.received_total < po_kg else "PENDING"
-
-    session.add(lot)
     session.commit()
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=302)
 
-    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
 
 
 @app.post("/mrr/{lot_id}/inspection/new")
@@ -4919,6 +4950,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
