@@ -411,6 +411,12 @@
     {% if not readonly %}
       <div class="toolbar mt">
         {% if (lot.status or "")|upper != "APPROVED" %}
+
+        {% if latest_draft_inspection and not readonly %}
+          <a class="btn btn-secondary" href="/mrr/{{ lot.id }}/inspection/id/{{ latest_draft_inspection.id }}">
+            Resume Draft Inspection
+          </a>
+        {% endif %}
           <a class="btn btn-primary" href="/mrr/{{ lot.id }}/inspection/new">
             {% if lot.status and lot.status|upper == "PARTIAL" %}
               Start Shipment Inspection (Partial Delivery)
