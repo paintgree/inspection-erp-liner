@@ -2368,72 +2368,89 @@ async def shipment_inspection_submit(
     if not insp or insp.ticket_id != lot_id:
         raise HTTPException(404, "Shipment inspection not found")
 
-    # If already submitted, don't double-submit
-    if insp.inspector_confirmed:
+    # Read form
+    form = await request.form()
+    action = (str(form.get("action") or "submit").strip().lower())
+
+    # If already submitted, don't allow re-submit (but allow draft save if needed)
+    if insp.inspector_confirmed and action == "submit":
         return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
 
-    form = await request.form()
-
-        # ✅ Required: at least 1 batch number
+    # ✅ Required: at least 1 batch number (required for draft + submit)
     try:
         batch_numbers = [str(x).strip() for x in form.getlist("batch_numbers")]
     except Exception:
         batch_numbers = []
-
-    batch_numbers = [b for b in batch_numbers if b]  # remove empties
+    batch_numbers = [b for b in batch_numbers if b]
     if not batch_numbers:
         return RedirectResponse(
             f"/mrr/{lot_id}/inspection/id/{insp.id}?error=Batch%20Number%20is%20required",
             status_code=303,
         )
 
-
-    # DN must match the shipment DN (no editing here)
+    # DN must exist (shipment header truth)
     dn = (insp.delivery_note_no or "").strip()
     if not dn:
         return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{insp.id}", status_code=303)
 
-    # Block only if ANOTHER submitted shipment already used this DN
+    # Block only if ANOTHER SUBMITTED/APPROVED shipment already used this DN
     used = session.exec(
         select(MrrReceivingInspection).where(
-            (MrrReceivingInspection.ticket_id == lot_id) &
-            (MrrReceivingInspection.id != inspection_id) &
-            (MrrReceivingInspection.delivery_note_no == dn) &
-            (
-                (MrrReceivingInspection.inspector_confirmed == True) |
-                (MrrReceivingInspection.manager_approved == True)
+            (MrrReceivingInspection.ticket_id == lot_id)
+            & (MrrReceivingInspection.id != inspection_id)
+            & (MrrReceivingInspection.delivery_note_no == dn)
+            & (
+                (MrrReceivingInspection.inspector_confirmed == True)
+                | (MrrReceivingInspection.manager_approved == True)
             )
         )
     ).first()
     if used:
         return RedirectResponse(
             f"/mrr/{lot_id}/inspection/id/{inspection_id}?error=This%20Delivery%20Note%20was%20already%20used%20in%20another%20submitted%20shipment",
-            status_code=303
+            status_code=303,
         )
 
-    # Update JSON with all inspection fields (store everything)
+    # Load existing JSON (so draft save continues where he stopped)
     try:
         data = json.loads(insp.inspection_json or "{}")
+        if not isinstance(data, dict):
+            data = {}
     except Exception:
         data = {}
 
-    # Keep header fields from shipment as truth
+    # Keep header fields from shipment as truth (not editable)
     data["report_no"] = insp.report_no
     data["delivery_note_no"] = insp.delivery_note_no
     data["qty_arrived"] = insp.qty_arrived
     data["qty_unit"] = insp.qty_unit
 
-        # ✅ Store batch numbers as list
+    # Store batch numbers list
     data["batch_numbers"] = batch_numbers
 
-    # Store the rest of inspection form inputs (skip batch_numbers because we handled it)
+    # Store rest of inputs
     for k in form.keys():
-        if k == "batch_numbers":
+        if k in ("batch_numbers", "action"):
             continue
         data[k] = str(form.get(k) or "").strip()
 
+    # Save JSON always (draft or submit)
+    insp.inspection_json = json.dumps(data, ensure_ascii=False)
 
-    # ✅ NOW we consume qty into received_total (only on SUBMIT)
+    # --- DRAFT: save only (no consume, not submitted) ---
+    if action == "draft":
+        insp.inspector_confirmed = False
+        session.add(insp)
+        session.commit()
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/id/{inspection_id}?saved=draft",
+            status_code=303,
+        )
+
+    # --- SUBMIT: mark confirmed + consume qty ---
+    insp.inspector_confirmed = True
+    session.add(insp)
+
     po_unit = (lot.quantity_unit or "KG").upper().strip()
     received_total = float(lot.received_total or 0.0)
 
@@ -4902,6 +4919,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
