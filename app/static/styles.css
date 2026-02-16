@@ -452,3 +452,43 @@ tr.length-row td{
 .meta-label{font-size:11px;font-weight:900;color:var(--muted)}
 .meta-value{margin-top:6px;font-weight:900}
 
+/* Checklist compact UI */
+.chklist{
+  display:grid;
+  gap:10px;
+}
+
+.chkitem{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:12px 14px;
+  border:1px solid #eee;
+  border-radius:12px;
+  background:#fff;
+}
+
+.chkleft{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.mono{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 13px;
+}
+
+.pill{
+  padding:4px 10px;
+  border-radius:999px;
+  font-weight:700;
+  font-size:12px;
+  border:1px solid transparent;
+}
+
+.ok { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
+.no { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+.warn { background:#fffbeb; border-color:#fde68a; color:#92400e; }
+.info { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+
