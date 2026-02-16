@@ -115,15 +115,16 @@
       Upload required documents + confirm PO match. This section helps you see what is missing.
     </div>
 
-    {% set ns = namespace(has_po=false, has_dn=false, has_coa=false) %}
+    {% set ns = namespace(has_po=false, has_dn=false, has_quality=false) %}
     {% if docs %}
       {% for d in docs %}
         {% set dt = (d.doc_type or "")|upper %}
         {% if dt == "PO" %}{% set ns.has_po = true %}{% endif %}
         {% if dt == "DELIVERY_NOTE" %}{% set ns.has_dn = true %}{% endif %}
-        {% if dt == "COA" %}{% set ns.has_coa = true %}{% endif %}
+        {% if dt in ["COA", "MTC", "INSPECTION_REPORT"] %}{% set ns.has_quality = true %}{% endif %}
       {% endfor %}
     {% endif %}
+    
 
 
     {% set po_entered = (receiving and (receiving.inspector_po_number or "")|length > 0) %}
@@ -131,96 +132,103 @@
     {% set inspector_confirmed = (receiving and receiving.inspector_confirmed_po) %}
     {% set manager_confirmed = (receiving and receiving.manager_confirmed_po) %}
 
-        <!-- CHECKLIST (CLEAN UI) -->
-    <div class="card inner mt">
-      <div class="sectiontitle accent-blue">Checklist</div>
+       <!-- CHECKLIST (CLEAN UI) -->
+<div class="card inner mt">
+  <div class="sectiontitle accent-blue">Checklist</div>
 
-      <style>
-        .chk { margin-top: 10px; display: grid; gap: 10px; }
-        .chkrow { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border:1px solid #eee; border-radius:10px; background:#fff; }
-        .chkleft { display:flex; align-items:center; gap:10px; }
-        .chkb { font-weight:700; }
-        .pill { padding:4px 10px; border-radius:999px; font-weight:700; font-size:12px; border:1px solid transparent; }
-        .ok { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
-        .no { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
-        .warn { background:#fffbeb; border-color:#fde68a; color:#92400e; }
-        .info { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
-        .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 13px; }
-      </style>
+  <style>
+    .chk { margin-top: 10px; display: grid; gap: 10px; }
+    .chkrow { display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border:1px solid #eee; border-radius:10px; background:#fff; }
+    .chkleft { display:flex; align-items:center; gap:10px; }
+    .chkb { font-weight:700; }
+    .pill { padding:4px 10px; border-radius:999px; font-weight:700; font-size:12px; border:1px solid transparent; }
+    .ok { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
+    .no { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+    .warn { background:#fffbeb; border-color:#fde68a; color:#92400e; }
+    .info { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 13px; }
+  </style>
 
-      <div class="chk">
-        <div class="chkrow">
-          <div class="chkleft">
-            <span class="chkb">PO</span>
-            <span class="muted">Uploaded</span>
-          </div>
-          <span class="pill {% if ns.has_po %}ok{% else %}no{% endif %}">
-            {% if ns.has_po %}✔ Uploaded{% else %}✖ Missing{% endif %}
-          </span>
-        </div>
+  <div class="chk">
 
-        <div class="chkrow">
-          <div class="chkleft">
-            <span class="chkb">Delivery Note</span>
-            <span class="muted">Uploaded</span>
-          </div>
-          <span class="pill {% if ns.has_dn %}ok{% else %}warn{% endif %}">
-            {% if ns.has_dn %}✔ Uploaded{% else %}⚠ Optional / Missing{% endif %}
-          </span>
-        </div>
-
-        <div class="chkrow">
-          <div class="chkleft">
-            <span class="chkb">COA</span>
-            <span class="muted">Uploaded</span>
-          </div>
-          <span class="pill {% if ns.has_coa %}ok{% else %}warn{% endif %}">
-            {% if ns.has_coa %}✔ Uploaded{% else %}⚠ Optional / Missing{% endif %}
-          </span>
-        </div>
-
-        <div class="chkrow">
-          <div class="chkleft">
-            <span class="chkb">Ticket PO</span>
-          </div>
-          <span class="pill info mono">{{ lot.po_number or "-" }}</span>
-        </div>
-
-        <div class="chkrow">
-          <div class="chkleft">
-            <span class="chkb">Entered PO</span>
-          </div>
-          <span class="pill info mono">{{ receiving.inspector_po_number if receiving else "-" }}</span>
-        </div>
-
-        <div class="chkrow">
-          <div class="chkleft">
-            <span class="chkb">PO Match</span>
-          </div>
-          <span class="pill {% if po_match %}ok{% elif po_entered %}no{% else %}warn{% endif %}">
-            {% if po_match %}✔ Match{% elif po_entered %}✖ Not Match{% else %}⚠ Not Checked{% endif %}
-          </span>
-        </div>
-
-        <div class="chkrow">
-          <div class="chkleft">
-            <span class="chkb">Inspector Confirmation</span>
-          </div>
-          <span class="pill {% if inspector_confirmed %}ok{% else %}warn{% endif %}">
-            {% if inspector_confirmed %}✔ Confirmed{% else %}⚠ Not Confirmed{% endif %}
-          </span>
-        </div>
-
-        <div class="chkrow">
-          <div class="chkleft">
-            <span class="chkb">Manager Approval</span>
-          </div>
-          <span class="pill {% if manager_confirmed %}ok{% else %}warn{% endif %}">
-            {% if manager_confirmed %}✔ Approved{% else %}⚠ Pending{% endif %}
-          </span>
-        </div>
+    <!-- REQUIRED: PO Uploaded -->
+    <div class="chkrow">
+      <div class="chkleft">
+        <span class="chkb">PO</span>
+        <span class="muted">Uploaded</span>
       </div>
+      <span class="pill {% if ns.has_po %}ok{% else %}no{% endif %}">
+        {% if ns.has_po %}✔ Uploaded{% else %}✖ Required / Missing{% endif %}
+      </span>
     </div>
+
+    <!-- REQUIRED: Quality Doc (ANY ONE) -->
+    <div class="chkrow">
+      <div class="chkleft">
+        <span class="chkb">Quality Doc</span>
+        <span class="muted">COA / MTC / Inspection Report</span>
+      </div>
+      <span class="pill {% if ns.has_quality %}ok{% else %}no{% endif %}">
+        {% if ns.has_quality %}✔ Uploaded{% else %}✖ Required / Missing{% endif %}
+      </span>
+    </div>
+
+    <!-- OPTIONAL: Delivery Note -->
+    <div class="chkrow">
+      <div class="chkleft">
+        <span class="chkb">Delivery Note</span>
+        <span class="muted">Uploaded</span>
+      </div>
+      <span class="pill {% if ns.has_dn %}ok{% else %}warn{% endif %}">
+        {% if ns.has_dn %}✔ Uploaded{% else %}⚠ Optional / Missing{% endif %}
+      </span>
+    </div>
+
+    <!-- Ticket PO + Entered PO -->
+    <div class="chkrow">
+      <div class="chkleft">
+        <span class="chkb">Ticket PO</span>
+      </div>
+      <span class="pill info mono">{{ lot.po_number or "-" }}</span>
+    </div>
+
+    <div class="chkrow">
+      <div class="chkleft">
+        <span class="chkb">Entered PO</span>
+      </div>
+      <span class="pill info mono">{{ receiving.inspector_po_number if receiving else "-" }}</span>
+    </div>
+
+    <!-- Match + Confirmations -->
+    <div class="chkrow">
+      <div class="chkleft">
+        <span class="chkb">PO Match</span>
+      </div>
+      <span class="pill {% if po_match %}ok{% elif po_entered %}no{% else %}warn{% endif %}">
+        {% if po_match %}✔ Match{% elif po_entered %}✖ Not Match{% else %}⚠ Not Checked{% endif %}
+      </span>
+    </div>
+
+    <div class="chkrow">
+      <div class="chkleft">
+        <span class="chkb">Inspector Confirmation</span>
+      </div>
+      <span class="pill {% if inspector_confirmed %}ok{% else %}warn{% endif %}">
+        {% if inspector_confirmed %}✔ Confirmed{% else %}⚠ Not Confirmed{% endif %}
+      </span>
+    </div>
+
+    <div class="chkrow">
+      <div class="chkleft">
+        <span class="chkb">Manager Approval</span>
+      </div>
+      <span class="pill {% if manager_confirmed %}ok{% else %}warn{% endif %}">
+        {% if manager_confirmed %}✔ Approved{% else %}⚠ Pending{% endif %}
+      </span>
+    </div>
+
+  </div>
+</div>
 
 
     <!-- UPLOADED DOCS LIST -->
@@ -341,10 +349,6 @@
         </form>
 
 
-        <form class="mt" action="/mrr/{{ lot.id }}/docs/confirm" method="post"
-              onsubmit="return confirm('Confirm documentation? This requires PO uploaded + PO match.')">
-          <button class="btn btn-primary" type="submit">Inspector Confirm Documentation</button>
-        </form>
 
         {% if user.role and user.role|upper == "MANAGER" %}
           <form class="mt" action="/mrr/{{ lot.id }}/docs/approve" method="post"
