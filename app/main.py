@@ -115,6 +115,18 @@ def dn_doc_exists(session: Session, lot_id: int, dn_number: str) -> bool:
         )
     ).first()
     return bool(doc)
+    
+def quality_doc_exists(session: Session, lot_id: int) -> bool:
+    """
+    True if at least ONE quality doc exists:
+    COA OR MTC OR INSPECTION_REPORT
+    """
+    q = select(MrrDocument).where(
+        (MrrDocument.ticket_id == lot_id) &
+        (MrrDocument.doc_type.in_(["COA", "MTC", "INSPECTION_REPORT"]))
+    )
+    return session.exec(q).first() is not None
+
 
 def get_submitted_shipment_by_dn(session: Session, lot_id: int, dn_number: str):
     dn_number = (dn_number or "").strip()
@@ -2306,6 +2318,14 @@ def new_shipment_inspection_page(
             status_code=303,
         )
 
+            # ✅ Require at least ONE quality document before starting inspection
+        if not quality_doc_exists(session, lot_id):
+            return RedirectResponse(
+                f"/mrr/{lot_id}?error=Upload%20one%20Quality%20Document%20(COA%20or%20MTC%20or%20Inspection%20Report)%20before%20starting%20Receiving%20Inspection",
+                status_code=303,
+            )
+
+
     if not receiving:
         return RedirectResponse(
             f"/mrr/{lot_id}?error=Documentation%20is%20not%20saved.%20Please%20fill%20Documentation%20and%20click%20Save%20first",
@@ -2469,6 +2489,13 @@ async def create_shipment_inspection(
             f"/mrr/{lot_id}?error=Upload%20PO%20document%20(Type:%20PO)%20before%20starting%20Receiving%20Inspection",
             status_code=303,
         )
+            # ✅ Require at least ONE quality document before starting inspection
+        if not quality_doc_exists(session, lot_id):
+            return RedirectResponse(
+                f"/mrr/{lot_id}?error=Upload%20one%20Quality%20Document%20(COA%20or%20MTC%20or%20Inspection%20Report)%20before%20starting%20Receiving%20Inspection",
+                status_code=303,
+            )
+
 
     if not receiving:
         return RedirectResponse(
@@ -4861,6 +4888,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
