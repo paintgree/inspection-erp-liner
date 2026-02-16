@@ -416,7 +416,12 @@
           <a class="btn btn-secondary" href="/mrr/{{ lot.id }}/inspection/id/{{ latest_draft_inspection.id }}">
             Resume Draft Inspection
           </a>
-        {% endif %}
+        {% if inspection and not inspection.inspector_confirmed %}
+          <!-- Draft exists -->
+          <a class="btn btn-warn" href="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}">
+            Resume Draft Inspection
+          </a>
+        {% else %}
           <a class="btn btn-primary" href="/mrr/{{ lot.id }}/inspection/new">
             {% if lot.status and lot.status|upper == "PARTIAL" %}
               Start Shipment Inspection (Partial Delivery)
@@ -424,7 +429,8 @@
               Start Shipment Inspection
             {% endif %}
           </a>
-        {% else %}
+        {% endif %}
+
           <div class="muted mt">✅ Ticket is <b>APPROVED</b> — receiving is closed (no further inspections allowed).</div>
         {% endif %}
       </div>
