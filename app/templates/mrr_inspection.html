@@ -396,7 +396,75 @@
     {% endif %}
   </div>
 
+  <style>
+  /* --- Compact professional layout --- */
+  .pagewrap { max-width: 1100px; margin: 0 auto; }
+  .stack { display: grid; gap: 12px; }
+
+  .panel {
+    background: #fff;
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 14px;
+    padding: 14px;
+  }
+
+  .panelhead{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; margin-bottom:10px;
+  }
+
+  .panelhead .title{ font-weight:800; font-size:15px; }
+  .panelhead .sub{ font-size:12px; opacity:.75; }
+
+  /* accordion */
+  details.acc {
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+  }
+  details.acc summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 12px 14px;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px;
+    font-weight:800;
+  }
+  details.acc summary::-webkit-details-marker { display:none; }
+  details.acc .body { padding: 14px; border-top: 1px solid rgba(0,0,0,0.06); }
+
+  /* compact table on desktop + scroll on mobile */
+  .tablewrap { overflow-x:auto; }
+  table.table.wide th, table.table.wide td { vertical-align: top; }
+  table.table.wide input { min-width: 140px; }
+
+  /* sticky action bar */
+  .stickybar{
+    position: sticky;
+    bottom: 10px;
+    z-index: 20;
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    padding:10px;
+    background: rgba(255,255,255,0.9);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(0,0,0,0.08);
+    border-radius: 14px;
+  }
+
+  /* mobile improvements */
+  @media (max-width: 800px){
+    .grid3{ grid-template-columns: 1fr !important; }
+    .grid2{ grid-template-columns: 1fr !important; }
+    table.table.wide input { min-width: 220px; }
+  }
+</style>
+
+
 </div>
+
 
 <script>
   function toggleMaterialTables() {
