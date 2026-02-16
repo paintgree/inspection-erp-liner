@@ -10,21 +10,17 @@
       <div class="muted">
         MRR Ticket #{{ lot.id }} • Type: <b>{{ lot.lot_type }}</b>
       </div>
+      <div class="muted tiny" id="autosaveStatus" style="margin-top:6px;"></div>
     </div>
     <div class="actions">
       <span class="pill">Report: <b>{{ inspection_data.report_no }}</b></span>
-      {% if not inspection.inspector_confirmed and not inspection.manager_approved %}
-        <span class="pill warn">DRAFT</span>
-      {% endif %}
     </div>
   </div>
 
-  {% if request and request.query_params and request.query_params.get("saved") == "draft" %}
-    <div class="alert alert-ok mt">✅ Draft saved. You can come back and continue anytime.</div>
-  {% endif %}
-
-  <!-- ✅ Submit to the correct route -->
-  <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/submit" class="mt">
+  <!-- Submit endpoint (same as your current) -->
+  <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/submit" class="mt" id="inspectionForm">
+    <!-- IMPORTANT: this decides draft vs submit -->
+    <input type="hidden" name="action" id="actionField" value="submit">
 
     <!-- =========================
          Header (Auto)
@@ -51,15 +47,15 @@
         <div>
           <label>Batch Number(s) (required)</label>
 
-          <div id="batchWrap" class="mt"></div>
-
-          <div class="toolbar mt">
-            <button type="button" class="btn btn-outline-secondary" id="addBatchBtn">
-              + Add another batch
-            </button>
+          <div id="batchWrap">
+            <input name="batch_numbers" placeholder="e.g. BATCH-001" required>
           </div>
 
-          <div class="muted tiny mt">
+          <button type="button" class="btn btn-outline-secondary mt" id="addBatchBtn">
+            + Add another batch
+          </button>
+
+          <div class="muted tiny">
             If this shipment contains multiple batches, add them all here.
           </div>
         </div>
@@ -70,56 +66,31 @@
       </div>
     </div>
 
-    <style>
-      .batchrow{ display:flex; gap:10px; align-items:center; margin-top:8px; }
-      .batchrow input{ flex:1; }
-      .btn-mini{ padding:6px 10px; font-size:12px; }
-    </style>
-
     <script>
-      (function(){
-        const wrap = document.getElementById("batchWrap");
-        const addBtn = document.getElementById("addBatchBtn");
+    (function(){
+      const wrap = document.getElementById("batchWrap");
+      const addBtn = document.getElementById("addBatchBtn");
 
-        function addRow(value, required){
-          const row = document.createElement("div");
-          row.className = "batchrow";
-
+      const existing = {{ (inspection_data.batch_numbers if inspection_data.batch_numbers is defined else []) | tojson }};
+      if (Array.isArray(existing) && existing.length > 0) {
+        wrap.innerHTML = "";
+        existing.forEach((v, idx) => {
           const input = document.createElement("input");
           input.name = "batch_numbers";
           input.placeholder = "e.g. BATCH-001";
-          input.value = value || "";
-          if(required) input.required = true;
+          input.value = v || "";
+          if (idx === 0) input.required = true;
+          wrap.appendChild(input);
+        });
+      }
 
-          const del = document.createElement("button");
-          del.type = "button";
-          del.className = "btn btn-ghost btn-mini";
-          del.textContent = "Remove";
-          del.addEventListener("click", () => {
-            // never allow removing last required row
-            const rows = wrap.querySelectorAll(".batchrow");
-            if(rows.length <= 1) return;
-            row.remove();
-            // ensure first remaining is required
-            const first = wrap.querySelector(".batchrow input[name='batch_numbers']");
-            if(first) first.required = true;
-          });
-
-          row.appendChild(input);
-          row.appendChild(del);
-          wrap.appendChild(row);
-        }
-
-        // Render existing batches (from JSON) or at least one row
-        const existing = {{ (inspection_data.batch_numbers if inspection_data.batch_numbers is defined else []) | tojson }};
-        if(Array.isArray(existing) && existing.length > 0){
-          existing.forEach((v, idx) => addRow(v, idx === 0));
-        } else {
-          addRow("", true);
-        }
-
-        addBtn.addEventListener("click", () => addRow("", false));
-      })();
+      addBtn.addEventListener("click", () => {
+        const input = document.createElement("input");
+        input.name = "batch_numbers";
+        input.placeholder = "e.g. BATCH-001";
+        wrap.appendChild(input);
+      });
+    })();
     </script>
 
     <!-- =========================
@@ -133,16 +104,20 @@
     </div>
 
     <!-- =========================
-         Material classification
+         Material (ONLY 2 fields like your template)
+         ✅ Type + Grade
+         (Removed Material Model completely)
     ========================== -->
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">Material Classification (Raw Material)</div>
 
-      <div class="grid3">
+      <div class="grid2">
         <div>
           <label>Material Type</label>
-          {% set fam = inspection_data.material_family if inspection_data and inspection_data.material_family else '' %}
-          <select id="material_family" name="material_family" onchange="toggleMaterialTables()">
+          {% set fam = (inspection_data.material_fam
+                        if inspection_data and inspection_data.material_fam is defined
+                        else (inspection_data.material_family if inspection_data and inspection_data.material_family is defined else '')) %}
+          <select id="material_fam" name="material_fam" onchange="toggleMaterialTables()">
             <option value="">-- select --</option>
             <option value="PE" {% if fam == 'PE' %}selected{% endif %}>Polyethylene (PE / PERT / PE100)</option>
             <option value="FIBER" {% if fam == 'FIBER' %}selected{% endif %}>Fiber (Polyester)</option>
@@ -151,26 +126,13 @@
         </div>
 
         <div>
-          <label>Material Model</label>
-          {% set model = inspection_data.material_model if inspection_data and inspection_data.material_model else '' %}
-          <select name="material_model">
-            <option value="">-- select --</option>
-            <option value="PERT_WHITE" {% if model == 'PERT_WHITE' %}selected{% endif %}>PERT-White</option>
-            <option value="PE100_BLACK" {% if model == 'PE100_BLACK' %}selected{% endif %}>PE100-Black</option>
-            <option value="FIBER_36000D" {% if model == 'FIBER_36000D' %}selected{% endif %}>Polyester Fiber 36000D</option>
-            <option value="FIBER_45000D" {% if model == 'FIBER_45000D' %}selected{% endif %}>Polyester Fiber 45000D</option>
-          </select>
-          <div class="muted tiny">We’ll later link these models to LINER / REINFORCEMENT / COVER usage rules.</div>
-        </div>
-
-        <div>
-          <label>Material Grade (optional)</label>
+          <label>Material Grade</label>
           {% set grade = inspection_data.material_grade if inspection_data and inspection_data.material_grade else '' %}
           <input
             type="text"
             name="material_grade"
             value="{{ grade }}"
-            placeholder="Type grade (example: PE100-Black / PERT-White / etc.)"
+            placeholder="Type grade (example: PERT-White / PE100-Black / etc.)"
             list="grade_suggestions"
           />
           <datalist id="grade_suggestions">
@@ -179,7 +141,7 @@
             <option value="Polyester Fiber 36000D"></option>
             <option value="Polyester Fiber 45000D"></option>
           </datalist>
-          <div class="muted tiny">You can type any grade. Suggestions are optional.</div>
+          <div class="muted tiny">Type any grade. Suggestions are optional.</div>
         </div>
       </div>
     </div>
@@ -286,7 +248,7 @@
     </div>
 
     <!-- =========================
-         Remarks + actions
+         Remarks + buttons
     ========================== -->
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">Remarks</div>
@@ -302,25 +264,12 @@
 
         <div>
           <label>&nbsp;</label>
-          <div class="toolbar">
-            <!-- Default action is Draft -->
-            <input type="hidden" name="action" value="draft">
-          
-            <button class="btn btn-secondary" type="submit">
-              Save Draft
-            </button>
-          
-            <button class="btn btn-primary" type="submit" name="action" value="submit"
-                    onclick="return confirm('Submit this shipment inspection? After submit it will be locked.')">
-              Submit Inspection
-            </button>
+          <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+            <button class="btn btn-secondary" type="button" id="saveDraftBtn">Save Draft</button>
+            <button class="btn btn-primary" type="submit" id="finalSubmitBtn">Submit Inspection</button>
           </div>
-
-
-          </div>
-
-          <div class="muted tiny mt">
-            Draft keeps the inspection editable. Submit will lock it.
+          <div class="muted tiny" style="text-align:right; margin-top:6px;">
+            Auto-saves draft while you type.
           </div>
         </div>
       </div>
@@ -401,87 +350,96 @@
     {% endif %}
   </div>
 
-  <style>
-  /* --- Compact professional layout --- */
-  .pagewrap { max-width: 1100px; margin: 0 auto; }
-  .stack { display: grid; gap: 12px; }
-
-  .panel {
-    background: #fff;
-    border: 1px solid rgba(0,0,0,0.08);
-    border-radius: 14px;
-    padding: 14px;
-  }
-
-  .panelhead{
-    display:flex; align-items:center; justify-content:space-between;
-    gap:12px; margin-bottom:10px;
-  }
-
-  .panelhead .title{ font-weight:800; font-size:15px; }
-  .panelhead .sub{ font-size:12px; opacity:.75; }
-
-  /* accordion */
-  details.acc {
-    border: 1px solid rgba(0,0,0,0.08);
-    border-radius: 14px;
-    overflow: hidden;
-    background: #fff;
-  }
-  details.acc summary {
-    cursor: pointer;
-    list-style: none;
-    padding: 12px 14px;
-    display:flex; align-items:center; justify-content:space-between;
-    gap:12px;
-    font-weight:800;
-  }
-  details.acc summary::-webkit-details-marker { display:none; }
-  details.acc .body { padding: 14px; border-top: 1px solid rgba(0,0,0,0.06); }
-
-  /* compact table on desktop + scroll on mobile */
-  .tablewrap { overflow-x:auto; }
-  table.table.wide th, table.table.wide td { vertical-align: top; }
-  table.table.wide input { min-width: 140px; }
-
-  /* sticky action bar */
-  .stickybar{
-    position: sticky;
-    bottom: 10px;
-    z-index: 20;
-    display:flex;
-    justify-content:flex-end;
-    gap:10px;
-    padding:10px;
-    background: rgba(255,255,255,0.9);
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(0,0,0,0.08);
-    border-radius: 14px;
-  }
-
-  /* mobile improvements */
-  @media (max-width: 800px){
-    .grid3{ grid-template-columns: 1fr !important; }
-    .grid2{ grid-template-columns: 1fr !important; }
-    table.table.wide input { min-width: 220px; }
-  }
-</style>
-
-
 </div>
-
 
 <script>
   function toggleMaterialTables() {
-    const fam = (document.getElementById("material_family") || {}).value || "";
+    const famEl = document.getElementById("material_fam");
+    const fam = (famEl ? famEl.value : "") || "";
     const pe = document.getElementById("pe_table");
     const fb = document.getElementById("fiber_table");
 
     if (pe) pe.style.display = (fam === "PE") ? "block" : "none";
     if (fb) fb.style.display = (fam === "FIBER") ? "block" : "none";
   }
-
   toggleMaterialTables();
+
+  // =========================
+  // AUTO SAVE DRAFT
+  // =========================
+  (function(){
+    const form = document.getElementById("inspectionForm");
+    const status = document.getElementById("autosaveStatus");
+    const saveDraftBtn = document.getElementById("saveDraftBtn");
+    const actionField = document.getElementById("actionField");
+
+    let timer = null;
+    let saving = false;
+    let lastSavedAt = 0;
+
+    function setStatus(txt){
+      if(status) status.textContent = txt || "";
+    }
+
+    async function saveDraft(reason){
+      if(!form || saving) return;
+      saving = true;
+
+      try{
+        setStatus("Saving draft...");
+        const fd = new FormData(form);
+        fd.set("action", "draft"); // force draft
+
+        const res = await fetch(form.action, {
+          method: "POST",
+          body: fd,
+          redirect: "manual"
+        });
+
+        // many frameworks return 302 on success → treat it as success
+        if(res.status === 0 || res.status === 200 || res.status === 201 || res.status === 204 || res.status === 302){
+          lastSavedAt = Date.now();
+          const t = new Date(lastSavedAt).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+          setStatus("Draft saved (" + t + ")");
+        } else {
+          setStatus("Draft not saved (network).");
+        }
+      } catch(e){
+        setStatus("Draft not saved (network).");
+      } finally {
+        saving = false;
+      }
+    }
+
+    function debounceSave(){
+      if(timer) clearTimeout(timer);
+      timer = setTimeout(() => saveDraft("typing"), 900);
+    }
+
+    // Save when user types/changes anything
+    form.addEventListener("input", debounceSave);
+    form.addEventListener("change", debounceSave);
+
+    // Manual draft button
+    if(saveDraftBtn){
+      saveDraftBtn.addEventListener("click", () => saveDraft("button"));
+    }
+
+    // Final submit: make sure action=submit
+    form.addEventListener("submit", () => {
+      actionField.value = "submit";
+      setStatus("");
+    });
+
+    // Safety: periodic save every 20s if something was edited
+    setInterval(() => {
+      const now = Date.now();
+      // if not saved in last 20s, save again (helps long forms)
+      if(now - lastSavedAt > 20000){
+        saveDraft("timer");
+      }
+    }, 20000);
+  })();
 </script>
 
 {% endblock %}
