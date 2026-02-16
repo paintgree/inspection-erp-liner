@@ -308,10 +308,31 @@
               Save Draft
             </button>
 
-            <button class="btn btn-primary" type="submit" name="action" value="submit"
-                    onclick="return confirm('Submit this shipment inspection? After submit, edits/photos will be locked.')">
-              Submit Inspection
-            </button>
+            <input type="hidden" name="action" id="inspection_action" value="submit">
+
+            <div class="grid2 mt">
+              <div>
+                <label>Inspected by</label>
+                <input name="inspected_by" value="{{ inspection_data.inspected_by if inspection_data and inspection_data.inspected_by else user.display_name }}">
+              </div>
+            
+              <div>
+                <label>&nbsp;</label>
+                <div style="display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;">
+                  <button class="btn btn-secondary" type="submit"
+                          onclick="document.getElementById('inspection_action').value='draft'">
+                    Save Draft
+                  </button>
+            
+                  <button class="btn btn-primary" type="submit"
+                          onclick="document.getElementById('inspection_action').value='submit'">
+                    Submit Inspection
+                  </button>
+                </div>
+                <div class="muted tiny mt">Draft saves progress without locking DN. Submit finalizes.</div>
+              </div>
+            </div>
+
           </div>
 
           <div class="muted tiny mt">
