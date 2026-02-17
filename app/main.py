@@ -356,7 +356,51 @@ def fill_mrr_f01_xlsx_bytes(
         or data.get("raw_properties")
         or []
     )
+    
+    # If old-style form keys exist (pe_* / fb_*), convert them to the "properties" list
+    if not prop_items:
+        converted = []
+    
+        # Must match the "Property" text that appears in your Excel column A
+        pe_rows = [
+            ("density", "Density"),
+            ("mfr", "Melt Flow Rate (MFR) -190°C / 5kg"),
+            ("flexural", "Flexural Modulus"),
+            ("tensile", "Tensile Strength at Yield"),
+            ("elong", "Elongation at Break"),
+            ("escr", "ESCR (Environmental Stress Crack Resistance)"),
+            ("oits", "Oxidation Induction Time (OIT)"),
+            ("cb", "Carbon Black Content"),
+            ("cbd", "Carbon Black Dispersion"),
+            ("mvd", "Volatile Matter"),
+            ("ash", "Ash Content"),
+            ("moist", "Moisture"),
+        ]
+    
+        fb_rows = [
+            ("denier", "Denier"),
+            ("tenacity", "Tenacity"),
+            ("elong", "Elongation"),
+            ("moist", "Moisture Content"),
+            ("finish", "Finish content"),
+        ]
+    
+        for k, label in pe_rows:
+            r = (data.get(f"pe_{k}_result") or "").strip()
+            rm = (data.get(f"pe_{k}_remarks") or "").strip()
+            if r or rm:
+                converted.append({"name": label, "result": r, "remarks": rm})
+    
+        for k, label in fb_rows:
+            r = (data.get(f"fb_{k}_result") or "").strip()
+            rm = (data.get(f"fb_{k}_remarks") or "").strip()
+            if r or rm:
+                converted.append({"name": label, "result": r, "remarks": rm})
+    
+        prop_items = converted
+    
     prop_map = _build_prop_map(prop_items)
+
 
     for r in range(1, ws.max_row + 1):
         cell_val = ws.cell(r, 1).value  # col A
@@ -377,6 +421,17 @@ def fill_mrr_f01_xlsx_bytes(
                 v = vc.get(label)
                 if isinstance(v, bool):
                     ws.cell(r, 7).value = "YES" if v else "NO"
+
+
+    status = (data.get("approval_status") or "").strip().upper()
+
+    # IMPORTANT: replace these cell addresses with the real ones in your Excel template
+    # Put a "✓" in the right option cell
+    _ws_set_value_safe(ws, "A44", "✓" if status == "VERIFIED" else "")
+    _ws_set_value_safe(ws, "D44", "✓" if status == "HOLD" else "")
+    _ws_set_value_safe(ws, "G45", "✓" if status == "NONCONFORM" else "")
+    
+    _ws_set_value_safe(ws, "B47", (data.get("on_hold_reason") or "").strip())
 
     # ---- SIGNATURES ----
     _ws_set_value_safe(ws, "B51", getattr(inspection, "inspector_name", "") or "")
@@ -5124,6 +5179,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
