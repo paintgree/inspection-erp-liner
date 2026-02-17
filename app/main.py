@@ -281,14 +281,14 @@ def fill_mrr_f01_xlsx_bytes(
     ws = wb.active
 
     # ---- HEADER MAP (F01) ----
-    _ws_set_value_safe(ws, "D1", inspection.report_no or "")
-    _ws_set_value_safe(ws, "D2", _as_date_str(getattr(inspection, "created_at", None) or datetime.utcnow()))
+    _ws_set_value_safe(ws, "E1", inspection.report_no or "")
+    _ws_set_value_safe(ws, "E2", _as_date_str(getattr(inspection, "created_at", None) or datetime.utcnow()))
 
     _ws_set_value_safe(ws, "B6", getattr(lot, "supplier_name", "") or "")
-    _ws_set_value_safe(ws, "E6", getattr(lot, "po_number", "") or "")
+    _ws_set_value_safe(ws, "F6", getattr(lot, "po_number", "") or "")
 
     _ws_set_value_safe(ws, "B7", getattr(lot, "material_name", "") or "")
-    _ws_set_value_safe(ws, "E7", getattr(lot, "batch_no", "") or "")
+    _ws_set_value_safe(ws, "B9", getattr(lot, "batch_no", "") or "")
 
     data = {}
     try:
@@ -301,7 +301,7 @@ def fill_mrr_f01_xlsx_bytes(
     mat_name = (getattr(lot, "material_name", "") or "").strip()
 
     _ws_set_value_safe(ws, "B8", grade)
-    _ws_set_value_safe(ws, "E8", getattr(inspection, "delivery_note_no", "") or "")
+    _ws_set_value_safe(ws, "F8", getattr(inspection, "delivery_note_no", "") or "")
 
     # ---- Dynamic Template Titles ----
     # Show only what user selected, remove hardcoded template names
@@ -329,7 +329,7 @@ def fill_mrr_f01_xlsx_bytes(
 
     qty_arrived = getattr(inspection, "qty_arrived", None)
     qty_unit = getattr(inspection, "qty_unit", None) or ""
-    _ws_set_value_safe(ws, "E9", f"{_to_float(qty_arrived, 0)} {qty_unit}".strip())
+    _ws_set_value_safe(ws, "F9", f"{_to_float(qty_arrived, 0)} {qty_unit}".strip())
 
     # ---- PROPERTIES TABLE FILL (generic matcher) ----
     def _build_prop_map(items):
@@ -377,8 +377,8 @@ def fill_mrr_f01_xlsx_bytes(
     _ws_set_value_safe(ws, "E45", getattr(inspection, "inspector_name", "") or "")
 
     if bool(getattr(inspection, "manager_approved", False)):
-        _ws_set_value_safe(ws, "H45", "MANAGER")
-        _ws_set_value_safe(ws, "H46", _as_date_str(datetime.utcnow()))
+        _ws_set_value_safe(ws, "D51", "MANAGER")
+        _ws_set_value_safe(ws, "D52", _as_date_str(datetime.utcnow()))
 
     # -------------------------
     # LOGO
@@ -5118,6 +5118,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
