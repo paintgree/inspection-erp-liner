@@ -403,10 +403,10 @@ def fill_mrr_f01_xlsx_bytes(
     prop_map = _build_prop_map(prop_items)
 
 
-    # ---- SAFE WRITE into merged cells (fix: 'MergedCell' value is read-only) ----
+        # ---- SAFE WRITE into merged cells (fix: 'MergedCell' value is read-only) ----
     def _write_cell_safe(sheet, row, col, value):
         cell = sheet.cell(row, col)
-    
+
         # If it's part of a merged range, write into the top-left of that merged range
         if isinstance(cell, openpyxl.cell.cell.MergedCell):
             for mr in sheet.merged_cells.ranges:
@@ -414,25 +414,42 @@ def fill_mrr_f01_xlsx_bytes(
                     sheet.cell(mr.min_row, mr.min_col).value = value
                     return
             return  # merged but no range found (rare)
-    
+
         # normal cell
         cell.value = value
-    
-    
+
+    # Decide which section to fill (prevents Fiber values appearing in PE table)
+    fam_ui = (data.get("material_family") or data.get("material_fam") or data.get("material_type") or "").strip().upper()
+
+    # These row ranges must match your Excel template (based on your screenshot):
+    # PE table rows are around 12-23
+    # Fiber table rows are around 26-30
+    if fam_ui == "FIBER":
+        allowed_row_min, allowed_row_max = 26, 30
+    elif fam_ui == "PE":
+        allowed_row_min, allowed_row_max = 12, 23
+    else:
+        # fallback: allow all (old behavior)
+        allowed_row_min, allowed_row_max = 1, ws.max_row
+
     # Fill by matching property names in column A
     for r in range(1, ws.max_row + 1):
-        cell_val = ws.cell(r, 1).value  # column A: Properties names
+        if not (allowed_row_min <= r <= allowed_row_max):
+            continue
+
+        cell_val = ws.cell(r, 1).value  # column A: property names
         if not isinstance(cell_val, str):
             continue
-    
+
         key = _normalize_key(cell_val)
         if key in prop_map:
             it = prop_map[key]
-    
+
             # Your Excel screenshot shows:
             # H = PDS/COA Results, I = Remarks
             _write_cell_safe(ws, r, 8, it.get("result") or it.get("value") or "")  # column H
             _write_cell_safe(ws, r, 9, it.get("remarks") or "")                   # column I
+
 
 
 
@@ -5203,6 +5220,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
