@@ -19,7 +19,6 @@
       <a class="btn" href="/mrr/{{ lot.id }}/export/xlsx">Export XLSX</a>
       <a class="btn" href="/mrr/{{ lot.id }}/export/pdf">Export PDF</a>
 
-
       {% if user.role and user.role|upper == "MANAGER" %}
         <a class="btn btn-warn" href="/mrr-pending-approvals">Pending approvals</a>
       {% endif %}
@@ -108,7 +107,8 @@
       </b>
     </div>
   </div>
-  <!-- DOCUMENTATION + CHECKLIST (IN SAME PAGE) -->
+
+  <!-- DOCUMENTATION -->
   <div class="card inner mt">
     <h2>Documentation</h2>
     <div class="muted tiny">
@@ -124,94 +124,111 @@
         {% if dt in ["COA", "MTC", "INSPECTION_REPORT"] %}{% set ns.has_quality = true %}{% endif %}
       {% endfor %}
     {% endif %}
-    
-
 
     {% set po_entered = (receiving and (receiving.inspector_po_number or "")|length > 0) %}
     {% set po_match = (receiving and receiving.po_match) %}
     {% set inspector_confirmed = (receiving and receiving.inspector_confirmed_po) %}
     {% set manager_confirmed = (receiving and receiving.manager_confirmed_po) %}
 
-<!-- CHECKLIST (COMPACT UI) -->
-<div class="mt">
-  <div class="sectiontitle accent-blue">Checklist</div>
+    <!-- Checklist styles (kept here so you don't need to touch global CSS) -->
+    <style>
+      .chklist { margin-top:12px; display:grid; gap:10px; }
+      .chkitem {
+        display:flex; align-items:center; justify-content:space-between;
+        padding:12px 14px; border:1px solid rgba(0,0,0,0.06);
+        border-radius:12px; background:#fff;
+      }
+      .chkleft { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+      .pill {
+        padding:4px 10px; border-radius:999px; font-weight:700; font-size:12px;
+        border:1px solid transparent; white-space:nowrap;
+      }
+      .ok { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
+      .no { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+      .warn { background:#fffbeb; border-color:#fde68a; color:#92400e; }
+      .info { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace; font-size: 13px; }
+    </style>
 
-  <div class="chklist mt">
+    <!-- CHECKLIST (exact style like your screenshot) -->
+    <div class="mt">
+      <div class="sectiontitle accent-blue">Checklist</div>
 
-    <div class="chkitem">
-      <div class="chkleft">
-        <b>PO</b>
-        <span class="muted">Uploaded</span>
+      <div class="chklist">
+
+        <div class="chkitem">
+          <div class="chkleft">
+            <b>PO</b>
+            <span class="muted">Uploaded</span>
+          </div>
+          <span class="pill {% if ns.has_po %}ok{% else %}no{% endif %}">
+            {% if ns.has_po %}✓ Uploaded{% else %}✕ Required / Missing{% endif %}
+          </span>
+        </div>
+
+        <div class="chkitem">
+          <div class="chkleft">
+            <b>Quality Doc</b>
+            <span class="muted">COA / MTC / Inspection Report</span>
+          </div>
+          <span class="pill {% if ns.has_quality %}ok{% else %}no{% endif %}">
+            {% if ns.has_quality %}✓ Uploaded{% else %}✕ Required / Missing{% endif %}
+          </span>
+        </div>
+
+        <div class="chkitem">
+          <div class="chkleft">
+            <b>Delivery Note</b>
+            <span class="muted">Uploaded</span>
+          </div>
+          <span class="pill {% if ns.has_dn %}ok{% else %}warn{% endif %}">
+            {% if ns.has_dn %}✓ Uploaded{% else %}⚠ Optional / Missing{% endif %}
+          </span>
+        </div>
+
+        <div class="chkitem">
+          <div class="chkleft">
+            <b>Ticket PO</b>
+          </div>
+          <span class="pill info mono">{{ lot.po_number or "-" }}</span>
+        </div>
+
+        <div class="chkitem">
+          <div class="chkleft">
+            <b>Entered PO</b>
+          </div>
+          <span class="pill info mono">{{ receiving.inspector_po_number if receiving else "-" }}</span>
+        </div>
+
+        <div class="chkitem">
+          <div class="chkleft">
+            <b>PO Match</b>
+          </div>
+          <span class="pill {% if po_match %}ok{% elif po_entered %}no{% else %}warn{% endif %}">
+            {% if po_match %}✓ Match{% elif po_entered %}✕ Not Match{% else %}⚠ Not Checked{% endif %}
+          </span>
+        </div>
+
+        <div class="chkitem">
+          <div class="chkleft">
+            <b>Inspector Confirmation</b>
+          </div>
+          <span class="pill {% if inspector_confirmed %}ok{% else %}warn{% endif %}">
+            {% if inspector_confirmed %}✓ Confirmed{% else %}⚠ Not Confirmed{% endif %}
+          </span>
+        </div>
+
+        <div class="chkitem">
+          <div class="chkleft">
+            <b>Manager Approval</b>
+          </div>
+          <span class="pill {% if manager_confirmed %}ok{% else %}warn{% endif %}">
+            {% if manager_confirmed %}✓ Approved{% else %}⚠ Pending{% endif %}
+          </span>
+        </div>
+
       </div>
-      <span class="pill {% if ns.has_po %}ok{% else %}no{% endif %}">
-        {% if ns.has_po %}✔ Uploaded{% else %}✖ Required / Missing{% endif %}
-      </span>
     </div>
-
-    <div class="chkitem">
-      <div class="chkleft">
-        <b>Quality Doc</b>
-        <span class="muted">COA / MTC / Inspection Report</span>
-      </div>
-      <span class="pill {% if ns.has_quality %}ok{% else %}no{% endif %}">
-        {% if ns.has_quality %}✔ Uploaded{% else %}✖ Required / Missing{% endif %}
-      </span>
-    </div>
-
-    <div class="chkitem">
-      <div class="chkleft">
-        <b>Delivery Note</b>
-        <span class="muted">Uploaded</span>
-      </div>
-      <span class="pill {% if ns.has_dn %}ok{% else %}warn{% endif %}">
-        {% if ns.has_dn %}✔ Uploaded{% else %}⚠ Optional / Missing{% endif %}
-      </span>
-    </div>
-
-    <div class="chkitem">
-      <div class="chkleft">
-        <b>Ticket PO</b>
-      </div>
-      <span class="pill info mono">{{ lot.po_number or "-" }}</span>
-    </div>
-
-    <div class="chkitem">
-      <div class="chkleft">
-        <b>Entered PO</b>
-      </div>
-      <span class="pill info mono">{{ receiving.inspector_po_number if receiving else "-" }}</span>
-    </div>
-
-    <div class="chkitem">
-      <div class="chkleft">
-        <b>PO Match</b>
-      </div>
-      <span class="pill {% if po_match %}ok{% elif po_entered %}no{% else %}warn{% endif %}">
-        {% if po_match %}✔ Match{% elif po_entered %}✖ Not Match{% else %}⚠ Not Checked{% endif %}
-      </span>
-    </div>
-
-    <div class="chkitem">
-      <div class="chkleft">
-        <b>Inspector Confirmation</b>
-      </div>
-      <span class="pill {% if inspector_confirmed %}ok{% else %}warn{% endif %}">
-        {% if inspector_confirmed %}✔ Confirmed{% else %}⚠ Not Confirmed{% endif %}
-      </span>
-    </div>
-
-    <div class="chkitem">
-      <div class="chkleft">
-        <b>Manager Approval</b>
-      </div>
-      <span class="pill {% if manager_confirmed %}ok{% else %}warn{% endif %}">
-        {% if manager_confirmed %}✔ Approved{% else %}⚠ Pending{% endif %}
-      </span>
-    </div>
-
-  </div>
-</div>
-
 
     <!-- UPLOADED DOCS LIST -->
     <div class="card inner mt">
@@ -248,7 +265,7 @@
       {% endif %}
     </div>
 
-    <!-- UPLOAD AREA (WITH DROPDOWN) -->
+    <!-- UPLOAD AREA -->
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">Upload Document</div>
 
@@ -315,7 +332,7 @@
       {% endif %}
     </div>
 
-    <!-- PO CHECK + CONFIRM -->
+    <!-- PO VERIFICATION -->
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">PO Verification</div>
 
@@ -326,13 +343,11 @@
               onsubmit="return confirm('This will save your PO number and confirm documentation (requires PO uploaded + PO match). Continue?')">
           <label>Inspector PO Number (type it exactly like the ticket PO)</label>
           <input name="inspector_po_number" required value="{{ receiving.inspector_po_number if receiving else '' }}">
-        
+
           <div class="mt">
             <button class="btn btn-primary" type="submit">Save & Confirm Documentation</button>
           </div>
         </form>
-
-
 
         {% if user.role and user.role|upper == "MANAGER" %}
           <form class="mt" action="/mrr/{{ lot.id }}/docs/approve" method="post"
@@ -384,7 +399,6 @@
                   <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}/export/xlsx">XLSX</a>
                   <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}/export/pdf">PDF</a>
                 </td>
-
                 <td>
                   {% if s.manager_approved %}
                     <span class="badge badge-ok">APPROVED</span>
@@ -403,26 +417,16 @@
   </div>
 
   <!-- PROGRESS + ACTIONS -->
-    <!-- PROGRESS + ACTIONS -->
   <div class="card inner mt">
     <h2>Progress</h2>
-  
-    <div class="kv">
-      <span>Documentation</span>
-      <b>{% if docs_ok %}CLEARED{% elif receiving %}SAVED{% else %}PENDING{% endif %}</b>
-    </div>
-  
-    <div class="kv">
-      <span>Receiving Inspection</span>
-      <b>{% if insp_ok %}APPROVED{% elif insp_submitted %}SUBMITTED{% else %}PENDING{% endif %}</b>
-    </div>
-  
+
+    <div class="kv"><span>Documentation</span><b>{% if docs_ok %}CLEARED{% elif receiving %}SAVED{% else %}PENDING{% endif %}</b></div>
+    <div class="kv"><span>Receiving Inspection</span><b>{% if insp_ok %}APPROVED{% elif insp_submitted %}SUBMITTED{% else %}PENDING{% endif %}</b></div>
+
     {% if not readonly %}
       <div class="toolbar mt">
-  
         {% if (lot.status or "")|upper != "APPROVED" %}
-  
-          {# If there is an existing inspection and it's not submitted yet = draft #}
+
           {% if inspection and not inspection.inspector_confirmed %}
             <a class="btn btn-warn" href="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}">
               Resume Draft Inspection
@@ -436,19 +440,15 @@
               {% endif %}
             </a>
           {% endif %}
-  
+
         {% else %}
-          <div class="muted mt">
-            ✅ Ticket is <b>APPROVED</b> — receiving is closed (no further inspections allowed).
-          </div>
+          <div class="muted mt">✅ Ticket is <b>APPROVED</b> — receiving is closed (no further inspections allowed).</div>
         {% endif %}
-  
       </div>
     {% else %}
       <div class="muted mt">Actions disabled (ticket canceled).</div>
     {% endif %}
   </div>
-
 
 </div>
 
