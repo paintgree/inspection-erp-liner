@@ -427,29 +427,40 @@ from reportlab.lib.utils import ImageReader
 from pypdf import PdfReader, PdfWriter, Transformation
 
 
-def fit_pdf_pages_to_a4(pdf_bytes: bytes, margin: float = 18.0) -> bytes:
+def fit_pdf_pages_to_a4(
+    pdf_bytes: bytes,
+    margin_left_right: float = 10.0,
+    margin_bottom: float = 10.0,
+    header_reserved: float = 70.0,   # <-- pushes the whole content DOWN (space for logo/header)
+) -> bytes:
     """
-    Scale each page UP or DOWN to fit inside A4 with small margins.
-    This makes your output bigger/readable if LO exported it too small.
+    Scale each page to fit inside A4 while reserving space at the top for a header/logo.
+    This prevents overlap and makes content larger/readable.
     """
     reader = PdfReader(BytesIO(pdf_bytes))
     writer = PdfWriter()
 
     a4_w, a4_h = A4
-    inner_w = a4_w - 2 * margin
-    inner_h = a4_h - 2 * margin
+
+    # Available area for the content:
+    usable_w = a4_w - 2 * margin_left_right
+    usable_h = a4_h - margin_bottom - header_reserved
 
     for page in reader.pages:
         src_w = float(page.mediabox.width)
         src_h = float(page.mediabox.height)
 
-        # Scale to fill as much as possible inside A4
-        scale = min(inner_w / src_w, inner_h / src_h)
+        # Scale to use the maximum space available (bigger output)
+        scale = min(usable_w / src_w, usable_h / src_h)
 
         new_page = writer.add_blank_page(width=a4_w, height=a4_h)
 
-        tx = (a4_w - (src_w * scale)) / 2.0
-        ty = (a4_h - (src_h * scale)) / 2.0
+        # Center horizontally, and place vertically inside the usable area (below header_reserved)
+        content_w = src_w * scale
+        content_h = src_h * scale
+
+        tx = (a4_w - content_w) / 2.0
+        ty = margin_bottom + (usable_h - content_h) / 2.0
 
         new_page.merge_transformed_page(
             page,
@@ -704,7 +715,8 @@ def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
         pdf = f.read()
     
     # 1) Scale to A4 (makes it bigger / readable)
-    pdf = fit_pdf_pages_to_a4(pdf, margin=14.0)
+    pdf = fit_pdf_pages_to_a4(pdf, margin_left_right=8.0, margin_bottom=8.0, header_reserved=80.0)
+
     
     # 2) Stamp logo in header area (top-center)
     base_dir = os.path.dirname(__file__)
@@ -5080,6 +5092,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
