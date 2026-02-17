@@ -403,15 +403,37 @@ def fill_mrr_f01_xlsx_bytes(
     prop_map = _build_prop_map(prop_items)
 
 
+    # ---- SAFE WRITE into merged cells (fix: 'MergedCell' value is read-only) ----
+    def _write_cell_safe(sheet, row, col, value):
+        cell = sheet.cell(row, col)
+    
+        # If it's part of a merged range, write into the top-left of that merged range
+        if isinstance(cell, openpyxl.cell.cell.MergedCell):
+            for mr in sheet.merged_cells.ranges:
+                if mr.min_row <= row <= mr.max_row and mr.min_col <= col <= mr.max_col:
+                    sheet.cell(mr.min_row, mr.min_col).value = value
+                    return
+            return  # merged but no range found (rare)
+    
+        # normal cell
+        cell.value = value
+    
+    
+    # Fill by matching property names in column A
     for r in range(1, ws.max_row + 1):
-        cell_val = ws.cell(r, 1).value  # col A
+        cell_val = ws.cell(r, 1).value  # column A: Properties names
         if not isinstance(cell_val, str):
             continue
+    
         key = _normalize_key(cell_val)
         if key in prop_map:
             it = prop_map[key]
-            ws.cell(r, 8).value = it.get("result") or it.get("value") or ""  # col H (PDS/COA Results)
-            ws.cell(r, 9).value = it.get("remarks") or ""                    # col I (Remarks)
+    
+            # Your Excel screenshot shows:
+            # H = PDS/COA Results, I = Remarks
+            _write_cell_safe(ws, r, 8, it.get("result") or it.get("value") or "")  # column H
+            _write_cell_safe(ws, r, 9, it.get("remarks") or "")                   # column I
+
 
 
     # ---- VISUAL CHECKS (optional) ----
@@ -5181,6 +5203,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
