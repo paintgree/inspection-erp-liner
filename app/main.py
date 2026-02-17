@@ -536,20 +536,25 @@ def mrr_export_inspection_xlsx(
         raise HTTPException(404, "MRR Inspection not found")
 
     # Docs are ticket-level in your current DB
-    docs = session.exec(select(MrrDocument).where(MrrDocument.ticket_id == lot_id).order_by(MrrDocument.created_at.asc())).all()
+    docs = session.exec(
+        select(MrrDocument)
+        .where(MrrDocument.ticket_id == lot_id)
+        .order_by(MrrDocument.created_at.asc())
+    ).all()
 
-
-    # Draft inspection (not submitted yet) - allow inspector to resume
+    # Draft inspection (not submitted yet) - allow inspector to resume (currently unused)
     draft_inspection = session.exec(
         select(MrrReceivingInspection)
         .where(
-            (MrrReceivingInspection.ticket_id == lot_id) &
-            (MrrReceivingInspection.inspector_confirmed == False)
+            (MrrReceivingInspection.ticket_id == lot_id)
+            & (MrrReceivingInspection.inspector_confirmed == False)
         )
         .order_by(MrrReceivingInspection.created_at.desc())
     ).first()
 
- receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+    receiving = session.exec(
+        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
+    ).first()
 
     # Only allow export if submitted (optional rule)
     if not insp.inspector_confirmed:
@@ -558,7 +563,9 @@ def mrr_export_inspection_xlsx(
     # Decide template based on inspection.template_type
     tpl = _safe_upper(getattr(insp, "template_type", "RAW"))
     if tpl != "RAW":
-        raise HTTPException(400, f"Template type {tpl} export not wired yet (we will do F02 next)")
+        raise HTTPException(
+            400, f"Template type {tpl} export not wired yet (we will do F02 next)"
+        )
 
     xlsx_bytes = fill_mrr_f01_xlsx_bytes(
         lot=lot,
@@ -4985,6 +4992,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
