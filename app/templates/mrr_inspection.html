@@ -217,28 +217,30 @@
             {# IMPORTANT: The "p" values are what your Excel has in Column A.
                Keep these labels matching Excel exactly. #}
             {% set fb_rows = [
-              {"k":"denier","p":"Linear Density","u":"dtex","m":"GB/T 16604-2008","a":"As per grade"},
-              {"k":"break","p":"Breaking Strength","u":"cN","m":"GB/T 16604-2008","a":"As per grade"},
+              {"k":"linear_density","p":"Linear Density","u":"dtex","m":"GB/T 16604-2008","a":"As per grade"},
+              {"k":"breaking_strength","p":"Breaking Strength","u":"cN","m":"GB/T 16604-2008","a":"As per grade"},
               {"k":"tenacity","p":"Tenacity","u":"cN/dtex","m":"GB/T 16604-2008","a":"As per grade"},
-              {"k":"elong","p":"Elongation at Break","u":"%","m":"GB/T 16604-2008","a":"As per grade"},
-              {"k":"melt","p":"Melting Point","u":"°C","m":"GB/T 16604-2008","a":"As per grade"}
+              {"k":"elongation","p":"Elongation at Break","u":"%","m":"GB/T 16604-2008","a":"As per grade"},
+              {"k":"melting_point","p":"Melting Point","u":"C°","m":"GB/T 16604-2008","a":"As per grade"}
             ] %}
+
             {% for r in fb_rows %}
-              <tr>
-                <td>{{ r.p }}</td>
-                <td>{{ r.u }}</td>
-                <td class="wrap">{{ r.m }}</td>
-                <td class="wrap">{{ r.a }}</td>
-                <td>
-                  <input name="fb_{{ r.k }}_result"
-                         value="{{ inspection_data.get('fb_' ~ r.k ~ '_result','') if inspection_data else '' }}">
-                </td>
-                <td>
-                  <input name="fb_{{ r.k }}_remarks"
-                         value="{{ inspection_data.get('fb_' ~ r.k ~ '_remarks','') if inspection_data else '' }}">
-                </td>
-              </tr>
+            <tr>
+              <td>{{ r.p }}</td>
+              <td>{{ r.u }}</td>
+              <td class="wrap">{{ r.m }}</td>
+              <td class="wrap">{{ r.a }}</td>
+              <td>
+                <input name="fb_{{ r.k }}_result"
+                       value="{{ inspection_data.get('fb_' ~ r.k ~ '_result','') if inspection_data else '' }}">
+              </td>
+              <td>
+                <input name="fb_{{ r.k }}_remarks"
+                       value="{{ inspection_data.get('fb_' ~ r.k ~ '_remarks','') if inspection_data else '' }}">
+              </td>
+            </tr>
             {% endfor %}
+
           </tbody>
         </table>
       </div>
