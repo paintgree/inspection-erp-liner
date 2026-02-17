@@ -374,7 +374,8 @@ def fill_mrr_f01_xlsx_bytes(
                     ws.cell(r, 7).value = "YES" if v else "NO"
 
     # ---- SIGNATURES ----
-    _ws_set_value_safe(ws, "E45", getattr(inspection, "inspector_name", "") or "")
+    _ws_set_value_safe(ws, "B51", getattr(inspection, "inspector_name", "") or "")
+     _ws_set_value_safe(ws, "B52", _as_date_str(datetime.utcnow()))
 
     if bool(getattr(inspection, "manager_approved", False)):
         _ws_set_value_safe(ws, "D51", "MANAGER")
@@ -453,7 +454,7 @@ def fit_pdf_pages_to_a4(
     header_reserved: float = 78.0,
     zoom: float = 1.18,        # <-- makes content bigger (try 1.15 to 1.25)
     shift_x: float =  40.0,    # <-- move content LEFT  (fixes big right gap)
-    shift_y: float = -100.0,      # <-- move content UP/DOWN (small tweak)
+    shift_y: float = -80.0,      # <-- move content UP/DOWN (small tweak)
 ) -> bytes:
     """
     Force pages onto A4, reserve header space, then zoom and shift
@@ -5118,6 +5119,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
