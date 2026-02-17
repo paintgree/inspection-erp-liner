@@ -130,111 +130,239 @@
     {% set inspector_confirmed = (receiving and receiving.inspector_confirmed_po) %}
     {% set manager_confirmed = (receiving and receiving.manager_confirmed_po) %}
 
-    <!-- ✅ CHECKLIST (STYLE LIKE YOUR SCREENSHOT: ONE PANEL, ROWS INSIDE) -->
-    <div class="mt">
-      <div class="sectiontitle accent-blue">Checklist</div>
+    <!-- ✅ LEVEL-UP INSPECTION STATUS (modern, tablet-friendly) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
-      <style>
-        .chkpanel{
-          margin-top:10px;
-          border:1px solid #e9e9e9;
-          border-radius:14px;
-          background:#fff;
-          overflow:hidden;
-        }
-        .chkrow{
-          display:flex;
-          align-items:center;
-          justify-content:space-between;
-          padding:14px 14px;
-          border-bottom:1px solid #f0f0f0;
-        }
-        .chkrow:last-child{ border-bottom:none; }
-        .chkleft{ display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
-        .chkleft b{ font-weight:800; }
-        .pill{ padding:5px 12px; border-radius:999px; font-weight:800; font-size:12px; border:1px solid transparent; white-space:nowrap; }
-        .ok{ background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
-        .no{ background:#fef2f2; border-color:#fecaca; color:#991b1b; }
-        .warn{ background:#fffbeb; border-color:#fde68a; color:#92400e; }
-        .info{ background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
-        .mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 12px; }
-      </style>
+<style>
+  .inspStatusCard {
+    font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-top: 14px;
+  }
 
-      <div class="chkpanel">
+  .inspStatusHeader {
+    padding: 16px 16px 12px 16px;
+    border-bottom: 1px solid #f1f1f1;
+  }
 
-        <div class="chkrow">
-          <div class="chkleft">
-            <b>PO</b>
-            <span class="muted">Uploaded</span>
-          </div>
-          <span class="pill {% if ns.has_po %}ok{% else %}no{% endif %}">
-            {% if ns.has_po %}✓ Uploaded{% else %}✖ Missing{% endif %}
-          </span>
-        </div>
+  .inspStatusTitle {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+    letter-spacing: -0.2px;
+  }
 
-        <div class="chkrow">
-          <div class="chkleft">
-            <b>Quality Doc</b>
-            <span class="muted">COA / MTC / Inspection Report</span>
-          </div>
-          <span class="pill {% if ns.has_quality %}ok{% else %}no{% endif %}">
-            {% if ns.has_quality %}✓ Uploaded{% else %}✖ Missing{% endif %}
-          </span>
-        </div>
+  .inspStatusSub {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #6b7280;
+  }
 
-        <div class="chkrow">
-          <div class="chkleft">
-            <b>Delivery Note</b>
-            <span class="muted">Uploaded</span>
-          </div>
-          <span class="pill {% if ns.has_dn %}ok{% else %}warn{% endif %}">
-            {% if ns.has_dn %}✓ Uploaded{% else %}⚠ Optional{% endif %}
-          </span>
-        </div>
+  .inspRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f1f1;
+  }
 
-        <div class="chkrow">
-          <div class="chkleft">
-            <b>Ticket PO</b>
-          </div>
-          <span class="pill info mono">{{ lot.po_number or "-" }}</span>
-        </div>
+  .inspRow:last-child { border-bottom: none; }
 
-        <div class="chkrow">
-          <div class="chkleft">
-            <b>Entered PO</b>
-          </div>
-          <span class="pill info mono">{{ receiving.inspector_po_number if receiving else "-" }}</span>
-        </div>
+  .inspIcon {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    display: grid;
+    place-items: center;
+  }
 
-        <div class="chkrow">
-          <div class="chkleft">
-            <b>PO Match</b>
-          </div>
-          <span class="pill {% if po_match %}ok{% elif po_entered %}no{% else %}warn{% endif %}">
-            {% if po_match %}✓ Match{% elif po_entered %}✖ Not Match{% else %}⚠ Not Checked{% endif %}
-          </span>
-        </div>
+  .inspText {
+    font-size: 15px;
+    font-weight: 600;
+    color: #111827;
+  }
 
-        <div class="chkrow">
-          <div class="chkleft">
-            <b>Inspector Confirmation</b>
-          </div>
-          <span class="pill {% if inspector_confirmed %}ok{% else %}warn{% endif %}">
-            {% if inspector_confirmed %}✓ Confirmed{% else %}⚠ Not Confirmed{% endif %}
-          </span>
-        </div>
+  .inspHint {
+    font-size: 13px;
+    color: #6b7280;
+    margin-top: 2px;
+    font-weight: 500;
+  }
 
-        <div class="chkrow">
-          <div class="chkleft">
-            <b>Manager Approval</b>
-          </div>
-          <span class="pill {% if manager_confirmed %}ok{% else %}warn{% endif %}">
-            {% if manager_confirmed %}✓ Approved{% else %}⚠ Pending{% endif %}
-          </span>
-        </div>
+  .inspRight {
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
 
-      </div>
+  .tagOk     { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
+  .tagBad    { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+  .tagWait   { background:#fffbeb; border-color:#fde68a; color:#92400e; }
+  .tagInfo   { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+
+  /* Icon SVG helpers */
+  .svgCircle { width: 34px; height: 34px; }
+</style>
+
+{# --- Status logic using your existing variables in this template --- #}
+{% set documents_uploaded = (ns.has_po and ns.has_quality) %}
+{% set documentation_saved = (receiving and (receiving.inspector_po_number or "")|length > 0) %}
+{% set documentation_cleared = (receiving and receiving.manager_confirmed_po) %}
+{% set receiving_inspection_submitted = (inspection and inspection.inspector_confirmed) %}
+{% set waiting_manager_approval = (receiving_inspection_submitted and not (inspection and inspection.manager_approved)) %}
+
+<div class="inspStatusCard">
+  <div class="inspStatusHeader">
+    <div class="inspStatusTitle">Inspection Status</div>
+    <div class="inspStatusSub">
+      Quick view for warehouse/tablet use (green = done, red = missing, amber = waiting)
     </div>
+  </div>
+
+  <!-- Documents Uploaded -->
+  <div class="inspRow">
+    <div class="inspIcon">
+      {% if documents_uploaded %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
+          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      {% else %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
+          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      {% endif %}
+    </div>
+    <div>
+      <div class="inspText">Documents Uploaded</div>
+      <div class="inspHint">PO + Quality Doc (COA/MTC/Inspection Report)</div>
+    </div>
+    <div class="inspRight {% if documents_uploaded %}tagOk{% else %}tagBad{% endif %}">
+      {% if documents_uploaded %}DONE{% else %}MISSING{% endif %}
+    </div>
+  </div>
+
+  <!-- Documentation Saved -->
+  <div class="inspRow">
+    <div class="inspIcon">
+      {% if documentation_saved %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
+          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      {% else %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
+          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      {% endif %}
+    </div>
+    <div>
+      <div class="inspText">Documentation Saved</div>
+      <div class="inspHint">Inspector entered PO number</div>
+    </div>
+    <div class="inspRight {% if documentation_saved %}tagOk{% else %}tagBad{% endif %}">
+      {% if documentation_saved %}DONE{% else %}NOT YET{% endif %}
+    </div>
+  </div>
+
+  <!-- Documentation Cleared -->
+  <div class="inspRow">
+    <div class="inspIcon">
+      {% if documentation_cleared %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
+          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      {% else %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
+          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      {% endif %}
+    </div>
+    <div>
+      <div class="inspText">Documentation Cleared</div>
+      <div class="inspHint">Manager approved documentation</div>
+    </div>
+    <div class="inspRight {% if documentation_cleared %}tagOk{% else %}tagBad{% endif %}">
+      {% if documentation_cleared %}DONE{% else %}PENDING{% endif %}
+    </div>
+  </div>
+
+  <!-- Receiving Inspection Submitted -->
+  <div class="inspRow">
+    <div class="inspIcon">
+      {% if receiving_inspection_submitted %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
+          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      {% else %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
+          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      {% endif %}
+    </div>
+    <div>
+      <div class="inspText">Receiving Inspection Submitted</div>
+      <div class="inspHint">Inspector submitted shipment inspection</div>
+    </div>
+    <div class="inspRight {% if receiving_inspection_submitted %}tagOk{% else %}tagBad{% endif %}">
+      {% if receiving_inspection_submitted %}DONE{% else %}NOT YET{% endif %}
+    </div>
+  </div>
+
+  <!-- Waiting for Manager Approval -->
+  <div class="inspRow">
+    <div class="inspIcon">
+      {% if waiting_manager_approval %}
+        <!-- Amber hourglass -->
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#fef3c7"></circle>
+          <path d="M8 7h8M8 17h8M9 7c0 4 6 4 6 8s-6 4-6 8" fill="none"
+                stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      {% elif inspection and inspection.manager_approved %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
+          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      {% else %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
+          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      {% endif %}
+    </div>
+    <div>
+      <div class="inspText">Waiting for Manager Approval</div>
+      <div class="inspHint">Final approval to close the ticket</div>
+    </div>
+
+    {% if inspection and inspection.manager_approved %}
+      <div class="inspRight tagOk">APPROVED</div>
+    {% elif waiting_manager_approval %}
+      <div class="inspRight tagWait">WAITING</div>
+    {% else %}
+      <div class="inspRight tagBad">NOT READY</div>
+    {% endif %}
+  </div>
+</div>
+<!-- ✅ END LEVEL-UP INSPECTION STATUS -->
+
 
     <!-- UPLOADED DOCS LIST -->
     <div class="card inner mt">
