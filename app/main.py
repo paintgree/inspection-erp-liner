@@ -715,7 +715,8 @@ def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
         pdf = f.read()
     
     # 1) Scale to A4 (makes it bigger / readable)
-    pdf = fit_pdf_pages_to_a4(pdf, margin_left_right=8.0, margin_bottom=8.0, header_reserved=80.0)
+    pdf = fit_pdf_pages_to_a4(pdf, margin_left_right=3.0, margin_bottom=3.0, header_reserved=78.0)
+
 
     
     # 2) Stamp logo in header area (top-center)
@@ -5092,6 +5093,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
