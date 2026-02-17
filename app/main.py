@@ -40,7 +40,6 @@ from fastapi import (
 from fastapi.responses import (
     HTMLResponse,
     RedirectResponse,
-    JSONResponse,
     StreamingResponse,
     Response,
     FileResponse,
@@ -165,7 +164,7 @@ def get_latest_draft_shipment(session: Session, lot_id: int):
             (MrrReceivingInspection.ticket_id == lot_id) &
             (MrrReceivingInspection.inspector_confirmed == False) &
             (MrrReceivingInspection.manager_approved == False)
-        ).order_by(MrrReceivingInspection.id.desc())
+        ).order_by(MrrReceivingInspection.created_at.desc())
     ).first()
 
 
@@ -392,9 +391,15 @@ def fill_mrr_f01_xlsx_bytes(
         if os.path.exists(logo_path):
             from openpyxl.drawing.image import Image as XLImage
             img = XLImage(logo_path)
-            # Keep logo small so it never overlaps the header/table
-            img.width = 140
-            img.height = 60
+            # Resize logo so it never overlaps header when exported to PDF
+            try:
+                max_w = 110  # px
+                if getattr(img, "width", None) and getattr(img, "height", None) and img.width > max_w:
+                    ratio = max_w / float(img.width)
+                    img.width = int(img.width * ratio)
+                    img.height = int(img.height * ratio)
+            except Exception:
+                pass
             img.anchor = "A1"
             ws.add_image(img)
     except Exception:
@@ -533,7 +538,18 @@ def mrr_export_inspection_xlsx(
     # Docs are ticket-level in your current DB
     docs = session.exec(select(MrrDocument).where(MrrDocument.ticket_id == lot_id).order_by(MrrDocument.created_at.asc())).all()
 
-    receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+
+    # Draft inspection (not submitted yet) - allow inspector to resume
+    draft_inspection = session.exec(
+        select(MrrReceivingInspection)
+        .where(
+            (MrrReceivingInspection.ticket_id == lot_id) &
+            (MrrReceivingInspection.inspector_confirmed == False)
+        )
+        .order_by(MrrReceivingInspection.created_at.desc())
+    ).first()
+
+ receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
 
     # Only allow export if submitted (optional rule)
     if not insp.inspector_confirmed:
@@ -1559,7 +1575,7 @@ def mrr_list(request: Request, session: Session = Depends(get_session)):
         inspections = session.exec(
             select(MrrReceivingInspection)
             .where(MrrReceivingInspection.ticket_id.in_(lot_ids))
-            .order_by(MrrReceivingInspection.id.desc())
+            .order_by(MrrReceivingInspection.created_at.desc())
         ).all()
 
         # latest inspection per ticket
@@ -1782,7 +1798,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
     inspection = session.exec(
         select(MrrReceivingInspection)
         .where(MrrReceivingInspection.ticket_id == lot_id)
-        .order_by(MrrReceivingInspection.id.desc())
+        .order_by(MrrReceivingInspection.created_at.desc())
     ).first()
 
     # Submitted shipments (for showing DN list + photos)
@@ -1795,19 +1811,15 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
         .order_by(MrrReceivingInspection.created_at.asc())
     ).all()
 
-    # Draft inspections (saved but not submitted) — allow inspector to resume
-    draft_inspections = session.exec(
+    # Draft inspection (saved but not submitted) - allow resume
+    draft_inspection = session.exec(
         select(MrrReceivingInspection)
         .where(
             (MrrReceivingInspection.ticket_id == lot_id) &
-            (MrrReceivingInspection.inspector_confirmed == False) &
-            (MrrReceivingInspection.manager_approved == False)
+            (MrrReceivingInspection.inspector_confirmed == False)
         )
-        .order_by(MrrReceivingInspection.id.desc())
-    ).all()
-
-    latest_draft_inspection = draft_inspections[0] if draft_inspections else None
-
+        .order_by(MrrReceivingInspection.created_at.desc())
+    ).first()
 
     # ✅ Build a map: inspection_id -> batch_numbers list (safe for SQLModel)
     batch_numbers_map = {}
@@ -1831,7 +1843,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
             (MrrReceivingInspection.inspector_confirmed == True) &
             (MrrReceivingInspection.manager_approved == False)
         )
-        .order_by(MrrReceivingInspection.id.desc())
+        .order_by(MrrReceivingInspection.created_at.desc())
     ).first()
 
     # ✅ Latest approved inspection (for Unapprove button)
@@ -1842,7 +1854,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
             (MrrReceivingInspection.inspector_confirmed == True) &
             (MrrReceivingInspection.manager_approved == True)
         )
-        .order_by(MrrReceivingInspection.id.desc())
+        .order_by(MrrReceivingInspection.created_at.desc())
     ).first()
 
     # Photos grouped by inspection
@@ -1882,12 +1894,12 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
             "insp_submitted": insp_submitted,
             "insp_ok": insp_ok,
             "submitted_shipments": submitted_shipments,
-            "latest_draft_inspection": latest_draft_inspection,
             "used_dns": used_dns,
             "photos_by_inspection": photos_by_inspection,
             "inspection_to_approve": inspection_to_approve,
             "latest_approved_inspection": latest_approved_inspection,
             "batch_numbers_map": batch_numbers_map,
+            "draft_inspection": draft_inspection,
 
         },
     )
@@ -2279,7 +2291,7 @@ def mrr_pending(request: Request, session: Session = Depends(get_session)):
         select(MrrReceivingInspection)
         .where(MrrReceivingInspection.inspector_confirmed == True)
         .where(MrrReceivingInspection.manager_approved == False)
-        .order_by(MrrReceivingInspection.id.desc())
+        .order_by(MrrReceivingInspection.created_at.desc())
     ).all()
 
     # Load lots to show ticket info
@@ -2446,6 +2458,10 @@ def mrr_inspection_submit(
 
     # Normalize action
     action = (action or "submit").strip().lower()
+    # Final submit requires at least 1 batch number (draft saves can be empty)
+    if action == "submit":
+        if not any((b or "").strip() for b in (batch_numbers or [])):
+            raise HTTPException(status_code=400, detail="Batch number is required to submit.")
 
     # Build JSON exactly like your template expects
     inspection_data = {
@@ -2511,9 +2527,6 @@ def mrr_inspection_submit(
         insp.inspector_confirmed = False
         session.add(insp)
         session.commit()
-        # If this is an autosave call (AJAX), return JSON so the page doesn't redirect.
-        if request.headers.get("x-autosave", "").strip() == "1":
-            return JSONResponse({"ok": True, "saved": "draft"})
         return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}?saved=draft", status_code=302)
 
     # Final submit
@@ -4972,4 +4985,11 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
+
+
+
+
+
+
 
