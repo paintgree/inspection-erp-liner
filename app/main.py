@@ -375,7 +375,7 @@ def fill_mrr_f01_xlsx_bytes(
 
     # ---- SIGNATURES ----
     _ws_set_value_safe(ws, "B51", getattr(inspection, "inspector_name", "") or "")
-     _ws_set_value_safe(ws, "B52", _as_date_str(datetime.utcnow()))
+    _ws_set_value_safe(ws, "B52", _as_date_str(datetime.utcnow()))
 
     if bool(getattr(inspection, "manager_approved", False)):
         _ws_set_value_safe(ws, "D51", "MANAGER")
@@ -5119,6 +5119,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
