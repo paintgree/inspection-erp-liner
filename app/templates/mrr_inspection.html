@@ -13,13 +13,12 @@
       <div class="muted tiny" id="autosaveStatus" style="margin-top:6px;">Autosave: <b>ready</b></div>
     </div>
     <div class="actions">
-      <span class="pill">Report: <b>{{ inspection_data.get('report_no','') if inspection_data else '' }}</b></span>
+      <span class="pill">Report: <b>{{ inspection_data.get("report_no","") if inspection_data else "" }}</b></span>
     </div>
   </div>
 
-  <!-- Submit endpoint (same) -->
+  <!-- Submit endpoint -->
   <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/submit" class="mt" id="inspectionForm">
-    <!-- hidden action (submit vs draft) -->
     <input type="hidden" name="action" id="form_action" value="submit">
 
     <!-- =========================
@@ -71,7 +70,7 @@
       const wrap = document.getElementById("batchWrap");
       const addBtn = document.getElementById("addBatchBtn");
 
-      const existing = {{ (inspection_data.get('batch_numbers', []) if inspection_data else []) | tojson }};
+      const existing = {{ (inspection_data.get("batch_numbers", []) if inspection_data else []) | tojson }};
       if (Array.isArray(existing) && existing.length > 0) {
         wrap.innerHTML = "";
         existing.forEach((v) => {
@@ -99,7 +98,7 @@
       <div class="sectiontitle accent-blue">Partial delivery (ticket stays open)</div>
 
       <label>If quantity mismatch / partial delivery – Reason</label>
-      <textarea name="mismatch_reason" placeholder="Explain mismatch / partial delivery...">{{ inspection_data.get('mismatch_reason','') if inspection_data else '' }}</textarea>
+      <textarea name="mismatch_reason" placeholder="Explain mismatch / partial delivery...">{{ inspection_data.get("mismatch_reason","") if inspection_data else "" }}</textarea>
     </div>
 
     <!-- =========================
@@ -111,18 +110,18 @@
       <div class="grid2">
         <div>
           <label>Material Type</label>
-          {% set fam = inspection_data.get('material_family','') if inspection_data else '' %}
+          {% set fam = inspection_data.get("material_family","") if inspection_data else "" %}
           <select id="material_family" name="material_family" onchange="toggleMaterialTables()">
             <option value="">-- select --</option>
-            <option value="PE" {% if fam == 'PE' %}selected{% endif %}>Polyethylene (PE / PERT / PE100)</option>
-            <option value="FIBER" {% if fam == 'FIBER' %}selected{% endif %}>Fiber (Polyester)</option>
+            <option value="PE" {% if fam == "PE" %}selected{% endif %}>Polyethylene (PE / PERT / PE100)</option>
+            <option value="FIBER" {% if fam == "FIBER" %}selected{% endif %}>Fiber (Polyester)</option>
           </select>
           <div class="muted tiny">This controls which property table is shown.</div>
         </div>
 
         <div>
           <label>Material Grade</label>
-          {% set grade = inspection_data.get('material_grade','') if inspection_data else '' %}
+          {% set grade = inspection_data.get("material_grade","") if inspection_data else "" %}
           <input
             type="text"
             name="material_grade"
@@ -181,12 +180,10 @@
                 <td class="wrap">{{ r.m }}</td>
                 <td class="wrap">{{ r.a }}</td>
                 <td>
-                  <input name="pe_{{ r.k }}_result"
-                         value="{{ inspection_data.get('pe_' ~ r.k ~ '_result','') if inspection_data else '' }}">
+                  <input name="pe_{{ r.k }}_result" value="{{ inspection_data.get('pe_' ~ r.k ~ '_result','') if inspection_data else '' }}">
                 </td>
                 <td>
-                  <input name="pe_{{ r.k }}_remarks"
-                         value="{{ inspection_data.get('pe_' ~ r.k ~ '_remarks','') if inspection_data else '' }}">
+                  <input name="pe_{{ r.k }}_remarks" value="{{ inspection_data.get('pe_' ~ r.k ~ '_remarks','') if inspection_data else '' }}">
                 </td>
               </tr>
             {% endfor %}
@@ -196,7 +193,7 @@
     </div>
 
     <!-- =========================
-         Properties Table - Fiber (UPDATED to match Excel)
+         Properties Table - Fiber (MATCHES EXCEL)
     ========================== -->
     <div class="card inner mt" id="fiber_table" style="display:none;">
       <div class="sectiontitle accent-green">Raw Material Properties (Fiber)</div>
@@ -214,8 +211,6 @@
             </tr>
           </thead>
           <tbody>
-            {# IMPORTANT: The "p" values are what your Excel has in Column A.
-               Keep these labels matching Excel exactly. #}
             {% set fb_rows = [
               {"k":"linear_density","p":"Linear Density","u":"dtex","m":"GB/T 16604-2008","a":"As per grade"},
               {"k":"breaking_strength","p":"Breaking Strength","u":"cN","m":"GB/T 16604-2008","a":"As per grade"},
@@ -223,31 +218,27 @@
               {"k":"elongation","p":"Elongation at Break","u":"%","m":"GB/T 16604-2008","a":"As per grade"},
               {"k":"melting_point","p":"Melting Point","u":"C°","m":"GB/T 16604-2008","a":"As per grade"}
             ] %}
-
             {% for r in fb_rows %}
-            <tr>
-              <td>{{ r.p }}</td>
-              <td>{{ r.u }}</td>
-              <td class="wrap">{{ r.m }}</td>
-              <td class="wrap">{{ r.a }}</td>
-              <td>
-                <input name="fb_{{ r.k }}_result"
-                       value="{{ inspection_data.get('fb_' ~ r.k ~ '_result','') if inspection_data else '' }}">
-              </td>
-              <td>
-                <input name="fb_{{ r.k }}_remarks"
-                       value="{{ inspection_data.get('fb_' ~ r.k ~ '_remarks','') if inspection_data else '' }}">
-              </td>
-            </tr>
+              <tr>
+                <td>{{ r.p }}</td>
+                <td>{{ r.u }}</td>
+                <td class="wrap">{{ r.m }}</td>
+                <td class="wrap">{{ r.a }}</td>
+                <td>
+                  <input name="fb_{{ r.k }}_result" value="{{ inspection_data.get('fb_' ~ r.k ~ '_result','') if inspection_data else '' }}">
+                </td>
+                <td>
+                  <input name="fb_{{ r.k }}_remarks" value="{{ inspection_data.get('fb_' ~ r.k ~ '_remarks','') if inspection_data else '' }}">
+                </td>
+              </tr>
             {% endfor %}
-
           </tbody>
         </table>
       </div>
     </div>
 
     <!-- =========================
-         Visual + Documentation Checklists
+         Visual and Physical Inspection
     ========================== -->
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">Visual and Physical Inspection</div>
@@ -272,27 +263,29 @@
             ] %}
 
             {% for item in visual_items %}
-            {% set slug = item|replace(" ", "_")|replace("/", "_")|replace("(", "")|replace(")", "")|replace(".", "")|lower %}
-            <tr>
-              <td>{{ item }}</td>
-              <td>
-                <select name="vc_{{ slug }}_yn">
-                  <option value="" {% if not inspection_data %}selected{% endif %}></option>
-                  <option value="YES" {% if inspection_data and inspection_data.get("vc_" ~ slug ~ "_yn") == "YES" %}selected{% endif %}>YES</option>
-                  <option value="NO"  {% if inspection_data and inspection_data.get("vc_" ~ slug ~ "_yn") == "NO" %}selected{% endif %}>NO</option>
-                </select>
-              </td>
-              <td>
-                <input name="vc_{{ slug }}_remarks"
-                       value="{{ inspection_data.get('vc_' ~ slug ~ '_remarks','') if inspection_data else '' }}">
-              </td>
-            </tr>
+              {% set slug = item|replace(" ", "_")|replace("/", "_")|replace("(", "")|replace(")", "")|replace(".", "")|lower %}
+              <tr>
+                <td>{{ item }}</td>
+                <td>
+                  <select name="vc_{{ slug }}_yn">
+                    <option value="" {% if not inspection_data %}selected{% endif %}></option>
+                    <option value="YES" {% if inspection_data and inspection_data.get("vc_" ~ slug ~ "_yn") == "YES" %}selected{% endif %}>YES</option>
+                    <option value="NO"  {% if inspection_data and inspection_data.get("vc_" ~ slug ~ "_yn") == "NO" %}selected{% endif %}>NO</option>
+                  </select>
+                </td>
+                <td>
+                  <input name="vc_{{ slug }}_remarks" value="{{ inspection_data.get('vc_' ~ slug ~ '_remarks','') if inspection_data else '' }}">
+                </td>
+              </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     </div>
 
+    <!-- =========================
+         Documentation Review
+    ========================== -->
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">Documentation Review</div>
 
@@ -313,21 +306,20 @@
             ] %}
 
             {% for item in doc_items %}
-            {% set slug = item|replace(" ", "_")|replace("’","")|replace("'", "")|replace("/", "_")|replace("(", "")|replace(")", "")|replace(".", "")|lower %}
-            <tr>
-              <td>{{ item }}</td>
-              <td>
-                <select name="dr_{{ slug }}_yn">
-                  <option value="" {% if not inspection_data %}selected{% endif %}></option>
-                  <option value="YES" {% if inspection_data and inspection_data.get("dr_" ~ slug ~ "_yn") == "YES" %}selected{% endif %}>YES</option>
-                  <option value="NO"  {% if inspection_data and inspection_data.get("dr_" ~ slug ~ "_yn") == "NO" %}selected{% endif %}>NO</option>
-                </select>
-              </td>
-              <td>
-                <input name="dr_{{ slug }}_remarks"
-                       value="{{ inspection_data.get('dr_' ~ slug ~ '_remarks','') if inspection_data else '' }}">
-              </td>
-            </tr>
+              {% set slug = item|replace(" ", "_")|replace("’","")|replace("'", "")|replace("/", "_")|replace("(", "")|replace(")", "")|replace(".", "")|lower %}
+              <tr>
+                <td>{{ item }}</td>
+                <td>
+                  <select name="dr_{{ slug }}_yn">
+                    <option value="" {% if not inspection_data %}selected{% endif %}></option>
+                    <option value="YES" {% if inspection_data and inspection_data.get("dr_" ~ slug ~ "_yn") == "YES" %}selected{% endif %}>YES</option>
+                    <option value="NO"  {% if inspection_data and inspection_data.get("dr_" ~ slug ~ "_yn") == "NO" %}selected{% endif %}>NO</option>
+                  </select>
+                </td>
+                <td>
+                  <input name="dr_{{ slug }}_remarks" value="{{ inspection_data.get('dr_' ~ slug ~ '_remarks','') if inspection_data else '' }}">
+                </td>
+              </tr>
             {% endfor %}
           </tbody>
         </table>
@@ -374,7 +366,7 @@
       <div class="sectiontitle accent-blue">Remarks</div>
 
       <label>General remarks</label>
-      <textarea name="remarks" placeholder="General remarks...">{{ inspection_data.get('remarks','') if inspection_data else '' }}</textarea>
+      <textarea name="remarks" placeholder="General remarks...">{{ inspection_data.get("remarks","") if inspection_data else "" }}</textarea>
 
       <div class="grid2 mt">
         <div>
@@ -395,7 +387,7 @@
   </form>
 
   <!-- =========================
-       Photo Evidence (Upload + View)
+       Photo Evidence
   ========================== -->
   <div class="card inner mt">
     <div class="sectiontitle accent-blue">Photo Evidence</div>
@@ -466,7 +458,6 @@
       <div class="muted tiny mt">No photos uploaded yet.</div>
     {% endif %}
   </div>
-
 </div>
 
 <script>
@@ -481,7 +472,7 @@
   toggleMaterialTables();
 
   // =========================
-  // AUTO-SAVE DRAFT (no button)
+  // AUTO-SAVE DRAFT
   // =========================
   (function(){
     const form = document.getElementById("inspectionForm");
@@ -504,7 +495,9 @@
         const fd = new FormData(form);
         fd.set("action", "draft");
 
-        const res = await fetch(form.action, { method: "POST", body: fd });
+        // IMPORTANT: use attribute value to avoid weird URL issues
+        const url = form.getAttribute("action");
+        const res = await fetch(url, { method: "POST", body: fd });
 
         if(res.ok){
           setStatus("saved ✓");
