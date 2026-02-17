@@ -381,33 +381,11 @@ def fill_mrr_f01_xlsx_bytes(
         _ws_set_value_safe(ws, "H46", _as_date_str(datetime.utcnow()))
 
     # -------------------------
-    # LOGO (FIX)
+    # LOGO
     # -------------------------
-    # Your logo was in Excel HEADER (&G). openpyxl does NOT preserve header images.
-    # So we insert the logo as a normal worksheet image.
-    try:
-        base_dir = os.path.dirname(__file__)
-        logo_path = os.path.join(base_dir, "static", "images", "logo.png")
-        if os.path.exists(logo_path):
-            from openpyxl.drawing.image import Image as XLImage
-            img = XLImage(logo_path)
-            # Resize logo so it never overlaps header when exported to PDF
-            try:
-                max_w = 110  # px
-                if getattr(img, "width", None) and getattr(img, "height", None) and img.width > max_w:
-                    ratio = max_w / float(img.width)
-                    img.width = int(img.width * ratio)
-                    img.height = int(img.height * ratio)
-            except Exception:
-                pass
-            # Put logo centered across A..L (your print area is A1:L64) :contentReference[oaicite:3]{index=3}
-            # Middle is around F/G. Anchor at F1 and give enough row height.
-            img.anchor = "F1"
-            ws.row_dimensions[1].height = 28  # give space for the logo so it won't overlap text
-            ws.add_image(img)
+    # Do NOT insert logo into worksheet cells.
+    # We stamp the logo into the PDF after conversion (true header behavior).
 
-    except Exception:
-        pass
 
     # -------------------------
     # PDF EXPORT PAGE SETUP
@@ -442,29 +420,37 @@ def fill_mrr_f01_xlsx_bytes(
     return _xlsx_bytes_from_wb(wb)
 
 
-from reportlab.lib.pagesizes import A4
-from pypdf import PdfReader, PdfWriter, Transformation
 from io import BytesIO
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
+from pypdf import PdfReader, PdfWriter, Transformation
 
-def fit_pdf_pages_to_a4(pdf_bytes: bytes) -> bytes:
+
+def fit_pdf_pages_to_a4(pdf_bytes: bytes, margin: float = 18.0) -> bytes:
+    """
+    Scale each page UP or DOWN to fit inside A4 with small margins.
+    This makes your output bigger/readable if LO exported it too small.
+    """
     reader = PdfReader(BytesIO(pdf_bytes))
     writer = PdfWriter()
 
     a4_w, a4_h = A4
+    inner_w = a4_w - 2 * margin
+    inner_h = a4_h - 2 * margin
 
     for page in reader.pages:
         src_w = float(page.mediabox.width)
         src_h = float(page.mediabox.height)
 
-        # scale to fit inside A4 (keep aspect ratio)
-        scale = min(a4_w / src_w, a4_h / src_h)
+        # Scale to fill as much as possible inside A4
+        scale = min(inner_w / src_w, inner_h / src_h)
 
         new_page = writer.add_blank_page(width=a4_w, height=a4_h)
 
         tx = (a4_w - (src_w * scale)) / 2.0
         ty = (a4_h - (src_h * scale)) / 2.0
 
-        # merge scaled page into center of A4 canvas
         new_page.merge_transformed_page(
             page,
             Transformation().scale(scale).translate(tx, ty)
@@ -474,6 +460,60 @@ def fit_pdf_pages_to_a4(pdf_bytes: bytes) -> bytes:
     writer.write(out)
     out.seek(0)
     return out.read()
+
+
+def make_logo_stamp_pdf(page_w: float, page_h: float, logo_path: str) -> bytes:
+    """
+    Create a transparent 1-page PDF with a centered logo at top.
+    """
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=(page_w, page_h))
+
+    img = ImageReader(logo_path)
+    iw, ih = img.getSize()
+
+    # Logo size: ~24% of page width (adjust if you want bigger/smaller)
+    target_w = page_w * 0.32
+    scale = target_w / float(iw)
+    target_h = float(ih) * scale
+
+    top_margin = 16
+    x = (page_w - target_w) / 2.0
+    y = page_h - top_margin - target_h
+
+    c.drawImage(img, x, y, width=target_w, height=target_h, mask="auto")
+    c.showPage()
+    c.save()
+
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def stamp_logo_on_pdf(pdf_bytes: bytes, logo_path: str) -> bytes:
+    """
+    Overlay the logo stamp onto every page (top-center).
+    """
+    if not logo_path or not os.path.exists(logo_path):
+        return pdf_bytes
+
+    reader = PdfReader(BytesIO(pdf_bytes))
+    writer = PdfWriter()
+
+    for page in reader.pages:
+        w = float(page.mediabox.width)
+        h = float(page.mediabox.height)
+
+        stamp_pdf = make_logo_stamp_pdf(w, h, logo_path)
+        stamp_reader = PdfReader(BytesIO(stamp_pdf))
+
+        page.merge_page(stamp_reader.pages[0])
+        writer.add_page(page)
+
+    out = BytesIO()
+    writer.write(out)
+    out.seek(0)
+    return out.getvalue()
+
 
 
 
@@ -663,8 +703,16 @@ def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
     with open(pdf_path, "rb") as f:
         pdf = f.read()
     
-    # Force A4 fit (fixes “not resized to fit page”)
-    return fit_pdf_pages_to_a4(pdf)
+    # 1) Scale to A4 (makes it bigger / readable)
+    pdf = fit_pdf_pages_to_a4(pdf, margin=14.0)
+    
+    # 2) Stamp logo in header area (top-center)
+    base_dir = os.path.dirname(__file__)
+    logo_path = os.path.join(base_dir, "static", "images", "logo.png")
+    pdf = stamp_logo_on_pdf(pdf, logo_path)
+    
+    return pdf
+
 
 
 
@@ -5032,6 +5080,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
