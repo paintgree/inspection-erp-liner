@@ -303,6 +303,11 @@ def fill_mrr_f01_xlsx_bytes(
     _ws_set_value_safe(ws, "B8", grade)
     _ws_set_value_safe(ws, "F8", getattr(inspection, "delivery_note_no", "") or "")
 
+    # --- COMMENTS / REMARKS into the report ---
+    # IMPORTANT: Change "B49" to the real cell address of your "Comments:" box in QAP0600-F01.xlsx
+    _ws_set_value_safe(ws, "A46", (data.get("remarks") or "").strip())
+    
+
     # ---- Dynamic Template Titles ----
     # Show only what user selected, remove hardcoded template names
     title = ""
@@ -5119,6 +5124,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
