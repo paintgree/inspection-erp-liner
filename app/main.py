@@ -715,7 +715,7 @@ def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
         pdf = f.read()
     
     # 1) Scale to A4 (makes it bigger / readable)
-    pdf = fit_pdf_pages_to_a4(pdf, margin_left_right=1.0, margin_bottom=1.0, header_reserved=55.0)
+    pdf = fit_pdf_pages_to_a4(pdf, margin_left_right=0.3, margin_bottom=0.3, header_reserved=55.0)
 
 
 
@@ -5094,6 +5094,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
