@@ -245,6 +245,127 @@
     </div>
 
     <!-- =========================
+         Visual + Documentation Checklists
+    ========================== -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Visual and Physical Inspection</div>
+    
+      <label class="muted tiny">Tick each item as Satisfactory (Yes) or Not (No)</label>
+    
+      <div class="tablewrap mt">
+        <table class="table wide">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th style="width:140px;">Satisfactory (Y/N)</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set visual_items = [
+              "Physical Condition of Material",
+              "Identification/Marking as per specifications",
+              "Confirm that the packaging is undamaged, sealed, and properly labeled.",
+              "Ensure there are no signs of chemical exposure that might degrade the material."
+            ] %}
+    
+            {% for item in visual_items %}
+            {% set slug = item|replace(" ", "_")|replace("/", "_")|replace("(", "")|replace(")", "")|replace(".", "")|lower %}
+            <tr>
+              <td>{{ item }}</td>
+              <td>
+                <select name="vc_{{ slug }}_yn">
+                  <option value="" {% if not inspection_data %}selected{% endif %}></option>
+                  <option value="YES" {% if inspection_data and inspection_data.get("vc_" ~ slug ~ "_yn") == "YES" %}selected{% endif %}>YES</option>
+                  <option value="NO"  {% if inspection_data and inspection_data.get("vc_" ~ slug ~ "_yn") == "NO" %}selected{% endif %}>NO</option>
+                </select>
+              </td>
+              <td>
+                <input name="vc_{{ slug }}_remarks"
+                       value="{{ inspection_data.get('vc_' ~ slug ~ '_remarks','') if inspection_data else '' }}">
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Documentation Review</div>
+    
+      <div class="tablewrap mt">
+        <table class="table wide">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th style="width:140px;">Satisfactory (Y/N)</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set doc_items = [
+              "Ensure the material’s quantity, type, and specification match the Purchase Order (PO)",
+              "Confirm the availability of Certificate of Analysis (COA).",
+              "Review the Delivery Note to verify correct Delivery."
+            ] %}
+    
+            {% for item in doc_items %}
+            {% set slug = item|replace(" ", "_")|replace("’","")|replace("'", "")|replace("/", "_")|replace("(", "")|replace(")", "")|replace(".", "")|lower %}
+            <tr>
+              <td>{{ item }}</td>
+              <td>
+                <select name="dr_{{ slug }}_yn">
+                  <option value="" {% if not inspection_data %}selected{% endif %}></option>
+                  <option value="YES" {% if inspection_data and inspection_data.get("dr_" ~ slug ~ "_yn") == "YES" %}selected{% endif %}>YES</option>
+                  <option value="NO"  {% if inspection_data and inspection_data.get("dr_" ~ slug ~ "_yn") == "NO" %}selected{% endif %}>NO</option>
+                </select>
+              </td>
+              <td>
+                <input name="dr_{{ slug }}_remarks"
+                       value="{{ inspection_data.get('dr_' ~ slug ~ '_remarks','') if inspection_data else '' }}">
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+
+    <div class="card inner mt">
+    <div class="sectiontitle accent-blue">Approval and Readiness for Issuance</div>
+  
+    <label>Material Status (Tick one)</label>
+    <div class="grid3 mt">
+      <label class="pill">
+        <input type="radio" name="approval_status" value="VERIFIED"
+          {% if inspection_data and inspection_data.get("approval_status") == "VERIFIED" %}checked{% endif %}>
+        Verified and Confirmed
+      </label>
+  
+      <label class="pill">
+        <input type="radio" name="approval_status" value="HOLD"
+          {% if inspection_data and inspection_data.get("approval_status") == "HOLD" %}checked{% endif %}>
+        On Hold
+      </label>
+  
+      <label class="pill">
+        <input type="radio" name="approval_status" value="NONCONFORM"
+          {% if inspection_data and inspection_data.get("approval_status") == "NONCONFORM" %}checked{% endif %}>
+        Non-Conformity
+      </label>
+    </div>
+  
+    <div class="mt">
+      <label>If On Hold, specify reason</label>
+      <input name="on_hold_reason" value="{{ inspection_data.get('on_hold_reason','') if inspection_data else '' }}">
+    </div>
+  </div>
+
+
+
+    <!-- =========================
          Remarks + submit
     ========================== -->
     <div class="card inner mt">
