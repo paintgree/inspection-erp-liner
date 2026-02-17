@@ -448,20 +448,22 @@ from pypdf import PdfReader, PdfWriter, Transformation
 
 def fit_pdf_pages_to_a4(
     pdf_bytes: bytes,
-    margin_left_right: float = 10.0,
-    margin_bottom: float = 10.0,
-    header_reserved: float = 70.0,   # <-- pushes the whole content DOWN (space for logo/header)
+    margin_left_right: float = 3.0,
+    margin_bottom: float = 3.0,
+    header_reserved: float = 78.0,
+    zoom: float = 1.18,        # <-- makes content bigger (try 1.15 to 1.25)
+    shift_x: float = -10.0,    # <-- move content LEFT  (fixes big right gap)
+    shift_y: float = 6.0,      # <-- move content UP/DOWN (small tweak)
 ) -> bytes:
     """
-    Scale each page to fit inside A4 while reserving space at the top for a header/logo.
-    This prevents overlap and makes content larger/readable.
+    Force pages onto A4, reserve header space, then zoom and shift
+    to remove big empty gaps from LibreOffice output.
     """
     reader = PdfReader(BytesIO(pdf_bytes))
     writer = PdfWriter()
 
     a4_w, a4_h = A4
 
-    # Available area for the content:
     usable_w = a4_w - 2 * margin_left_right
     usable_h = a4_h - margin_bottom - header_reserved
 
@@ -469,17 +471,20 @@ def fit_pdf_pages_to_a4(
         src_w = float(page.mediabox.width)
         src_h = float(page.mediabox.height)
 
-        # Scale to use the maximum space available (bigger output)
-        scale = min(usable_w / src_w, usable_h / src_h)
+        # Base scale to fit inside the usable area
+        base_scale = min(usable_w / src_w, usable_h / src_h)
+
+        # Apply extra zoom to fill page more
+        scale = base_scale * zoom
 
         new_page = writer.add_blank_page(width=a4_w, height=a4_h)
 
-        # Center horizontally, and place vertically inside the usable area (below header_reserved)
         content_w = src_w * scale
         content_h = src_h * scale
 
-        tx = (a4_w - content_w) / 2.0
-        ty = margin_bottom + (usable_h - content_h) / 2.0
+        # Center inside usable area, then apply shift
+        tx = (a4_w - content_w) / 2.0 + shift_x
+        ty = margin_bottom + (usable_h - content_h) / 2.0 + shift_y
 
         new_page.merge_transformed_page(
             page,
@@ -5113,6 +5118,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
