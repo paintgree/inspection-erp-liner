@@ -10,16 +10,16 @@
       <div class="muted">
         MRR Ticket #{{ lot.id }} • Type: <b>{{ lot.lot_type }}</b>
       </div>
+      <div class="muted tiny" id="autosaveStatus" style="margin-top:6px;">Autosave: <b>ready</b></div>
     </div>
     <div class="actions">
       <span class="pill">Report: <b>{{ inspection_data.report_no }}</b></span>
-      <span id="autosaveStatus" class="muted tiny" style="margin-left:10px;"></span>
     </div>
   </div>
 
-  <!-- Submit to the correct route -->
+  <!-- Submit endpoint (same) -->
   <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/submit" class="mt" id="inspectionForm">
-    <!-- hidden action (default = submit). autosave will send action=draft -->
+    <!-- hidden action (submit vs draft) -->
     <input type="hidden" name="action" id="form_action" value="submit">
 
     <!-- =========================
@@ -45,10 +45,11 @@
         </div>
 
         <div>
-          <label>Batch Number(s) (required)</label>
+          <label>Batch Number(s) (required to submit)</label>
 
           <div id="batchWrap">
-            <input name="batch_numbers" placeholder="e.g. BATCH-001" required>
+            <!-- required only for FINAL submit (JS will enforce), not for autosave -->
+            <input name="batch_numbers" placeholder="e.g. BATCH-001">
           </div>
 
           <button type="button" class="btn btn-outline-secondary mt" id="addBatchBtn">
@@ -61,37 +62,36 @@
         </div>
       </div>
 
-      <script>
-      (function(){
-        const wrap = document.getElementById("batchWrap");
-        const addBtn = document.getElementById("addBatchBtn");
-
-        const existing = {{ (inspection_data.batch_numbers if inspection_data.batch_numbers is defined else []) | tojson }};
-        if (Array.isArray(existing) && existing.length > 0) {
-          wrap.innerHTML = "";
-          existing.forEach((v, idx) => {
-            const input = document.createElement("input");
-            input.name = "batch_numbers";
-            input.placeholder = "e.g. BATCH-001";
-            input.value = v || "";
-            if (idx === 0) input.required = true;
-            wrap.appendChild(input);
-          });
-        }
-
-        addBtn.addEventListener("click", () => {
-          const input = document.createElement("input");
-          input.name = "batch_numbers";
-          input.placeholder = "e.g. BATCH-001";
-          wrap.appendChild(input);
-        });
-      })();
-      </script>
-
       <div class="mt muted tiny">
         Delivery Note + arrived quantity are defined when creating the shipment and cannot be edited here.
       </div>
     </div>
+
+    <script>
+    (function(){
+      const wrap = document.getElementById("batchWrap");
+      const addBtn = document.getElementById("addBatchBtn");
+
+      const existing = {{ (inspection_data.batch_numbers if inspection_data.batch_numbers is defined else []) | tojson }};
+      if (Array.isArray(existing) && existing.length > 0) {
+        wrap.innerHTML = "";
+        existing.forEach((v) => {
+          const input = document.createElement("input");
+          input.name = "batch_numbers";
+          input.placeholder = "e.g. BATCH-001";
+          input.value = v || "";
+          wrap.appendChild(input);
+        });
+      }
+
+      addBtn.addEventListener("click", () => {
+        const input = document.createElement("input");
+        input.name = "batch_numbers";
+        input.placeholder = "e.g. BATCH-001";
+        wrap.appendChild(input);
+      });
+    })();
+    </script>
 
     <!-- =========================
          Partial delivery / mismatch reason
@@ -99,14 +99,13 @@
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">Partial delivery (ticket stays open)</div>
 
-      <label>If quantity mismatch / partial delivery – Reason (required if arrived &gt; PO)</label>
+      <label>If quantity mismatch / partial delivery – Reason</label>
       <textarea name="mismatch_reason" placeholder="Explain mismatch / partial delivery...">{{ inspection_data.mismatch_reason if inspection_data and inspection_data.mismatch_reason else '' }}</textarea>
     </div>
 
     <!-- =========================
          Material classification (ONLY 2 fields now)
-         - Type (material_family)
-         - Grade (material_grade)
+         Type + Grade (like your template)
     ========================== -->
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">Material Classification (Raw Material)</div>
@@ -124,13 +123,13 @@
         </div>
 
         <div>
-          <label>Material Grade (optional)</label>
+          <label>Material Grade</label>
           {% set grade = inspection_data.material_grade if inspection_data and inspection_data.material_grade else '' %}
           <input
             type="text"
             name="material_grade"
             value="{{ grade }}"
-            placeholder="Type grade (example: PERT-White / PE100-Black / 45000D...)"
+            placeholder="Type grade (example: PERT-White / PE100-Black / 45000D)"
             list="grade_suggestions"
           />
           <datalist id="grade_suggestions">
@@ -261,11 +260,12 @@
         </div>
         <div>
           <label>&nbsp;</label>
-          <button class="btn btn-primary" type="submit" id="submitBtn">Submit Inspection</button>
+          <button class="btn btn-primary" type="submit" id="finalSubmitBtn">Submit Inspection</button>
         </div>
       </div>
+
       <div class="muted tiny mt">
-        Draft is saved automatically while you type. Submit is final.
+        No “Save Draft” button needed — this page auto-saves while you type.
       </div>
     </div>
 
@@ -351,87 +351,82 @@
     const fam = (document.getElementById("material_family") || {}).value || "";
     const pe = document.getElementById("pe_table");
     const fb = document.getElementById("fiber_table");
+
     if (pe) pe.style.display = (fam === "PE") ? "block" : "none";
     if (fb) fb.style.display = (fam === "FIBER") ? "block" : "none";
   }
   toggleMaterialTables();
 
-  // -------------------------
-  // Auto-save draft (no button)
-  // -------------------------
+  // =========================
+  // AUTO-SAVE DRAFT (no button)
+  // =========================
   (function(){
     const form = document.getElementById("inspectionForm");
     const statusEl = document.getElementById("autosaveStatus");
     const actionEl = document.getElementById("form_action");
-    const submitBtn = document.getElementById("submitBtn");
+    const finalBtn = document.getElementById("finalSubmitBtn");
 
-    let timer = null;
-    let inFlight = false;
-    let lastPayloadHash = "";
+    let t = null;
+    let saving = false;
 
     function setStatus(txt){
-      if(statusEl) statusEl.textContent = txt || "";
+      if(statusEl) statusEl.innerHTML = "Autosave: <b>" + txt + "</b>";
     }
 
-    // lightweight hash (avoid saving same payload repeatedly)
-    function payloadHash(fd){
-      const parts = [];
-      for (const [k,v] of fd.entries()){
-        if(k === "csrf_token") continue;
-        parts.push(k + "=" + String(v));
-      }
-      return parts.join("&").slice(0, 5000);
-    }
-
-    async function autosave(){
-      if(inFlight) return;
-      const fd = new FormData(form);
-      fd.set("action", "draft");   // draft save
-      const h = payloadHash(fd);
-      if(h === lastPayloadHash) return;
-
-      inFlight = true;
-      setStatus("Saving draft…");
+    async function saveDraft(){
+      if(saving) return;
+      saving = true;
 
       try{
-        const res = await fetch(form.action, {
-          method: "POST",
-          body: fd,
-          headers: {"x-autosave":"1"}
-        });
+        setStatus("saving...");
+        const fd = new FormData(form);
+        fd.set("action", "draft");
+
+        // draft save via fetch (does NOT trigger browser required validation)
+        const res = await fetch(form.action, { method: "POST", body: fd });
+
         if(res.ok){
-          lastPayloadHash = h;
-          setStatus("Draft saved");
+          setStatus("saved ✓");
         } else {
-          setStatus("Draft not saved");
+          setStatus("not saved (network)");
         }
       } catch(e){
-        setStatus("Offline (draft not saved)");
+        setStatus("not saved (network)");
       } finally {
-        inFlight = false;
-        // clear message after a bit
-        setTimeout(()=>{ setStatus(""); }, 2500);
+        saving = false;
       }
     }
 
-    function queueAutosave(){
-      if(timer) clearTimeout(timer);
-      timer = setTimeout(autosave, 1200);
+    function scheduleSave(){
+      clearTimeout(t);
+      t = setTimeout(saveDraft, 1200); // debounce
     }
 
-    // autosave on changes
-    form.addEventListener("input", queueAutosave, true);
-    form.addEventListener("change", queueAutosave, true);
+    // autosave on any change
+    form.addEventListener("input", scheduleSave);
+    form.addEventListener("change", scheduleSave);
 
-    // when user clicks submit, make sure it's a final submit
-    form.addEventListener("submit", function(){
-      if(actionEl) actionEl.value = "submit";
-      if(submitBtn) submitBtn.disabled = true;
-      setStatus("Submitting…");
+    // periodic autosave
+    setInterval(saveDraft, 20000);
+
+    // FINAL SUBMIT: enforce batch number + set action=submit
+    form.addEventListener("submit", function(e){
+      actionEl.value = "submit";
+
+      // require at least 1 batch number for submit
+      const batches = Array.from(form.querySelectorAll('input[name="batch_numbers"]'))
+        .map(i => (i.value || "").trim())
+        .filter(v => v.length > 0);
+
+      if(batches.length === 0){
+        e.preventDefault();
+        alert("Batch Number is required to submit.");
+        return false;
+      }
+      return true;
     });
 
-    // periodic autosave as safety net
-    setInterval(autosave, 8000);
+    setStatus("ready");
   })();
 </script>
 
