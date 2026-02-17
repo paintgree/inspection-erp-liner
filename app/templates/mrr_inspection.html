@@ -13,7 +13,7 @@
       <div class="muted tiny" id="autosaveStatus" style="margin-top:6px;">Autosave: <b>ready</b></div>
     </div>
     <div class="actions">
-      <span class="pill">Report: <b>{{ inspection_data.report_no }}</b></span>
+      <span class="pill">Report: <b>{{ inspection_data.get('report_no','') if inspection_data else '' }}</b></span>
     </div>
   </div>
 
@@ -31,7 +31,7 @@
       <div class="grid3 mt">
         <div>
           <label>Report No.</label>
-          <input value="{{ inspection_data.report_no }}" disabled>
+          <input value="{{ inspection_data.get('report_no','') if inspection_data else '' }}" disabled>
         </div>
 
         <div>
@@ -48,7 +48,6 @@
           <label>Batch Number(s) (required to submit)</label>
 
           <div id="batchWrap">
-            <!-- required only for FINAL submit (JS will enforce), not for autosave -->
             <input name="batch_numbers" placeholder="e.g. BATCH-001">
           </div>
 
@@ -72,7 +71,7 @@
       const wrap = document.getElementById("batchWrap");
       const addBtn = document.getElementById("addBatchBtn");
 
-      const existing = {{ (inspection_data.batch_numbers if inspection_data.batch_numbers is defined else []) | tojson }};
+      const existing = {{ (inspection_data.get('batch_numbers', []) if inspection_data else []) | tojson }};
       if (Array.isArray(existing) && existing.length > 0) {
         wrap.innerHTML = "";
         existing.forEach((v) => {
@@ -100,12 +99,11 @@
       <div class="sectiontitle accent-blue">Partial delivery (ticket stays open)</div>
 
       <label>If quantity mismatch / partial delivery – Reason</label>
-      <textarea name="mismatch_reason" placeholder="Explain mismatch / partial delivery...">{{ inspection_data.mismatch_reason if inspection_data and inspection_data.mismatch_reason else '' }}</textarea>
+      <textarea name="mismatch_reason" placeholder="Explain mismatch / partial delivery...">{{ inspection_data.get('mismatch_reason','') if inspection_data else '' }}</textarea>
     </div>
 
     <!-- =========================
-         Material classification (ONLY 2 fields now)
-         Type + Grade (like your template)
+         Material classification
     ========================== -->
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">Material Classification (Raw Material)</div>
@@ -113,7 +111,7 @@
       <div class="grid2">
         <div>
           <label>Material Type</label>
-          {% set fam = inspection_data.material_family if inspection_data and inspection_data.material_family else '' %}
+          {% set fam = inspection_data.get('material_family','') if inspection_data else '' %}
           <select id="material_family" name="material_family" onchange="toggleMaterialTables()">
             <option value="">-- select --</option>
             <option value="PE" {% if fam == 'PE' %}selected{% endif %}>Polyethylene (PE / PERT / PE100)</option>
@@ -124,7 +122,7 @@
 
         <div>
           <label>Material Grade</label>
-          {% set grade = inspection_data.material_grade if inspection_data and inspection_data.material_grade else '' %}
+          {% set grade = inspection_data.get('material_grade','') if inspection_data else '' %}
           <input
             type="text"
             name="material_grade"
@@ -184,11 +182,11 @@
                 <td class="wrap">{{ r.a }}</td>
                 <td>
                   <input name="pe_{{ r.k }}_result"
-                         value="{{ inspection_data['pe_' ~ r.k ~ '_result'] if inspection_data and ('pe_' ~ r.k ~ '_result') in inspection_data else '' }}">
+                         value="{{ inspection_data.get('pe_' ~ r.k ~ '_result','') if inspection_data else '' }}">
                 </td>
                 <td>
                   <input name="pe_{{ r.k }}_remarks"
-                         value="{{ inspection_data['pe_' ~ r.k ~ '_remarks'] if inspection_data and ('pe_' ~ r.k ~ '_remarks') in inspection_data else '' }}">
+                         value="{{ inspection_data.get('pe_' ~ r.k ~ '_remarks','') if inspection_data else '' }}">
                 </td>
               </tr>
             {% endfor %}
@@ -198,7 +196,7 @@
     </div>
 
     <!-- =========================
-         Properties Table - Fiber
+         Properties Table - Fiber (UPDATED to match Excel)
     ========================== -->
     <div class="card inner mt" id="fiber_table" style="display:none;">
       <div class="sectiontitle accent-green">Raw Material Properties (Fiber)</div>
@@ -216,12 +214,14 @@
             </tr>
           </thead>
           <tbody>
+            {# IMPORTANT: The "p" values are what your Excel has in Column A.
+               Keep these labels matching Excel exactly. #}
             {% set fb_rows = [
-              {"k":"denier","p":"Denier","u":"D","m":"ASTM D1577 / ISO 2060","a":"As per grade"},
-              {"k":"tenacity","p":"Tenacity","u":"cN/tex","m":"ASTM D2256","a":"As per grade"},
-              {"k":"elong","p":"Elongation","u":"%","m":"ASTM D2256","a":"As per grade"},
-              {"k":"moist","p":"Moisture Content","u":"%","m":"Internal / COA","a":"≤ 0.5 %"},
-              {"k":"finish","p":"Finish content","u":"%","m":"Internal / COA","a":"As per grade"}
+              {"k":"denier","p":"Linear Density","u":"dtex","m":"GB/T 16604-2008","a":"As per grade"},
+              {"k":"break","p":"Breaking Strength","u":"cN","m":"GB/T 16604-2008","a":"As per grade"},
+              {"k":"tenacity","p":"Tenacity","u":"cN/dtex","m":"GB/T 16604-2008","a":"As per grade"},
+              {"k":"elong","p":"Elongation at Break","u":"%","m":"GB/T 16604-2008","a":"As per grade"},
+              {"k":"melt","p":"Melting Point","u":"°C","m":"GB/T 16604-2008","a":"As per grade"}
             ] %}
             {% for r in fb_rows %}
               <tr>
@@ -231,11 +231,11 @@
                 <td class="wrap">{{ r.a }}</td>
                 <td>
                   <input name="fb_{{ r.k }}_result"
-                         value="{{ inspection_data['fb_' ~ r.k ~ '_result'] if inspection_data and ('fb_' ~ r.k ~ '_result') in inspection_data else '' }}">
+                         value="{{ inspection_data.get('fb_' ~ r.k ~ '_result','') if inspection_data else '' }}">
                 </td>
                 <td>
                   <input name="fb_{{ r.k }}_remarks"
-                         value="{{ inspection_data['fb_' ~ r.k ~ '_remarks'] if inspection_data and ('fb_' ~ r.k ~ '_remarks') in inspection_data else '' }}">
+                         value="{{ inspection_data.get('fb_' ~ r.k ~ '_remarks','') if inspection_data else '' }}">
                 </td>
               </tr>
             {% endfor %}
@@ -249,9 +249,9 @@
     ========================== -->
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">Visual and Physical Inspection</div>
-    
+
       <label class="muted tiny">Tick each item as Satisfactory (Yes) or Not (No)</label>
-    
+
       <div class="tablewrap mt">
         <table class="table wide">
           <thead>
@@ -268,7 +268,7 @@
               "Confirm that the packaging is undamaged, sealed, and properly labeled.",
               "Ensure there are no signs of chemical exposure that might degrade the material."
             ] %}
-    
+
             {% for item in visual_items %}
             {% set slug = item|replace(" ", "_")|replace("/", "_")|replace("(", "")|replace(")", "")|replace(".", "")|lower %}
             <tr>
@@ -290,10 +290,10 @@
         </table>
       </div>
     </div>
-    
+
     <div class="card inner mt">
       <div class="sectiontitle accent-blue">Documentation Review</div>
-    
+
       <div class="tablewrap mt">
         <table class="table wide">
           <thead>
@@ -309,7 +309,7 @@
               "Confirm the availability of Certificate of Analysis (COA).",
               "Review the Delivery Note to verify correct Delivery."
             ] %}
-    
+
             {% for item in doc_items %}
             {% set slug = item|replace(" ", "_")|replace("’","")|replace("'", "")|replace("/", "_")|replace("(", "")|replace(")", "")|replace(".", "")|lower %}
             <tr>
@@ -332,38 +332,38 @@
       </div>
     </div>
 
-
+    <!-- =========================
+         Approval and Readiness for Issuance
+    ========================== -->
     <div class="card inner mt">
-    <div class="sectiontitle accent-blue">Approval and Readiness for Issuance</div>
-  
-    <label>Material Status (Tick one)</label>
-    <div class="grid3 mt">
-      <label class="pill">
-        <input type="radio" name="approval_status" value="VERIFIED"
-          {% if inspection_data and inspection_data.get("approval_status") == "VERIFIED" %}checked{% endif %}>
-        Verified and Confirmed
-      </label>
-  
-      <label class="pill">
-        <input type="radio" name="approval_status" value="HOLD"
-          {% if inspection_data and inspection_data.get("approval_status") == "HOLD" %}checked{% endif %}>
-        On Hold
-      </label>
-  
-      <label class="pill">
-        <input type="radio" name="approval_status" value="NONCONFORM"
-          {% if inspection_data and inspection_data.get("approval_status") == "NONCONFORM" %}checked{% endif %}>
-        Non-Conformity
-      </label>
-    </div>
-  
-    <div class="mt">
-      <label>If On Hold, specify reason</label>
-      <input name="on_hold_reason" value="{{ inspection_data.get('on_hold_reason','') if inspection_data else '' }}">
-    </div>
-  </div>
+      <div class="sectiontitle accent-blue">Approval and Readiness for Issuance</div>
 
+      <label>Material Status (Tick one)</label>
+      <div class="grid3 mt">
+        <label class="pill">
+          <input type="radio" name="approval_status" value="VERIFIED"
+            {% if inspection_data and inspection_data.get("approval_status") == "VERIFIED" %}checked{% endif %}>
+          Verified and Confirmed
+        </label>
 
+        <label class="pill">
+          <input type="radio" name="approval_status" value="HOLD"
+            {% if inspection_data and inspection_data.get("approval_status") == "HOLD" %}checked{% endif %}>
+          On Hold
+        </label>
+
+        <label class="pill">
+          <input type="radio" name="approval_status" value="NONCONFORM"
+            {% if inspection_data and inspection_data.get("approval_status") == "NONCONFORM" %}checked{% endif %}>
+          Non-Conformity
+        </label>
+      </div>
+
+      <div class="mt">
+        <label>If On Hold, specify reason</label>
+        <input name="on_hold_reason" value="{{ inspection_data.get('on_hold_reason','') if inspection_data else '' }}">
+      </div>
+    </div>
 
     <!-- =========================
          Remarks + submit
@@ -372,12 +372,12 @@
       <div class="sectiontitle accent-blue">Remarks</div>
 
       <label>General remarks</label>
-      <textarea name="remarks" placeholder="General remarks...">{{ inspection_data.remarks if inspection_data and inspection_data.remarks else '' }}</textarea>
+      <textarea name="remarks" placeholder="General remarks...">{{ inspection_data.get('remarks','') if inspection_data else '' }}</textarea>
 
       <div class="grid2 mt">
         <div>
           <label>Inspected by</label>
-          <input name="inspected_by" value="{{ inspection_data.inspected_by if inspection_data and inspection_data.inspected_by else user.display_name }}">
+          <input name="inspected_by" value="{{ inspection_data.get('inspected_by', user.display_name) if inspection_data else user.display_name }}">
         </div>
         <div>
           <label>&nbsp;</label>
@@ -485,7 +485,6 @@
     const form = document.getElementById("inspectionForm");
     const statusEl = document.getElementById("autosaveStatus");
     const actionEl = document.getElementById("form_action");
-    const finalBtn = document.getElementById("finalSubmitBtn");
 
     let t = null;
     let saving = false;
@@ -503,7 +502,6 @@
         const fd = new FormData(form);
         fd.set("action", "draft");
 
-        // draft save via fetch (does NOT trigger browser required validation)
         const res = await fetch(form.action, { method: "POST", body: fd });
 
         if(res.ok){
@@ -520,21 +518,18 @@
 
     function scheduleSave(){
       clearTimeout(t);
-      t = setTimeout(saveDraft, 1200); // debounce
+      t = setTimeout(saveDraft, 1200);
     }
 
-    // autosave on any change
     form.addEventListener("input", scheduleSave);
     form.addEventListener("change", scheduleSave);
 
-    // periodic autosave
     setInterval(saveDraft, 20000);
 
-    // FINAL SUBMIT: enforce batch number + set action=submit
+    // FINAL SUBMIT: require at least 1 batch number
     form.addEventListener("submit", function(e){
       actionEl.value = "submit";
 
-      // require at least 1 batch number for submit
       const batches = Array.from(form.querySelectorAll('input[name="batch_numbers"]'))
         .map(i => (i.value || "").trim())
         .filter(v => v.length > 0);
