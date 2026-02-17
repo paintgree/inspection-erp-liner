@@ -452,7 +452,7 @@ def fit_pdf_pages_to_a4(
     margin_bottom: float = 3.0,
     header_reserved: float = 78.0,
     zoom: float = 1.18,        # <-- makes content bigger (try 1.15 to 1.25)
-    shift_x: float = -20.0,    # <-- move content LEFT  (fixes big right gap)
+    shift_x: float =  20.0,    # <-- move content LEFT  (fixes big right gap)
     shift_y: float = -100.0,      # <-- move content UP/DOWN (small tweak)
 ) -> bytes:
     """
@@ -5118,6 +5118,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
