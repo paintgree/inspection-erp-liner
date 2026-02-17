@@ -410,7 +410,7 @@ def fill_mrr_f01_xlsx_bytes(
         if key in prop_map:
             it = prop_map[key]
             ws.cell(r, 7).value = it.get("result") or it.get("value") or ""  # col G
-            ws.cell(r, 8).value = it.get("remarks") or ""                   # col H
+            ws.cell(r, 9).value = it.get("remarks") or ""                   # col I
 
     # ---- VISUAL CHECKS (optional) ----
     vc = data.get("visual_checks")
@@ -5179,6 +5179,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
