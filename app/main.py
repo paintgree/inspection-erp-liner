@@ -400,8 +400,12 @@ def fill_mrr_f01_xlsx_bytes(
                     img.height = int(img.height * ratio)
             except Exception:
                 pass
-            img.anchor = "A1"
+            # Put logo centered across A..L (your print area is A1:L64) :contentReference[oaicite:3]{index=3}
+            # Middle is around F/G. Anchor at F1 and give enough row height.
+            img.anchor = "F1"
+            ws.row_dimensions[1].height = 28  # give space for the logo so it won't overlap text
             ws.add_image(img)
+
     except Exception:
         pass
 
@@ -438,6 +442,38 @@ def fill_mrr_f01_xlsx_bytes(
     return _xlsx_bytes_from_wb(wb)
 
 
+from reportlab.lib.pagesizes import A4
+from pypdf import PdfReader, PdfWriter, Transformation
+from io import BytesIO
+
+def fit_pdf_pages_to_a4(pdf_bytes: bytes) -> bytes:
+    reader = PdfReader(BytesIO(pdf_bytes))
+    writer = PdfWriter()
+
+    a4_w, a4_h = A4
+
+    for page in reader.pages:
+        src_w = float(page.mediabox.width)
+        src_h = float(page.mediabox.height)
+
+        # scale to fit inside A4 (keep aspect ratio)
+        scale = min(a4_w / src_w, a4_h / src_h)
+
+        new_page = writer.add_blank_page(width=a4_w, height=a4_h)
+
+        tx = (a4_w - (src_w * scale)) / 2.0
+        ty = (a4_h - (src_h * scale)) / 2.0
+
+        # merge scaled page into center of A4 canvas
+        new_page.merge_transformed_page(
+            page,
+            Transformation().scale(scale).translate(tx, ty)
+        )
+
+    out = BytesIO()
+    writer.write(out)
+    out.seek(0)
+    return out.read()
 
 
 
@@ -625,7 +661,11 @@ def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
         raise HTTPException(500, "Conversion did not produce PDF output.")
 
     with open(pdf_path, "rb") as f:
-        return f.read()
+        pdf = f.read()
+    
+    # Force A4 fit (fixes “not resized to fit page”)
+    return fit_pdf_pages_to_a4(pdf)
+
 
 
 @app.get("/mrr/{lot_id}/inspection/id/{inspection_id}/export/pdf")
@@ -4992,6 +5032,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
