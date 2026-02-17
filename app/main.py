@@ -390,32 +390,51 @@ def fill_mrr_f01_xlsx_bytes(
     # -------------------------
     # PDF EXPORT PAGE SETUP
     # -------------------------
-    # IMPORTANT: Use full template area so it does not zoom in.
+    # IMPORTANT: make print area end at last real content row, otherwise it shrinks everything.
     try:
         ws.page_setup.scale = None
         ws.page_setup.orientation = ws.ORIENTATION_PORTRAIT
         ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    
+        # Fit to 1 page
         ws.page_setup.fitToWidth = 1
         ws.page_setup.fitToHeight = 1
         ws.sheet_properties.pageSetUpPr.fitToPage = True
-
-        # Full template range (adjust later if needed)
-        ws.print_area = "A1:L64"
-
+    
+        # ---- AUTO PRINT AREA (A1 to L<last_used_row>) ----
+        # Scan for last row that has any value in columns A..L
+        last_used_row = 1
+        for r in range(ws.max_row, 0, -1):
+            row_has_data = False
+            for c in range(1, 13):  # A..L
+                v = ws.cell(r, c).value
+                if v is not None and str(v).strip() != "":
+                    row_has_data = True
+                    break
+            if row_has_data:
+                last_used_row = r
+                break
+    
+        # Add a small safety pad (in case borders/text are near the end)
+        last_used_row = min(last_used_row + 2, ws.max_row)
+    
+        ws.print_area = f"A1:L{last_used_row}"
+    
         # Remove manual page breaks embedded in template
         try:
             ws.row_breaks.brk = []
             ws.col_breaks.brk = []
         except Exception:
             pass
-
-        # Margins
-        ws.page_margins.left = 0.20
-        ws.page_margins.right = 0.20
-        ws.page_margins.top = 0.25
-        ws.page_margins.bottom = 0.45
+    
+        # Margins (small = bigger content)
+        ws.page_margins.left = 0.10
+        ws.page_margins.right = 0.10
+        ws.page_margins.top = 0.10
+        ws.page_margins.bottom = 0.15
     except Exception:
         pass
+
 
     return _xlsx_bytes_from_wb(wb)
 
@@ -5094,6 +5113,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
