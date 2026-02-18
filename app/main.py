@@ -493,13 +493,17 @@ def fill_mrr_f01_xlsx_bytes(
             _ws_set_value_safe(ws, f"I{r}", rm)
 
 
-    # IMPORTANT: replace these cell addresses with the real ones in your Excel template
-    # Put a "✓" in the right option cell
-    _ws_set_value_safe(ws, "A44", "✓" if status == "VERIFIED" else "")
-    _ws_set_value_safe(ws, "D44", "✓" if status == "HOLD" else "")
-    _ws_set_value_safe(ws, "G44", "✓" if status == "NONCONFORM" else "")
+        # ---- APPROVAL STATUS (Tick One) ----
+        status = (data.get("approval_status") or "").strip().upper()
     
-    _ws_set_value_safe(ws, "A46", (data.get("on_hold_reason") or "").strip())
+        # Put a "✓" in the right option cell
+        _ws_set_value_safe(ws, "A44", "✓" if status == "VERIFIED" else "")
+        _ws_set_value_safe(ws, "D44", "✓" if status == "HOLD" else "")
+        _ws_set_value_safe(ws, "G44", "✓" if status == "NONCONFORM" else "")
+    
+        # On-hold reason (if any)
+        _ws_set_value_safe(ws, "A46", (data.get("on_hold_reason") or "").strip())
+
 
     # ---- SIGNATURES ----
     _ws_set_value_safe(ws, "B51", getattr(inspection, "inspector_name", "") or "")
@@ -5196,6 +5200,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
