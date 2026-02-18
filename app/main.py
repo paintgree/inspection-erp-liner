@@ -339,10 +339,6 @@ def fill_mrr_f01_xlsx_bytes(
         # ---- PROPERTIES TABLE FILL (generic matcher) ----
 
     def _build_prop_map(items):
-        """
-        Build a map: normalized_property_name -> item dict
-        item dict should contain: name, result/value, remarks
-        """
         m = {}
         if not isinstance(items, list):
             return m
@@ -357,8 +353,7 @@ def fill_mrr_f01_xlsx_bytes(
 
     def _write_cell_safe(sheet, row, col, value):
         """
-        Write into a cell even if it's merged.
-        If cell is merged, write into the TOP-LEFT of the merged range.
+        Works with merged cells: write to TOP-LEFT of the merged range.
         """
         cell = sheet.cell(row, col)
         if isinstance(cell, openpyxl.cell.cell.MergedCell):
@@ -369,35 +364,31 @@ def fill_mrr_f01_xlsx_bytes(
             return
         cell.value = value
 
-    # 1) Determine which material family user selected on the inspection page
+    # Which family user selected on the page
     fam_ui = (data.get("material_family") or data.get("material_fam") or data.get("material_type") or "").strip().upper()
 
-    # 2) Build the property items list:
-    #    - If data already contains "properties" (new format), use it.
-    #    - Otherwise convert from pe_* and fb_* fields (your HTML form inputs).
+    # Use "properties" list if present, else convert from form keys
     prop_items = data.get("properties")
     if not isinstance(prop_items, list) or len(prop_items) == 0:
         converted = []
 
-        # IMPORTANT:
-        # These labels MUST MATCH the exact text in Excel column A.
-        # These keys MUST MATCH your HTML input names:
-        #   pe_<key>_result, pe_<key>_remarks
-        #   fb_<key>_result, fb_<key>_remarks
-
+        # Labels MUST match Excel Column A exactly
         pe_rows = [
             ("density", "Density"),
             ("mfr", "Melt Flow Rate (MFR) -190°C / 5kg"),
             ("flexural", "Flexural Modulus"),
             ("tensile", "Tensile Strength at Yield"),
+            ("tensile_break", "Tensile Strength at Break"),
             ("elong", "Elongation at Break"),
             ("escr", "(ESCR)"),
             ("oits", "Oxidative Induction Time (OIT)"),
-            ("hdb", "HDB (23C°) / MRS (20C°)"),
+            ("hdb", "HDB (23C°) /  MRS (20C°)"),
             ("cb", "Carbon Black Content"),
             ("melt", "Melting Point"),
         ]
 
+        # These keys MUST match your HTML input names:
+        # fb_linear_density_result, fb_breaking_strength_result, ...
         fb_rows = [
             ("linear_density", "Linear Density"),
             ("breaking_strength", "Breaking Strength"),
@@ -420,49 +411,36 @@ def fill_mrr_f01_xlsx_bytes(
                 if r or rm:
                     converted.append({"name": label, "result": r, "remarks": rm})
 
-        else:
-            # If family not selected, try to collect BOTH (fallback)
-            for k, label in pe_rows:
-                r = (data.get(f"pe_{k}_result") or "").strip()
-                rm = (data.get(f"pe_{k}_remarks") or "").strip()
-                if r or rm:
-                    converted.append({"name": label, "result": r, "remarks": rm})
-            for k, label in fb_rows:
-                r = (data.get(f"fb_{k}_result") or "").strip()
-                rm = (data.get(f"fb_{k}_remarks") or "").strip()
-                if r or rm:
-                    converted.append({"name": label, "result": r, "remarks": rm})
-
         prop_items = converted
 
     prop_map = _build_prop_map(prop_items)
 
-    # 3) Prevent "Tenacity" etc. being filled in the wrong table.
-    # Based on your Excel screenshot:
-    # - PE table is around rows 12..23
-    # - Fiber table is around rows 26..30
-    # If your template differs, adjust these row ranges.
+    # IMPORTANT (from your real Excel file):
+    # PE rows are 13..23
+    # Fiber rows are 26..30
     if fam_ui == "PE":
-        allowed_row_min, allowed_row_max = 12, 23
+        allowed_row_min, allowed_row_max = 13, 23
     elif fam_ui == "FIBER":
         allowed_row_min, allowed_row_max = 26, 30
     else:
         allowed_row_min, allowed_row_max = 1, ws.max_row
 
-    # 4) Write results to Excel columns:
-    # Your screenshot shows:
-    # H = PDS/COA Results (col 8)
-    # I = Remarks (col 9)
+    # IMPORTANT (from your real Excel file):
+    # PDS/COA Results header is at column G (merged G:H)
+    # Remarks header is at column I (merged I:J)
+    RESULTS_COL = 7  # G
+    REMARKS_COL = 9  # I
+
     for r in range(allowed_row_min, allowed_row_max + 1):
-        cell_val = ws.cell(r, 1).value  # column A (Property label)
-        if not isinstance(cell_val, str):
+        label = ws.cell(r, 1).value  # column A
+        if not isinstance(label, str):
             continue
 
-        key = _normalize_key(cell_val)
+        key = _normalize_key(label)
         if key in prop_map:
             it = prop_map[key]
-            _write_cell_safe(ws, r, 8, it.get("result") or it.get("value") or "")  # H
-            _write_cell_safe(ws, r, 9, it.get("remarks") or "")                   # I
+            _write_cell_safe(ws, r, RESULTS_COL, it.get("result") or it.get("value") or "")
+            _write_cell_safe(ws, r, REMARKS_COL, it.get("remarks") or "")
 
 
 
@@ -5235,6 +5213,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
