@@ -454,36 +454,46 @@ def fill_mrr_f01_xlsx_bytes(
 
 
 
-        # ---- VISUAL + DOC REVIEW (from vc_* / dr_* fields) ----
+            # ---- VISUAL + DOC REVIEW (use fixed row mapping; do NOT read Excel text) ----
     def _slug(s: str) -> str:
         s = (s or "").strip().lower()
         s = s.replace("’", "").replace("'", "")
-        for ch in [" ", "/", "(", ")", ".", ",", ":", ";"]:
-            s = s.replace(ch, "_")
-        while "__" in s:
-            s = s.replace("__", "_")
-        return s.strip("_")
+        # normalize any whitespace (including NBSP)
+        s = re.sub(r"\s+", "_", s)
+        # remove punctuation to match frontend
+        s = re.sub(r"[^a-z0-9_]+", "", s)
+        s = re.sub(r"_+", "_", s).strip("_")
+        return s
 
-    # Visual rows in your Excel: 33..36
-    for r in range(33, 37):
-        label = ws.cell(r, 1).value
-        if not isinstance(label, str):
-            continue
-        key = _slug(label)
+    # These strings MUST match the same list used in your HTML (inspection page)
+    visual_items = [
+        "Physical Condition of Material",
+        "Identification/Marking as per specifications",
+        "Confirm that the packaging is undamaged, sealed, and properly labeled.",
+        "Ensure there are no signs of chemical exposure that might degrade the material.",
+    ]
+    # Excel rows for those 4 visual items
+    visual_rows = [33, 34, 35, 36]
+
+    for item, r in zip(visual_items, visual_rows):
+        key = _slug(item)
         yn = (data.get(f"vc_{key}_yn") or "").strip().upper()
         rm = (data.get(f"vc_{key}_remarks") or "").strip()
 
         if yn in ["YES", "NO"]:
-            _ws_set_value_safe(ws, f"G{r}", yn)
+            _ws_set_value_safe(ws, f"G{r}", yn)   # G:H merged
         if rm:
-            _ws_set_value_safe(ws, f"I{r}", rm)
+            _ws_set_value_safe(ws, f"I{r}", rm)   # I:J merged
 
-    # Doc review rows: 39..41
-    for r in range(39, 42):
-        label = ws.cell(r, 1).value
-        if not isinstance(label, str):
-            continue
-        key = _slug(label)
+    doc_items = [
+        "Ensure the material’s quantity, type, and specification match the Purchase Order (PO)",
+        "Confirm the availability of Certificate of Analysis (COA).",
+        "Review the Delivery Note to verify correct Delivery.",
+    ]
+    doc_rows = [39, 40, 41]
+
+    for item, r in zip(doc_items, doc_rows):
+        key = _slug(item)
         yn = (data.get(f"dr_{key}_yn") or "").strip().upper()
         rm = (data.get(f"dr_{key}_remarks") or "").strip()
 
@@ -493,16 +503,31 @@ def fill_mrr_f01_xlsx_bytes(
             _ws_set_value_safe(ws, f"I{r}", rm)
 
 
-        # ---- APPROVAL STATUS (Tick One) ----
+
+            # ---- APPROVAL STATUS (do NOT overwrite text; keep text + add ✓) ----
         status = (data.get("approval_status") or "").strip().upper()
     
-        # Put a "✓" in the right option cell
-        _ws_set_value_safe(ws, "A44", "✓" if status == "VERIFIED" else "")
-        _ws_set_value_safe(ws, "D44", "✓" if status == "HOLD" else "")
-        _ws_set_value_safe(ws, "G44", "✓" if status == "NONCONFORM" else "")
+        # Original labels (same as template row 44)
+        v_text = "Verified and Confirmed"
+        h_text = "On Hold (Specify Reason Below)"
+        n_text = "Non-Conformity"
     
-        # On-hold reason (if any)
-        _ws_set_value_safe(ws, "A46", (data.get("on_hold_reason") or "").strip())
+        _ws_set_value_safe(ws, "A44", f"✓ {v_text}" if status == "VERIFIED" else v_text)
+        _ws_set_value_safe(ws, "D44", f"✓ {h_text}" if status == "HOLD" else h_text)
+        _ws_set_value_safe(ws, "G44", f"✓ {n_text}" if status == "NONCONFORM" else n_text)
+    
+        # ---- COMMENTS BOX (A46:J48 merged) ----
+        remarks = (data.get("remarks") or "").strip()
+        on_hold_reason = (data.get("on_hold_reason") or "").strip()
+    
+        lines = []
+        if status == "HOLD" and on_hold_reason:
+            lines.append(f"On Hold Reason: {on_hold_reason}")
+        if remarks:
+            lines.append(f"Remarks: {remarks}")
+    
+        _ws_set_value_safe(ws, "A46", "\n".join(lines).strip())
+
 
 
     # ---- SIGNATURES ----
@@ -5200,6 +5225,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
