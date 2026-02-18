@@ -453,19 +453,40 @@ def fill_mrr_f01_xlsx_bytes(
 
 
 
+    # ---- VISUAL + DOC REVIEW (use fixed row mapping; match Jinja keys exactly) ----
 
-            # ---- VISUAL + DOC REVIEW (use fixed row mapping; do NOT read Excel text) ----
-    def _slug(s: str) -> str:
+    def _slug_visual_jinja(s: str) -> str:
+        # Matches your Jinja visual slug exactly:
+        # item|replace(" ", "_")|replace("/", "_")|replace("(", "")|replace(")", "")|replace(".", "")|lower
         s = (s or "").strip().lower()
-        s = s.replace("’", "").replace("'", "")
-        # normalize any whitespace (including NBSP)
-        s = re.sub(r"\s+", "_", s)
-        # remove punctuation to match frontend
-        s = re.sub(r"[^a-z0-9_]+", "", s)
-        s = re.sub(r"_+", "_", s).strip("_")
+        s = s.replace(" ", "_")
+        s = s.replace("/", "_")
+        s = s.replace("(", "").replace(")", "")
+        s = s.replace(".", "")
+        # IMPORTANT: your Jinja does NOT remove commas, so we keep commas here
         return s
 
-    # These strings MUST match the same list used in your HTML (inspection page)
+    def _slug_doc_jinja(s: str) -> str:
+        # Matches your Jinja doc slug exactly:
+        # item|replace(" ", "_")|replace("’","")|replace("'","")|replace("/", "_")|replace("(", "")|replace(")", "")|replace(".", "")|lower
+        s = (s or "").strip().lower()
+        s = s.replace("’", "").replace("'", "")
+        s = s.replace(" ", "_")
+        s = s.replace("/", "_")
+        s = s.replace("(", "").replace(")", "")
+        s = s.replace(".", "")
+        # IMPORTANT: your Jinja does NOT remove commas, so we keep commas here
+        return s
+
+    def _get_any(d: dict, keys: list[str]) -> str:
+        # return first non-empty value
+        for k in keys:
+            v = d.get(k)
+            if v is not None and str(v).strip() != "":
+                return str(v).strip()
+        return ""
+
+    # These MUST match your HTML list (inspection page)
     visual_items = [
         "Physical Condition of Material",
         "Identification/Marking as per specifications",
@@ -476,9 +497,11 @@ def fill_mrr_f01_xlsx_bytes(
     visual_rows = [33, 34, 35, 36]
 
     for item, r in zip(visual_items, visual_rows):
-        key = _slug(item)
-        yn = (data.get(f"vc_{key}_yn") or "").strip().upper()
-        rm = (data.get(f"vc_{key}_remarks") or "").strip()
+        k1 = _slug_visual_jinja(item)          # current Jinja slug (keeps commas)
+        k2 = k1.replace(",", "")               # fallback if you later remove commas in Jinja
+
+        yn = _get_any(data, [f"vc_{k1}_yn", f"vc_{k2}_yn"]).upper()
+        rm = _get_any(data, [f"vc_{k1}_remarks", f"vc_{k2}_remarks"])
 
         if yn in ["YES", "NO"]:
             _ws_set_value_safe(ws, f"G{r}", yn)   # G:H merged
@@ -493,42 +516,39 @@ def fill_mrr_f01_xlsx_bytes(
     doc_rows = [39, 40, 41]
 
     for item, r in zip(doc_items, doc_rows):
-        key = _slug(item)
-        yn = (data.get(f"dr_{key}_yn") or "").strip().upper()
-        rm = (data.get(f"dr_{key}_remarks") or "").strip()
+        k1 = _slug_doc_jinja(item)              # current Jinja slug (keeps commas)
+        k2 = k1.replace(",", "")               # fallback if you later remove commas in Jinja
+
+        yn = _get_any(data, [f"dr_{k1}_yn", f"dr_{k2}_yn"]).upper()
+        rm = _get_any(data, [f"dr_{k1}_remarks", f"dr_{k2}_remarks"])
 
         if yn in ["YES", "NO"]:
             _ws_set_value_safe(ws, f"G{r}", yn)
         if rm:
             _ws_set_value_safe(ws, f"I{r}", rm)
 
+    # ---- APPROVAL STATUS (do NOT overwrite text; keep text + add ✓) ----
+    status = (data.get("approval_status") or "").strip().upper()
 
+    v_text = "Verified and Confirmed"
+    h_text = "On Hold (Specify Reason Below)"
+    n_text = "Non-Conformity"
 
-            # ---- APPROVAL STATUS (do NOT overwrite text; keep text + add ✓) ----
-        status = (data.get("approval_status") or "").strip().upper()
-    
-        # Original labels (same as template row 44)
-        v_text = "Verified and Confirmed"
-        h_text = "On Hold (Specify Reason Below)"
-        n_text = "Non-Conformity"
-    
-        _ws_set_value_safe(ws, "A44", f"✓ {v_text}" if status == "VERIFIED" else v_text)
-        _ws_set_value_safe(ws, "D44", f"✓ {h_text}" if status == "HOLD" else h_text)
-        _ws_set_value_safe(ws, "G44", f"✓ {n_text}" if status == "NONCONFORM" else n_text)
-    
-        # ---- COMMENTS BOX (A46:J48 merged) ----
-        remarks = (data.get("remarks") or "").strip()
-        on_hold_reason = (data.get("on_hold_reason") or "").strip()
-    
-        lines = []
-        if status == "HOLD" and on_hold_reason:
-            lines.append(f"On Hold Reason: {on_hold_reason}")
-        if remarks:
-            lines.append(f"Remarks: {remarks}")
-    
-        _ws_set_value_safe(ws, "A46", "\n".join(lines).strip())
+    _ws_set_value_safe(ws, "A44", f"✓ {v_text}" if status == "VERIFIED" else v_text)
+    _ws_set_value_safe(ws, "D44", f"✓ {h_text}" if status == "HOLD" else h_text)
+    _ws_set_value_safe(ws, "G44", f"✓ {n_text}" if status == "NONCONFORM" else n_text)
 
+    # ---- COMMENTS BOX (A46:J48 merged) ----
+    remarks = (data.get("remarks") or "").strip()
+    on_hold_reason = (data.get("on_hold_reason") or "").strip()
 
+    lines = []
+    if status == "HOLD" and on_hold_reason:
+        lines.append(f"On Hold Reason: {on_hold_reason}")
+    if remarks:
+        lines.append(f"Remarks: {remarks}")
+
+    _ws_set_value_safe(ws, "A46", "\n".join(lines).strip())
 
     # ---- SIGNATURES ----
     _ws_set_value_safe(ws, "B51", getattr(inspection, "inspector_name", "") or "")
@@ -5225,6 +5245,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
