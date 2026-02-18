@@ -701,7 +701,7 @@ from reportlab.pdfgen import canvas
 try:
     from pypdf import PdfReader, PdfWriter
 except Exception:
-    from PyPDF2 import PdfReader, PdfWriter
+    from pypdf import PdfReader, PdfWriter
 
 
 def _stamp_signature_overlay_pdf(
@@ -889,7 +889,7 @@ from io import BytesIO
 from datetime import datetime
 from reportlab.pdfgen import canvas
 from reportlab.lib.utils import ImageReader
-from PyPDF2 import PdfReader, PdfWriter
+from pypdf import PdfReader, PdfWriter
 
 def make_signature_stamp_pdf(
     page_w: float,
@@ -1360,7 +1360,7 @@ from datetime import datetime
 try:
     from pypdf import PdfReader, PdfWriter
 except Exception:
-    from PyPDF2 import PdfReader, PdfWriter
+    from pypdf import PdfReader, PdfWriter
 
 
 def stamp_approval_on_pdf(
@@ -5573,6 +5573,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
