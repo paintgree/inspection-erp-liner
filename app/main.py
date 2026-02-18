@@ -798,7 +798,7 @@ def mrr_export_inspection_xlsx(
 
     # Only allow export if submitted (optional rule)
     if not (insp.inspector_confirmed or insp.manager_approved):
-    raise HTTPException(400, "Inspection must be submitted before export")
+        raise HTTPException(400, "Inspection must be submitted before export")
 
 
     # Decide template based on inspection.template_type
@@ -904,8 +904,10 @@ def mrr_export_inspection_pdf(
     docs = session.exec(select(MrrDocument).where(MrrDocument.ticket_id == lot_id).order_by(MrrDocument.created_at.asc())).all()
     receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
 
-    if not insp.inspector_confirmed:
+    # Only allow export if submitted OR manager approved
+    if not (insp.inspector_confirmed or insp.manager_approved):
         raise HTTPException(400, "Inspection must be submitted before export")
+
 
     tpl = _safe_upper(getattr(insp, "template_type", "RAW"))
     if tpl != "RAW":
@@ -5194,6 +5196,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
