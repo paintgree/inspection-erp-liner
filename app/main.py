@@ -454,18 +454,44 @@ def fill_mrr_f01_xlsx_bytes(
 
 
 
-    # ---- VISUAL CHECKS (optional) ----
-    vc = data.get("visual_checks")
-    if isinstance(vc, dict):
-        for r in range(34, 38):
-            label = ws.cell(r, 1).value
-            if isinstance(label, str) and label in vc:
-                v = vc.get(label)
-                if isinstance(v, bool):
-                    ws.cell(r, 7).value = "YES" if v else "NO"
+        # ---- VISUAL + DOC REVIEW (from vc_* / dr_* fields) ----
+    def _slug(s: str) -> str:
+        s = (s or "").strip().lower()
+        s = s.replace("’", "").replace("'", "")
+        for ch in [" ", "/", "(", ")", ".", ",", ":", ";"]:
+            s = s.replace(ch, "_")
+        while "__" in s:
+            s = s.replace("__", "_")
+        return s.strip("_")
 
+    # Visual rows in your Excel: 33..36
+    for r in range(33, 37):
+        label = ws.cell(r, 1).value
+        if not isinstance(label, str):
+            continue
+        key = _slug(label)
+        yn = (data.get(f"vc_{key}_yn") or "").strip().upper()
+        rm = (data.get(f"vc_{key}_remarks") or "").strip()
 
-    status = (data.get("approval_status") or "").strip().upper()
+        if yn in ["YES", "NO"]:
+            _ws_set_value_safe(ws, f"G{r}", yn)
+        if rm:
+            _ws_set_value_safe(ws, f"I{r}", rm)
+
+    # Doc review rows: 39..41
+    for r in range(39, 42):
+        label = ws.cell(r, 1).value
+        if not isinstance(label, str):
+            continue
+        key = _slug(label)
+        yn = (data.get(f"dr_{key}_yn") or "").strip().upper()
+        rm = (data.get(f"dr_{key}_remarks") or "").strip()
+
+        if yn in ["YES", "NO"]:
+            _ws_set_value_safe(ws, f"G{r}", yn)
+        if rm:
+            _ws_set_value_safe(ws, f"I{r}", rm)
+
 
     # IMPORTANT: replace these cell addresses with the real ones in your Excel template
     # Put a "✓" in the right option cell
@@ -771,8 +797,9 @@ def mrr_export_inspection_xlsx(
     ).first()
 
     # Only allow export if submitted (optional rule)
-    if not insp.inspector_confirmed:
-        raise HTTPException(400, "Inspection must be submitted before export")
+    if not (insp.inspector_confirmed or insp.manager_approved):
+    raise HTTPException(400, "Inspection must be submitted before export")
+
 
     # Decide template based on inspection.template_type
     tpl = _safe_upper(getattr(insp, "template_type", "RAW"))
@@ -2618,68 +2645,11 @@ def new_shipment_inspection_page(
     )
 
 @app.post("/mrr/{lot_id}/inspection/{inspection_id}/submit")
-def mrr_inspection_submit(
+async def mrr_inspection_submit(
     lot_id: int,
     inspection_id: int,
     request: Request,
     session: Session = Depends(get_session),
-
-    # NEW: action decides draft vs submit
-    action: str = Form("submit"),
-
-    # header fields (if you already had them in your function, keep them here)
-    delivery_note_no: str = Form(""),
-    qty_arrived: float = Form(0.0),
-    qty_unit: str = Form(""),
-
-    # your form fields
-    batch_numbers: List[str] = Form([]),
-    mismatch_reason: str = Form(""),
-    material_family: str = Form(""),
-    material_model: str = Form(""),
-    material_grade: str = Form(""),
-
-    # PE table fields (keep as text)
-    pe_density_result: str = Form(""),
-    pe_density_remarks: str = Form(""),
-    pe_mfr_result: str = Form(""),
-    pe_mfr_remarks: str = Form(""),
-    pe_flexural_result: str = Form(""),
-    pe_flexural_remarks: str = Form(""),
-    pe_tensile_result: str = Form(""),
-    pe_tensile_remarks: str = Form(""),
-    pe_elong_result: str = Form(""),
-    pe_elong_remarks: str = Form(""),
-    pe_escr_result: str = Form(""),
-    pe_escr_remarks: str = Form(""),
-    pe_oits_result: str = Form(""),
-    pe_oits_remarks: str = Form(""),
-    pe_cb_result: str = Form(""),
-    pe_cb_remarks: str = Form(""),
-    pe_cbd_result: str = Form(""),
-    pe_cbd_remarks: str = Form(""),
-    pe_mvd_result: str = Form(""),
-    pe_mvd_remarks: str = Form(""),
-    pe_ash_result: str = Form(""),
-    pe_ash_remarks: str = Form(""),
-    pe_moist_result: str = Form(""),
-    pe_moist_remarks: str = Form(""),
-
-    # Fiber table fields
-    fb_denier_result: str = Form(""),
-    fb_denier_remarks: str = Form(""),
-    fb_tenacity_result: str = Form(""),
-    fb_tenacity_remarks: str = Form(""),
-    fb_elong_result: str = Form(""),
-    fb_elong_remarks: str = Form(""),
-    fb_moist_result: str = Form(""),
-    fb_moist_remarks: str = Form(""),
-    fb_finish_result: str = Form(""),
-    fb_finish_remarks: str = Form(""),
-
-    # remarks
-    remarks: str = Form(""),
-    inspected_by: str = Form(""),
 ):
     user = get_current_user(request, session)
     forbid_boss(user)
@@ -2692,84 +2662,87 @@ def mrr_inspection_submit(
     if not insp or insp.ticket_id != lot_id:
         raise HTTPException(404, "MRR Inspection not found")
 
-    # Normalize action
-    action = (action or "submit").strip().lower()
-    # Final submit requires at least 1 batch number (draft saves can be empty)
+    # ✅ LOCK RULE:
+    # - Inspector can edit until manager approves OR ticket becomes APPROVED
+    # - After that: view only (manager can reopen via separate manager endpoint)
+    if bool(getattr(insp, "manager_approved", False)) or (getattr(lot, "status", "") or "").upper() == "APPROVED":
+        raise HTTPException(403, "Inspection is locked (manager approved / ticket approved).")
+
+    form = await request.form()
+
+    # action = draft OR submit
+    action = (form.get("action") or "submit").strip().lower()
+
+    # batch_numbers can be multiple inputs with same name
+    batch_numbers = form.getlist("batch_numbers") if hasattr(form, "getlist") else []
+    batch_numbers = [str(x).strip() for x in (batch_numbers or []) if str(x).strip()]
+
+    # Final submit requires at least 1 batch number
     if action == "submit":
-        if not any((b or "").strip() for b in (batch_numbers or [])):
+        if not batch_numbers:
             raise HTTPException(status_code=400, detail="Batch number is required to submit.")
 
-    # Build JSON exactly like your template expects
-    inspection_data = {
-        "report_no": getattr(insp, "report_no", "") or "",
-        "batch_numbers": [x.strip() for x in (batch_numbers or []) if str(x).strip()],
-        "mismatch_reason": (mismatch_reason or "").strip(),
+    # Load existing json (so we don’t lose fields)
+    try:
+        existing = json.loads(insp.inspection_json or "{}")
+        if not isinstance(existing, dict):
+            existing = {}
+    except Exception:
+        existing = {}
 
-        "material_family": (material_family or "").strip(),
-        "material_model": (material_model or "").strip(),
-        "material_grade": (material_grade or "").strip(),
+    # Build inspection_json by taking EVERYTHING from the form
+    # (this fixes: fiber new keys + visual/doc review + anything added later)
+    data = dict(existing)
 
-        # PE table
-        "pe_density_result": (pe_density_result or "").strip(),
-        "pe_density_remarks": (pe_density_remarks or "").strip(),
-        "pe_mfr_result": (pe_mfr_result or "").strip(),
-        "pe_mfr_remarks": (pe_mfr_remarks or "").strip(),
-        "pe_flexural_result": (pe_flexural_result or "").strip(),
-        "pe_flexural_remarks": (pe_flexural_remarks or "").strip(),
-        "pe_tensile_result": (pe_tensile_result or "").strip(),
-        "pe_tensile_remarks": (pe_tensile_remarks or "").strip(),
-        "pe_elong_result": (pe_elong_result or "").strip(),
-        "pe_elong_remarks": (pe_elong_remarks or "").strip(),
-        "pe_escr_result": (pe_escr_result or "").strip(),
-        "pe_escr_remarks": (pe_escr_remarks or "").strip(),
-        "pe_oits_result": (pe_oits_result or "").strip(),
-        "pe_oits_remarks": (pe_oits_remarks or "").strip(),
-        "pe_cb_result": (pe_cb_result or "").strip(),
-        "pe_cb_remarks": (pe_cb_remarks or "").strip(),
-        "pe_cbd_result": (pe_cbd_result or "").strip(),
-        "pe_cbd_remarks": (pe_cbd_remarks or "").strip(),
-        "pe_mvd_result": (pe_mvd_result or "").strip(),
-        "pe_mvd_remarks": (pe_mvd_remarks or "").strip(),
-        "pe_ash_result": (pe_ash_result or "").strip(),
-        "pe_ash_remarks": (pe_ash_remarks or "").strip(),
-        "pe_moist_result": (pe_moist_result or "").strip(),
-        "pe_moist_remarks": (pe_moist_remarks or "").strip(),
+    for k, v in form.items():
+        if k == "action":
+            continue
+        # keep normal scalar values
+        if k != "batch_numbers":
+            data[k] = (str(v).strip() if v is not None else "")
 
-        # Fiber table
-        "fb_denier_result": (fb_denier_result or "").strip(),
-        "fb_denier_remarks": (fb_denier_remarks or "").strip(),
-        "fb_tenacity_result": (fb_tenacity_result or "").strip(),
-        "fb_tenacity_remarks": (fb_tenacity_remarks or "").strip(),
-        "fb_elong_result": (fb_elong_result or "").strip(),
-        "fb_elong_remarks": (fb_elong_remarks or "").strip(),
-        "fb_moist_result": (fb_moist_result or "").strip(),
-        "fb_moist_remarks": (fb_moist_remarks or "").strip(),
-        "fb_finish_result": (fb_finish_result or "").strip(),
-        "fb_finish_remarks": (fb_finish_remarks or "").strip(),
+    # overwrite batch_numbers with cleaned list
+    data["batch_numbers"] = batch_numbers
 
-        # remarks
-        "remarks": (remarks or "").strip(),
-        "inspected_by": (inspected_by or "").strip() or getattr(user, "display_name", "") or "",
-    }
+    # Always keep report_no from model
+    data["report_no"] = getattr(insp, "report_no", "") or data.get("report_no", "")
 
-    # Always save data (draft or submit)
-    insp.delivery_note_no = (delivery_note_no or "").strip() or (getattr(insp, "delivery_note_no", "") or "")
-    insp.qty_arrived = qty_arrived
-    insp.qty_unit = (qty_unit or "").strip() or (getattr(insp, "qty_unit", "") or "")
-    insp.inspection_json = json.dumps(inspection_data, ensure_ascii=False)
+    # Always set inspected_by based on logged in user (no manual typing)
+    data["inspected_by"] = getattr(user, "display_name", "") or data.get("inspected_by", "")
+
+    # Save model fields too (needed by report header)
+    dn = (form.get("delivery_note_no") or "").strip()
+    qty_arrived = form.get("qty_arrived")
+    qty_unit = (form.get("qty_unit") or "").strip()
+
+    if dn:
+        insp.delivery_note_no = dn
+    if qty_arrived is not None and str(qty_arrived).strip() != "":
+        try:
+            insp.qty_arrived = float(qty_arrived)
+        except Exception:
+            pass
+    if qty_unit:
+        insp.qty_unit = qty_unit
+
+    # Save JSON
+    insp.inspection_json = json.dumps(data, ensure_ascii=False)
+
+    # Inspector name stored in column area and for list table
+    insp.inspector_name = getattr(user, "display_name", "") or ""
 
     if action == "draft":
-        # Draft save only
         insp.inspector_confirmed = False
         session.add(insp)
         session.commit()
         return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}?saved=draft", status_code=302)
 
-    # Final submit
+    # submit
     insp.inspector_confirmed = True
     session.add(insp)
     session.commit()
     return RedirectResponse(f"/mrr/{lot_id}", status_code=302)
+
 
 
 
@@ -5221,6 +5194,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
