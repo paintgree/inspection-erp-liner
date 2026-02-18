@@ -638,6 +638,9 @@ def fill_mrr_f01_xlsx_bytes(
     return _xlsx_bytes_from_wb(wb)
 
 
+# =========================
+# PDF post-processing helpers
+# =========================
 from io import BytesIO
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -650,19 +653,20 @@ def fit_pdf_pages_to_a4(
     margin_left_right: float = 3.0,
     margin_bottom: float = 3.0,
     header_reserved: float = 78.0,
-    zoom: float = 1.18,        # <-- makes content bigger (try 1.15 to 1.25)
-    shift_x: float =  40.0,    # <-- move content LEFT  (fixes big right gap)
-    shift_y: float = -80.0,      # <-- move content UP/DOWN (small tweak)
+    zoom: float = 1.18,        # bigger content
+    shift_x: float = 40.0,     # move LEFT/RIGHT
+    shift_y: float = -80.0,    # move UP/DOWN
 ) -> bytes:
     """
-    Force pages onto A4, reserve header space, then zoom and shift
-    to remove big empty gaps from LibreOffice output.
+    Force pages onto A4, reserve header space, then zoom and shift.
     """
-    reader = PdfReader(BytesIO(pdf_bytes))
+    # IMPORTANT: use a local alias so it can NEVER break from duplicate imports
+    _B = BytesIO
+
+    reader = PdfReader(_B(pdf_bytes))
     writer = PdfWriter()
 
     a4_w, a4_h = A4
-
     usable_w = a4_w - 2 * margin_left_right
     usable_h = a4_h - margin_bottom - header_reserved
 
@@ -670,10 +674,7 @@ def fit_pdf_pages_to_a4(
         src_w = float(page.mediabox.width)
         src_h = float(page.mediabox.height)
 
-        # Base scale to fit inside the usable area
         base_scale = min(usable_w / src_w, usable_h / src_h)
-
-        # Apply extra zoom to fill page more
         scale = base_scale * zoom
 
         new_page = writer.add_blank_page(width=a4_w, height=a4_h)
@@ -681,7 +682,6 @@ def fit_pdf_pages_to_a4(
         content_w = src_w * scale
         content_h = src_h * scale
 
-        # Center inside usable area, then apply shift
         tx = (a4_w - content_w) / 2.0 + shift_x
         ty = margin_bottom + (usable_h - content_h) / 2.0 + shift_y
 
@@ -690,77 +690,45 @@ def fit_pdf_pages_to_a4(
             Transformation().scale(scale).translate(tx, ty)
         )
 
-    out = BytesIO()
+    out = _B()
     writer.write(out)
     out.seek(0)
     return out.read()
 
 
-    from io import BytesIO
-from reportlab.pdfgen import canvas
-try:
-    from pypdf import PdfReader, PdfWriter
-except Exception:
-    from pypdf import PdfReader, PdfWriter
-
-
-def _stamp_signature_overlay_pdf(
-    page_w: float,
-    page_h: float,
-    inspector_name: str = "",
-    inspector_date: str = "",
-    manager_name: str = "",
-    manager_date: str = "",
-) -> bytes:
+def make_logo_stamp_pdf(page_w: float, page_h: float, logo_path: str) -> bytes:
     """
-    Creates 1-page overlay with signature text.
-    Coordinates are tuned for your QAP0600-F01 A4 portrait layout.
+    Create a transparent 1-page PDF with a centered logo at top.
     """
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=(page_w, page_h))
 
-    # slightly transparent if supported
-    try:
-        c.setFillAlpha(0.55)
-    except Exception:
-        pass
+    img = ImageReader(logo_path)
+    iw, ih = img.getSize()
 
-    c.setFont("Helvetica", 8)
-    c.setFillColorRGB(0.10, 0.10, 0.10)
+    target_w = page_w * 0.32
+    scale = target_w / float(iw)
+    target_h = float(ih) * scale
 
-    # ---- positions near bottom signature area ----
-    insp_x = 70
-    insp_y = 58
+    top_margin = 16
+    x = (page_w - target_w) / 2.0
+    y = page_h - top_margin - target_h
 
-    mgr_x = page_w * 0.42
-    mgr_y = 58
-
-    if inspector_name:
-        c.drawString(insp_x, insp_y + 14, f"Digitally signed by: {inspector_name}")
-        if inspector_date:
-            c.drawString(insp_x, insp_y, f"Date: {inspector_date}")
-
-    if manager_name:
-        c.drawString(mgr_x, mgr_y + 14, f"Digitally approved by: {manager_name}")
-        if manager_date:
-            c.drawString(mgr_x, mgr_y, f"Date: {manager_date}")
-
+    c.drawImage(img, x, y, width=target_w, height=target_h, mask="auto")
     c.showPage()
     c.save()
+
     buf.seek(0)
     return buf.getvalue()
 
 
-def stamp_signatures_on_pdf(
-    pdf_bytes: bytes,
-    inspector_name: str = "",
-    inspector_date: str = "",
-    manager_name: str = "",
-    manager_date: str = "",
-) -> bytes:
+def stamp_logo_on_pdf(pdf_bytes: bytes, logo_path: str) -> bytes:
     """
-    Overlay signature stamp on every page.
+    Overlay the logo stamp onto every page (top-center).
     """
+    if not logo_path or not os.path.exists(logo_path):
+        return pdf_bytes
+
     reader = PdfReader(BytesIO(pdf_bytes))
     writer = PdfWriter()
 
@@ -768,15 +736,10 @@ def stamp_signatures_on_pdf(
         w = float(page.mediabox.width)
         h = float(page.mediabox.height)
 
-        overlay_pdf = _stamp_signature_overlay_pdf(
-            w, h,
-            inspector_name=inspector_name,
-            inspector_date=inspector_date,
-            manager_name=manager_name,
-            manager_date=manager_date,
-        )
-        overlay = PdfReader(BytesIO(overlay_pdf)).pages[0]
-        page.merge_page(overlay)
+        stamp_pdf = make_logo_stamp_pdf(w, h, logo_path)
+        stamp_reader = PdfReader(BytesIO(stamp_pdf))
+
+        page.merge_page(stamp_reader.pages[0])
         writer.add_page(page)
 
     out = BytesIO()
@@ -5573,6 +5536,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
