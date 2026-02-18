@@ -896,71 +896,99 @@ BASE_DIR = os.path.dirname(__file__)
 # =========================
 # Upload storage (local FS)
 # =========================
-DATA_DIR = os.environ.get("DATA_DIR", "/tmp/inspection_erp_data")
+BASE_DIR = os.path.dirname(__file__)
+
+# IMPORTANT:
+# Do NOT store uploads in /tmp because it can be cleared when container restarts.
+# Use /app/data by default (persistent in most docker setups if you mount it).
+DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
+
 MRR_UPLOAD_DIR = os.path.join(DATA_DIR, "mrr_uploads")
-MRR_PHOTO_DIR = os.path.join(DATA_DIR, "mrr_photos")
+MRR_PHOTO_DIR  = os.path.join(DATA_DIR, "mrr_photos")
 
 os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
 os.makedirs(MRR_PHOTO_DIR, exist_ok=True)
 
 
-
-templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
-# =========================
-# File upload directories
-# =========================
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-
-
-
-IMAGE_MAP = {
-    "LINER": "/static/images/liner.png",
-    "REINFORCEMENT": "/static/images/reinforcement.png",
-    "COVER": "/static/images/cover.png",
-}
-
-PAPER_BG_MAP = {
-    "LINER": os.path.join(BASE_DIR, "static", "papers", "liner_bg.pdf"),
-    "REINFORCEMENT": os.path.join(BASE_DIR, "static", "papers", "reinforcement_bg.pdf"),
-    "COVER": os.path.join(BASE_DIR, "static", "papers", "cover_bg.pdf"),
-}
-
-TEMPLATE_XLSX_MAP = {
-    "LINER": os.path.join(BASE_DIR, "templates", "templates_xlsx", "liner.xlsx"),
-    "REINFORCEMENT": os.path.join(BASE_DIR, "templates", "templates_xlsx", "reinforcement.xlsx"),
-    "COVER": os.path.join(BASE_DIR, "templates", "templates_xlsx", "cover.xlsx"),
-}
 def resolve_mrr_doc_path(p: str) -> str:
-    """Resolve stored MRR document path to an existing file on disk.
+    """
+    Resolve stored MRR document path to an existing file on disk.
 
-    Backward compatible with rows that stored absolute paths, relative paths, or just filenames.
+    Supports:
+    - absolute path
+    - old relative paths (including ones containing '..')
+    - storing just the filename (recommended)
     """
     if not p:
         return ""
 
-    p_norm = p.replace("\\", "/").lstrip("/")
+    p = str(p).replace("\\", "/").strip()
 
-    # absolute
-    try:
-        if os.path.isabs(p) and os.path.exists(p):
-            return p
-    except Exception:
-        pass
+    # 1) absolute path (old records)
+    if os.path.isabs(p) and os.path.exists(p):
+        return p
+
+    # normalize, remove leading slash so join works
+    p_norm = p.lstrip("/")
 
     candidates = [
-        p_norm,
-        os.path.join(BASE_DIR, p_norm) if 'BASE_DIR' in globals() else p_norm,
-        os.path.join(DATA_DIR, p_norm) if 'DATA_DIR' in globals() else p_norm,
-        os.path.join(MRR_UPLOAD_DIR, p_norm),
+        # if DB stored just filename, this will work:
         os.path.join(MRR_UPLOAD_DIR, os.path.basename(p_norm)),
+
+        # if DB stored relative path from BASE_DIR (old code)
+        os.path.normpath(os.path.join(BASE_DIR, p_norm)),
+
+        # if DB stored relative path from DATA_DIR
+        os.path.normpath(os.path.join(DATA_DIR, p_norm)),
+
+        # if DB stored already relative inside mrr_uploads/
+        os.path.normpath(os.path.join(MRR_UPLOAD_DIR, p_norm)),
     ]
 
     for c in candidates:
-        if c and os.path.exists(c):
-            return c
+        try:
+            if c and os.path.exists(c):
+                return c
+        except Exception:
+            pass
 
     return ""
+
+
+def resolve_mrr_photo_path(p: str) -> str:
+    """
+    Resolve stored photo path to an existing file on disk.
+
+    Supports:
+    - absolute path (old records)
+    - relative path under DATA_DIR (new recommended)
+    - relative/filename under MRR_PHOTO_DIR
+    """
+    if not p:
+        return ""
+
+    p = str(p).replace("\\", "/").strip()
+
+    if os.path.isabs(p) and os.path.exists(p):
+        return p
+
+    p_norm = p.lstrip("/")
+
+    candidates = [
+        os.path.normpath(os.path.join(DATA_DIR, p_norm)),
+        os.path.normpath(os.path.join(MRR_PHOTO_DIR, p_norm)),
+        os.path.normpath(os.path.join(MRR_PHOTO_DIR, os.path.basename(p_norm))),
+    ]
+
+    for c in candidates:
+        try:
+            if c and os.path.exists(c):
+                return c
+        except Exception:
+            pass
+
+    return ""
+
 
 # ==========================================
 # EXPORT PER-INSPECTION (SEPARATE REPORTS)
@@ -2490,7 +2518,8 @@ async def mrr_doc_upload(
         raise HTTPException(400, "Document Name is required when type is RELATED")
 
     # ✅ store RELATIVE path (portable)
-    rel_path = os.path.relpath(abs_path, BASE_DIR)
+    # store only filename (portable + easiest to resolve later)
+    rel_path = os.path.basename(abs_path)
 
     if dt != "PO" and not (doc_number or "").strip():
         raise HTTPException(400, "Document Number is required")
@@ -5354,12 +5383,14 @@ def mrr_photo_view(photo_id: int, request: Request, session: Session = Depends(g
 
     # (optional) basic permission gate: any logged-in user can view
     # You can tighten later by checking ticket access rules if needed.
+    
+    resolved = resolve_mrr_photo_path(p.file_path)
+    if not resolved:
+        raise HTTPException(404, "File not found")
+    
+    mt, _ = mimetypes.guess_type(resolved)
+    return FileResponse(resolved, media_type=mt or "image/jpeg")
 
-    if not p.file_path or not os.path.exists(p.file_path):
-        raise HTTPException(404, "Photo file missing")
-
-    mt, _ = mimetypes.guess_type(p.file_path)
-    return FileResponse(p.file_path, media_type=mt or "image/jpeg")
 
 
 @app.post("/mrr/{lot_id}/inspection/id/{inspection_id}/photos/upload")
@@ -5471,6 +5502,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
