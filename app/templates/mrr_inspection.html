@@ -163,15 +163,14 @@
               {"k":"density","p":"Density","u":"g/cm³","m":"ASTM D1505 / ISO-1183","a":"0.935–0.965 g/cm³"},
               {"k":"mfr","p":"Melt Flow Rate (MFR) -190°C / 5kg","u":"g/10 min","m":"ASTM D1238 / ISO 1133","a":"0.2–0.4 g/10 min"},
               {"k":"flexural","p":"Flexural Modulus","u":"MPa","m":"ASTM D790","a":"700–1200 MPa"},
-              {"k":"tensile","p":"Tensile Strength at Yield","u":"MPa","m":"ASTM D638","a":"≥ 20 MPa"},
-              {"k":"elong","p":"Elongation at Break","u":"%","m":"ASTM D638","a":"≥ 600 %"},
-              {"k":"escr","p":"ESCR (Environmental Stress Crack Resistance)","u":"hours","m":"ASTM D1693 / ISO 22088","a":"≥ 1000 hours"},
-              {"k":"oits","p":"Oxidation Induction Time (OIT)","u":"min","m":"ASTM D3895","a":"≥ 20 min"},
-              {"k":"cb","p":"Carbon Black Content","u":"%","m":"ASTM D1603 / ISO 6964","a":"2.0–2.5 %"},
-              {"k":"cbd","p":"Carbon Black Dispersion","u":"Grade","m":"ASTM D5596 / ISO 18553","a":"≤ Grade 3"},
-              {"k":"mvd","p":"Volatile Matter","u":"%","m":"ISO 9895","a":"≤ 0.2 %"},
-              {"k":"ash","p":"Ash Content","u":"%","m":"ASTM D5630","a":"≤ 0.3 %"},
-              {"k":"moist","p":"Moisture","u":"%","m":"Internal / COA","a":"≤ 0.05 %"}
+              {"k":"tensile","p":"Tensile Strength at Yield","u":"MPa","m":"ISO 527-2","a":"≥ 19 Mpa"},
+              {"k":"tensile_break","p":"Tensile Strength at Break","u":"MPa","m":"ISO 527-2","a":"≥ 22 Mpa"},
+              {"k":"elong","p":"Elongation at Break","u":"%","m":"ISO 527-2","a":"≥ 350%"},
+              {"k":"escr","p":"(ESCR)","u":"Hours","m":"ASTM D1693","a":"≥ 1000 hrs"},
+              {"k":"oits","p":"Oxidative Induction Time (OIT)","u":"Minutes","m":"ASTM D3895","a":"≥ 20 min"},
+              {"k":"hdb","p":"HDB (23C°) /  MRS (20C°)","u":"MPa","m":"ISO 12162","a":"10.0 Mpa"},
+              {"k":"cb","p":"Carbon Black Content","u":"%","m":"ISO 6964","a":"%"},
+              {"k":"melt","p":"Melting Point","u":"C°","m":"","a":""}
             ] %}
             {% for r in pe_rows %}
               <tr>
