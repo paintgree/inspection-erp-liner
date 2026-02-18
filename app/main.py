@@ -442,6 +442,14 @@ def fill_mrr_f01_xlsx_bytes(
             _write_cell_safe(ws, r, RESULTS_COL, it.get("result") or it.get("value") or "")
             _write_cell_safe(ws, r, REMARKS_COL, it.get("remarks") or "")
 
+    # ---- FOOTER (prints on every page) ----
+    # Left footer: Control number
+    try:
+        ws.oddFooter.left.text = "QAP0600-F01"
+        ws.oddFooter.left.size = 9
+        ws.oddFooter.left.font = "Arial"
+    except Exception:
+        pass
 
 
 
@@ -5213,6 +5221,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
