@@ -747,58 +747,6 @@ def stamp_logo_on_pdf(pdf_bytes: bytes, logo_path: str) -> bytes:
     out.seek(0)
     return out.getvalue()
 
-def make_logo_stamp_pdf(page_w: float, page_h: float, logo_path: str) -> bytes:
-    """
-    Create a transparent 1-page PDF with a centered logo at top.
-    """
-    buf = BytesIO()
-    c = canvas.Canvas(buf, pagesize=(page_w, page_h))
-
-    img = ImageReader(logo_path)
-    iw, ih = img.getSize()
-
-    # Logo size: ~24% of page width (adjust if you want bigger/smaller)
-    target_w = page_w * 0.32
-    scale = target_w / float(iw)
-    target_h = float(ih) * scale
-
-    top_margin = 16
-    x = (page_w - target_w) / 2.0
-    y = page_h - top_margin - target_h
-
-    c.drawImage(img, x, y, width=target_w, height=target_h, mask="auto")
-    c.showPage()
-    c.save()
-
-    buf.seek(0)
-    return buf.getvalue()
-
-
-def stamp_logo_on_pdf(pdf_bytes: bytes, logo_path: str) -> bytes:
-    """
-    Overlay the logo stamp onto every page (top-center).
-    """
-    if not logo_path or not os.path.exists(logo_path):
-        return pdf_bytes
-
-    reader = PdfReader(BytesIO(pdf_bytes))
-    writer = PdfWriter()
-
-    for page in reader.pages:
-        w = float(page.mediabox.width)
-        h = float(page.mediabox.height)
-
-        stamp_pdf = make_logo_stamp_pdf(w, h, logo_path)
-        stamp_reader = PdfReader(BytesIO(stamp_pdf))
-
-        page.merge_page(stamp_reader.pages[0])
-        writer.add_page(page)
-
-    out = BytesIO()
-    writer.write(out)
-    out.seek(0)
-    return out.getvalue()
-
 def make_footer_stamp_pdf(page_w: float, page_h: float, left_text: str, right_text: str = "") -> bytes:
     """
     Create a transparent 1-page PDF with footer text.
@@ -1138,32 +1086,12 @@ def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
     logo_path = os.path.join(base_dir, "static", "images", "logo.png")
     pdf = stamp_logo_on_pdf(pdf, logo_path)
     pdf = stamp_footer_on_pdf(pdf, "QAP0600-F01")
-
-
-    # ---- DIGITAL SIGNATURE STAMP ----
-    # Only show inspector signature when submitted
-    insp_name = getattr(inspection, "inspector_name", "") or ""
-    insp_date = _as_date_str(getattr(inspection, "created_at", None) or datetime.utcnow())
-    
-    mgr_name = ""
-    mgr_date = ""
-    
-    if bool(getattr(inspection, "manager_approved", False)):
-        # If you store manager name somewhere else, use that field instead
-        mgr_name = "Quality Manager"
-        mgr_date = _as_date_str(datetime.utcnow())
-    
-    if bool(getattr(inspection, "inspector_confirmed", False)) or bool(getattr(inspection, "manager_approved", False)):
-        pdf = stamp_signatures_on_pdf(
-            pdf,
-            inspector_name=insp_name if bool(getattr(inspection, "inspector_confirmed", False)) else None,
-            inspector_date=insp_date if bool(getattr(inspection, "inspector_confirmed", False)) else None,
-            manager_name=mgr_name if bool(getattr(inspection, "manager_approved", False)) else None,
-            manager_date=mgr_date if bool(getattr(inspection, "manager_approved", False)) else None,
-        )
-
-    
     return pdf
+
+
+
+
+
 
 
 
@@ -1207,37 +1135,36 @@ def mrr_export_inspection_pdf(
 
     pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
 
-        # ✅ Digital signatures (based on real users / roles)
+
+    # ✅ Digital signatures (based on real users / roles)
     try:
         data = json.loads(getattr(insp, "inspection_json", None) or "{}")
     except Exception:
         data = {}
 
-    # inspector signature (only if submitted)
+    # Inspector signature (only if submitted/confirmed)
     inspector_name = (getattr(insp, "inspector_name", "") or "").strip()
     inspector_date = ""
-    if getattr(insp, "inspector_confirmed", False):
-        # If you stored submitted time, use it; else fall back to created_at
-        ts = data.get("submitted_at_utc") or getattr(insp, "created_at", None)
-        inspector_date = _as_date_str(ts) if ts else _as_date_str(datetime.utcnow())
+    if bool(getattr(insp, "inspector_confirmed", False)):
+        ts = data.get("submitted_at_utc") or getattr(insp, "created_at", None) or datetime.utcnow().isoformat()
+        inspector_date = _as_date_str(ts)
 
-    # manager signature (only if approved)
+    # Manager signature (only if approved)
     manager_name = (data.get("manager_approved_by") or "").strip()
     manager_date = ""
-    if getattr(insp, "manager_approved", False):
+    if bool(getattr(insp, "manager_approved", False)):
         ts2 = data.get("manager_approved_at_utc") or datetime.utcnow().isoformat()
         manager_date = _as_date_str(ts2)
 
-    pdf_bytes = stamp_signatures_on_pdf(
-        pdf_bytes,
-        inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
-        inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
-        manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
-        manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
-    )
+    if inspector_name or manager_name:
+        pdf_bytes = stamp_signatures_on_pdf(
+            pdf_bytes,
+            inspector_name=inspector_name if bool(getattr(insp, "inspector_confirmed", False)) else None,
+            inspector_date=inspector_date if bool(getattr(insp, "inspector_confirmed", False)) else None,
+            manager_name=manager_name if bool(getattr(insp, "manager_approved", False)) else None,
+            manager_date=manager_date if bool(getattr(insp, "manager_approved", False)) else None,
+        )
 
-
-    filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
