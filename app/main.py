@@ -1113,18 +1113,24 @@ def mrr_export_inspection_pdf(
     if not insp or insp.ticket_id != lot_id:
         raise HTTPException(404, "MRR Inspection not found")
 
-    docs = session.exec(select(MrrDocument).where(MrrDocument.ticket_id == lot_id).order_by(MrrDocument.created_at.asc())).all()
-    receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+    docs = session.exec(
+        select(MrrDocument)
+        .where(MrrDocument.ticket_id == lot_id)
+        .order_by(MrrDocument.created_at.asc())
+    ).all()
+    receiving = session.exec(
+        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
+    ).first()
 
     # Only allow export if submitted OR manager approved
     if not (insp.inspector_confirmed or insp.manager_approved):
         raise HTTPException(400, "Inspection must be submitted before export")
 
-
     tpl = _safe_upper(getattr(insp, "template_type", "RAW"))
     if tpl != "RAW":
         raise HTTPException(400, f"Template type {tpl} export not wired yet (we will do F02 next)")
 
+    # Build XLSX
     xlsx_bytes = fill_mrr_f01_xlsx_bytes(
         lot=lot,
         receiving=receiving,
@@ -1133,37 +1139,39 @@ def mrr_export_inspection_pdf(
         photos_by_group=None,
     )
 
+    # Convert to PDF (logo/footer fitting happens inside this conversion pipeline)
     pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
 
-
-    # ✅ Digital signatures (based on real users / roles)
+    # ✅ Digital signatures (from stored JSON fields)
     try:
         data = json.loads(getattr(insp, "inspection_json", None) or "{}")
     except Exception:
         data = {}
 
-    # Inspector signature (only if submitted/confirmed)
     inspector_name = (getattr(insp, "inspector_name", "") or "").strip()
     inspector_date = ""
     if bool(getattr(insp, "inspector_confirmed", False)):
-        ts = data.get("submitted_at_utc") or getattr(insp, "created_at", None) or datetime.utcnow().isoformat()
-        inspector_date = _as_date_str(ts)
+        ts = data.get("submitted_at_utc") or getattr(insp, "created_at", None)
+        inspector_date = _as_date_str(ts) if ts else _as_date_str(datetime.utcnow())
 
-    # Manager signature (only if approved)
     manager_name = (data.get("manager_approved_by") or "").strip()
     manager_date = ""
     if bool(getattr(insp, "manager_approved", False)):
         ts2 = data.get("manager_approved_at_utc") or datetime.utcnow().isoformat()
         manager_date = _as_date_str(ts2)
 
-    if inspector_name or manager_name:
+    # Stamp signatures only if present
+    if (inspector_name and inspector_date) or (manager_name and manager_date):
         pdf_bytes = stamp_signatures_on_pdf(
             pdf_bytes,
-            inspector_name=inspector_name if bool(getattr(insp, "inspector_confirmed", False)) else None,
-            inspector_date=inspector_date if bool(getattr(insp, "inspector_confirmed", False)) else None,
-            manager_name=manager_name if bool(getattr(insp, "manager_approved", False)) else None,
-            manager_date=manager_date if bool(getattr(insp, "manager_approved", False)) else None,
+            inspector_name=inspector_name if bool(getattr(insp, "inspector_confirmed", False)) else "",
+            inspector_date=inspector_date if bool(getattr(insp, "inspector_confirmed", False)) else "",
+            manager_name=manager_name if bool(getattr(insp, "manager_approved", False)) else "",
+            manager_date=manager_date if bool(getattr(insp, "manager_approved", False)) else "",
         )
+
+    # ✅ Always define filename (fixes your NameError)
+    filename = f"{(insp.report_no or f'MRR-{lot_id}-{inspection_id}').strip()}.pdf"
 
     return Response(
         content=pdf_bytes,
@@ -5463,6 +5471,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
