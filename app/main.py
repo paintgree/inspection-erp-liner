@@ -696,6 +696,94 @@ def fit_pdf_pages_to_a4(
     return out.read()
 
 
+    from io import BytesIO
+from reportlab.pdfgen import canvas
+try:
+    from pypdf import PdfReader, PdfWriter
+except Exception:
+    from PyPDF2 import PdfReader, PdfWriter
+
+
+def _stamp_signature_overlay_pdf(
+    page_w: float,
+    page_h: float,
+    inspector_name: str = "",
+    inspector_date: str = "",
+    manager_name: str = "",
+    manager_date: str = "",
+) -> bytes:
+    """
+    Creates 1-page overlay with signature text.
+    Coordinates are tuned for your QAP0600-F01 A4 portrait layout.
+    """
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=(page_w, page_h))
+
+    # slightly transparent if supported
+    try:
+        c.setFillAlpha(0.55)
+    except Exception:
+        pass
+
+    c.setFont("Helvetica", 8)
+    c.setFillColorRGB(0.10, 0.10, 0.10)
+
+    # ---- positions near bottom signature area ----
+    insp_x = 70
+    insp_y = 58
+
+    mgr_x = page_w * 0.42
+    mgr_y = 58
+
+    if inspector_name:
+        c.drawString(insp_x, insp_y + 14, f"Digitally signed by: {inspector_name}")
+        if inspector_date:
+            c.drawString(insp_x, insp_y, f"Date: {inspector_date}")
+
+    if manager_name:
+        c.drawString(mgr_x, mgr_y + 14, f"Digitally approved by: {manager_name}")
+        if manager_date:
+            c.drawString(mgr_x, mgr_y, f"Date: {manager_date}")
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def stamp_signatures_on_pdf(
+    pdf_bytes: bytes,
+    inspector_name: str = "",
+    inspector_date: str = "",
+    manager_name: str = "",
+    manager_date: str = "",
+) -> bytes:
+    """
+    Overlay signature stamp on every page.
+    """
+    reader = PdfReader(BytesIO(pdf_bytes))
+    writer = PdfWriter()
+
+    for page in reader.pages:
+        w = float(page.mediabox.width)
+        h = float(page.mediabox.height)
+
+        overlay_pdf = _stamp_signature_overlay_pdf(
+            w, h,
+            inspector_name=inspector_name,
+            inspector_date=inspector_date,
+            manager_name=manager_name,
+            manager_date=manager_date,
+        )
+        overlay = PdfReader(BytesIO(overlay_pdf)).pages[0]
+        page.merge_page(overlay)
+        writer.add_page(page)
+
+    out = BytesIO()
+    writer.write(out)
+    out.seek(0)
+    return out.getvalue()
+
 def make_logo_stamp_pdf(page_w: float, page_h: float, logo_path: str) -> bytes:
     """
     Create a transparent 1-page PDF with a centered logo at top.
@@ -1155,6 +1243,36 @@ def mrr_export_inspection_pdf(
     )
 
     pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
+
+        # ✅ Digital signatures (based on real users / roles)
+    try:
+        data = json.loads(getattr(insp, "inspection_json", None) or "{}")
+    except Exception:
+        data = {}
+
+    # inspector signature (only if submitted)
+    inspector_name = (getattr(insp, "inspector_name", "") or "").strip()
+    inspector_date = ""
+    if getattr(insp, "inspector_confirmed", False):
+        # If you stored submitted time, use it; else fall back to created_at
+        ts = data.get("submitted_at_utc") or getattr(insp, "created_at", None)
+        inspector_date = _as_date_str(ts) if ts else _as_date_str(datetime.utcnow())
+
+    # manager signature (only if approved)
+    manager_name = (data.get("manager_approved_by") or "").strip()
+    manager_date = ""
+    if getattr(insp, "manager_approved", False):
+        ts2 = data.get("manager_approved_at_utc") or datetime.utcnow().isoformat()
+        manager_date = _as_date_str(ts2)
+
+    pdf_bytes = stamp_signatures_on_pdf(
+        pdf_bytes,
+        inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
+        inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
+        manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
+        manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
+    )
+
 
     filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.pdf"
     return Response(
@@ -2962,6 +3080,20 @@ async def mrr_inspection_submit(
 
     # Save JSON
     insp.inspection_json = json.dumps(data, ensure_ascii=False)
+
+        # ✅ Track inspector identity in DB (used for PDF signature + table)
+    insp.inspector_id = getattr(user, "id", insp.inspector_id)
+    insp.inspector_name = (getattr(user, "display_name", "") or "").strip()
+
+    # ✅ Store submit meta in JSON too (useful later)
+    try:
+        _d = json.loads(insp.inspection_json or "{}")
+    except Exception:
+        _d = {}
+    _d["submitted_by"] = insp.inspector_name
+    _d["submitted_at_utc"] = datetime.utcnow().isoformat()
+    insp.inspection_json = json.dumps(_d, ensure_ascii=False)
+
 
     # Inspector name stored in column area and for list table
     insp.inspector_name = getattr(user, "display_name", "") or ""
@@ -5063,6 +5195,18 @@ def mrr_approve_receiving_inspection(
     insp.manager_approved = True
     session.add(insp)
 
+        # ✅ Save manager identity + approval timestamp into JSON (no guessing)
+    try:
+        data = json.loads(getattr(insp, "inspection_json", None) or "{}")
+    except Exception:
+        data = {}
+
+    data["manager_approved_by"] = (getattr(user, "display_name", "") or "").strip()
+    data["manager_approved_at_utc"] = datetime.utcnow().isoformat()
+
+    insp.inspection_json = json.dumps(data, ensure_ascii=False)
+
+
     # =========================
     # Recompute totals from APPROVED shipments (source of truth)
     # =========================
@@ -5429,6 +5573,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
