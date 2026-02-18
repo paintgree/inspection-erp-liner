@@ -797,6 +797,96 @@ def stamp_footer_on_pdf(pdf_bytes: bytes, left_text: str) -> bytes:
     out.seek(0)
     return out.getvalue()
 
+from io import BytesIO
+from datetime import datetime
+from reportlab.pdfgen import canvas
+from reportlab.lib.utils import ImageReader
+from PyPDF2 import PdfReader, PdfWriter
+
+def make_signature_stamp_pdf(
+    page_w: float,
+    page_h: float,
+    inspector_name: str | None = None,
+    inspector_date: str | None = None,
+    manager_name: str | None = None,
+    manager_date: str | None = None,
+) -> bytes:
+    """
+    Creates a transparent overlay PDF with digital signature text.
+    Positions are tuned for your QAP0600-F01 A4 portrait layout.
+    """
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=(page_w, page_h))
+
+    # Transparent-ish text if supported
+    try:
+        c.setFillAlpha(0.55)
+    except Exception:
+        pass
+
+    c.setFont("Helvetica", 8)
+    c.setFillColorRGB(0.10, 0.10, 0.10)
+
+    # ---- Coordinates (A4 portrait typical) ----
+    # Bottom signature block is near bottom; adjust if needed:
+    # Inspector stamp left block
+    insp_x = 70
+    insp_y = 58
+
+    # Manager stamp middle block
+    mgr_x = page_w * 0.42
+    mgr_y = 58
+
+    # Inspector stamp
+    if inspector_name:
+        c.drawString(insp_x, insp_y + 14, f"Digitally signed by: {inspector_name}")
+        if inspector_date:
+            c.drawString(insp_x, insp_y, f"Date: {inspector_date}")
+
+    # Manager stamp
+    if manager_name:
+        c.drawString(mgr_x, mgr_y + 14, f"Digitally approved by: {manager_name}")
+        if manager_date:
+            c.drawString(mgr_x, mgr_y, f"Date: {manager_date}")
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def stamp_signatures_on_pdf(
+    pdf_bytes: bytes,
+    inspector_name: str | None = None,
+    inspector_date: str | None = None,
+    manager_name: str | None = None,
+    manager_date: str | None = None,
+) -> bytes:
+    """
+    Overlays signature stamp on every page.
+    """
+    reader = PdfReader(BytesIO(pdf_bytes))
+    writer = PdfWriter()
+
+    for page in reader.pages:
+        w = float(page.mediabox.width)
+        h = float(page.mediabox.height)
+
+        stamp_pdf = make_signature_stamp_pdf(
+            w, h,
+            inspector_name=inspector_name,
+            inspector_date=inspector_date,
+            manager_name=manager_name,
+            manager_date=manager_date,
+        )
+        stamp_reader = PdfReader(BytesIO(stamp_pdf))
+        page.merge_page(stamp_reader.pages[0])
+        writer.add_page(page)
+
+    out = BytesIO()
+    writer.write(out)
+    out.seek(0)
+    return out.getvalue()
 
 
 
@@ -997,6 +1087,29 @@ def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
     logo_path = os.path.join(base_dir, "static", "images", "logo.png")
     pdf = stamp_logo_on_pdf(pdf, logo_path)
     pdf = stamp_footer_on_pdf(pdf, "QAP0600-F01")
+
+
+    # ---- DIGITAL SIGNATURE STAMP ----
+    # Only show inspector signature when submitted
+    insp_name = getattr(inspection, "inspector_name", "") or ""
+    insp_date = _as_date_str(getattr(inspection, "created_at", None) or datetime.utcnow())
+    
+    mgr_name = ""
+    mgr_date = ""
+    
+    if bool(getattr(inspection, "manager_approved", False)):
+        # If you store manager name somewhere else, use that field instead
+        mgr_name = "Quality Manager"
+        mgr_date = _as_date_str(datetime.utcnow())
+    
+    if bool(getattr(inspection, "inspector_confirmed", False)) or bool(getattr(inspection, "manager_approved", False)):
+        pdf = stamp_signatures_on_pdf(
+            pdf,
+            inspector_name=insp_name if bool(getattr(inspection, "inspector_confirmed", False)) else None,
+            inspector_date=insp_date if bool(getattr(inspection, "inspector_confirmed", False)) else None,
+            manager_name=mgr_name if bool(getattr(inspection, "manager_approved", False)) else None,
+            manager_date=mgr_date if bool(getattr(inspection, "manager_approved", False)) else None,
+        )
 
     
     return pdf
@@ -5316,6 +5429,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
