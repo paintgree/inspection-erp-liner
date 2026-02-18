@@ -748,6 +748,54 @@ def stamp_logo_on_pdf(pdf_bytes: bytes, logo_path: str) -> bytes:
     out.seek(0)
     return out.getvalue()
 
+def make_footer_stamp_pdf(page_w: float, page_h: float, left_text: str, right_text: str = "") -> bytes:
+    """
+    Create a transparent 1-page PDF with footer text.
+    """
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=(page_w, page_h))
+
+    # subtle footer (dark gray)
+    c.setFillColorRGB(0.25, 0.25, 0.25)
+    c.setFont("Helvetica", 9)
+
+    y = 12  # distance from bottom
+    c.drawString(18, y, left_text)
+
+    if right_text:
+        # right aligned
+        c.drawRightString(page_w - 18, y, right_text)
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def stamp_footer_on_pdf(pdf_bytes: bytes, left_text: str) -> bytes:
+    """
+    Overlay footer onto every page.
+    """
+    reader = PdfReader(BytesIO(pdf_bytes))
+    writer = PdfWriter()
+
+    total = len(reader.pages)
+
+    for idx, page in enumerate(reader.pages, start=1):
+        w = float(page.mediabox.width)
+        h = float(page.mediabox.height)
+
+        right_text = f"Page {idx}/{total}"
+        stamp_pdf = make_footer_stamp_pdf(w, h, left_text, right_text)
+        stamp_reader = PdfReader(BytesIO(stamp_pdf))
+
+        page.merge_page(stamp_reader.pages[0])
+        writer.add_page(page)
+
+    out = BytesIO()
+    writer.write(out)
+    out.seek(0)
+    return out.getvalue()
 
 
 
@@ -948,6 +996,8 @@ def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
     base_dir = os.path.dirname(__file__)
     logo_path = os.path.join(base_dir, "static", "images", "logo.png")
     pdf = stamp_logo_on_pdf(pdf, logo_path)
+    pdf = stamp_footer_on_pdf(pdf, "QAP0600-F01")
+
     
     return pdf
 
@@ -5266,6 +5316,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
