@@ -336,6 +336,27 @@ def fill_mrr_f01_xlsx_bytes(
     qty_unit = getattr(inspection, "qty_unit", None) or ""
     _ws_set_value_safe(ws, "F9", f"{_to_float(qty_arrived, 0)} {qty_unit}".strip())
 
+
+        # ---- TABLE TITLES (Row 11 for PE, Row 24 for Fiber) ----
+    fam_ui = (data.get("material_family") or data.get("material_fam") or data.get("material_type") or "").strip().upper()
+    grade = (data.get("material_grade") or data.get("grade") or "").strip()
+
+    # Build display titles like your template
+    pe_title = f"POLYETHYLENE ({grade})" if grade else "POLYETHYLENE"
+    fb_title = f"POLYESTER FIBER ({grade})" if grade else "POLYESTER FIBER"
+
+    if fam_ui == "PE":
+        _ws_set_value_safe(ws, "A11", pe_title)
+        _ws_set_value_safe(ws, "A24", "")      # clear fiber title
+    elif fam_ui == "FIBER":
+        _ws_set_value_safe(ws, "A24", fb_title)
+        _ws_set_value_safe(ws, "A11", "")      # clear PE title
+    else:
+        # nothing selected
+        _ws_set_value_safe(ws, "A11", "")
+        _ws_set_value_safe(ws, "A24", "")
+
+
         # ---- PROPERTIES TABLE FILL (generic matcher) ----
 
     def _build_prop_map(items):
@@ -5245,6 +5266,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
