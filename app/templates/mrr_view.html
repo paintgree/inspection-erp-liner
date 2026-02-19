@@ -36,12 +36,11 @@
             and inspection_to_approve
             and inspection_to_approve.inspector_confirmed
             and not inspection_to_approve.manager_approved %}
-        <form method="post"
-              action="/mrr/{{ lot.id }}/inspection/id/{{ inspection_to_approve.id }}/approve"
-              style="display:inline;"
-              onsubmit="return confirm('Approve this receiving inspection?')">
-          <button class="btn btn-primary" type="submit">Approve Receiving Inspection</button>
-        </form>
+        <button class="btn btn-primary"
+                onclick="approveInspection({{ lot.id }}, {{ inspection_to_approve.id }})">
+          Approve Receiving Inspection
+        </button>
+
       {% endif %}
 
       {% if user.role and user.role|upper == "MANAGER"
@@ -605,5 +604,29 @@
   </div>
 
 </div>
+
+<script>
+function approveInspection(lotId, inspectionId) {
+  if (!confirm("Approve this receiving inspection?")) {
+    return;
+  }
+
+  fetch(`/mrr/${lotId}/inspection/id/${inspectionId}/approve`, {
+    method: "POST"
+  })
+  .then(async res => {
+    if (!res.ok) {
+      const data = await res.json();
+      showModal("Warning", data.detail || "Action not allowed.");
+      return;
+    }
+    location.reload();
+  })
+  .catch(() => {
+    showModal("Error", "Something went wrong.");
+  });
+}
+</script>
+
 
 {% endblock %}
