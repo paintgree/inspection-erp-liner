@@ -199,9 +199,6 @@ from fastapi.responses import Response
 import os
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
-
 MRR_TEMPLATE_DIR = os.path.join(BASE_DIR, "templates", "templates_xlsx")
 
 MRR_TEMPLATE_XLSX_MAP = {
@@ -750,6 +747,58 @@ def stamp_logo_on_pdf(pdf_bytes: bytes, logo_path: str) -> bytes:
     out.seek(0)
     return out.getvalue()
 
+def make_logo_stamp_pdf(page_w: float, page_h: float, logo_path: str) -> bytes:
+    """
+    Create a transparent 1-page PDF with a centered logo at top.
+    """
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=(page_w, page_h))
+
+    img = ImageReader(logo_path)
+    iw, ih = img.getSize()
+
+    # Logo size: ~24% of page width (adjust if you want bigger/smaller)
+    target_w = page_w * 0.32
+    scale = target_w / float(iw)
+    target_h = float(ih) * scale
+
+    top_margin = 16
+    x = (page_w - target_w) / 2.0
+    y = page_h - top_margin - target_h
+
+    c.drawImage(img, x, y, width=target_w, height=target_h, mask="auto")
+    c.showPage()
+    c.save()
+
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def stamp_logo_on_pdf(pdf_bytes: bytes, logo_path: str) -> bytes:
+    """
+    Overlay the logo stamp onto every page (top-center).
+    """
+    if not logo_path or not os.path.exists(logo_path):
+        return pdf_bytes
+
+    reader = PdfReader(BytesIO(pdf_bytes))
+    writer = PdfWriter()
+
+    for page in reader.pages:
+        w = float(page.mediabox.width)
+        h = float(page.mediabox.height)
+
+        stamp_pdf = make_logo_stamp_pdf(w, h, logo_path)
+        stamp_reader = PdfReader(BytesIO(stamp_pdf))
+
+        page.merge_page(stamp_reader.pages[0])
+        writer.add_page(page)
+
+    out = BytesIO()
+    writer.write(out)
+    out.seek(0)
+    return out.getvalue()
+
 def make_footer_stamp_pdf(page_w: float, page_h: float, left_text: str, right_text: str = "") -> bytes:
     """
     Create a transparent 1-page PDF with footer text.
@@ -899,99 +948,71 @@ BASE_DIR = os.path.dirname(__file__)
 # =========================
 # Upload storage (local FS)
 # =========================
-BASE_DIR = os.path.dirname(__file__)
-
-# IMPORTANT:
-# Do NOT store uploads in /tmp because it can be cleared when container restarts.
-# Use /app/data by default (persistent in most docker setups if you mount it).
 DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
-
 MRR_UPLOAD_DIR = os.path.join(DATA_DIR, "mrr_uploads")
-MRR_PHOTO_DIR  = os.path.join(DATA_DIR, "mrr_photos")
+MRR_PHOTO_DIR = os.path.join(DATA_DIR, "mrr_photos")
 
 os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
 os.makedirs(MRR_PHOTO_DIR, exist_ok=True)
 
 
+
+templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+# =========================
+# File upload directories
+# =========================
+UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
+
+
+
+IMAGE_MAP = {
+    "LINER": "/static/images/liner.png",
+    "REINFORCEMENT": "/static/images/reinforcement.png",
+    "COVER": "/static/images/cover.png",
+}
+
+PAPER_BG_MAP = {
+    "LINER": os.path.join(BASE_DIR, "static", "papers", "liner_bg.pdf"),
+    "REINFORCEMENT": os.path.join(BASE_DIR, "static", "papers", "reinforcement_bg.pdf"),
+    "COVER": os.path.join(BASE_DIR, "static", "papers", "cover_bg.pdf"),
+}
+
+TEMPLATE_XLSX_MAP = {
+    "LINER": os.path.join(BASE_DIR, "templates", "templates_xlsx", "liner.xlsx"),
+    "REINFORCEMENT": os.path.join(BASE_DIR, "templates", "templates_xlsx", "reinforcement.xlsx"),
+    "COVER": os.path.join(BASE_DIR, "templates", "templates_xlsx", "cover.xlsx"),
+}
 def resolve_mrr_doc_path(p: str) -> str:
-    """
-    Resolve stored MRR document path to an existing file on disk.
+    """Resolve stored MRR document path to an existing file on disk.
 
-    Supports:
-    - absolute path
-    - old relative paths (including ones containing '..')
-    - storing just the filename (recommended)
+    Backward compatible with rows that stored absolute paths, relative paths, or just filenames.
     """
     if not p:
         return ""
 
-    p = str(p).replace("\\", "/").strip()
+    p_norm = p.replace("\\", "/").lstrip("/")
 
-    # 1) absolute path (old records)
-    if os.path.isabs(p) and os.path.exists(p):
-        return p
-
-    # normalize, remove leading slash so join works
-    p_norm = p.lstrip("/")
+    # absolute
+    try:
+        if os.path.isabs(p) and os.path.exists(p):
+            return p
+    except Exception:
+        pass
 
     candidates = [
-        # if DB stored just filename, this will work:
+        p_norm,
+        os.path.join(BASE_DIR, p_norm) if 'BASE_DIR' in globals() else p_norm,
+        os.path.join(DATA_DIR, p_norm) if 'DATA_DIR' in globals() else p_norm,
+        os.path.join(MRR_UPLOAD_DIR, p_norm),
         os.path.join(MRR_UPLOAD_DIR, os.path.basename(p_norm)),
-
-        # if DB stored relative path from BASE_DIR (old code)
-        os.path.normpath(os.path.join(BASE_DIR, p_norm)),
-
-        # if DB stored relative path from DATA_DIR
-        os.path.normpath(os.path.join(DATA_DIR, p_norm)),
-
-        # if DB stored already relative inside mrr_uploads/
-        os.path.normpath(os.path.join(MRR_UPLOAD_DIR, p_norm)),
     ]
 
     for c in candidates:
-        try:
-            if c and os.path.exists(c):
-                return c
-        except Exception:
-            pass
+        if c and os.path.exists(c):
+            return c
 
     return ""
-
-
-def resolve_mrr_photo_path(p: str) -> str:
-    """
-    Resolve stored photo path to an existing file on disk.
-
-    Supports:
-    - absolute path (old records)
-    - relative path under DATA_DIR (new recommended)
-    - relative/filename under MRR_PHOTO_DIR
-    """
-    if not p:
-        return ""
-
-    p = str(p).replace("\\", "/").strip()
-
-    if os.path.isabs(p) and os.path.exists(p):
-        return p
-
-    p_norm = p.lstrip("/")
-
-    candidates = [
-        os.path.normpath(os.path.join(DATA_DIR, p_norm)),
-        os.path.normpath(os.path.join(MRR_PHOTO_DIR, p_norm)),
-        os.path.normpath(os.path.join(MRR_PHOTO_DIR, os.path.basename(p_norm))),
-    ]
-
-    for c in candidates:
-        try:
-            if c and os.path.exists(c):
-                return c
-        except Exception:
-            pass
-
-    return ""
-
 
 # ==========================================
 # EXPORT PER-INSPECTION (SEPARATE REPORTS)
@@ -1117,12 +1138,32 @@ def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
     logo_path = os.path.join(base_dir, "static", "images", "logo.png")
     pdf = stamp_logo_on_pdf(pdf, logo_path)
     pdf = stamp_footer_on_pdf(pdf, "QAP0600-F01")
+
+
+    # ---- DIGITAL SIGNATURE STAMP ----
+    # Only show inspector signature when submitted
+    insp_name = getattr(inspection, "inspector_name", "") or ""
+    insp_date = _as_date_str(getattr(inspection, "created_at", None) or datetime.utcnow())
+    
+    mgr_name = ""
+    mgr_date = ""
+    
+    if bool(getattr(inspection, "manager_approved", False)):
+        # If you store manager name somewhere else, use that field instead
+        mgr_name = "Quality Manager"
+        mgr_date = _as_date_str(datetime.utcnow())
+    
+    if bool(getattr(inspection, "inspector_confirmed", False)) or bool(getattr(inspection, "manager_approved", False)):
+        pdf = stamp_signatures_on_pdf(
+            pdf,
+            inspector_name=insp_name if bool(getattr(inspection, "inspector_confirmed", False)) else None,
+            inspector_date=insp_date if bool(getattr(inspection, "inspector_confirmed", False)) else None,
+            manager_name=mgr_name if bool(getattr(inspection, "manager_approved", False)) else None,
+            manager_date=mgr_date if bool(getattr(inspection, "manager_approved", False)) else None,
+        )
+
+    
     return pdf
-
-
-
-
-
 
 
 
@@ -1144,24 +1185,18 @@ def mrr_export_inspection_pdf(
     if not insp or insp.ticket_id != lot_id:
         raise HTTPException(404, "MRR Inspection not found")
 
-    docs = session.exec(
-        select(MrrDocument)
-        .where(MrrDocument.ticket_id == lot_id)
-        .order_by(MrrDocument.created_at.asc())
-    ).all()
-    receiving = session.exec(
-        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
-    ).first()
+    docs = session.exec(select(MrrDocument).where(MrrDocument.ticket_id == lot_id).order_by(MrrDocument.created_at.asc())).all()
+    receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
 
     # Only allow export if submitted OR manager approved
     if not (insp.inspector_confirmed or insp.manager_approved):
         raise HTTPException(400, "Inspection must be submitted before export")
 
+
     tpl = _safe_upper(getattr(insp, "template_type", "RAW"))
     if tpl != "RAW":
         raise HTTPException(400, f"Template type {tpl} export not wired yet (we will do F02 next)")
 
-    # Build XLSX
     xlsx_bytes = fill_mrr_f01_xlsx_bytes(
         lot=lot,
         receiving=receiving,
@@ -1170,40 +1205,39 @@ def mrr_export_inspection_pdf(
         photos_by_group=None,
     )
 
-    # Convert to PDF (logo/footer fitting happens inside this conversion pipeline)
     pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
 
-    # ✅ Digital signatures (from stored JSON fields)
+        # ✅ Digital signatures (based on real users / roles)
     try:
         data = json.loads(getattr(insp, "inspection_json", None) or "{}")
     except Exception:
         data = {}
 
+    # inspector signature (only if submitted)
     inspector_name = (getattr(insp, "inspector_name", "") or "").strip()
     inspector_date = ""
-    if bool(getattr(insp, "inspector_confirmed", False)):
+    if getattr(insp, "inspector_confirmed", False):
+        # If you stored submitted time, use it; else fall back to created_at
         ts = data.get("submitted_at_utc") or getattr(insp, "created_at", None)
         inspector_date = _as_date_str(ts) if ts else _as_date_str(datetime.utcnow())
 
+    # manager signature (only if approved)
     manager_name = (data.get("manager_approved_by") or "").strip()
     manager_date = ""
-    if bool(getattr(insp, "manager_approved", False)):
+    if getattr(insp, "manager_approved", False):
         ts2 = data.get("manager_approved_at_utc") or datetime.utcnow().isoformat()
         manager_date = _as_date_str(ts2)
 
-    # Stamp signatures only if present
-    if (inspector_name and inspector_date) or (manager_name and manager_date):
-        pdf_bytes = stamp_signatures_on_pdf(
-            pdf_bytes,
-            inspector_name=inspector_name if bool(getattr(insp, "inspector_confirmed", False)) else "",
-            inspector_date=inspector_date if bool(getattr(insp, "inspector_confirmed", False)) else "",
-            manager_name=manager_name if bool(getattr(insp, "manager_approved", False)) else "",
-            manager_date=manager_date if bool(getattr(insp, "manager_approved", False)) else "",
-        )
+    pdf_bytes = stamp_signatures_on_pdf(
+        pdf_bytes,
+        inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
+        inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
+        manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
+        manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
+    )
 
-    # ✅ Always define filename (fixes your NameError)
-    filename = f"{(insp.report_no or f'MRR-{lot_id}-{inspection_id}').strip()}.pdf"
 
+    filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.pdf"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
@@ -1681,6 +1715,38 @@ def get_current_material_lot_for_slot(session: Session, run_id: int, day: date, 
 
     if not ev:
         return None
+
+
+def resolve_mrr_photo_path(stored_path: str | None) -> str | None:
+    """Resolve stored photo path similar to documents.
+    Accepts:
+      - absolute paths (old data)
+      - relative paths like "ticket_15/insp_10/abc.jpg"
+      - filenames only
+    """
+    if not stored_path:
+        return None
+
+    stored_path = stored_path.strip()
+    if not stored_path:
+        return None
+
+    # 1) If it is already an existing absolute path, use it
+    if os.path.isabs(stored_path) and os.path.exists(stored_path):
+        return stored_path
+
+    # 2) If it's relative, try inside MRR_PHOTO_DIR
+    candidate = os.path.join(MRR_PHOTO_DIR, stored_path)
+    if os.path.exists(candidate):
+        return candidate
+
+    # 3) If only filename was stored, try a recursive search under photos dir (bounded)
+    name = os.path.basename(stored_path)
+    for root, _dirs, files in os.walk(MRR_PHOTO_DIR):
+        if name in files:
+            return os.path.join(root, name)
+
+    return None
 
     return session.get(MaterialLot, ev.lot_id)
 
@@ -2521,8 +2587,7 @@ async def mrr_doc_upload(
         raise HTTPException(400, "Document Name is required when type is RELATED")
 
     # ✅ store RELATIVE path (portable)
-    # store only filename (portable + easiest to resolve later)
-    rel_path = os.path.basename(abs_path)
+    rel_path = os.path.relpath(abs_path, BASE_DIR)
 
     if dt != "PO" and not (doc_number or "").strip():
         raise HTTPException(400, "Document Number is required")
@@ -5386,14 +5451,13 @@ def mrr_photo_view(photo_id: int, request: Request, session: Session = Depends(g
 
     # (optional) basic permission gate: any logged-in user can view
     # You can tighten later by checking ticket access rules if needed.
-    
+
     resolved = resolve_mrr_photo_path(p.file_path)
-    if not resolved:
-        raise HTTPException(404, "File not found")
-    
+    if not resolved or not os.path.exists(resolved):
+        raise HTTPException(404, "Photo file missing")
+
     mt, _ = mimetypes.guess_type(resolved)
     return FileResponse(resolved, media_type=mt or "image/jpeg")
-
 
 
 @app.post("/mrr/{lot_id}/inspection/id/{inspection_id}/photos/upload")
@@ -5456,7 +5520,7 @@ async def mrr_photo_upload(
             inspection_id=inspection_id,
             group_name=g,
             caption=cap,
-            file_path=out_path,
+            file_path=os.path.relpath(out_path, MRR_PHOTO_DIR),
             uploaded_by_user_id=user.id,
             uploaded_by_user_name=user.display_name,
         )
@@ -5505,53 +5569,6 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
