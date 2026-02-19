@@ -3274,8 +3274,13 @@ async def mrr_inspection_submit(
     # ✅ LOCK RULE:
     # - Inspector can edit until manager approves OR ticket becomes APPROVED
     # - After that: view only (manager can reopen via separate manager endpoint)
-    if bool(getattr(insp, "manager_approved", False)) or (getattr(lot, "status", "") or "").upper() == "APPROVED":
-        raise HTTPException(403, "Inspection is locked (manager approved / ticket approved).")
+    # LOCK RULE: if manager approved OR ticket approved, block changes
+    if insp.manager_approved or (lot.status in ["APPROVED", "CLOSED"]):
+        return RedirectResponse(
+            url=f"/mrr/{lot_id}/inspection/id/{inspection_id}?error=Inspection%20is%20locked%20(manager%20approved%20/%20ticket%20approved).",
+            status_code=303
+        )
+
 
     form = await request.form()
 
@@ -3765,6 +3770,7 @@ def shipment_inspection_form(
             "inspection_data": data,
             "photo_groups": photo_groups,                 # ✅ NEW
             "photo_error": request.query_params.get("photo_error", ""),  # ✅ NEW
+            "error": request.query_params.get("error", ""),
         },
     )
 
