@@ -881,7 +881,7 @@ def make_signature_stamp_pdf(
     # ---- Coordinates (A4 portrait typical) ----
     # Bottom signature block is near bottom; adjust if needed:
     # Inspector stamp left block
-    insp_x = 70
+    insp_x = 30
     insp_y = 120
 
     # Manager stamp middle block
@@ -5550,6 +5550,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
