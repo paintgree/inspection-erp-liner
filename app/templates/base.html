@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Inspection ERP</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Inspection ERP</div>
+    <div class="userbox">
+      {% if user %}
+        <span class="muted">{{ user.display_name }} ({{ user.role }})</span>
+        <a class="btn btn-ghost" href="/dashboard">Dashboard</a>
+        <a class="btn btn-ghost" href="/logout">Logout</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="page">
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

@@ -1,0 +1,543 @@
+{% extends "base.html" %}
+{% block content %}
+
+<a class="btn btn-ghost" href="/mrr/{{ lot.id }}">← Back</a>
+
+<div class="card">
+  <div class="runheader">
+    <div>
+      <h1>Receiving Inspection</h1>
+      <div class="muted">
+        MRR Ticket #{{ lot.id }} • Type: <b>{{ lot.lot_type }}</b>
+      </div>
+      <div class="muted tiny" id="autosaveStatus" style="margin-top:6px;">Autosave: <b>ready</b></div>
+    </div>
+    <div class="actions">
+      <span class="pill">Report: <b>{{ inspection_data.get("report_no","") if inspection_data else "" }}</b></span>
+    </div>
+  </div>
+
+  <!-- Submit endpoint -->
+  <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/submit" class="mt" id="inspectionForm">
+    <input type="hidden" name="action" id="form_action" value="submit">
+
+    <!-- =========================
+         Header (Auto)
+    ========================== -->
+    <div class="card inner">
+      <div class="sectiontitle accent-blue">Header (auto-filled from Ticket + Shipment)</div>
+
+      <div class="grid3 mt">
+        <div>
+          <label>Report No.</label>
+          <input value="{{ inspection_data.get('report_no','') if inspection_data else '' }}" disabled>
+        </div>
+
+        <div>
+          <label>Delivery Note No.</label>
+          <input value="{{ inspection.delivery_note_no or '-' }}" disabled>
+        </div>
+
+        <div>
+          <label>Arrived Quantity</label>
+          <input value="{{ inspection.qty_arrived }} {{ inspection.qty_unit }}" disabled>
+        </div>
+
+        <div>
+          <label>Batch Number(s) (required to submit)</label>
+
+          <div id="batchWrap">
+            <input name="batch_numbers" placeholder="e.g. BATCH-001">
+          </div>
+
+          <button type="button" class="btn btn-outline-secondary mt" id="addBatchBtn">
+            + Add another batch
+          </button>
+
+          <div class="muted tiny">
+            If this shipment contains multiple batches, add them all here.
+          </div>
+        </div>
+      </div>
+
+      <div class="mt muted tiny">
+        Delivery Note + arrived quantity are defined when creating the shipment and cannot be edited here.
+      </div>
+    </div>
+
+    <script>
+    (function(){
+      const wrap = document.getElementById("batchWrap");
+      const addBtn = document.getElementById("addBatchBtn");
+
+      const existing = {{ (inspection_data.get("batch_numbers", []) if inspection_data else []) | tojson }};
+      if (Array.isArray(existing) && existing.length > 0) {
+        wrap.innerHTML = "";
+        existing.forEach((v) => {
+          const input = document.createElement("input");
+          input.name = "batch_numbers";
+          input.placeholder = "e.g. BATCH-001";
+          input.value = v || "";
+          wrap.appendChild(input);
+        });
+      }
+
+      addBtn.addEventListener("click", () => {
+        const input = document.createElement("input");
+        input.name = "batch_numbers";
+        input.placeholder = "e.g. BATCH-001";
+        wrap.appendChild(input);
+      });
+    })();
+    </script>
+
+    <!-- =========================
+         Partial delivery / mismatch reason
+    ========================== -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Partial delivery (ticket stays open)</div>
+
+      <label>If quantity mismatch / partial delivery – Reason</label>
+      <textarea name="mismatch_reason" placeholder="Explain mismatch / partial delivery...">{{ inspection_data.get("mismatch_reason","") if inspection_data else "" }}</textarea>
+    </div>
+
+    <!-- =========================
+         Material classification
+    ========================== -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Material Classification (Raw Material)</div>
+
+      <div class="grid2">
+        <div>
+          <label>Material Type</label>
+          {% set fam = inspection_data.get("material_family","") if inspection_data else "" %}
+          <select id="material_family" name="material_family" onchange="toggleMaterialTables()">
+            <option value="">-- select --</option>
+            <option value="PE" {% if fam == "PE" %}selected{% endif %}>Polyethylene (PE / PERT / PE100)</option>
+            <option value="FIBER" {% if fam == "FIBER" %}selected{% endif %}>Fiber (Polyester)</option>
+          </select>
+          <div class="muted tiny">This controls which property table is shown.</div>
+        </div>
+
+        <div>
+          <label>Material Grade</label>
+          {% set grade = inspection_data.get("material_grade","") if inspection_data else "" %}
+          <input
+            type="text"
+            name="material_grade"
+            value="{{ grade }}"
+            placeholder="Type grade (example: PERT-White / PE100-Black / 45000D)"
+            list="grade_suggestions"
+          />
+          <datalist id="grade_suggestions">
+            <option value="PERT-White"></option>
+            <option value="PE100-Black"></option>
+            <option value="Polyester Fiber 36000D"></option>
+            <option value="Polyester Fiber 45000D"></option>
+          </datalist>
+          <div class="muted tiny">You can type any grade. Suggestions are optional.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================
+         Properties Table - PE
+    ========================== -->
+    <div class="card inner mt" id="pe_table" style="display:none;">
+      <div class="sectiontitle accent-green">Raw Material Properties (PE)</div>
+
+      <div class="tablewrap mt">
+        <table class="table wide">
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Unit</th>
+              <th class="wrap">Test Method</th>
+              <th class="wrap">Acceptance Criteria</th>
+              <th class="wrap">PDS/COA Results</th>
+              <th class="wrap">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set pe_rows = [
+              {"k":"density","p":"Density","u":"g/cm³","m":"ASTM D1505 / ISO-1183","a":"0.935–0.965 g/cm³"},
+              {"k":"mfr","p":"Melt Flow Rate (MFR) -190°C / 5kg","u":"g/10 min","m":"ASTM D1238 / ISO 1133","a":"0.2–0.4 g/10 min"},
+              {"k":"flexural","p":"Flexural Modulus","u":"MPa","m":"ASTM D790","a":"700–1200 MPa"},
+              {"k":"tensile","p":"Tensile Strength at Yield","u":"MPa","m":"ISO 527-2","a":"≥ 19 Mpa"},
+              {"k":"tensile_break","p":"Tensile Strength at Break","u":"MPa","m":"ISO 527-2","a":"≥ 22 Mpa"},
+              {"k":"elong","p":"Elongation at Break","u":"%","m":"ISO 527-2","a":"≥ 350%"},
+              {"k":"escr","p":"(ESCR)","u":"Hours","m":"ASTM D1693","a":"≥ 1000 hrs"},
+              {"k":"oits","p":"Oxidative Induction Time (OIT)","u":"Minutes","m":"ASTM D3895","a":"≥ 20 min"},
+              {"k":"hdb","p":"HDB (23C°) /  MRS (20C°)","u":"MPa","m":"ISO 12162","a":"10.0 Mpa"},
+              {"k":"cb","p":"Carbon Black Content","u":"%","m":"ISO 6964","a":"≥2%"},
+              {"k":"melt","p":"Melting Point","u":"C°","m":"","a":""}
+            ] %}
+            {% for r in pe_rows %}
+              <tr>
+                <td>{{ r.p }}</td>
+                <td>{{ r.u }}</td>
+                <td class="wrap">{{ r.m }}</td>
+                <td class="wrap">{{ r.a }}</td>
+                <td>
+                  <input name="pe_{{ r.k }}_result" value="{{ inspection_data.get('pe_' ~ r.k ~ '_result','') if inspection_data else '' }}">
+                </td>
+                <td>
+                  <input name="pe_{{ r.k }}_remarks" value="{{ inspection_data.get('pe_' ~ r.k ~ '_remarks','') if inspection_data else '' }}">
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- =========================
+         Properties Table - Fiber (MATCHES EXCEL)
+    ========================== -->
+    <div class="card inner mt" id="fiber_table" style="display:none;">
+      <div class="sectiontitle accent-green">Raw Material Properties (Fiber)</div>
+
+      <div class="tablewrap mt">
+        <table class="table wide">
+          <thead>
+            <tr>
+              <th>Property</th>
+              <th>Unit</th>
+              <th class="wrap">Test Method</th>
+              <th class="wrap">Acceptance Criteria</th>
+              <th class="wrap">PDS/COA Results</th>
+              <th class="wrap">Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set fb_rows = [
+              {"k":"linear_density","p":"Linear Density","u":"dtex","m":"GB/T 16604-2008","a":"As per grade"},
+              {"k":"breaking_strength","p":"Breaking Strength","u":"cN","m":"GB/T 16604-2008","a":"As per grade"},
+              {"k":"tenacity","p":"Tenacity","u":"cN/dtex","m":"GB/T 16604-2008","a":"As per grade"},
+              {"k":"elongation","p":"Elongation at Break","u":"%","m":"GB/T 16604-2008","a":"As per grade"},
+              {"k":"melting_point","p":"Melting Point","u":"C°","m":"GB/T 16604-2008","a":"As per grade"}
+            ] %}
+            {% for r in fb_rows %}
+              <tr>
+                <td>{{ r.p }}</td>
+                <td>{{ r.u }}</td>
+                <td class="wrap">{{ r.m }}</td>
+                <td class="wrap">{{ r.a }}</td>
+                <td>
+                  <input name="fb_{{ r.k }}_result" value="{{ inspection_data.get('fb_' ~ r.k ~ '_result','') if inspection_data else '' }}">
+                </td>
+                <td>
+                  <input name="fb_{{ r.k }}_remarks" value="{{ inspection_data.get('fb_' ~ r.k ~ '_remarks','') if inspection_data else '' }}">
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- =========================
+         Visual and Physical Inspection
+    ========================== -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Visual and Physical Inspection</div>
+
+      <label class="muted tiny">Tick each item as Satisfactory (Yes) or Not (No)</label>
+
+      <div class="tablewrap mt">
+        <table class="table wide">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th style="width:140px;">Satisfactory (Y/N)</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set visual_items = [
+              "Physical Condition of Material",
+              "Identification/Marking as per specifications",
+              "Confirm that the packaging is undamaged, sealed, and properly labeled.",
+              "Ensure there are no signs of chemical exposure that might degrade the material."
+            ] %}
+
+            {% for item in visual_items %}
+              {% set slug = item|replace(" ", "_")|replace("/", "_")|replace("(", "")|replace(")", "")|replace(".", "")|lower %}
+              <tr>
+                <td>{{ item }}</td>
+                <td>
+                  <select name="vc_{{ slug }}_yn">
+                    <option value="" {% if not inspection_data %}selected{% endif %}></option>
+                    <option value="YES" {% if inspection_data and inspection_data.get("vc_" ~ slug ~ "_yn") == "YES" %}selected{% endif %}>YES</option>
+                    <option value="NO"  {% if inspection_data and inspection_data.get("vc_" ~ slug ~ "_yn") == "NO" %}selected{% endif %}>NO</option>
+                  </select>
+                </td>
+                <td>
+                  <input name="vc_{{ slug }}_remarks" value="{{ inspection_data.get('vc_' ~ slug ~ '_remarks','') if inspection_data else '' }}">
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- =========================
+         Documentation Review
+    ========================== -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Documentation Review</div>
+
+      <div class="tablewrap mt">
+        <table class="table wide">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th style="width:140px;">Satisfactory (Y/N)</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% set doc_items = [
+              "Ensure the material’s quantity, type, and specification match the Purchase Order (PO)",
+              "Confirm the availability of Certificate of Analysis (COA).",
+              "Review the Delivery Note to verify correct Delivery."
+            ] %}
+
+            {% for item in doc_items %}
+              {% set slug = item|replace(" ", "_")|replace("’","")|replace("'", "")|replace("/", "_")|replace("(", "")|replace(")", "")|replace(".", "")|lower %}
+              <tr>
+                <td>{{ item }}</td>
+                <td>
+                  <select name="dr_{{ slug }}_yn">
+                    <option value="" {% if not inspection_data %}selected{% endif %}></option>
+                    <option value="YES" {% if inspection_data and inspection_data.get("dr_" ~ slug ~ "_yn") == "YES" %}selected{% endif %}>YES</option>
+                    <option value="NO"  {% if inspection_data and inspection_data.get("dr_" ~ slug ~ "_yn") == "NO" %}selected{% endif %}>NO</option>
+                  </select>
+                </td>
+                <td>
+                  <input name="dr_{{ slug }}_remarks" value="{{ inspection_data.get('dr_' ~ slug ~ '_remarks','') if inspection_data else '' }}">
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- =========================
+         Approval and Readiness for Issuance
+    ========================== -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Approval and Readiness for Issuance</div>
+
+      <label>Material Status (Tick one)</label>
+      <div class="grid3 mt">
+        <label class="pill">
+          <input type="radio" name="approval_status" value="VERIFIED"
+            {% if inspection_data and inspection_data.get("approval_status") == "VERIFIED" %}checked{% endif %}>
+          Verified and Confirmed
+        </label>
+
+        <label class="pill">
+          <input type="radio" name="approval_status" value="HOLD"
+            {% if inspection_data and inspection_data.get("approval_status") == "HOLD" %}checked{% endif %}>
+          On Hold
+        </label>
+
+        <label class="pill">
+          <input type="radio" name="approval_status" value="NONCONFORM"
+            {% if inspection_data and inspection_data.get("approval_status") == "NONCONFORM" %}checked{% endif %}>
+          Non-Conformity
+        </label>
+      </div>
+
+      <div class="mt">
+        <label>If On Hold, specify reason</label>
+        <input name="on_hold_reason" value="{{ inspection_data.get('on_hold_reason','') if inspection_data else '' }}">
+      </div>
+    </div>
+
+    <!-- =========================
+         Remarks + submit
+    ========================== -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Remarks</div>
+
+      <label>General remarks</label>
+      <textarea name="remarks" placeholder="General remarks...">{{ inspection_data.get("remarks","") if inspection_data else "" }}</textarea>
+
+      <div class="grid2 mt">
+        <div>
+          <label>Inspected by</label>
+          <input name="inspected_by" value="{{ inspection_data.get('inspected_by', user.display_name) if inspection_data else user.display_name }}">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button class="btn btn-primary" type="submit" id="finalSubmitBtn">Submit Inspection</button>
+        </div>
+      </div>
+
+      <div class="muted tiny mt">
+        No “Save Draft” button needed — this page auto-saves while you type.
+      </div>
+    </div>
+
+  </form>
+
+  <!-- =========================
+       Photo Evidence
+  ========================== -->
+  <div class="card inner mt">
+    <div class="sectiontitle accent-blue">Photo Evidence</div>
+    <div class="muted tiny">Add photos (packaging, labeling, damage, etc.). Anyone viewing this report will see them.</div>
+
+    {% if photo_error %}
+      <div class="alert alert-error mt">{{ photo_error }}</div>
+    {% endif %}
+
+    {% if not inspection.inspector_confirmed %}
+      <form class="mt" action="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}/photos/upload" method="post" enctype="multipart/form-data">
+        <div class="grid3">
+          <div>
+            <label>Group / Category</label>
+            <input name="group_name" placeholder="e.g., Packaging / Labeling / Damage" required>
+            <div class="muted tiny">Use the same group name to keep photos together.</div>
+          </div>
+          <div>
+            <label>Description (optional)</label>
+            <input name="caption" placeholder="e.g., Outer wrap torn on one side">
+          </div>
+          <div>
+            <label>Photos</label>
+            <input type="file" name="photos" accept="image/*" capture="environment" multiple required>
+            <div class="muted tiny">Capture from camera or upload (multiple allowed).</div>
+          </div>
+        </div>
+        <div class="mt">
+          <button class="btn btn-secondary" type="submit">Upload Photos</button>
+        </div>
+      </form>
+    {% else %}
+      <div class="muted tiny mt">Inspection is submitted — photos are locked (view only).</div>
+    {% endif %}
+
+    <style>
+      .photo-thumb { width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; border: 1px solid rgba(0,0,0,0.08); }
+      .photo-card { padding: 8px; }
+      .btn-small { padding: 6px 10px; font-size: 12px; }
+    </style>
+
+    {% if photo_groups and photo_groups|length > 0 %}
+      <div class="mt">
+        {% for gname, items in photo_groups.items() %}
+          <div class="card inner mt">
+            <div class="sectiontitle">{{ gname }}</div>
+            <div class="grid3 mt">
+              {% for p in items %}
+                <div class="photo-card">
+                  <a href="/mrr/photos/{{ p.id }}/view" target="_blank">
+                    <img class="photo-thumb" src="/mrr/photos/{{ p.id }}/view" alt="photo">
+                  </a>
+                  {% if p.caption %}
+                    <div class="muted tiny mt">{{ p.caption }}</div>
+                  {% endif %}
+                  {% if not inspection.inspector_confirmed %}
+                    <form class="mt" action="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}/photos/{{ p.id }}/delete" method="post">
+                      <button class="btn btn-ghost btn-small" type="submit">Delete</button>
+                    </form>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="muted tiny mt">No photos uploaded yet.</div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  function toggleMaterialTables() {
+    const fam = (document.getElementById("material_family") || {}).value || "";
+    const pe = document.getElementById("pe_table");
+    const fb = document.getElementById("fiber_table");
+
+    if (pe) pe.style.display = (fam === "PE") ? "block" : "none";
+    if (fb) fb.style.display = (fam === "FIBER") ? "block" : "none";
+  }
+  toggleMaterialTables();
+
+  // =========================
+  // AUTO-SAVE DRAFT
+  // =========================
+  (function(){
+    const form = document.getElementById("inspectionForm");
+    const statusEl = document.getElementById("autosaveStatus");
+    const actionEl = document.getElementById("form_action");
+
+    let t = null;
+    let saving = false;
+
+    function setStatus(txt){
+      if(statusEl) statusEl.innerHTML = "Autosave: <b>" + txt + "</b>";
+    }
+
+    async function saveDraft(){
+      if(saving) return;
+      saving = true;
+
+      try{
+        setStatus("saving...");
+        const fd = new FormData(form);
+        fd.set("action", "draft");
+
+        // IMPORTANT: use attribute value to avoid weird URL issues
+        const url = form.getAttribute("action");
+        const res = await fetch(url, { method: "POST", body: fd });
+
+        if(res.ok){
+          setStatus("saved ✓");
+        } else {
+          setStatus("not saved (network)");
+        }
+      } catch(e){
+        setStatus("not saved (network)");
+      } finally {
+        saving = false;
+      }
+    }
+
+    function scheduleSave(){
+      clearTimeout(t);
+      t = setTimeout(saveDraft, 1200);
+    }
+
+    form.addEventListener("input", scheduleSave);
+    form.addEventListener("change", scheduleSave);
+
+    setInterval(saveDraft, 20000);
+
+    // FINAL SUBMIT: require at least 1 batch number
+    form.addEventListener("submit", function(e){
+      actionEl.value = "submit";
+
+      const batches = Array.from(form.querySelectorAll('input[name="batch_numbers"]'))
+        .map(i => (i.value || "").trim())
+        .filter(v => v.length > 0);
+
+      if(batches.length === 0){
+        e.preventDefault();
+        alert("Batch Number is required to submit.");
+        return false;
+      }
+      return true;
+    });
+
+    setStatus("ready");
+  })();
+</script>
+
+{% endblock %}
