@@ -113,9 +113,13 @@
           {% set fam = inspection_data.get("material_family","") if inspection_data else "" %}
           <select id="material_family" name="material_family" onchange="toggleMaterialTables()">
             <option value="">-- select --</option>
-            <option value="PE" {% if fam == "PE" %}selected{% endif %}>Polyethylene (PE / PERT / PE100)</option>
-            <option value="FIBER" {% if fam == "FIBER" %}selected{% endif %}>Fiber (Polyester)</option>
+          
+            <option value="PE_RT" {% if fam == "PE_RT" %}selected{% endif %}>Polyethylene (PE-RT)</option>
+            <option value="PE100" {% if fam == "PE100" %}selected{% endif %}>Polyethylene (PE100)</option>
+            <option value="POLYESTER_FIBER" {% if fam == "POLYESTER_FIBER" %}selected{% endif %}>POLYESTER FIBER</option>
+            <option value="OTHER" {% if fam == "OTHER" %}selected{% endif %}>Other</option>
           </select>
+
           <div class="muted tiny">This controls which property table is shown.</div>
         </div>
 
@@ -464,10 +468,14 @@
     const fam = (document.getElementById("material_family") || {}).value || "";
     const pe = document.getElementById("pe_table");
     const fb = document.getElementById("fiber_table");
-
-    if (pe) pe.style.display = (fam === "PE") ? "block" : "none";
-    if (fb) fb.style.display = (fam === "FIBER") ? "block" : "none";
+  
+    const isPE = (fam === "PE_RT" || fam === "PE100");
+    const isFiber = (fam === "POLYESTER_FIBER");
+  
+    if (pe) pe.style.display = isPE ? "block" : "none";
+    if (fb) fb.style.display = isFiber ? "block" : "none";
   }
+
   toggleMaterialTables();
 
   // =========================
