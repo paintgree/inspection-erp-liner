@@ -1,0 +1,16 @@
+psycopg2-binary
+fastapi
+uvicorn[standard]
+sqlmodel
+jinja2
+python-multipart
+openpyxl
+passlib
+pypdf
+psycopg2-binary
+reportlab
+pypdf==4.2.0
+
+
+
+
