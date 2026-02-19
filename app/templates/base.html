@@ -63,8 +63,96 @@ function showModal(title, message) {
 }
 </script>
 
+<!-- Global popup modal -->
+<div id="globalModal"
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:9999; align-items:center; justify-content:center;">
+  <div style="width:min(520px, 92vw); background:#fff; border-radius:14px; padding:18px;
+              box-shadow:0 20px 60px rgba(0,0,0,.25);">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+      <h3 id="globalModalTitle" style="margin:0;">Notice</h3>
+      <button class="btn btn-ghost" type="button" onclick="hideGlobalModal()">✕</button>
+    </div>
+
+    <div id="globalModalBody" class="alert alert-error mt" style="margin-bottom:0;"></div>
+
+    <div class="toolbar mt">
+      <button class="btn btn-primary" type="button" onclick="hideGlobalModal()">OK</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function showGlobalModal(title, message) {
+    document.getElementById("globalModalTitle").innerText = title || "Notice";
+    document.getElementById("globalModalBody").innerText = message || "Action not allowed.";
+    const m = document.getElementById("globalModal");
+    m.style.display = "flex";
+  }
+
+  function hideGlobalModal() {
+    document.getElementById("globalModal").style.display = "none";
+  }
+
+  // ✅ GLOBAL: intercept ALL POST forms (so errors never open JSON pages)
+  document.addEventListener("submit", async function (e) {
+    const form = e.target;
+    if (!form || form.tagName !== "FORM") return;
+
+    const method = (form.getAttribute("method") || "get").toLowerCase();
+    if (method !== "post") return;
+
+    // allow opt-out: <form data-noajax="1" ...>
+    if (form.dataset && form.dataset.noajax === "1") return;
+
+    // If there is an onsubmit confirm(), let it run first.
+    // If user cancels, the submit event won't fire.
+    e.preventDefault();
+
+    try {
+      const action = form.getAttribute("action") || window.location.pathname;
+      const formData = new FormData(form);
+
+      const res = await fetch(action, {
+        method: "POST",
+        body: formData,
+        headers: {
+          "X-Requested-With": "fetch"
+        },
+        credentials: "same-origin"
+      });
+
+      // If backend returns JSON error (403/400/500) show popup
+      if (!res.ok) {
+        let msg = "Action not allowed.";
+        const ct = (res.headers.get("content-type") || "").toLowerCase();
+
+        if (ct.includes("application/json")) {
+          const data = await res.json();
+          msg = data.detail || data.message || msg;
+        } else {
+          // sometimes backend returns HTML/text; show a short message
+          const text = await res.text();
+          msg = text ? text.slice(0, 300) : msg;
+        }
+
+        showGlobalModal("Action blocked", msg);
+        return;
+      }
+
+      // Success:
+      // If backend returned a redirect, fetch follows it and res.url becomes the final URL.
+      // Best UX: reload current page so you see updated status.
+      window.location.reload();
+
+    } catch (err) {
+      showGlobalModal("Error", "Network/server error. Please try again.");
+    }
+  }, true);
+</script>
+
 
 </body>
 </html>
+
 
 
