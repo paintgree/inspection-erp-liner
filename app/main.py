@@ -296,13 +296,17 @@ def fill_mrr_f01_xlsx_bytes(
         data = {}
 
     fam_code = (data.get("material_family") or data.get("material_fam") or data.get("material_type") or "").strip().upper()
-
+    
     type_label = ""
-    if fam_code == "PE":
-        type_label = "Polyethylene (PE / PERT / PE100)"
-    elif fam_code == "FIBER":
-        type_label = "Fiber (Polyester)"
-
+    if fam_code == "PE_RT":
+        type_label = "Polyethylene (PE-RT)"
+    elif fam_code == "PE100":
+        type_label = "Polyethylene (PE100)"
+    elif fam_code == "POLYESTER_FIBER":
+        type_label = "POLYESTER FIBER"
+    elif fam_code == "OTHER":
+        type_label = "Other"
+    
     _ws_set_value_safe(ws, "B7", type_label)
 
     _ws_set_value_safe(ws, "B9", getattr(lot, "batch_no", "") or "")
