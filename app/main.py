@@ -287,7 +287,16 @@ def fill_mrr_f01_xlsx_bytes(
     _ws_set_value_safe(ws, "B6", getattr(lot, "supplier_name", "") or "")
     _ws_set_value_safe(ws, "F6", getattr(lot, "po_number", "") or "")
 
-    _ws_set_value_safe(ws, "B7", getattr(lot, "material_name", "") or "")
+    fam_code = (data.get("material_family") or data.get("material_fam") or data.get("material_type") or "").strip().upper()
+    
+    type_label = ""
+    if fam_code == "PE":
+        type_label = "Polyethylene (PE / PERT / PE100)"
+    elif fam_code == "FIBER":
+        type_label = "Fiber (Polyester)"
+    
+    _ws_set_value_safe(ws, "B7", type_label)
+
     _ws_set_value_safe(ws, "B9", getattr(lot, "batch_no", "") or "")
 
     data = {}
@@ -5550,6 +5559,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
