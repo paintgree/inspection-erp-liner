@@ -1137,33 +1137,14 @@ def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
     base_dir = os.path.dirname(__file__)
     logo_path = os.path.join(base_dir, "static", "images", "logo.png")
     pdf = stamp_logo_on_pdf(pdf, logo_path)
+    pdf = stamp_logo_on_pdf(pdf, logo_path)
     pdf = stamp_footer_on_pdf(pdf, "QAP0600-F01")
 
-
-    # ---- DIGITAL SIGNATURE STAMP ----
-    # Only show inspector signature when submitted
-    insp_name = getattr(inspection, "inspector_name", "") or ""
-    insp_date = _as_date_str(getattr(inspection, "created_at", None) or datetime.utcnow())
-    
-    mgr_name = ""
-    mgr_date = ""
-    
-    if bool(getattr(inspection, "manager_approved", False)):
-        # If you store manager name somewhere else, use that field instead
-        mgr_name = "Quality Manager"
-        mgr_date = _as_date_str(datetime.utcnow())
-    
-    if bool(getattr(inspection, "inspector_confirmed", False)) or bool(getattr(inspection, "manager_approved", False)):
-        pdf = stamp_signatures_on_pdf(
-            pdf,
-            inspector_name=insp_name if bool(getattr(inspection, "inspector_confirmed", False)) else None,
-            inspector_date=insp_date if bool(getattr(inspection, "inspector_confirmed", False)) else None,
-            manager_name=mgr_name if bool(getattr(inspection, "manager_approved", False)) else None,
-            manager_date=mgr_date if bool(getattr(inspection, "manager_approved", False)) else None,
-        )
-
-    
+    # Keep conversion + scaling + logo + footer here.
+    # Do NOT stamp digital signatures here because this function
+    # does not know which inspection/user is exporting.
     return pdf
+
 
 
 
@@ -5569,6 +5550,7 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+
 
 
 
