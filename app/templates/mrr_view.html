@@ -1,0 +1,609 @@
+{% extends "base.html" %}
+{% block content %}
+
+<a class="btn btn-ghost" href="/mrr">← Back</a>
+
+<div class="card">
+
+  <div class="runheader">
+    <div>
+      <h1>MRR Ticket #{{ lot.id }}</h1>
+      <div class="muted">
+        Type: <b>{{ lot.lot_type }}</b> •
+        Batch: <b>{{ lot.batch_no or "-" }}</b> •
+        Status: <b>{{ lot.status or "-" }}</b>
+      </div>
+    </div>
+
+    <div class="actions">
+      <a class="btn" href="/mrr/{{ lot.id }}/export/xlsx">Export XLSX</a>
+      <a class="btn" href="/mrr/{{ lot.id }}/export/pdf">Export PDF</a>
+
+      {% if user.role and user.role|upper == "MANAGER" %}
+        <a class="btn btn-warn" href="/mrr-pending-approvals">Pending approvals</a>
+      {% endif %}
+
+      {% if user.role and user.role|upper == "MANAGER"
+            and not readonly
+            and (lot.status or "")|upper != "CANCELED" %}
+        <form method="post" action="/mrr/{{ lot.id }}/cancel" style="display:inline;"
+              onsubmit="return confirm('Cancel this ticket? It will be hidden from normal list and actions will be blocked.')">
+          <button class="btn btn-warn" type="submit">Cancel Ticket</button>
+        </form>
+      {% endif %}
+
+      {% if user.role and user.role|upper == "MANAGER"
+            and inspection_to_approve
+            and inspection_to_approve.inspector_confirmed
+            and not inspection_to_approve.manager_approved %}
+        <form method="post"
+              action="/mrr/{{ lot.id }}/inspection/id/{{ inspection_to_approve.id }}/approve"
+              style="display:inline;"
+              onsubmit="return confirm('Approve this receiving inspection?')">
+          <button class="btn btn-primary" type="submit">Approve Receiving Inspection</button>
+        </form>
+      {% endif %}
+
+      {% if user.role and user.role|upper == "MANAGER"
+            and latest_approved_inspection
+            and latest_approved_inspection.manager_approved %}
+        <form method="post"
+              action="/mrr/{{ lot.id }}/inspection/id/{{ latest_approved_inspection.id }}/unapprove"
+              style="display:inline;"
+              onsubmit="return confirm('Unapprove will reopen the ticket for adjustments. Continue?')">
+          <button class="btn btn-warn" type="submit">Unapprove Last Approval</button>
+        </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% set docs_ok = (receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po)) %}
+  {% set insp_submitted = (inspection and inspection.inspector_confirmed) %}
+  {% set insp_ok = (inspection and inspection.manager_approved) %}
+
+  {% if error %}
+    <div class="alert alert-error mt">{{ error }}</div>
+  {% endif %}
+
+  {% if readonly %}
+    <div class="alert alert-warn mt">
+      This MRR Ticket is <b>CANCELED</b>. You are viewing it in <b>read-only</b> mode.
+    </div>
+  {% endif %}
+
+  <!-- BASIC INFO -->
+  <div class="card inner mt">
+    <h2>Basic Info</h2>
+
+    <div class="kv"><span>Material</span><b>{{ lot.material_name or "-" }}</b></div>
+    <div class="kv"><span>Supplier</span><b>{{ lot.supplier_name or "-" }}</b></div>
+    <div class="kv"><span>PO</span><b>{{ lot.po_number or "-" }}</b></div>
+
+    <div class="kv">
+      <span>Used Delivery Note(s)</span>
+      <b>
+        {% if used_dns and used_dns|length > 0 %}
+          {{ used_dns | join(", ") }}
+        {% else %}
+          -
+        {% endif %}
+      </b>
+    </div>
+
+    <div class="kv">
+      <span>Quantity (PO)</span>
+      <b>{{ lot.quantity if lot.quantity is not none else "-" }} {{ lot.quantity_unit if lot.quantity_unit else "" }}</b>
+    </div>
+
+    <div class="kv">
+      <span>Received Total</span>
+      <b>
+        {{ lot.received_total if lot.received_total is not none else 0 }}
+        {% if lot.quantity_unit and lot.quantity_unit|upper in ["PC","PCS"] %}
+          {{ lot.quantity_unit }}
+        {% else %}
+          KG (normalized)
+        {% endif %}
+      </b>
+    </div>
+  </div>
+
+  <!-- DOCUMENTATION -->
+  <div class="card inner mt">
+    <h2>Documentation</h2>
+    <div class="muted tiny">
+      Upload required documents + confirm PO match. This section helps you see what is missing.
+    </div>
+
+    {% set ns = namespace(has_po=false, has_dn=false, has_quality=false) %}
+    {% if docs %}
+      {% for d in docs %}
+        {% set dt = (d.doc_type or "")|upper %}
+        {% if dt == "PO" %}{% set ns.has_po = true %}{% endif %}
+        {% if dt == "DELIVERY_NOTE" %}{% set ns.has_dn = true %}{% endif %}
+        {% if dt in ["COA", "MTC", "INSPECTION_REPORT"] %}{% set ns.has_quality = true %}{% endif %}
+      {% endfor %}
+    {% endif %}
+
+    {% set po_entered = (receiving and (receiving.inspector_po_number or "")|length > 0) %}
+    {% set po_match = (receiving and receiving.po_match) %}
+    {% set inspector_confirmed = (receiving and receiving.inspector_confirmed_po) %}
+    {% set manager_confirmed = (receiving and receiving.manager_confirmed_po) %}
+
+    <!-- ✅ LEVEL-UP INSPECTION STATUS (modern, tablet-friendly) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  .inspStatusCard {
+    font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.06);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-top: 14px;
+  }
+
+  .inspStatusHeader {
+    padding: 16px 16px 12px 16px;
+    border-bottom: 1px solid #f1f1f1;
+  }
+
+  .inspStatusTitle {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+    letter-spacing: -0.2px;
+  }
+
+  .inspStatusSub {
+    margin-top: 6px;
+    font-size: 13px;
+    color: #6b7280;
+  }
+
+  .inspRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f1f1f1;
+  }
+
+  .inspRow:last-child { border-bottom: none; }
+
+  .inspIcon {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    display: grid;
+    place-items: center;
+  }
+
+  .inspText {
+    font-size: 15px;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  .inspHint {
+    font-size: 13px;
+    color: #6b7280;
+    margin-top: 2px;
+    font-weight: 500;
+  }
+
+  .inspRight {
+    margin-left: auto;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+
+  .tagOk     { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
+  .tagBad    { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+  .tagWait   { background:#fffbeb; border-color:#fde68a; color:#92400e; }
+  .tagInfo   { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+
+  /* Icon SVG helpers */
+  .svgCircle { width: 34px; height: 34px; }
+</style>
+
+{# --- Status logic using your existing variables in this template --- #}
+{% set documents_uploaded = (ns.has_po and ns.has_quality) %}
+{% set documentation_saved = (receiving and (receiving.inspector_po_number or "")|length > 0) %}
+{% set documentation_cleared = (receiving and receiving.manager_confirmed_po) %}
+{% set receiving_inspection_submitted = (inspection and inspection.inspector_confirmed) %}
+{% set waiting_manager_approval = (receiving_inspection_submitted and not (inspection and inspection.manager_approved)) %}
+
+<div class="inspStatusCard">
+  <div class="inspStatusHeader">
+    <div class="inspStatusTitle">Inspection Status</div>
+    <div class="inspStatusSub">
+      Quick view for warehouse/tablet use (green = done, red = missing, amber = waiting)
+    </div>
+  </div>
+
+  <!-- Documents Uploaded -->
+  <div class="inspRow">
+    <div class="inspIcon">
+      {% if documents_uploaded %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
+          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      {% else %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
+          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      {% endif %}
+    </div>
+    <div>
+      <div class="inspText">Documents Uploaded</div>
+      <div class="inspHint">PO + Quality Doc (COA/MTC/Inspection Report)</div>
+    </div>
+    <div class="inspRight {% if documents_uploaded %}tagOk{% else %}tagBad{% endif %}">
+      {% if documents_uploaded %}DONE{% else %}MISSING{% endif %}
+    </div>
+  </div>
+
+  <!-- Documentation Saved -->
+  <div class="inspRow">
+    <div class="inspIcon">
+      {% if documentation_saved %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
+          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      {% else %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
+          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      {% endif %}
+    </div>
+    <div>
+      <div class="inspText">Documentation Saved</div>
+      <div class="inspHint">Inspector entered PO number</div>
+    </div>
+    <div class="inspRight {% if documentation_saved %}tagOk{% else %}tagBad{% endif %}">
+      {% if documentation_saved %}DONE{% else %}NOT YET{% endif %}
+    </div>
+  </div>
+
+  <!-- Documentation Cleared -->
+  <div class="inspRow">
+    <div class="inspIcon">
+      {% if documentation_cleared %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
+          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      {% else %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
+          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      {% endif %}
+    </div>
+    <div>
+      <div class="inspText">Documentation Cleared</div>
+      <div class="inspHint">Manager approved documentation</div>
+    </div>
+    <div class="inspRight {% if documentation_cleared %}tagOk{% else %}tagBad{% endif %}">
+      {% if documentation_cleared %}DONE{% else %}PENDING{% endif %}
+    </div>
+  </div>
+
+  <!-- Receiving Inspection Submitted -->
+  <div class="inspRow">
+    <div class="inspIcon">
+      {% if receiving_inspection_submitted %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
+          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      {% else %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
+          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      {% endif %}
+    </div>
+    <div>
+      <div class="inspText">Receiving Inspection Submitted</div>
+      <div class="inspHint">Inspector submitted shipment inspection</div>
+    </div>
+    <div class="inspRight {% if receiving_inspection_submitted %}tagOk{% else %}tagBad{% endif %}">
+      {% if receiving_inspection_submitted %}DONE{% else %}NOT YET{% endif %}
+    </div>
+  </div>
+
+  <!-- Waiting for Manager Approval -->
+  <div class="inspRow">
+    <div class="inspIcon">
+      {% if waiting_manager_approval %}
+        <!-- Amber hourglass -->
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#fef3c7"></circle>
+          <path d="M8 7h8M8 17h8M9 7c0 4 6 4 6 8s-6 4-6 8" fill="none"
+                stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      {% elif inspection and inspection.manager_approved %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
+          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      {% else %}
+        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
+          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      {% endif %}
+    </div>
+    <div>
+      <div class="inspText">Waiting for Manager Approval</div>
+      <div class="inspHint">Final approval to close the ticket</div>
+    </div>
+
+    {% if inspection and inspection.manager_approved %}
+      <div class="inspRight tagOk">APPROVED</div>
+    {% elif waiting_manager_approval %}
+      <div class="inspRight tagWait">WAITING</div>
+    {% else %}
+      <div class="inspRight tagBad">NOT READY</div>
+    {% endif %}
+  </div>
+</div>
+<!-- ✅ END LEVEL-UP INSPECTION STATUS -->
+
+
+    <!-- UPLOADED DOCS LIST -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Uploaded Documents</div>
+
+      {% if docs and docs|length > 0 %}
+        <div class="tablewrap mt">
+          <table class="table wide">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>No.</th>
+                <th>Name</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for d in docs %}
+                <tr>
+                  <td><b>{{ d.doc_type }}</b></td>
+                  <td>{{ d.doc_number or "-" }}</td>
+                  <td>{{ d.doc_name or "-" }}</td>
+                  <td>
+                    <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/view">View</a>
+                    <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/download">Download</a>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="muted mt">No documents uploaded yet.</div>
+      {% endif %}
+    </div>
+
+    <!-- UPLOAD AREA -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Upload Document</div>
+
+      {% if readonly %}
+        <div class="muted mt">Actions disabled (ticket canceled).</div>
+      {% else %}
+        <form class="mt" action="/mrr/{{ lot.id }}/docs/upload" method="post" enctype="multipart/form-data" id="docUploadForm">
+          <div class="grid3">
+            <div>
+              <label>Document Type</label>
+              <select name="doc_type" id="doc_type" required>
+                <option value="PO">PO</option>
+                <option value="DELIVERY_NOTE">DELIVERY NOTE</option>
+                <option value="COA">COA / Lab Test</option>
+                <option value="MTC">MTC</option>
+                <option value="INSPECTION_REPORT">INSPECTION REPORT</option>
+                <option value="PACKING_LIST">PACKING LIST</option>
+                <option value="SDS">SDS / MSDS</option>
+                <option value="CERTIFICATE">CERTIFICATE</option>
+                <option value="RELATED">RELATED (Custom Name)</option>
+              </select>
+            </div>
+
+            <div>
+              <label>Document Name</label>
+              <input name="doc_title" id="doc_title" placeholder="Auto (except RELATED)">
+              <div class="muted tiny">If you choose RELATED, Document Name becomes required.</div>
+            </div>
+
+            <div>
+              <label>Document Number</label>
+              <input name="doc_number" placeholder="Optional (PO is auto)">
+            </div>
+          </div>
+
+          <div class="mt">
+            <label>File</label>
+            <input type="file" name="file" required>
+          </div>
+
+          <div class="mt">
+            <button class="btn btn-secondary" type="submit">Upload</button>
+          </div>
+        </form>
+
+        <script>
+          (function(){
+            const type = document.getElementById("doc_type");
+            const title = document.getElementById("doc_title");
+            function sync(){
+              const v = (type.value || "").toUpperCase();
+              if(v === "RELATED"){
+                title.required = true;
+                title.placeholder = "Required for RELATED";
+              } else {
+                title.required = false;
+                title.placeholder = "Auto (except RELATED)";
+              }
+            }
+            type.addEventListener("change", sync);
+            sync();
+          })();
+        </script>
+      {% endif %}
+    </div>
+
+    <!-- PO CHECK + CONFIRM -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">PO Verification</div>
+
+      {% if readonly %}
+        <div class="muted mt">Actions disabled (ticket canceled).</div>
+      {% else %}
+        <form class="mt" action="/mrr/{{ lot.id }}/docs/submit_and_confirm" method="post"
+              onsubmit="return confirm('This will save your PO number and confirm documentation (requires PO uploaded + PO match). Continue?')">
+          <label>Inspector PO Number (type it exactly like the ticket PO)</label>
+          <input name="inspector_po_number" required value="{{ receiving.inspector_po_number if receiving else '' }}">
+          <div class="mt">
+            <button class="btn btn-primary" type="submit">Save & Confirm Documentation</button>
+          </div>
+        </form>
+
+        {% if user.role and user.role|upper == "MANAGER" %}
+          <form class="mt" action="/mrr/{{ lot.id }}/docs/approve" method="post"
+                onsubmit="return confirm('Manager approve documentation?')">
+            <button class="btn btn-warn" type="submit">Manager Approve Documentation</button>
+          </form>
+        {% endif %}
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- SHIPMENT REPORTS SUMMARY -->
+  <div class="card inner mt">
+    <h2>Shipment Inspection Reports</h2>
+    <div class="muted tiny">Submitted shipment reports are visible to anyone reviewing this ticket.</div>
+
+    {% if submitted_shipments and submitted_shipments|length > 0 %}
+      <div class="tablewrap mt">
+        <table class="table wide">
+          <thead>
+            <tr>
+              <th>Shipment</th>
+              <th>DN</th>
+              <th>Arrived</th>
+              <th>Batch No(s)</th>
+              <th>Report</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in submitted_shipments %}
+              {% set batches = batch_numbers_map.get(s.id, []) %}
+              <tr>
+                <td>#{{ loop.index }}</td>
+                <td>{{ s.delivery_note_no or "-" }}</td>
+                <td>{{ s.qty_arrived }} {{ s.qty_unit }}</td>
+                <td>
+                  {% if batches %}
+                    {% for b in batches %}
+                      <div>{{ b }}</div>
+                    {% endfor %}
+                  {% else %}
+                    <span class="muted">-</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}">Open</a>
+                  <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}/export/xlsx">XLSX</a>
+                  <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}/export/pdf">PDF</a>
+                </td>
+
+                <td>
+                  {% if s.manager_approved %}
+                    <span class="badge badge-ok">APPROVED</span>
+                  {% else %}
+                    <span class="badge badge-warn">SUBMITTED</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="muted mt">No submitted shipment inspections yet.</div>
+    {% endif %}
+  </div>
+
+  <!-- PROGRESS + ACTIONS -->
+  <div class="card inner mt">
+    <h2>Progress</h2>
+
+    <div class="kv">
+      <span>Documentation</span>
+      <b>{% if docs_ok %}CLEARED{% elif receiving %}SAVED{% else %}PENDING{% endif %}</b>
+    </div>
+
+    <div class="kv">
+      <span>Receiving Inspection</span>
+      <b>{% if insp_ok %}APPROVED{% elif insp_submitted %}SUBMITTED{% else %}PENDING{% endif %}</b>
+    </div>
+
+    {% if not readonly %}
+      <div class="toolbar mt">
+
+        {% if (lot.status or "")|upper != "APPROVED" %}
+
+          {# ✅ If there is a draft: show BOTH buttons (Resume + Start New) #}
+          {% if inspection and not inspection.inspector_confirmed %}
+            <a class="btn btn-warn" href="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}">
+              Resume Draft Inspection
+            </a>
+
+            <a class="btn btn-primary" href="/mrr/{{ lot.id }}/inspection/new">
+              {% if lot.status and lot.status|upper == "PARTIAL" %}
+                Start Shipment Inspection (Partial Delivery)
+              {% else %}
+                Start Shipment Inspection
+              {% endif %}
+            </a>
+          {% else %}
+            <a class="btn btn-primary" href="/mrr/{{ lot.id }}/inspection/new">
+              {% if lot.status and lot.status|upper == "PARTIAL" %}
+                Start Shipment Inspection (Partial Delivery)
+              {% else %}
+                Start Shipment Inspection
+              {% endif %}
+            </a>
+          {% endif %}
+
+        {% else %}
+          <div class="muted mt">
+            ✅ Ticket is <b>APPROVED</b> — receiving is closed (no further inspections allowed).
+          </div>
+        {% endif %}
+
+      </div>
+    {% else %}
+      <div class="muted mt">Actions disabled (ticket canceled).</div>
+    {% endif %}
+  </div>
+
+</div>
+
+{% endblock %}

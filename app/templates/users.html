@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block content %}
+<a class="btn btn-ghost" href="/dashboard">← Back</a>
+
+<div class="card">
+  <h1>User Management</h1>
+
+  {% if error %}
+    <div class="alert mt">{{ error }}</div>
+  {% endif %}
+
+  <!-- CREATE USER -->
+  <div class="card inner mt">
+    <h2>Create New User</h2>
+    <form method="post" action="/users" class="form">
+      <div class="grid2">
+        <div><label>Username</label><input name="username" required></div>
+        <div><label>Display Name</label><input name="display_name" required></div>
+      </div>
+
+      <div class="grid2 mt">
+        <div>
+          <label>Role</label>
+          <select name="role" required>
+            <option value="INSPECTOR">INSPECTOR</option>
+            <option value="RUN_CREATOR">RUN_CREATOR (can create runs only)</option>
+            <option value="MANAGER">MANAGER</option>
+            <option value="BOSS">BOSS (read-only)</option>
+          </select>
+        </div>
+        <div><label>Password</label><input name="password" required></div>
+      </div>
+
+      <div class="toolbar mt">
+        <button class="btn btn-primary" type="submit">Create User</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- EXISTING USERS -->
+  <div class="card inner mt">
+    <h2>Existing Users</h2>
+    <div class="muted">Edit name/role, reset password, or delete users.</div>
+
+    <div class="tablewrap mt">
+      <table class="table wide">
+        <thead>
+          <tr>
+            <th style="width: 160px;">Username</th>
+            <th style="width: 240px;">Display Name</th>
+            <th style="width: 220px;">Role</th>
+            <th style="width: 220px;">Reset Password</th>
+            <th style="width: 220px;">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for u in users %}
+            <tr>
+              <td><b>{{ u.username }}</b></td>
+
+              <!-- UPDATE FORM -->
+              <form method="post" action="/users/{{ u.username }}/update">
+                <td>
+                  <input name="display_name" value="{{ u.display_name }}" style="width: 100%;">
+                </td>
+
+                <td>
+                  <select name="role" style="width: 100%;">
+                    <option value="INSPECTOR" {% if u.role=="INSPECTOR" %}selected{% endif %}>INSPECTOR</option>
+                    <option value="RUN_CREATOR" {% if u.role=="RUN_CREATOR" %}selected{% endif %}>RUN_CREATOR</option>
+                    <option value="MANAGER" {% if u.role=="MANAGER" %}selected{% endif %}>MANAGER</option>
+                    <option value="BOSS" {% if u.role=="BOSS" %}selected{% endif %}>BOSS</option>
+                  </select>
+                </td>
+
+                <td>
+                  <input name="password" placeholder="Leave blank to keep" style="width: 100%;">
+                </td>
+
+                <td style="display:flex; gap:10px; align-items:center;">
+                  <button class="btn btn-primary" type="submit">Save</button>
+                </td>
+              </form>
+
+              <!-- DELETE FORM -->
+              <td>
+                {% if user.username != u.username %}
+                  <form method="post" action="/users/{{ u.username }}/delete"
+                        onsubmit="return confirm('Delete user {{ u.username }}? This cannot be undone.');">
+                    <button class="btn" type="submit">Delete</button>
+                  </form>
+                {% else %}
+                  <span class="muted">Current user</span>
+                {% endif %}
+              </td>
+
+            </tr>
+          {% endfor %}
+        </tbody>
+
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
