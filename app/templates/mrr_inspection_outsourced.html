@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>Outsourced Material Receiving Inspection</h1>
+
+  <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ insp.id }}/submit" class="form mt">
+
+    <!-- HEADER -->
+    <div class="grid-2">
+      <div>
+        <label>Report Number</label>
+        <input name="report_no" value="{{ insp.report_no }}" readonly>
+      </div>
+      <div>
+        <label>Date</label>
+        <input name="report_date" value="{{ insp.created_at.strftime('%Y-%m-%d') if insp.created_at else '' }}" readonly>
+      </div>
+
+      <div>
+        <label>Delivery Note</label>
+        <input name="delivery_note_no" value="{{ insp.delivery_note_no or '' }}" required>
+      </div>
+      <div>
+        <label>Purchase Order</label>
+        <input name="purchase_order" value="{{ lot.po_number or '' }}" readonly>
+      </div>
+    </div>
+
+    <!-- ITEMS TABLE -->
+    <h3 class="mt">Items</h3>
+    <p class="muted">Fill as per QAP0600-F02 table.</p>
+
+    <table class="table" id="itemsTable">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>P.O Description</th>
+          <th>Size</th>
+          <th>Type</th>
+          <th>Pressure Rating / Class</th>
+          <th>Qty</th>
+          <th>MTC Certificate No.</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><input name="items_item[]" ></td>
+          <td><input name="items_desc[]" ></td>
+          <td><input name="items_size[]" ></td>
+          <td><input name="items_type[]" ></td>
+          <td><input name="items_pressure[]" ></td>
+          <td><input name="items_qty[]" ></td>
+          <td><input name="items_mtc[]" ></td>
+          <td><button type="button" class="btn btn-muted" onclick="removeRow(this)">X</button></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <button type="button" class="btn btn-muted" onclick="addItemRow()">+ Add Row</button>
+
+    <!-- VISUAL INSPECTION -->
+    <h3 class="mt">Visual Inspection (10% Sampling)</h3>
+
+    <table class="table" id="visualTable">
+      <thead>
+        <tr>
+          <th>Heat/Batch No</th>
+          <th>Flange ID / S.N</th>
+          <th>Surface Condition</th>
+          <th>Physical Damage</th>
+          <th>Package Condition</th>
+          <th>Markings & Labeling</th>
+          <th>Result (ACC/REJ)</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><input name="vis_batch[]" ></td>
+          <td><input name="vis_flange[]" ></td>
+          <td><input name="vis_surface[]" ></td>
+          <td><input name="vis_damage[]" ></td>
+          <td><input name="vis_package[]" ></td>
+          <td><input name="vis_marking[]" ></td>
+          <td>
+            <select name="vis_result[]">
+              <option value="">-</option>
+              <option value="ACC">ACC</option>
+              <option value="REJ">REJ</option>
+            </select>
+          </td>
+          <td><button type="button" class="btn btn-muted" onclick="removeRow(this)">X</button></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <button type="button" class="btn btn-muted" onclick="addVisualRow()">+ Add Row</button>
+
+    <!-- REMARKS -->
+    <h3 class="mt">Remarks</h3>
+    <textarea name="remarks" rows="4">{{ insp.remarks or "" }}</textarea>
+
+    <div class="mt">
+      <button class="btn btn-primary" type="submit">Save / Submit</button>
+      <a class="btn btn-muted" href="/mrr/{{ lot.id }}/inspection/id/{{ insp.id }}">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+function removeRow(btn){ btn.closest("tr").remove(); }
+
+function addItemRow(){
+  const tbody = document.querySelector("#itemsTable tbody");
+  const tr = tbody.querySelector("tr").cloneNode(true);
+  tr.querySelectorAll("input").forEach(i => i.value="");
+  tbody.appendChild(tr);
+}
+
+function addVisualRow(){
+  const tbody = document.querySelector("#visualTable tbody");
+  const tr = tbody.querySelector("tr").cloneNode(true);
+  tr.querySelectorAll("input").forEach(i => i.value="");
+  tr.querySelectorAll("select").forEach(s => s.value="");
+  tbody.appendChild(tr);
+}
+</script>
+{% endblock %}
