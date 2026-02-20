@@ -190,6 +190,7 @@ import re
 import json
 import zipfile
 import subprocess
+from docx import Document
 from datetime import datetime, date
 
 import openpyxl
@@ -594,6 +595,146 @@ def fill_mrr_f01_xlsx_bytes(
     if bool(getattr(inspection, "manager_approved", False)):
         _ws_set_value_safe(ws, "D51", "MANAGER")
         _ws_set_value_safe(ws, "D52", _as_date_str(datetime.utcnow()))
+
+
+
+
+def _docx_set_cell_text(table, r: int, c: int, value: str):
+    """
+    Safely set text into a DOCX table cell.
+    Works fine even if the cell is part of a merged region (Word merges are tricky,
+    but writing to the 'main' cell works for typical templates).
+    """
+    cell = table.cell(r, c)
+    cell.text = str(value or "").strip()
+
+
+def fill_mrr_f02_docx_bytes(*, lot, receiving, inspection, docs: list) -> bytes:
+    """
+    Fill QAP0600-F02.docx (OUTSOURCED) and return DOCX bytes.
+    Template is a single big table.
+    """
+    template_path = MRR_TEMPLATE_DOCX_MAP.get("OUTSOURCED")
+    if not template_path or not os.path.exists(template_path):
+        raise HTTPException(
+            500,
+            f"OUTSOURCED template missing. Put QAP0600-F02.docx in {MRR_TEMPLATE_DIR}",
+        )
+
+    doc = Document(template_path)
+    if not doc.tables:
+        raise HTTPException(500, "OUTSOURCED template has no tables.")
+
+    t = doc.tables[0]
+
+    # ---- HEADER ----
+    # Row 0: "Report Number." value at col 8
+    _docx_set_cell_text(t, 0, 8, getattr(inspection, "report_no", "") or "")
+
+    # Row 1: "Date:" value at col 8
+    created = getattr(inspection, "created_at", None) or datetime.utcnow()
+    _docx_set_cell_text(t, 1, 8, _as_date_str(created))
+
+    # Row 2: "Delivery Note:" value at col 8, "Purchase Order:" value at col 15
+    _docx_set_cell_text(t, 2, 8, getattr(inspection, "delivery_note_no", "") or "")
+    _docx_set_cell_text(t, 2, 15, getattr(lot, "po_number", "") or "")
+
+    # ---- ITEMS TABLE (rows 4..7) ----
+    # Columns (start cells):
+    # item=0, desc=1, size=4, type=6, pressure=9, qty=12, mtc=15
+    try:
+        data = json.loads(getattr(inspection, "inspection_json", None) or "{}")
+        if not isinstance(data, dict):
+            data = {}
+    except Exception:
+        data = {}
+
+    items = data.get("items") or []
+    if not isinstance(items, list):
+        items = []
+
+    for i in range(4):  # template has 4 visible item rows
+        row_idx = 4 + i
+        it = items[i] if i < len(items) and isinstance(items[i], dict) else {}
+
+        _docx_set_cell_text(t, row_idx, 0, it.get("item") or (str(i + 1) if it else ""))
+        _docx_set_cell_text(t, row_idx, 1, it.get("po_description", ""))
+        _docx_set_cell_text(t, row_idx, 4, it.get("size", ""))
+        _docx_set_cell_text(t, row_idx, 6, it.get("type", ""))
+        _docx_set_cell_text(t, row_idx, 9, it.get("pressure_rating", ""))
+        _docx_set_cell_text(t, row_idx, 12, it.get("qty", ""))
+        _docx_set_cell_text(t, row_idx, 15, it.get("mtc_certificate_no", ""))
+
+    # ---- VISUAL INSPECTION TABLE (rows 10..16) ----
+    # Start cells:
+    # heat=0, flange=2, surface=5, physical=9, package=10, markings=13, result=16
+    visual = data.get("visual") or []
+    if not isinstance(visual, list):
+        visual = []
+
+    for i in range(7):  # template shows 7 visible rows
+        row_idx = 10 + i
+        v = visual[i] if i < len(visual) and isinstance(visual[i], dict) else {}
+
+        _docx_set_cell_text(t, row_idx, 0, v.get("heat_batch_no", ""))
+        _docx_set_cell_text(t, row_idx, 2, v.get("flange_id_sn", ""))
+        _docx_set_cell_text(t, row_idx, 5, v.get("surface_condition", ""))
+        _docx_set_cell_text(t, row_idx, 9, v.get("physical_damage", ""))
+        _docx_set_cell_text(t, row_idx, 10, v.get("package_condition", ""))
+        _docx_set_cell_text(t, row_idx, 13, v.get("markings_labeling", ""))
+        _docx_set_cell_text(t, row_idx, 16, v.get("result", ""))
+
+    # ---- REMARKS ----
+    _docx_set_cell_text(t, 18, 0, (data.get("remarks") or "").strip())
+
+    # ---- SIGNATURE BLOCK (row 20) ----
+    insp_name = getattr(inspection, "inspector_name", "") or ""
+    mgr_name = "MANAGER" if bool(getattr(inspection, "manager_approved", False)) else ""
+    dt = _as_date_str(datetime.utcnow())
+
+    _docx_set_cell_text(t, 20, 0, f"Name: {insp_name}\nPosition:\nDate: {dt}".strip())
+    _docx_set_cell_text(t, 20, 7, f"Name: {mgr_name}\nPosition:\nDate: {dt}".strip())
+    _docx_set_cell_text(t, 20, 14, f"Name:\nPosition:\nDate:".strip())
+
+    # Return docx bytes
+    bio = io.BytesIO()
+    doc.save(bio)
+    return bio.getvalue()
+
+
+def convert_docx_bytes_to_pdf(docx_bytes: bytes) -> bytes:
+    """
+    Convert DOCX bytes -> PDF bytes using LibreOffice (soffice).
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        in_path = os.path.join(tmpdir, "report.docx")
+        out_dir = tmpdir
+        with open(in_path, "wb") as f:
+            f.write(docx_bytes)
+
+        # Convert
+        cmd = [
+            "soffice", "--headless", "--nologo", "--nofirststartwizard",
+            "--convert-to", "pdf",
+            "--outdir", out_dir,
+            in_path
+        ]
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        out_path = os.path.join(tmpdir, "report.pdf")
+        if not os.path.exists(out_path):
+            # LibreOffice sometimes names output based on input filename
+            out_path = os.path.join(tmpdir, "report.pdf")
+        if not os.path.exists(out_path):
+            # fallback: search any pdf
+            pdfs = [p for p in os.listdir(tmpdir) if p.lower().endswith(".pdf")]
+            if not pdfs:
+                raise HTTPException(500, "DOCX->PDF conversion failed (no PDF produced).")
+            out_path = os.path.join(tmpdir, pdfs[0])
+
+        with open(out_path, "rb") as f:
+            return f.read()
+
 
     # -------------------------
     # LOGO
@@ -1202,6 +1343,17 @@ def mrr_export_inspection_pdf(
         photos_by_group=None,
     )
 
+    if (lot.lot_type or "").upper() == "OUTSOURCED":
+    docx_bytes = fill_mrr_f02_docx_bytes(
+        lot=lot,
+        receiving=receiving,
+        inspection=inspection,
+        docs=docs,
+    )
+    pdf_bytes = convert_docx_bytes_to_pdf(docx_bytes)
+    return Response(content=pdf_bytes, media_type="application/pdf")
+
+
     pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
 
         # ✅ Digital signatures (based on real users / roles)
@@ -1232,6 +1384,7 @@ def mrr_export_inspection_pdf(
         manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
         manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
     )
+    
 
 
     filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.pdf"
