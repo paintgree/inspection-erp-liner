@@ -190,6 +190,8 @@ import re
 import json
 import zipfile
 import subprocess
+import tempfile
+import shutil
 from docx import Document
 from datetime import datetime, date
 
@@ -599,140 +601,183 @@ def fill_mrr_f01_xlsx_bytes(
 
 
 
-def _docx_set_cell_text(table, r: int, c: int, value: str):
-    """
-    Safely set text into a DOCX table cell.
-    Works fine even if the cell is part of a merged region (Word merges are tricky,
-    but writing to the 'main' cell works for typical templates).
-    """
-    cell = table.cell(r, c)
-    cell.text = str(value or "").strip()
+def _set_cell_text(cell, text: str):
+    # Clear existing paragraph runs and set new text cleanly
+    cell.text = ""
+    cell.text = (text or "").strip()
 
-
-def fill_mrr_f02_docx_bytes(*, lot, receiving, inspection, docs: list) -> bytes:
+def _find_cell_by_label(doc: Document, label: str):
     """
-    Fill QAP0600-F02.docx (OUTSOURCED) and return DOCX bytes.
-    Template is a single big table.
+    Find the table cell that contains 'label' (case-insensitive).
+    Returns (table, row_idx, col_idx) or (None, None, None).
+    """
+    target = (label or "").strip().lower()
+    for t in doc.tables:
+        for r_idx, row in enumerate(t.rows):
+            for c_idx, cell in enumerate(row.cells):
+                if target in (cell.text or "").strip().lower():
+                    return t, r_idx, c_idx
+    return None, None, None
+
+def _set_value_next_to_label(doc: Document, label: str, value: str):
+    """
+    Finds a cell containing label and writes value in the cell to its right.
+    """
+    t, r, c = _find_cell_by_label(doc, label)
+    if t is None:
+        return False
+    # write into next cell if exists, else same cell
+    if c + 1 < len(t.rows[r].cells):
+        _set_cell_text(t.rows[r].cells[c + 1], value)
+    else:
+        _set_cell_text(t.rows[r].cells[c], value)
+    return True
+
+def _find_row_index_with_headers(table, headers: list[str]) -> int | None:
+    """
+    Find the row index where all headers appear (case-insensitive).
+    """
+    hdrs = [h.strip().lower() for h in headers]
+    for r_idx, row in enumerate(table.rows):
+        row_text = " | ".join([(c.text or "").strip().lower() for c in row.cells])
+        if all(h in row_text for h in hdrs):
+            return r_idx
+    return None
+
+def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
+    """
+    Fill QAP0600-F02.docx (outsourced template) using inspection + JSON fields.
+    - Robust strategy: find label cells (Report Number / Date / Delivery Note / Purchase Order)
+      and fill the cell next to them.
+    - Fill the 2 tables (Items table + Visual inspection table) by locating their header rows.
     """
     template_path = MRR_TEMPLATE_DOCX_MAP.get("OUTSOURCED")
     if not template_path or not os.path.exists(template_path):
-        raise HTTPException(
-            500,
-            f"OUTSOURCED template missing. Put QAP0600-F02.docx in {MRR_TEMPLATE_DIR}",
-        )
+        raise HTTPException(500, f"OUTSOURCED template missing. Put QAP0600-F02.docx in {MRR_TEMPLATE_DIR}")
 
     doc = Document(template_path)
-    if not doc.tables:
-        raise HTTPException(500, "OUTSOURCED template has no tables.")
 
-    t = doc.tables[0]
+    data = safe_json_loads(getattr(inspection, "inspection_json", None))
 
-    # ---- HEADER ----
-    # Row 0: "Report Number." value at col 8
-    _docx_set_cell_text(t, 0, 8, getattr(inspection, "report_no", "") or "")
+    # ---- Header fields (labels must match your Word file text) ----
+    _set_value_next_to_label(doc, "Report Number", getattr(inspection, "report_no", "") or "")
+    _set_value_next_to_label(doc, "Date", _as_date_str(getattr(inspection, "created_at", None) or datetime.utcnow()))
+    _set_value_next_to_label(doc, "Delivery Note", getattr(inspection, "delivery_note_no", "") or "")
+    _set_value_next_to_label(doc, "Purchase Order", getattr(lot, "po_number", "") or "")
 
-    # Row 1: "Date:" value at col 8
-    created = getattr(inspection, "created_at", None) or datetime.utcnow()
-    _docx_set_cell_text(t, 1, 8, _as_date_str(created))
-
-    # Row 2: "Delivery Note:" value at col 8, "Purchase Order:" value at col 15
-    _docx_set_cell_text(t, 2, 8, getattr(inspection, "delivery_note_no", "") or "")
-    _docx_set_cell_text(t, 2, 15, getattr(lot, "po_number", "") or "")
-
-    # ---- ITEMS TABLE (rows 4..7) ----
-    # Columns (start cells):
-    # item=0, desc=1, size=4, type=6, pressure=9, qty=12, mtc=15
-    try:
-        data = json.loads(getattr(inspection, "inspection_json", None) or "{}")
-        if not isinstance(data, dict):
-            data = {}
-    except Exception:
-        data = {}
-
+    # ---- Items table ----
+    # Expect JSON: data["items"] = [{"item":1,"po_desc":"...","size":"...","type":"...","pressure":"...","qty":"...","mtc_no":"..."}]
     items = data.get("items") or []
     if not isinstance(items, list):
         items = []
 
-    for i in range(4):  # template has 4 visible item rows
-        row_idx = 4 + i
-        it = items[i] if i < len(items) and isinstance(items[i], dict) else {}
+    for t in doc.tables:
+        header_row = _find_row_index_with_headers(
+            t,
+            headers=["ITEM", "P.O Description", "SIZE", "TYPE", "QTY", "MTC CERTIFICATE NO"]
+        )
+        if header_row is None:
+            continue
 
-        _docx_set_cell_text(t, row_idx, 0, it.get("item") or (str(i + 1) if it else ""))
-        _docx_set_cell_text(t, row_idx, 1, it.get("po_description", ""))
-        _docx_set_cell_text(t, row_idx, 4, it.get("size", ""))
-        _docx_set_cell_text(t, row_idx, 6, it.get("type", ""))
-        _docx_set_cell_text(t, row_idx, 9, it.get("pressure_rating", ""))
-        _docx_set_cell_text(t, row_idx, 12, it.get("qty", ""))
-        _docx_set_cell_text(t, row_idx, 15, it.get("mtc_certificate_no", ""))
+        start_row = header_row + 1
+        max_rows_available = len(t.rows) - start_row
+        for i, it in enumerate(items[:max_rows_available]):
+            row = t.rows[start_row + i].cells
+            # Safe indexing (Word tables can vary)
+            def getv(k):
+                v = it.get(k, "")
+                return "" if v is None else str(v)
 
-    # ---- VISUAL INSPECTION TABLE (rows 10..16) ----
-    # Start cells:
-    # heat=0, flange=2, surface=5, physical=9, package=10, markings=13, result=16
-    visual = data.get("visual") or []
-    if not isinstance(visual, list):
-        visual = []
+            if len(row) > 0: _set_cell_text(row[0], getv("item"))
+            if len(row) > 1: _set_cell_text(row[1], getv("po_desc"))
+            if len(row) > 2: _set_cell_text(row[2], getv("size"))
+            if len(row) > 3: _set_cell_text(row[3], getv("type"))
+            if len(row) > 4: _set_cell_text(row[4], getv("pressure"))
+            if len(row) > 5: _set_cell_text(row[5], getv("qty"))
+            if len(row) > 6: _set_cell_text(row[6], getv("mtc_no"))
+        break  # stop after first matching table
 
-    for i in range(7):  # template shows 7 visible rows
-        row_idx = 10 + i
-        v = visual[i] if i < len(visual) and isinstance(visual[i], dict) else {}
+    # ---- Visual inspection table ----
+    # Expect JSON: data["visual_rows"] = [{"heat_batch":"...","flange_id":"...","surface":"...","damage":"...","package":"...","marking":"...","result":"ACC"}]
+    visual_rows = data.get("visual_rows") or []
+    if not isinstance(visual_rows, list):
+        visual_rows = []
 
-        _docx_set_cell_text(t, row_idx, 0, v.get("heat_batch_no", ""))
-        _docx_set_cell_text(t, row_idx, 2, v.get("flange_id_sn", ""))
-        _docx_set_cell_text(t, row_idx, 5, v.get("surface_condition", ""))
-        _docx_set_cell_text(t, row_idx, 9, v.get("physical_damage", ""))
-        _docx_set_cell_text(t, row_idx, 10, v.get("package_condition", ""))
-        _docx_set_cell_text(t, row_idx, 13, v.get("markings_labeling", ""))
-        _docx_set_cell_text(t, row_idx, 16, v.get("result", ""))
+    for t in doc.tables:
+        header_row = _find_row_index_with_headers(
+            t,
+            headers=["Heat/Batch Number", "Surface Condition", "Result"]
+        )
+        if header_row is None:
+            continue
 
-    # ---- REMARKS ----
-    _docx_set_cell_text(t, 18, 0, (data.get("remarks") or "").strip())
+        start_row = header_row + 1
+        max_rows_available = len(t.rows) - start_row
+        for i, it in enumerate(visual_rows[:max_rows_available]):
+            row = t.rows[start_row + i].cells
 
-    # ---- SIGNATURE BLOCK (row 20) ----
-    insp_name = getattr(inspection, "inspector_name", "") or ""
-    mgr_name = "MANAGER" if bool(getattr(inspection, "manager_approved", False)) else ""
-    dt = _as_date_str(datetime.utcnow())
+            def getv(k):
+                v = it.get(k, "")
+                return "" if v is None else str(v)
 
-    _docx_set_cell_text(t, 20, 0, f"Name: {insp_name}\nPosition:\nDate: {dt}".strip())
-    _docx_set_cell_text(t, 20, 7, f"Name: {mgr_name}\nPosition:\nDate: {dt}".strip())
-    _docx_set_cell_text(t, 20, 14, f"Name:\nPosition:\nDate:".strip())
+            if len(row) > 0: _set_cell_text(row[0], getv("heat_batch"))
+            if len(row) > 1: _set_cell_text(row[1], getv("flange_id"))
+            if len(row) > 2: _set_cell_text(row[2], getv("surface"))
+            if len(row) > 3: _set_cell_text(row[3], getv("damage"))
+            if len(row) > 4: _set_cell_text(row[4], getv("package"))
+            if len(row) > 5: _set_cell_text(row[5], getv("marking"))
+            if len(row) > 6: _set_cell_text(row[6], getv("result"))
+        break
 
-    # Return docx bytes
+    # ---- Remarks box ----
+    # Your template has "REMARKS:" label. Put text next cell / next row depending on layout.
+    remarks = (data.get("remarks") or "").strip()
+    if remarks:
+        _set_value_next_to_label(doc, "REMARKS:", remarks)
+
+    # ---- Signatures text (simple) ----
+    # If you want images later, we can add, but text works first.
+    _set_value_next_to_label(doc, "Inspected by:", getattr(inspection, "inspector_name", "") or "")
+    _set_value_next_to_label(doc, "Reviewed by:", "Quality Manager" if getattr(inspection, "manager_approved", False) else "")
+    _set_value_next_to_label(doc, "Approved by:", "Approved" if getattr(inspection, "ticket_approved", False) else "")
+
+    # Save docx to bytes
     bio = io.BytesIO()
     doc.save(bio)
     return bio.getvalue()
 
-
-def convert_docx_bytes_to_pdf(docx_bytes: bytes) -> bytes:
+def docx_bytes_to_pdf_bytes(docx_bytes: bytes) -> bytes:
     """
-    Convert DOCX bytes -> PDF bytes using LibreOffice (soffice).
+    Convert DOCX bytes to PDF bytes using LibreOffice (soffice).
     """
     with tempfile.TemporaryDirectory() as tmpdir:
-        in_path = os.path.join(tmpdir, "report.docx")
+        in_path = os.path.join(tmpdir, "in.docx")
         out_dir = tmpdir
         with open(in_path, "wb") as f:
             f.write(docx_bytes)
 
-        # Convert
+        # LibreOffice conversion
         cmd = [
-            "soffice", "--headless", "--nologo", "--nofirststartwizard",
+            "soffice",
+            "--headless",
+            "--nologo",
+            "--nofirststartwizard",
             "--convert-to", "pdf",
             "--outdir", out_dir,
-            in_path
+            in_path,
         ]
-        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        if p.returncode != 0:
+            raise HTTPException(
+                500,
+                f"DOCX->PDF failed. stdout={p.stdout.decode(errors='ignore')} stderr={p.stderr.decode(errors='ignore')}"
+            )
 
-        out_path = os.path.join(tmpdir, "report.pdf")
-        if not os.path.exists(out_path):
-            # LibreOffice sometimes names output based on input filename
-            out_path = os.path.join(tmpdir, "report.pdf")
-        if not os.path.exists(out_path):
-            # fallback: search any pdf
-            pdfs = [p for p in os.listdir(tmpdir) if p.lower().endswith(".pdf")]
-            if not pdfs:
-                raise HTTPException(500, "DOCX->PDF conversion failed (no PDF produced).")
-            out_path = os.path.join(tmpdir, pdfs[0])
+        pdf_path = os.path.join(out_dir, "in.pdf")
+        if not os.path.exists(pdf_path):
+            raise HTTPException(500, "DOCX->PDF failed: output PDF not found")
 
-        with open(out_path, "rb") as f:
+        with open(pdf_path, "rb") as f:
             return f.read()
 
 
@@ -1323,18 +1368,44 @@ def mrr_export_inspection_pdf(
     if not insp or insp.ticket_id != lot_id:
         raise HTTPException(404, "MRR Inspection not found")
 
-    docs = session.exec(select(MrrDocument).where(MrrDocument.ticket_id == lot_id).order_by(MrrDocument.created_at.asc())).all()
-    receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
-
     # Only allow export if submitted OR manager approved
     if not (insp.inspector_confirmed or insp.manager_approved):
         raise HTTPException(400, "Inspection must be submitted before export")
 
+    docs = session.exec(
+        select(MrrDocument)
+        .where(MrrDocument.ticket_id == lot_id)
+        .order_by(MrrDocument.created_at.asc())
+    ).all()
+
+    receiving = session.exec(
+        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
+    ).first()
 
     tpl = _safe_upper(getattr(insp, "template_type", "RAW"))
-    if tpl != "RAW":
-        raise HTTPException(400, f"Template type {tpl} export not wired yet (we will do F02 next)")
 
+    # -----------------------------
+    # OUTSOURCED (DOCX -> PDF)
+    # -----------------------------
+    if tpl == "OUTSOURCED":
+        docx_bytes = fill_mrr_f02_docx_bytes(
+            lot=lot,
+            receiving=receiving,
+            inspection=insp,
+            docs=docs,
+        )
+        pdf_bytes = docx_bytes_to_pdf_bytes(docx_bytes)
+
+        filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.pdf"
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    # -----------------------------
+    # RAW (XLSX -> PDF)  (existing logic)
+    # -----------------------------
     xlsx_bytes = fill_mrr_f01_xlsx_bytes(
         lot=lot,
         receiving=receiving,
@@ -1343,34 +1414,20 @@ def mrr_export_inspection_pdf(
         photos_by_group=None,
     )
 
-    if (lot.lot_type or "").upper() == "OUTSOURCED":
-    docx_bytes = fill_mrr_f02_docx_bytes(
-        lot=lot,
-        receiving=receiving,
-        inspection=inspection,
-        docs=docs,
-    )
-    pdf_bytes = convert_docx_bytes_to_pdf(docx_bytes)
-    return Response(content=pdf_bytes, media_type="application/pdf")
-
-
     pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
 
-        # ✅ Digital signatures (based on real users / roles)
+    # ✅ Digital signatures (your existing logic)
     try:
         data = json.loads(getattr(insp, "inspection_json", None) or "{}")
     except Exception:
         data = {}
 
-    # inspector signature (only if submitted)
     inspector_name = (getattr(insp, "inspector_name", "") or "").strip()
     inspector_date = ""
     if getattr(insp, "inspector_confirmed", False):
-        # If you stored submitted time, use it; else fall back to created_at
         ts = data.get("submitted_at_utc") or getattr(insp, "created_at", None)
         inspector_date = _as_date_str(ts) if ts else _as_date_str(datetime.utcnow())
 
-    # manager signature (only if approved)
     manager_name = (data.get("manager_approved_by") or "").strip()
     manager_date = ""
     if getattr(insp, "manager_approved", False):
@@ -1384,8 +1441,6 @@ def mrr_export_inspection_pdf(
         manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
         manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
     )
-    
-
 
     filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.pdf"
     return Response(
