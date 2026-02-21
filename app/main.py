@@ -815,6 +815,12 @@ def docx_bytes_to_pdf_bytes(docx_bytes: bytes) -> bytes:
         with open(pdf_path, "rb") as f:
             return f.read()
 
+def _resolve_template_type(lot, insp) -> str:
+    return (
+        (getattr(insp, "template_type", "") or "").strip().upper()
+        or (getattr(lot, "lot_type", "") or "").strip().upper()
+        or "RAW"
+    )
 
     # -------------------------
     # LOGO
@@ -1402,6 +1408,9 @@ def mrr_export_inspection_pdf(
     insp = session.get(MrrReceivingInspection, inspection_id)
     if not insp or insp.ticket_id != lot_id:
         raise HTTPException(404, "MRR Inspection not found")
+
+    tpl = _resolve_template_type(lot, insp)
+
 
     # Only allow export if submitted OR manager approved
     if not (insp.inspector_confirmed or insp.manager_approved):
