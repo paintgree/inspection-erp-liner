@@ -1417,7 +1417,10 @@ def mrr_export_inspection_pdf(
         select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
     ).first()
 
-    tpl = _safe_upper(getattr(insp, "template_type", "RAW"))
+    tpl = ((getattr(insp, "template_type", "") or "").strip().upper()
+           or (getattr(lot, "lot_type", "") or "").strip().upper()
+           or "RAW")
+
 
     # -----------------------------
     # OUTSOURCED (DOCX -> PDF)
@@ -3737,6 +3740,8 @@ async def create_shipment_inspection(
         inspection_json="{}",
         inspector_confirmed=False,
         manager_approved=False,
+        insp.template_type = "OUTSOURCED" if (lot.lot_type or "").upper() == "OUTSOURCED" else "RAW"
+
     )
 
     session.add(insp)
