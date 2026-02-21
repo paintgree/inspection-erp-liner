@@ -1318,6 +1318,9 @@ def mrr_export_inspection_xlsx(
         photos_by_group=None,
     )
 
+    if not xlsx_bytes:
+    raise HTTPException(500, "RAW report generation failed: xlsx_bytes is empty/None.")
+
     filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.xlsx"
     return Response(
         content=xlsx_bytes,
@@ -4016,6 +4019,13 @@ def shipment_inspection_form(
     for p in photos:
         g = (p.group_name or "General").strip() or "General"
         photo_groups.setdefault(g, []).append(p)
+
+    tpl = _resolve_template_type(lot, insp)
+    
+    template_name = "mrr_inspection.html"
+    if tpl == "OUTSOURCED":
+        template_name = "mrr_inspection_outsourced.html"
+
 
     return templates.TemplateResponse(
         "mrr_inspection.html",
