@@ -3609,13 +3609,13 @@ async def mrr_inspection_submit(
         insp.inspector_confirmed = False
         session.add(insp)
         session.commit()
-        return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}?saved=draft", status_code=302)
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}?saved=draft", status_code=303)
 
     # submit
     insp.inspector_confirmed = True
     session.add(insp)
     session.commit()
-    return RedirectResponse(f"/mrr/{lot_id}", status_code=302)
+    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
 
 
 
