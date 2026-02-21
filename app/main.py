@@ -3740,10 +3740,10 @@ async def create_shipment_inspection(
         inspection_json="{}",
         inspector_confirmed=False,
         manager_approved=False,
-        insp.template_type = "OUTSOURCED" if (lot.lot_type or "").upper() == "OUTSOURCED" else "RAW"
-
+        
     )
-
+    insp.template_type = "OUTSOURCED" if (lot.lot_type or "").upper() == "OUTSOURCED" else "RAW"
+    
     session.add(insp)
     session.commit()
     session.refresh(insp)
