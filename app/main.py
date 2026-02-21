@@ -374,7 +374,8 @@ def fill_mrr_f01_xlsx_bytes(
         # nothing selected
         _ws_set_value_safe(ws, "A11", "")
         _ws_set_value_safe(ws, "A24", "")
-
+    # ✅ VERY IMPORTANT: return the filled Excel as bytes
+    return _xlsx_bytes_from_wb(wb)
 
         # ---- PROPERTIES TABLE FILL (generic matcher) ----
 
@@ -1257,6 +1258,13 @@ def resolve_mrr_doc_path(p: str) -> str:
 
     return ""
 
+
+def _resolve_template_type(lot, insp) -> str:
+    return (
+        (getattr(insp, "template_type", "") or "").strip().upper()
+        or (getattr(lot, "lot_type", "") or "").strip().upper()
+        or "RAW"
+    )
 # ==========================================
 # EXPORT PER-INSPECTION (SEPARATE REPORTS)
 # ==========================================
@@ -1411,6 +1419,7 @@ def mrr_export_inspection_pdf(
     insp = session.get(MrrReceivingInspection, inspection_id)
     if not insp or insp.ticket_id != lot_id:
         raise HTTPException(404, "MRR Inspection not found")
+        
 
     tpl = _resolve_template_type(lot, insp)
 
@@ -1444,18 +1453,17 @@ def mrr_export_inspection_pdf(
             inspection=insp,
             docs=docs,
         )
+    
         pdf_bytes = docx_bytes_to_pdf_bytes(docx_bytes)
-
+    
         filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.pdf"
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
-
-    # -----------------------------
-    # RAW (XLSX -> PDF)  (existing logic)
-    # -----------------------------
+    
+    # -------- RAW fallback ----------
     xlsx_bytes = fill_mrr_f01_xlsx_bytes(
         lot=lot,
         receiving=receiving,
@@ -1464,7 +1472,43 @@ def mrr_export_inspection_pdf(
         photos_by_group=None,
     )
 
+    if not xlsx_bytes:
+        raise HTTPException(500, "RAW report generation failed: xlsx_bytes is empty/None.")
+
     pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
+
+    # ✅ Digital signatures (your existing logic)
+    try:
+        data = json.loads(getattr(insp, "inspection_json", None) or "{}")
+    except Exception:
+        data = {}
+
+    inspector_name = (getattr(insp, "inspector_name", "") or "").strip()
+    inspector_date = ""
+    if getattr(insp, "inspector_confirmed", False):
+        ts = data.get("submitted_at_utc") or getattr(insp, "created_at", None)
+        inspector_date = _as_date_str(ts) if ts else _as_date_str(datetime.utcnow())
+
+    manager_name = (data.get("manager_approved_by") or "").strip()
+    manager_date = ""
+    if getattr(insp, "manager_approved", False):
+        ts2 = data.get("manager_approved_at_utc") or datetime.utcnow().isoformat()
+        manager_date = _as_date_str(ts2)
+
+    pdf_bytes = stamp_signatures_on_pdf(
+        pdf_bytes,
+        inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
+        inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
+        manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
+        manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
+    )
+
+    filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
     # ✅ Digital signatures (your existing logic)
     try:
