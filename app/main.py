@@ -1319,7 +1319,7 @@ def mrr_export_inspection_xlsx(
     )
 
     if not xlsx_bytes:
-    raise HTTPException(500, "RAW report generation failed: xlsx_bytes is empty/None.")
+        raise HTTPException(500, "RAW report generation failed: xlsx_bytes is empty/None.")
 
     filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.xlsx"
     return Response(
