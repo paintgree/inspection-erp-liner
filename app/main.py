@@ -680,8 +680,26 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
             continue
 
         start_row = header_row + 1
-        max_rows_available = len(t.rows) - start_row
-        for i, it in enumerate(items[:max_rows_available]):
+
+        def getv(it, k):
+            v = it.get(k, "")
+            return "" if v is None else str(v)
+        
+        for i, it in enumerate(items):
+            # ensure enough rows exist
+            while (start_row + i) >= len(t.rows):
+                t.add_row()
+        
+            row = t.rows[start_row + i].cells
+        
+            if len(row) > 0: _set_cell_text(row[0], getv(it, "item"))
+            if len(row) > 1: _set_cell_text(row[1], getv(it, "po_desc"))
+            if len(row) > 2: _set_cell_text(row[2], getv(it, "size"))
+            if len(row) > 3: _set_cell_text(row[3], getv(it, "type"))
+            if len(row) > 4: _set_cell_text(row[4], getv(it, "pressure"))
+            if len(row) > 5: _set_cell_text(row[5], getv(it, "qty"))
+            if len(row) > 6: _set_cell_text(row[6], getv(it, "mtc_no"))
+
             row = t.rows[start_row + i].cells
             # Safe indexing (Word tables can vary)
             def getv(k):
@@ -712,8 +730,25 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
             continue
 
         start_row = header_row + 1
-        max_rows_available = len(t.rows) - start_row
-        for i, it in enumerate(visual_rows[:max_rows_available]):
+        
+        def getv(it, k):
+            v = it.get(k, "")
+            return "" if v is None else str(v)
+        
+        for i, it in enumerate(visual_rows):
+            while (start_row + i) >= len(t.rows):
+                t.add_row()
+        
+            row = t.rows[start_row + i].cells
+        
+            if len(row) > 0: _set_cell_text(row[0], getv(it, "heat_batch"))
+            if len(row) > 1: _set_cell_text(row[1], getv(it, "flange_id"))
+            if len(row) > 2: _set_cell_text(row[2], getv(it, "surface"))
+            if len(row) > 3: _set_cell_text(row[3], getv(it, "damage"))
+            if len(row) > 4: _set_cell_text(row[4], getv(it, "package"))
+            if len(row) > 5: _set_cell_text(row[5], getv(it, "marking"))
+            if len(row) > 6: _set_cell_text(row[6], getv(it, "result"))
+
             row = t.rows[start_row + i].cells
 
             def getv(k):
