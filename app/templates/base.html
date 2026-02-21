@@ -142,7 +142,13 @@ function showModal(title, message) {
       // Success:
       // If backend returned a redirect, fetch follows it and res.url becomes the final URL.
       // Best UX: reload current page so you see updated status.
-      window.location.reload();
+      // If backend redirected, go to that URL
+    if (res.redirected && res.url) {
+        window.location.href = res.url;
+    } else {
+        window.location.reload();
+    }
+
 
     } catch (err) {
       showGlobalModal("Error", "Network/server error. Please try again.");
@@ -153,6 +159,7 @@ function showModal(title, message) {
 
 </body>
 </html>
+
 
 
 
