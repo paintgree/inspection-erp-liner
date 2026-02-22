@@ -1428,10 +1428,6 @@ def mrr_export_inspection_pdf(
     insp = session.get(MrrReceivingInspection, inspection_id)
     if not insp or insp.ticket_id != lot_id:
         raise HTTPException(404, "MRR Inspection not found")
-        
-
-    tpl = _resolve_template_type(lot, insp)
-
 
     # Only allow export if submitted OR manager approved
     if not (insp.inspector_confirmed or insp.manager_approved):
@@ -1447,40 +1443,43 @@ def mrr_export_inspection_pdf(
         select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
     ).first()
 
-    tpl = ((getattr(insp, "template_type", "") or "").strip().upper()
-           or (getattr(lot, "lot_type", "") or "").strip().upper()
-           or "RAW")
+    tpl = _resolve_template_type(lot, insp)
 
-
-    # ---------- OUTSOURCED ----------
-   tpl = _resolve_template_type(lot, inspection)
-    
+    # ---------- OUTSOURCED => F02 (DOCX) ----------
     if tpl == "OUTSOURCED":
         docx_bytes = fill_mrr_f02_docx_bytes(
             lot=lot,
-            inspection=inspection,
+            inspection=insp,
             receiving=receiving,
             docs=docs,
         )
-        # For now return DOCX directly (works 100%)
         return Response(
             content=docx_bytes,
             media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": f'attachment; filename="{inspection.report_no or "MRR"}_F02.docx"'},
+            headers={"Content-Disposition": f'attachment; filename="{insp.report_no or "MRR"}_F02.docx"'},
         )
-    
-    # else RAW (F01)
+
+    # ---------- RAW => F01 (XLSX -> PDF) ----------
     xlsx_bytes = fill_mrr_f01_xlsx_bytes(
         lot=lot,
         receiving=receiving,
-        inspection=inspection,
+        inspection=insp,
         docs=docs,
-        photos_by_group=photos_by_group,
+        photos_by_group=None,
     )
 
-pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
-return Response(pdf_bytes, media_type="application/pdf")
+    pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
 
+    # If you have post-processing helpers, keep them here (optional)
+    # pdf_bytes = fit_pdf_pages_to_a4(pdf_bytes, margin_left_right=0.3, margin_bottom=0.3, header_reserved=55.0)
+    # base_dir = os.path.dirname(__file__)
+    # logo_path = os.path.join(base_dir, "static", "images", "logo.png")
+    # pdf_bytes = stamp_logo_on_pdf(pdf_bytes, logo_path)
+    # pdf_bytes = stamp_footer_on_pdf(pdf_bytes, "QAP0600-F01")
+
+    return Response(pdf_bytes, media_type="application/pdf")
+
+    
     # ✅ Digital signatures (your existing logic)
     try:
         data = json.loads(getattr(insp, "inspection_json", None) or "{}")
@@ -4042,19 +4041,21 @@ def shipment_inspection_form(
 
 
     tpl = _resolve_template_type(lot, inspection)
-
-template_name = "mrr_inspection_outsourced.html" if tpl == "OUTSOURCED" else "mrr_inspection.html"
-
-return templates.TemplateResponse(
-    template_name,
-    {
-        "request": request,
-        "lot": lot,
-        "inspection": inspection,
-        # keep the rest of your context variables exactly as you already have them
-    },
-)
-
+    template_name = "mrr_inspection_outsourced.html" if tpl == "OUTSOURCED" else "mrr_inspection.html"
+    
+    return templates.TemplateResponse(
+        template_name,
+        {
+            "request": request,
+            "user": user,
+            "lot": lot,
+            "inspection": inspection,
+            "data": data,
+            "photo_groups": photo_groups,
+            "tpl": tpl,
+            # include anything else your template expects
+        },
+    )
 @app.get("/runs/{run_id}", response_class=HTMLResponse)
 def run_view(run_id: int, request: Request, session: Session = Depends(get_session)):
     try:
