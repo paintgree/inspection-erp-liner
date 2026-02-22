@@ -21,32 +21,9 @@
   <div class="page">
     {% block content %}{% endblock %}
   </div>
-  
-  <script>
-  function showModal(title, message) {
-    document.getElementById("modalTitle").innerText = title;
-    document.getElementById("modalMessage").innerText = message;
-    document.getElementById("globalModal").style.display = "block";
-  }
-  
-  function closeModal() {
-    document.getElementById("globalModal").style.display = "none";
-  }
-  </script>
-
- 
-<script>
-function showModal(title, message) {
-  document.getElementById("modalTitle").innerText = title;
-  document.getElementById("modalMessage").innerText = message;
-  document.getElementById("globalModal").style.display = "block";
-}
-</script>
-
-<!-- Global popup modal (single source of truth) -->
+    <!-- Global popup modal -->
 <div id="globalModal"
-     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35);
-            z-index:9999; align-items:center; justify-content:center;">
+     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:9999; align-items:center; justify-content:center;">
   <div style="width:min(520px, 92vw); background:#fff; border-radius:14px; padding:18px;
               box-shadow:0 20px 60px rgba(0,0,0,.25);">
     <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
@@ -54,7 +31,7 @@ function showModal(title, message) {
       <button class="btn btn-ghost" type="button" onclick="hideGlobalModal()">✕</button>
     </div>
 
-    <div id="globalModalBody" class="mt"></div>
+    <div id="globalModalBody" class="alert alert-error mt" style="margin-bottom:0;"></div>
 
     <div class="toolbar mt">
       <button class="btn btn-primary" type="button" onclick="hideGlobalModal()">OK</button>
@@ -63,16 +40,6 @@ function showModal(title, message) {
 </div>
 
 <script>
-  function showGlobalModal(title, message) {
-    document.getElementById("globalModalTitle").innerText = title || "Notice";
-    document.getElementById("globalModalBody").innerText = message || "Something happened.";
-    document.getElementById("globalModal").style.display = "flex";
-  }
-
-  function hideGlobalModal() {
-    document.getElementById("globalModal").style.display = "none";
-  }
-</script>
   function showGlobalModal(title, message) {
     document.getElementById("globalModalTitle").innerText = title || "Notice";
     document.getElementById("globalModalBody").innerText = message || "Action not allowed.";
@@ -150,7 +117,6 @@ function showModal(title, message) {
 
 </body>
 </html>
-
 
 
 
