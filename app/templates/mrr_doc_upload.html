@@ -132,21 +132,26 @@
     {% endif %}
   </div>
 
-  <script>
-    const docType = document.querySelector('select[name="doc_type"]');
-    const docNumber = document.querySelector('input[name="doc_number"]');
-  
-    function toggleDocNumberRequired() {
-      const isDN = (docType.value || "").toUpperCase() === "DELIVERY_NOTE";
-      docNumber.required = isDN;
-      docNumber.placeholder = isDN ? "Required (must match Delivery Note Number exactly)" : "e.g., COA-2026-001";
-    }
-  
-    docType.addEventListener("change", toggleDocNumberRequired);
-    toggleDocNumberRequired();
-  </script>
-
 </div>
 
 {% endblock %}
 
+
+<script>
+  (function(){
+    const docType = document.querySelector('select[name="doc_type"]');
+    const docNumber = document.querySelector('input[name="doc_number"]');
+    if(!docType || !docNumber) return;
+
+    function toggleDocNumberRequired() {
+      const isDN = (docType.value || "").toUpperCase() === "DELIVERY_NOTE";
+      docNumber.required = isDN;
+      docNumber.placeholder = isDN
+        ? "Required (must match Delivery Note Number exactly)"
+        : (docNumber.placeholder || "Optional");
+    }
+
+    docType.addEventListener("change", toggleDocNumberRequired);
+    toggleDocNumberRequired();
+  })();
+</script>
