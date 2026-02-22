@@ -4064,7 +4064,7 @@ def shipment_inspection_form(
         g = (p.group_name or "General").strip() or "General"
         photo_groups.setdefault(g, []).append(p)
 
-    tpl = _resolve_template_type(lot, insp)
+    tpl = _resolve_template_type(lot, inspection)
     
     template_name = "mrr_inspection.html"
     if tpl == "OUTSOURCED":
