@@ -3937,16 +3937,23 @@ def shipment_inspection_form(
 
 
     tpl = _resolve_template_type(lot, inspection)
-
-    template_name = "mrr_inspection_outsourced.html" if tpl == "OUTSOURCED" else "mrr_inspection.html"
+    
+    template_name = (
+        "mrr_inspection_outsourced.html"
+        if tpl == "OUTSOURCED"
+        else "mrr_inspection.html"
+    )
     
     return templates.TemplateResponse(
         template_name,
         {
             "request": request,
+            "user": user,
             "lot": lot,
             "inspection": inspection,
-            # keep the rest of your context variables exactly as you already have them
+            "data": data,
+            "photo_groups": photo_groups,
+            "tpl": tpl,
         },
     )
 
