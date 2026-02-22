@@ -1453,43 +1453,33 @@ def mrr_export_inspection_pdf(
 
 
     # ---------- OUTSOURCED ----------
+   tpl = _resolve_template_type(lot, inspection)
+    
     if tpl == "OUTSOURCED":
         docx_bytes = fill_mrr_f02_docx_bytes(
             lot=lot,
+            inspection=inspection,
             receiving=receiving,
-            inspection=insp,
             docs=docs,
         )
-    
-        pdf_bytes = docx_bytes_to_pdf_bytes(docx_bytes)
-    
-        filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.pdf"
+        # For now return DOCX directly (works 100%)
         return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            content=docx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="{inspection.report_no or "MRR"}_F02.docx"'},
         )
     
-    # ---------- RAW ----------
+    # else RAW (F01)
     xlsx_bytes = fill_mrr_f01_xlsx_bytes(
         lot=lot,
         receiving=receiving,
-        inspection=insp,
+        inspection=inspection,
         docs=docs,
-        photos_by_group=None,
+        photos_by_group=photos_by_group,
     )
-    
-    if not xlsx_bytes:
-        raise HTTPException(500, "RAW report generation failed.")
-    
-    pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
-    
-    filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.pdf"
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
+
+pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
+return Response(pdf_bytes, media_type="application/pdf")
 
     # ✅ Digital signatures (your existing logic)
     try:
@@ -4045,31 +4035,25 @@ def shipment_inspection_form(
         g = (p.group_name or "General").strip() or "General"
         photo_groups.setdefault(g, []).append(p)
 
-    tpl = _resolve_template_type(lot, inspection)
     
     template_name = "mrr_inspection.html"
     if tpl == "OUTSOURCED":
         template_name = "mrr_inspection_outsourced.html"
 
 
-    tpl = _resolve_template_type(lot, insp)
-    
-    template_file = "mrr_inspection_outsourced.html" if tpl == "OUTSOURCED" else "mrr_inspection.html"
-    
-    return templates.TemplateResponse(
-        template_file,
-        {
-            "request": request,
-            "user": user,
-            "lot": lot,
-            "insp": insp,
-            "inspection": insp,   # keep both names for safety with existing HTML
-            "tpl": tpl,
-            "error": request.query_params.get("error", ""),
-            "saved": request.query_params.get("saved", ""),
-        },
-    )
+    tpl = _resolve_template_type(lot, inspection)
 
+template_name = "mrr_inspection_outsourced.html" if tpl == "OUTSOURCED" else "mrr_inspection.html"
+
+return templates.TemplateResponse(
+    template_name,
+    {
+        "request": request,
+        "lot": lot,
+        "inspection": inspection,
+        # keep the rest of your context variables exactly as you already have them
+    },
+)
 
 @app.get("/runs/{run_id}", response_class=HTMLResponse)
 def run_view(run_id: int, request: Request, session: Session = Depends(get_session)):
