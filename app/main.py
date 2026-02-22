@@ -3938,17 +3938,17 @@ def shipment_inspection_form(
 
     tpl = _resolve_template_type(lot, inspection)
 
-template_name = "mrr_inspection_outsourced.html" if tpl == "OUTSOURCED" else "mrr_inspection.html"
-
-return templates.TemplateResponse(
-    template_name,
-    {
-        "request": request,
-        "lot": lot,
-        "inspection": inspection,
-        # keep the rest of your context variables exactly as you already have them
-    },
-)
+    template_name = "mrr_inspection_outsourced.html" if tpl == "OUTSOURCED" else "mrr_inspection.html"
+    
+    return templates.TemplateResponse(
+        template_name,
+        {
+            "request": request,
+            "lot": lot,
+            "inspection": inspection,
+            # keep the rest of your context variables exactly as you already have them
+        },
+    )
 
 @app.get("/runs/{run_id}", response_class=HTMLResponse)
 def run_view(run_id: int, request: Request, session: Session = Depends(get_session)):
