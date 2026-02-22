@@ -816,12 +816,6 @@ def docx_bytes_to_pdf_bytes(docx_bytes: bytes) -> bytes:
         with open(pdf_path, "rb") as f:
             return f.read()
 
-def _resolve_template_type(lot, insp) -> str:
-    return (
-        (getattr(insp, "template_type", "") or "").strip().upper()
-        or (getattr(lot, "lot_type", "") or "").strip().upper()
-        or "RAW"
-    )
 
     # -------------------------
     # LOGO
@@ -1443,9 +1437,7 @@ def mrr_export_inspection_pdf(
            or "RAW")
 
 
-    # -----------------------------
-    # OUTSOURCED (DOCX -> PDF)
-    # -----------------------------
+    # ---------- OUTSOURCED ----------
     if tpl == "OUTSOURCED":
         docx_bytes = fill_mrr_f02_docx_bytes(
             lot=lot,
@@ -1463,7 +1455,7 @@ def mrr_export_inspection_pdf(
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
     
-    # -------- RAW fallback ----------
+    # ---------- RAW ----------
     xlsx_bytes = fill_mrr_f01_xlsx_bytes(
         lot=lot,
         receiving=receiving,
@@ -1471,38 +1463,12 @@ def mrr_export_inspection_pdf(
         docs=docs,
         photos_by_group=None,
     )
-
+    
     if not xlsx_bytes:
-        raise HTTPException(500, "RAW report generation failed: xlsx_bytes is empty/None.")
-
+        raise HTTPException(500, "RAW report generation failed.")
+    
     pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
-
-    # ✅ Digital signatures (your existing logic)
-    try:
-        data = json.loads(getattr(insp, "inspection_json", None) or "{}")
-    except Exception:
-        data = {}
-
-    inspector_name = (getattr(insp, "inspector_name", "") or "").strip()
-    inspector_date = ""
-    if getattr(insp, "inspector_confirmed", False):
-        ts = data.get("submitted_at_utc") or getattr(insp, "created_at", None)
-        inspector_date = _as_date_str(ts) if ts else _as_date_str(datetime.utcnow())
-
-    manager_name = (data.get("manager_approved_by") or "").strip()
-    manager_date = ""
-    if getattr(insp, "manager_approved", False):
-        ts2 = data.get("manager_approved_at_utc") or datetime.utcnow().isoformat()
-        manager_date = _as_date_str(ts2)
-
-    pdf_bytes = stamp_signatures_on_pdf(
-        pdf_bytes,
-        inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
-        inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
-        manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
-        manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
-    )
-
+    
     filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}.pdf"
     return Response(
         content=pdf_bytes,
@@ -4071,17 +4037,21 @@ def shipment_inspection_form(
         template_name = "mrr_inspection_outsourced.html"
 
 
+    tpl = _resolve_template_type(lot, insp)
+    
+    template_file = "mrr_inspection_outsourced.html" if tpl == "OUTSOURCED" else "mrr_inspection.html"
+    
     return templates.TemplateResponse(
-        "mrr_inspection.html",
+        template_file,
         {
             "request": request,
             "user": user,
             "lot": lot,
-            "inspection": inspection,
-            "inspection_data": data,
-            "photo_groups": photo_groups,                 # ✅ NEW
-            "photo_error": request.query_params.get("photo_error", ""),  # ✅ NEW
+            "insp": insp,
+            "inspection": insp,   # keep both names for safety with existing HTML
+            "tpl": tpl,
             "error": request.query_params.get("error", ""),
+            "saved": request.query_params.get("saved", ""),
         },
     )
 
