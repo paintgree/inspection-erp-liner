@@ -3931,19 +3931,15 @@ def shipment_inspection_form(
         photo_groups.setdefault(g, []).append(p)
 
     
-    template_name = "mrr_inspection.html"
-    if tpl == "OUTSOURCED":
-        template_name = "mrr_inspection_outsourced.html"
-
-
+        # Resolve template type FIRST (RAW/F01 vs OUTSOURCED/F02)
     tpl = _resolve_template_type(lot, inspection)
-    
+
     template_name = (
         "mrr_inspection_outsourced.html"
         if tpl == "OUTSOURCED"
         else "mrr_inspection.html"
     )
-    
+
     return templates.TemplateResponse(
         template_name,
         {
