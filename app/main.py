@@ -3722,6 +3722,20 @@ async def create_shipment_inspection(
     qty_arrived = form.get("qty_arrived")
     qty_unit = (form.get("qty_unit") or "KG").strip().upper()
 
+    dn_doc = session.exec(
+        select(MrrDocument).where(
+            (MrrDocument.ticket_id == lot_id) &
+            (MrrDocument.doc_type == "DELIVERY_NOTE") &
+            (MrrDocument.doc_number == dn)
+        )
+    ).first()
+    
+    if not dn_doc:
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/new?error=Upload%20Delivery%20Note%20document%20(Type:%20DELIVERY_NOTE)%20and%20set%20Document%20Number%20=%20{dn}",
+            status_code=303,
+        )
+
     if not dn:
         return RedirectResponse(f"/mrr/{lot_id}/inspection/new?error=Delivery%20Note%20is%20required", status_code=303)
 
