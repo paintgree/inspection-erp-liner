@@ -1253,12 +1253,27 @@ def resolve_mrr_doc_path(p: str) -> str:
     return ""
 
 
-def _resolve_template_type(lot, insp) -> str:
-    return (
-        (getattr(insp, "template_type", "") or "").strip().upper()
-        or (getattr(lot, "lot_type", "") or "").strip().upper()
-        or "RAW"
-    )
+def _resolve_template_type(lot, inspection) -> str:
+    """
+    Decide which template to use for:
+    - UI inspection page
+    - exporting the report
+
+    Priority:
+    1) inspection.template_type (if stored)
+    2) lot.lot_type (if stored)
+    Default: RAW
+    """
+    lot_type = (getattr(lot, "lot_type", None) or "").strip().upper()
+    insp_type = (getattr(inspection, "template_type", None) or "").strip().upper()
+
+    if insp_type in ["OUTSOURCED", "RAW"]:
+        return insp_type
+
+    if lot_type in ["OUTSOURCED", "RAW"]:
+        return lot_type
+
+    return "RAW"
 # ==========================================
 # EXPORT PER-INSPECTION (SEPARATE REPORTS)
 # ==========================================
