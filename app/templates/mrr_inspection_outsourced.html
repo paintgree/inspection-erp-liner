@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
+{# Safety: if backend forgets form_data, page still works #}
+{% set form_data = form_data if form_data is defined and form_data else {} %}
+
 <div class="card">
   <h1>Outsourced Material Receiving Inspection</h1>
 
@@ -43,19 +46,31 @@
           <th></th>
         </tr>
       </thead>
+
       <tbody>
+        {% set items_item = form_data.get('items_item[]', []) %}
+        {% set items_desc = form_data.get('items_desc[]', []) %}
+        {% set items_size = form_data.get('items_size[]', []) %}
+        {% set items_type = form_data.get('items_type[]', []) %}
+        {% set items_pressure = form_data.get('items_pressure[]', []) %}
+        {% set items_qty = form_data.get('items_qty[]', []) %}
+        {% set items_mtc = form_data.get('items_mtc[]', []) %}
+
+        {% set max_len = [items_item|length, items_desc|length, items_size|length, items_type|length, items_pressure|length, items_qty|length, items_mtc|length] | max %}
+        {% if max_len < 1 %}{% set max_len = 1 %}{% endif %}
+
+        {% for i in range(max_len) %}
         <tr data-template="1">
-          {% for i in range(max_len) %}
-            <input name="items_item[]" value="{{ items_item[i] if i < items_item|length else '' }}">
-          {% endfor %}
-          <td><input name="items_desc[]"></td>
-          <td><input name="items_size[]"></td>
-          <td><input name="items_type[]"></td>
-          <td><input name="items_pressure[]"></td>
-          <td><input name="items_qty[]"></td>
-          <td><input name="items_mtc[]"></td>
-          <td><button type="button" class="btn btn-muted" onclick="removeRow(this, 'itemsTable')">X</button></td>
+          <td><input name="items_item[]" value="{{ items_item[i] if i < items_item|length else '' }}"></td>
+          <td><input name="items_desc[]" value="{{ items_desc[i] if i < items_desc|length else '' }}"></td>
+          <td><input name="items_size[]" value="{{ items_size[i] if i < items_size|length else '' }}"></td>
+          <td><input name="items_type[]" value="{{ items_type[i] if i < items_type|length else '' }}"></td>
+          <td><input name="items_pressure[]" value="{{ items_pressure[i] if i < items_pressure|length else '' }}"></td>
+          <td><input name="items_qty[]" value="{{ items_qty[i] if i < items_qty|length else '' }}"></td>
+          <td><input name="items_mtc[]" value="{{ items_mtc[i] if i < items_mtc|length else '' }}"></td>
+          <td><button type="button" class="btn btn-muted" onclick="removeRow(this)">X</button></td>
         </tr>
+        {% endfor %}
       </tbody>
     </table>
 
@@ -64,10 +79,14 @@
     <!-- VISUAL INSPECTION -->
     <h3 class="mt">Visual Inspection (10% Sampling)</h3>
 
+    <div class="mt">
+      <button type="button" class="btn btn-muted" onclick="copyHeatToAll()">Copy Heat No. to all rows</button>
+    </div>
+
     <table class="table" id="visualTable">
       <thead>
         <tr>
-          <th>Heat/Batch No</th>
+          <th>Heat No</th>
           <th>Flange ID / S.N</th>
           <th>Surface Condition</th>
           <th>Physical Damage</th>
@@ -77,23 +96,38 @@
           <th></th>
         </tr>
       </thead>
+
       <tbody>
+        {% set vis_batch = form_data.get('vis_batch[]', []) %}
+        {% set vis_flange = form_data.get('vis_flange[]', []) %}
+        {% set vis_surface = form_data.get('vis_surface[]', []) %}
+        {% set vis_damage = form_data.get('vis_damage[]', []) %}
+        {% set vis_package = form_data.get('vis_package[]', []) %}
+        {% set vis_marking = form_data.get('vis_marking[]', []) %}
+        {% set vis_result = form_data.get('vis_result[]', []) %}
+
+        {% set vmax = [vis_batch|length, vis_flange|length, vis_surface|length, vis_damage|length, vis_package|length, vis_marking|length, vis_result|length] | max %}
+        {% if vmax < 1 %}{% set vmax = 1 %}{% endif %}
+
+        {% for i in range(vmax) %}
         <tr data-template="1">
-          <td><input name="vis_batch[]"></td>
-          <td><input name="vis_flange[]"></td>
-          <td><input name="vis_surface[]"></td>
-          <td><input name="vis_damage[]"></td>
-          <td><input name="vis_package[]"></td>
-          <td><input name="vis_marking[]"></td>
+          <td><input name="vis_batch[]" value="{{ vis_batch[i] if i < vis_batch|length else '' }}"></td>
+          <td><input name="vis_flange[]" value="{{ vis_flange[i] if i < vis_flange|length else '' }}"></td>
+          <td><input name="vis_surface[]" value="{{ vis_surface[i] if i < vis_surface|length else '' }}"></td>
+          <td><input name="vis_damage[]" value="{{ vis_damage[i] if i < vis_damage|length else '' }}"></td>
+          <td><input name="vis_package[]" value="{{ vis_package[i] if i < vis_package|length else '' }}"></td>
+          <td><input name="vis_marking[]" value="{{ vis_marking[i] if i < vis_marking|length else '' }}"></td>
           <td>
             <select name="vis_result[]">
-              <option value="">-</option>
-              <option value="ACC">ACC</option>
-              <option value="REJ">REJ</option>
+              {% set cur = (vis_result[i] if i < vis_result|length else '') %}
+              <option value="" {% if cur == '' %}selected{% endif %}>-</option>
+              <option value="ACC" {% if cur == 'ACC' %}selected{% endif %}>ACC</option>
+              <option value="REJ" {% if cur == 'REJ' %}selected{% endif %}>REJ</option>
             </select>
           </td>
-          <td><button type="button" class="btn btn-muted" onclick="removeRow(this, 'visualTable')">X</button></td>
+          <td><button type="button" class="btn btn-muted" onclick="removeRow(this)">X</button></td>
         </tr>
+        {% endfor %}
       </tbody>
     </table>
 
@@ -101,7 +135,7 @@
 
     <!-- REMARKS -->
     <h3 class="mt">Remarks</h3>
-    <textarea name="remarks" rows="4">{{ inspection.remarks or "" }}</textarea>
+    <textarea name="remarks" rows="4">{{ form_data.get('remarks','') or inspection.remarks or "" }}</textarea>
 
     <div class="mt">
       <button class="btn btn-primary" type="submit">Save / Submit</button>
@@ -111,81 +145,19 @@
 </div>
 
 <script>
-function _tableTbody(tableId) {
-  const table = document.getElementById(tableId);
-  return table ? table.querySelector("tbody") : null;
+function removeRow(btn){
+  const tr = btn.closest("tr");
+  const tbody = tr.closest("tbody");
+  tr.remove();
+
+  // If all rows removed, leave table empty — add-row functions can recreate rows.
 }
 
-// Optional UX safety: keep at least 1 row.
-// If you want to allow deleting all rows, tell me and I’ll remove this guard.
-function removeRow(btn, tableId) {
-  const tbody = _tableTbody(tableId);
-  if (!tbody) return;
-
-  const rows = tbody.querySelectorAll("tr");
-  if (rows.length <= 1) {
-    // clear inputs instead of removing the last row
-    const tr = rows[0];
-    tr.querySelectorAll("input").forEach(i => i.value = "");
-    tr.querySelectorAll("select").forEach(s => s.value = "");
-    return;
-  }
-
-  btn.closest("tr").remove();
-}
-
-function addItemRow(){
-  const tbody = _tableTbody("itemsTable");
-  if (!tbody) return;
-
+function _cloneOrCreateRow(tbody, htmlRow){
   let tpl = tbody.querySelector('tr[data-template="1"]') || tbody.querySelector("tr");
 
   if (!tpl) {
-    tbody.insertAdjacentHTML("beforeend", `
-      <tr data-template="1">
-        <td><input name="items_item[]"></td>
-        <td><input name="items_desc[]"></td>
-        <td><input name="items_size[]"></td>
-        <td><input name="items_type[]"></td>
-        <td><input name="items_pressure[]"></td>
-        <td><input name="items_qty[]"></td>
-        <td><input name="items_mtc[]"></td>
-        <td><button type="button" class="btn btn-muted" onclick="removeRow(this, 'itemsTable')">X</button></td>
-      </tr>
-    `);
-    return;
-  }
-
-  const tr = tpl.cloneNode(true);
-  tr.querySelectorAll("input").forEach(i => i.value = "");
-  tbody.appendChild(tr);
-}
-
-function addVisualRow(){
-  const tbody = _tableTbody("visualTable");
-  if (!tbody) return;
-
-  let tpl = tbody.querySelector('tr[data-template="1"]') || tbody.querySelector("tr");
-
-  if (!tpl) {
-    tbody.insertAdjacentHTML("beforeend", `
-      <tr data-template="1">
-        <td><input name="vis_batch[]"></td>
-        <td><input name="vis_flange[]"></td>
-        <td><input name="vis_surface[]"></td>
-        <td><input name="vis_damage[]"></td>
-        <td><input name="vis_package[]"></td>
-        <td><input name="vis_marking[]"></td>
-        <td>
-          <select name="vis_result[]">
-            <option value="">-</option>
-            <option value="ACC">ACC</option>
-            <option value="REJ">REJ</option>
-          </select>
-        </td>
-        <td><button type="button" class="btn btn-muted" onclick="removeRow(this, 'visualTable')">X</button></td>
-      </tr>
-    `);
+    tbody.insertAdjacentHTML("beforeend", htmlRow);
     return;
   }
 
@@ -193,6 +165,68 @@ function addVisualRow(){
   tr.querySelectorAll("input").forEach(i => i.value = "");
   tr.querySelectorAll("select").forEach(s => s.value = "");
   tbody.appendChild(tr);
+}
+
+function addItemRow(){
+  const tbody = document.querySelector("#itemsTable tbody");
+  _cloneOrCreateRow(tbody, `
+    <tr data-template="1">
+      <td><input name="items_item[]"></td>
+      <td><input name="items_desc[]"></td>
+      <td><input name="items_size[]"></td>
+      <td><input name="items_type[]"></td>
+      <td><input name="items_pressure[]"></td>
+      <td><input name="items_qty[]"></td>
+      <td><input name="items_mtc[]"></td>
+      <td><button type="button" class="btn btn-muted" onclick="removeRow(this)">X</button></td>
+    </tr>
+  `);
+}
+
+function addVisualRow(){
+  const tbody = document.querySelector("#visualTable tbody");
+  _cloneOrCreateRow(tbody, `
+    <tr data-template="1">
+      <td><input name="vis_batch[]"></td>
+      <td><input name="vis_flange[]"></td>
+      <td><input name="vis_surface[]"></td>
+      <td><input name="vis_damage[]"></td>
+      <td><input name="vis_package[]"></td>
+      <td><input name="vis_marking[]"></td>
+      <td>
+        <select name="vis_result[]">
+          <option value="">-</option>
+          <option value="ACC">ACC</option>
+          <option value="REJ">REJ</option>
+        </select>
+      </td>
+      <td><button type="button" class="btn btn-muted" onclick="removeRow(this)">X</button></td>
+    </tr>
+  `);
+
+  // Optional auto-fill new row heat number from first row if available
+  const firstHeat = document.querySelector('#visualTable tbody tr input[name="vis_batch[]"]');
+  const rows = document.querySelectorAll('#visualTable tbody tr');
+  const last = rows[rows.length - 1];
+  const heat = (firstHeat?.value || "").trim();
+  if (heat && last) {
+    const inp = last.querySelector('input[name="vis_batch[]"]');
+    if (inp) inp.value = heat;
+  }
+}
+
+function copyHeatToAll(){
+  const rows = document.querySelectorAll("#visualTable tbody tr");
+  if (!rows.length) return;
+
+  const first = rows[0].querySelector('input[name="vis_batch[]"]');
+  const heat = (first?.value || "").trim();
+  if (!heat) return;
+
+  rows.forEach(tr => {
+    const inp = tr.querySelector('input[name="vis_batch[]"]');
+    if (inp) inp.value = heat;
+  });
 }
 </script>
 {% endblock %}
