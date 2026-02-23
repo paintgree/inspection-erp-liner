@@ -645,156 +645,169 @@ def _find_row_index_with_headers(table, headers: list[str]) -> int | None:
             return r_idx
     return None
 
-def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 
+def _iter_paragraphs_in_doc(doc):
+    # paragraphs in body
+    for p in doc.paragraphs:
+        yield p
+    # paragraphs in tables
+    for t in doc.tables:
+        for row in t.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    yield p
+
+def _clear_paragraph_runs(paragraph):
+    for r in paragraph.runs:
+        r.text = ""
+
+def _set_bookmark_text(doc, bookmark_name: str, text: str) -> bool:
+    """
+    Writes `text` at a Word bookmark position.
+    Returns True if bookmark found and filled.
+    """
+    text = "" if text is None else str(text)
+
+    for p in _iter_paragraphs_in_doc(doc):
+        # look for bookmarkStart inside this paragraph
+        for child in p._p.iter():
+            if child.tag == qn("w:bookmarkStart") and child.get(qn("w:name")) == bookmark_name:
+                # Found bookmark start. Put text in this paragraph.
+                # Strategy: clear runs and set first run to text.
+                if not p.runs:
+                    p.add_run(text)
+                else:
+                    _clear_paragraph_runs(p)
+                    p.runs[0].text = text
+                return True
+
+    return False
+
+def _find_cell_by_bookmark(doc, bookmark_name: str):
+    """
+    Find the table cell that contains a bookmark.
+    Returns (table, row_index, col_index) or None.
+    """
+    for t in doc.tables:
+        for r_i, row in enumerate(t.rows):
+            for c_i, cell in enumerate(row.cells):
+                for p in cell.paragraphs:
+                    for child in p._p.iter():
+                        if child.tag == qn("w:bookmarkStart") and child.get(qn("w:name")) == bookmark_name:
+                            return (t, r_i, c_i)
+    return None
+
+
+def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     template_path = MRR_TEMPLATE_DOCX_MAP.get("OUTSOURCED")
     if not template_path or not os.path.exists(template_path):
-        raise HTTPException(
-            500,
-            f"OUTSOURCED template missing. Put QAP0600-F02.docx in {MRR_TEMPLATE_DIR}",
-        )
+        raise HTTPException(500, f"OUTSOURCED template missing. Put QAP0600-F02.docx in {MRR_TEMPLATE_DIR}")
 
     doc = Document(template_path)
-    data = safe_json_loads(getattr(inspection, "inspection_json", None))
+    data = safe_json_loads(getattr(inspection, "inspection_json", None)) or {}
 
-    # ---------------- HEADER ----------------
-    _set_value_next_to_label(doc, "Report Number", inspection.report_no or "")
-    _set_value_next_to_label(doc, "Date", _as_date_str(inspection.created_at))
-    _set_value_next_to_label(doc, "Delivery Note", inspection.delivery_note_no or "")
-    _set_value_next_to_label(doc, "Purchase Order", lot.po_number or "")
+    # -------------------------
+    # Header (BOOKMARKS)
+    # -------------------------
+    _set_bookmark_text(doc, "BM_REPORT_NO", getattr(inspection, "report_no", "") or "")
+    _set_bookmark_text(doc, "BM_REPORT_DATE", _as_date_str(getattr(inspection, "created_at", None) or datetime.utcnow()))
+    _set_bookmark_text(doc, "BM_DELIVERY_NOTE", getattr(inspection, "delivery_note_no", "") or "")
+    _set_bookmark_text(doc, "BM_PO_NUMBER", getattr(lot, "po_number", "") or "")
 
-    # =====================================================
-    # ITEMS TABLE
-    # =====================================================
+    # -------------------------
+    # Build Items rows from saved JSON arrays
+    # -------------------------
+    items_item = data.get("items_item[]", [])
+    items_desc = data.get("items_desc[]", [])
+    items_size = data.get("items_size[]", [])
+    items_type = data.get("items_type[]", [])
+    items_pressure = data.get("items_pressure[]", [])
+    items_qty = data.get("items_qty[]", [])
+    items_mtc = data.get("items_mtc[]", [])
 
-    items = []
-    keys = [
-        "items_item[]",
-        "items_desc[]",
-        "items_size[]",
-        "items_type[]",
-        "items_pressure[]",
-        "items_qty[]",
-        "items_mtc[]",
-    ]
+    max_items = max(
+        len(items_item), len(items_desc), len(items_size), len(items_type),
+        len(items_pressure), len(items_qty), len(items_mtc), 0
+    )
 
-    arrays = [data.get(k, []) for k in keys]
-    max_len = max([len(a) for a in arrays] + [0])
+    # -------------------------
+    # Locate Items table by bookmark anchor (first data row)
+    # Put bookmark BM_ITEMS_R1_C1 in the first data row, first column cell
+    # -------------------------
+    anchor = _find_cell_by_bookmark(doc, "BM_ITEMS_R1_C1")
+    if anchor:
+        t, start_r, start_c = anchor  # start_c should be 0 normally
 
-    for i in range(max_len):
-        items.append({
-            "item": arrays[0][i] if i < len(arrays[0]) else "",
-            "po_desc": arrays[1][i] if i < len(arrays[1]) else "",
-            "size": arrays[2][i] if i < len(arrays[2]) else "",
-            "type": arrays[3][i] if i < len(arrays[3]) else "",
-            "pressure": arrays[4][i] if i < len(arrays[4]) else "",
-            "qty": arrays[5][i] if i < len(arrays[5]) else "",
-            "mtc_no": arrays[6][i] if i < len(arrays[6]) else "",
-        })
-
-    for t in doc.tables:
-        header_row = _find_row_index_with_headers(
-            t,
-            headers=["ITEM", "P.O Description", "SIZE", "TYPE", "PRESSURE", "QTY", "MTC"],
-        )
-        if header_row is None:
-            continue
-
-        start_row = header_row + 1
-
-        for i, it in enumerate(items):
-            while (start_row + i) >= len(t.rows):
+        for i in range(max_items):
+            # ensure enough rows
+            while (start_r + i) >= len(t.rows):
                 t.add_row()
 
-            row = t.rows[start_row + i].cells
-
+            row_cells = t.rows[start_r + i].cells
             vals = [
-                it["item"],
-                it["po_desc"],
-                it["size"],
-                it["type"],
-                it["pressure"],
-                it["qty"],
-                it["mtc_no"],
+                items_item[i] if i < len(items_item) else "",
+                items_desc[i] if i < len(items_desc) else "",
+                items_size[i] if i < len(items_size) else "",
+                items_type[i] if i < len(items_type) else "",
+                items_pressure[i] if i < len(items_pressure) else "",
+                items_qty[i] if i < len(items_qty) else "",
+                items_mtc[i] if i < len(items_mtc) else "",
             ]
 
-            for col in range(min(len(vals), len(row))):
-                _set_cell_text(row[col], str(vals[col]))
+            for col in range(min(len(vals), len(row_cells))):
+                _set_cell_text(row_cells[col], str(vals[col]))
 
-        break
+    # -------------------------
+    # Build Visual rows from saved JSON arrays
+    # -------------------------
+    vis_batch = data.get("vis_batch[]", [])
+    vis_flange = data.get("vis_flange[]", [])
+    vis_surface = data.get("vis_surface[]", [])
+    vis_damage = data.get("vis_damage[]", [])
+    vis_package = data.get("vis_package[]", [])
+    vis_marking = data.get("vis_marking[]", [])
+    vis_result = data.get("vis_result[]", [])
 
-    # =====================================================
-    # VISUAL TABLE
-    # =====================================================
+    max_vis = max(
+        len(vis_batch), len(vis_flange), len(vis_surface), len(vis_damage),
+        len(vis_package), len(vis_marking), len(vis_result), 0
+    )
 
-    visual = []
-    keys = [
-        "vis_batch[]",
-        "vis_flange[]",
-        "vis_surface[]",
-        "vis_damage[]",
-        "vis_package[]",
-        "vis_marking[]",
-        "vis_result[]",
-    ]
+    # -------------------------
+    # Locate Visual table by bookmark anchor
+    # Put bookmark BM_VIS_R1_C1 in the first visual data row, first column cell
+    # -------------------------
+    anchor = _find_cell_by_bookmark(doc, "BM_VIS_R1_C1")
+    if anchor:
+        t, start_r, start_c = anchor
 
-    arrays = [data.get(k, []) for k in keys]
-    max_len = max([len(a) for a in arrays] + [0])
-
-    for i in range(max_len):
-        visual.append({
-            "heat": arrays[0][i] if i < len(arrays[0]) else "",
-            "flange": arrays[1][i] if i < len(arrays[1]) else "",
-            "surface": arrays[2][i] if i < len(arrays[2]) else "",
-            "damage": arrays[3][i] if i < len(arrays[3]) else "",
-            "package": arrays[4][i] if i < len(arrays[4]) else "",
-            "marking": arrays[5][i] if i < len(arrays[5]) else "",
-            "result": arrays[6][i] if i < len(arrays[6]) else "",
-        })
-
-    for t in doc.tables:
-        header_row = _find_row_index_with_headers(
-            t,
-            headers=["Heat", "Surface", "Result"],
-        )
-        if header_row is None:
-            continue
-
-        start_row = header_row + 1
-
-        for i, it in enumerate(visual):
-            while (start_row + i) >= len(t.rows):
+        for i in range(max_vis):
+            while (start_r + i) >= len(t.rows):
                 t.add_row()
 
-            row = t.rows[start_row + i].cells
-
+            row_cells = t.rows[start_r + i].cells
             vals = [
-                it["heat"],
-                it["flange"],
-                it["surface"],
-                it["damage"],
-                it["package"],
-                it["marking"],
-                it["result"],
+                vis_batch[i] if i < len(vis_batch) else "",
+                vis_flange[i] if i < len(vis_flange) else "",
+                vis_surface[i] if i < len(vis_surface) else "",
+                vis_damage[i] if i < len(vis_damage) else "",
+                vis_package[i] if i < len(vis_package) else "",
+                vis_marking[i] if i < len(vis_marking) else "",
+                vis_result[i] if i < len(vis_result) else "",
             ]
 
-            for col in range(min(len(vals), len(row))):
-                _set_cell_text(row[col], str(vals[col]))
+            for col in range(min(len(vals), len(row_cells))):
+                _set_cell_text(row_cells[col], str(vals[col]))
 
-        break
-
-    if len(t.rows) > start_row:
-        row = t.rows[start_row].cells
-        for c in range(len(row)):
-            _set_cell_text(row[c], f"COL{c+1}")
-
-    # ---------------- REMARKS ----------------
-    remarks = (data.get("remarks") or "").strip()
-    if remarks:
-        _set_value_next_to_label(doc, "REMARKS:", remarks)
-
-    # ---------------- SIGNATURE ----------------
-    _set_value_next_to_label(doc, "Inspected by:", inspection.inspector_name or "")
+    # -------------------------
+    # Remarks + signatures
+    # -------------------------
+    _set_bookmark_text(doc, "BM_REMARKS", (data.get("remarks") or "").strip())
+    _set_bookmark_text(doc, "BM_INSPECTED_BY", getattr(inspection, "inspector_name", "") or "")
+    _set_bookmark_text(doc, "BM_REVIEWED_BY", "Quality Manager" if getattr(inspection, "manager_approved", False) else "")
+    _set_bookmark_text(doc, "BM_APPROVED_BY", "Approved" if getattr(inspection, "ticket_approved", False) else "")
 
     bio = io.BytesIO()
     doc.save(bio)
