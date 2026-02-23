@@ -646,9 +646,6 @@ def _find_row_index_with_headers(table, headers: list[str]) -> int | None:
     return None
 
 def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
-    """
-    Fill QAP0600-F02.docx (outsourced template) using inspection + JSON fields.
-    """
 
     template_path = MRR_TEMPLATE_DOCX_MAP.get("OUTSOURCED")
     if not template_path or not os.path.exists(template_path):
@@ -658,70 +655,47 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
         )
 
     doc = Document(template_path)
-
     data = safe_json_loads(getattr(inspection, "inspection_json", None))
 
-    # -----------------------------
-    # Header fields
-    # -----------------------------
-    _set_value_next_to_label(doc, "Report Number", getattr(inspection, "report_no", "") or "")
-    _set_value_next_to_label(
-        doc,
-        "Date",
-        _as_date_str(getattr(inspection, "created_at", None) or datetime.utcnow()),
-    )
-    _set_value_next_to_label(doc, "Delivery Note", getattr(inspection, "delivery_note_no", "") or "")
-    _set_value_next_to_label(doc, "Purchase Order", getattr(lot, "po_number", "") or "")
+    # ---------------- HEADER ----------------
+    _set_value_next_to_label(doc, "Report Number", inspection.report_no or "")
+    _set_value_next_to_label(doc, "Date", _as_date_str(inspection.created_at))
+    _set_value_next_to_label(doc, "Delivery Note", inspection.delivery_note_no or "")
+    _set_value_next_to_label(doc, "Purchase Order", lot.po_number or "")
 
-    # =========================================================
-    # ITEMS TABLE (rebuild from form arrays)
-    # =========================================================
+    # =====================================================
+    # ITEMS TABLE
+    # =====================================================
 
     items = []
+    keys = [
+        "items_item[]",
+        "items_desc[]",
+        "items_size[]",
+        "items_type[]",
+        "items_pressure[]",
+        "items_qty[]",
+        "items_mtc[]",
+    ]
 
-    items_item = data.get("items_item[]", [])
-    items_desc = data.get("items_desc[]", [])
-    items_size = data.get("items_size[]", [])
-    items_type = data.get("items_type[]", [])
-    items_pressure = data.get("items_pressure[]", [])
-    items_qty = data.get("items_qty[]", [])
-    items_mtc = data.get("items_mtc[]", [])
-
-    max_len = max(
-        len(items_item),
-        len(items_desc),
-        len(items_size),
-        len(items_type),
-        len(items_pressure),
-        len(items_qty),
-        len(items_mtc),
-        0,
-    )
+    arrays = [data.get(k, []) for k in keys]
+    max_len = max([len(a) for a in arrays] + [0])
 
     for i in range(max_len):
-        items.append(
-            {
-                "item": items_item[i] if i < len(items_item) else "",
-                "po_desc": items_desc[i] if i < len(items_desc) else "",
-                "size": items_size[i] if i < len(items_size) else "",
-                "type": items_type[i] if i < len(items_type) else "",
-                "pressure": items_pressure[i] if i < len(items_pressure) else "",
-                "qty": items_qty[i] if i < len(items_qty) else "",
-                "mtc_no": items_mtc[i] if i < len(items_mtc) else "",
-            }
-        )
+        items.append({
+            "item": arrays[0][i] if i < len(arrays[0]) else "",
+            "po_desc": arrays[1][i] if i < len(arrays[1]) else "",
+            "size": arrays[2][i] if i < len(arrays[2]) else "",
+            "type": arrays[3][i] if i < len(arrays[3]) else "",
+            "pressure": arrays[4][i] if i < len(arrays[4]) else "",
+            "qty": arrays[5][i] if i < len(arrays[5]) else "",
+            "mtc_no": arrays[6][i] if i < len(arrays[6]) else "",
+        })
 
     for t in doc.tables:
         header_row = _find_row_index_with_headers(
             t,
-            headers=[
-                "ITEM",
-                "P.O Description",
-                "SIZE",
-                "TYPE",
-                "QTY",
-                "MTC CERTIFICATE NO",
-            ],
+            headers=["ITEM", "P.O Description", "SIZE", "TYPE", "PRESSURE", "QTY", "MTC"],
         )
         if header_row is None:
             continue
@@ -734,112 +708,94 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
 
             row = t.rows[start_row + i].cells
 
-            def getv(k):
-                v = it.get(k, "")
-                return "" if v is None else str(v)
+            vals = [
+                it["item"],
+                it["po_desc"],
+                it["size"],
+                it["type"],
+                it["pressure"],
+                it["qty"],
+                it["mtc_no"],
+            ]
 
-            if len(row) > 0: _set_cell_text(row[0], getv("item"))
-            if len(row) > 1: _set_cell_text(row[1], getv("po_desc"))
-            if len(row) > 2: _set_cell_text(row[2], getv("size"))
-            if len(row) > 3: _set_cell_text(row[3], getv("type"))
-            if len(row) > 4: _set_cell_text(row[4], getv("pressure"))
-            if len(row) > 5: _set_cell_text(row[5], getv("qty"))
-            if len(row) > 6: _set_cell_text(row[6], getv("mtc_no"))
+            for col in range(min(len(vals), len(row))):
+                _set_cell_text(row[col], str(vals[col]))
 
         break
 
-    # =========================================================
-    # VISUAL INSPECTION TABLE (rebuild from form arrays)
-    # =========================================================
+    # =====================================================
+    # VISUAL TABLE
+    # =====================================================
 
-    visual_rows = []
+    visual = []
+    keys = [
+        "vis_batch[]",
+        "vis_flange[]",
+        "vis_surface[]",
+        "vis_damage[]",
+        "vis_package[]",
+        "vis_marking[]",
+        "vis_result[]",
+    ]
 
-    vis_batch = data.get("vis_batch[]", [])
-    vis_flange = data.get("vis_flange[]", [])
-    vis_surface = data.get("vis_surface[]", [])
-    vis_damage = data.get("vis_damage[]", [])
-    vis_package = data.get("vis_package[]", [])
-    vis_marking = data.get("vis_marking[]", [])
-    vis_result = data.get("vis_result[]", [])
-
-    max_len = max(
-        len(vis_batch),
-        len(vis_flange),
-        len(vis_surface),
-        len(vis_damage),
-        len(vis_package),
-        len(vis_marking),
-        len(vis_result),
-        0,
-    )
+    arrays = [data.get(k, []) for k in keys]
+    max_len = max([len(a) for a in arrays] + [0])
 
     for i in range(max_len):
-        visual_rows.append(
-            {
-                "heat_batch": vis_batch[i] if i < len(vis_batch) else "",
-                "flange_id": vis_flange[i] if i < len(vis_flange) else "",
-                "surface": vis_surface[i] if i < len(vis_surface) else "",
-                "damage": vis_damage[i] if i < len(vis_damage) else "",
-                "package": vis_package[i] if i < len(vis_package) else "",
-                "marking": vis_marking[i] if i < len(vis_marking) else "",
-                "result": vis_result[i] if i < len(vis_result) else "",
-            }
-        )
+        visual.append({
+            "heat": arrays[0][i] if i < len(arrays[0]) else "",
+            "flange": arrays[1][i] if i < len(arrays[1]) else "",
+            "surface": arrays[2][i] if i < len(arrays[2]) else "",
+            "damage": arrays[3][i] if i < len(arrays[3]) else "",
+            "package": arrays[4][i] if i < len(arrays[4]) else "",
+            "marking": arrays[5][i] if i < len(arrays[5]) else "",
+            "result": arrays[6][i] if i < len(arrays[6]) else "",
+        })
 
     for t in doc.tables:
         header_row = _find_row_index_with_headers(
             t,
-            headers=["Heat/Batch", "Surface Condition", "Result"],
+            headers=["Heat", "Surface", "Result"],
         )
         if header_row is None:
             continue
 
         start_row = header_row + 1
 
-        for i, it in enumerate(visual_rows):
+        for i, it in enumerate(visual):
             while (start_row + i) >= len(t.rows):
                 t.add_row()
 
             row = t.rows[start_row + i].cells
 
-            def getv(k):
-                v = it.get(k, "")
-                return "" if v is None else str(v)
+            vals = [
+                it["heat"],
+                it["flange"],
+                it["surface"],
+                it["damage"],
+                it["package"],
+                it["marking"],
+                it["result"],
+            ]
 
-            if len(row) > 0: _set_cell_text(row[0], getv("heat_batch"))
-            if len(row) > 1: _set_cell_text(row[1], getv("flange_id"))
-            if len(row) > 2: _set_cell_text(row[2], getv("surface"))
-            if len(row) > 3: _set_cell_text(row[3], getv("damage"))
-            if len(row) > 4: _set_cell_text(row[4], getv("package"))
-            if len(row) > 5: _set_cell_text(row[5], getv("marking"))
-            if len(row) > 6: _set_cell_text(row[6], getv("result"))
+            for col in range(min(len(vals), len(row))):
+                _set_cell_text(row[col], str(vals[col]))
 
         break
 
-    # -----------------------------
-    # Remarks
-    # -----------------------------
+    # ---------------- REMARKS ----------------
     remarks = (data.get("remarks") or "").strip()
     if remarks:
         _set_value_next_to_label(doc, "REMARKS:", remarks)
 
-    # -----------------------------
-    # Signatures
-    # -----------------------------
-    _set_value_next_to_label(
-        doc,
-        "Inspected by:",
-        getattr(inspection, "inspector_name", "") or "",
-    )
-    _set_value_next_to_label(
-        doc,
-        "Reviewed by:",
-        "Quality Manager" if getattr(inspection, "manager_approved", False) else "",
-    )
+    # ---------------- SIGNATURE ----------------
+    _set_value_next_to_label(doc, "Inspected by:", inspection.inspector_name or "")
 
     bio = io.BytesIO()
     doc.save(bio)
     return bio.getvalue()
+
+
 def docx_bytes_to_pdf_bytes(docx_bytes: bytes) -> bytes:
     """
     Convert DOCX bytes to PDF bytes using LibreOffice (soffice).
@@ -4037,6 +3993,7 @@ def shipment_inspection_form(
             "photo_groups": photo_groups,
             "tpl": tpl,
             "insp": inspection,
+            "form_data": data,
         },
     )
 
