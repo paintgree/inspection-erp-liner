@@ -45,7 +45,7 @@
       </thead>
       <tbody>
         <tr data-template="1">
-          <td><input name="items_item[]"></td>
+          <td><input name="items_item[]" value="{{ form_data.get('items_item[]', [''])[loop.index0] if form_data.get('items_item[]') else '' }}"></td>
           <td><input name="items_desc[]"></td>
           <td><input name="items_size[]"></td>
           <td><input name="items_type[]"></td>
