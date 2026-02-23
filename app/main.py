@@ -3387,7 +3387,7 @@ def new_shipment_inspection_page(
             status_code=303,
         )
 
-            # ✅ Require at least ONE quality document before starting inspection
+        # ✅ Require at least ONE quality document before starting inspection
         if not quality_doc_exists(session, lot_id):
             return RedirectResponse(
                 f"/mrr/{lot_id}?error=Upload%20one%20Quality%20Document%20(COA%20or%20MTC%20or%20Inspection%20Report)%20before%20starting%20Receiving%20Inspection",
@@ -3450,17 +3450,35 @@ async def mrr_inspection_submit(
 
     form = await request.form()
 
+    # Determine template type (RAW vs OUTSOURCED) for validation rules
+    tpl = _resolve_template_type(lot, insp)
+
     # action = draft OR submit
     action = (form.get("action") or "submit").strip().lower()
 
-    # batch_numbers can be multiple inputs with same name
+    # batch_numbers can be multiple inputs with same name (RAW only)
     batch_numbers = form.getlist("batch_numbers") if hasattr(form, "getlist") else []
     batch_numbers = [str(x).strip() for x in (batch_numbers or []) if str(x).strip()]
 
-    # Final submit requires at least 1 batch number
+    # OUTSOURCED uses Heat/Batch No in visual table (vis_batch[])
+    vis_heat = form.getlist("vis_batch[]") if hasattr(form, "getlist") else []
+    vis_heat = [str(x).strip() for x in (vis_heat or []) if str(x).strip()]
+
+    # Final submit validation differs by template
     if action == "submit":
-        if not batch_numbers:
-            raise HTTPException(status_code=400, detail="Batch number is required to submit.")
+        if tpl == "OUTSOURCED":
+            if not vis_heat:
+                # Use your modal pattern instead of 400 to show a friendly message
+                return RedirectResponse(
+                    url=f"/mrr/{lot_id}/inspection/id/{inspection_id}?error=Heat%20number%20is%20required%20to%20submit.",
+                    status_code=303,
+                )
+        else:
+            if not batch_numbers:
+                return RedirectResponse(
+                    url=f"/mrr/{lot_id}/inspection/id/{inspection_id}?error=Batch%20number%20is%20required%20to%20submit.",
+                    status_code=303,
+                )
 
     # Load existing json (so we don’t lose fields)
     try:
@@ -3484,6 +3502,18 @@ async def mrr_inspection_submit(
     # overwrite batch_numbers with cleaned list
     data["batch_numbers"] = batch_numbers
 
+    # Preserve list fields properly (important for outsourced tables)
+    for key in [
+        "items_item[]","items_desc[]","items_size[]","items_type[]",
+        "items_pressure[]","items_qty[]","items_mtc[]",
+        "vis_batch[]","vis_flange[]","vis_surface[]",
+        "vis_damage[]","vis_package[]","vis_marking[]","vis_result[]"
+    ]:
+        if hasattr(form, "getlist"):
+            lst = [str(x).strip() for x in form.getlist(key) if str(x).strip() != ""]
+            if lst:
+                data[key] = lst
+    
     # Always keep report_no from model
     data["report_no"] = getattr(insp, "report_no", "") or data.get("report_no", "")
 
@@ -3508,7 +3538,7 @@ async def mrr_inspection_submit(
     # Save JSON
     insp.inspection_json = json.dumps(data, ensure_ascii=False)
 
-        # ✅ Track inspector identity in DB (used for PDF signature + table)
+    # ✅ Track inspector identity in DB (used for PDF signature + table)
     insp.inspector_id = getattr(user, "id", insp.inspector_id)
     insp.inspector_name = (getattr(user, "display_name", "") or "").strip()
 
