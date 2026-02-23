@@ -3948,6 +3948,7 @@ def shipment_inspection_form(
             "data": data,
             "photo_groups": photo_groups,
             "tpl": tpl,
+            "insp": inspection,
         },
     )
 
