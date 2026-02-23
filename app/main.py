@@ -3352,7 +3352,6 @@ def mrr_pending(request: Request, session: Session = Depends(get_session)):
     )
 
 @app.get("/mrr/{lot_id}/inspection/new", response_class=HTMLResponse)
-@app.get("/mrr/{lot_id}/inspection/new", response_class=HTMLResponse)
 def new_shipment_inspection_page(
     lot_id: int,
     request: Request,
@@ -3929,17 +3928,16 @@ def shipment_inspection_form(
     for p in photos:
         g = (p.group_name or "General").strip() or "General"
         photo_groups.setdefault(g, []).append(p)
-
     
-        # Resolve template type FIRST (RAW/F01 vs OUTSOURCED/F02)
+    # Resolve template type (RAW vs OUTSOURCED) — MUST be outside the loop
     tpl = _resolve_template_type(lot, inspection)
-
+    
     template_name = (
         "mrr_inspection_outsourced.html"
         if tpl == "OUTSOURCED"
         else "mrr_inspection.html"
     )
-
+    
     return templates.TemplateResponse(
         template_name,
         {
