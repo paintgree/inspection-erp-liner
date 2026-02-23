@@ -3,22 +3,22 @@
 <div class="card">
   <h1>Outsourced Material Receiving Inspection</h1>
 
-  <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ insp.id }}/submit" class="form mt">
+  <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/submit" class="form mt">
 
     <!-- HEADER -->
     <div class="grid-2">
       <div>
         <label>Report Number</label>
-        <input name="report_no" value="{{ insp.report_no }}" readonly>
+        <input name="report_no" value="{{ inspection.report_no }}" readonly>
       </div>
       <div>
         <label>Date</label>
-        <input name="report_date" value="{{ insp.created_at.strftime('%Y-%m-%d') if insp.created_at else '' }}" readonly>
+        <input name="report_date" value="{{ inspection.created_at.strftime('%Y-%m-%d') if inspection.created_at else '' }}" readonly>
       </div>
 
       <div>
         <label>Delivery Note</label>
-        <input name="delivery_note_no" value="{{ insp.delivery_note_no or '' }}" required>
+        <input name="delivery_note_no" value="{{ inspection.delivery_note_no or '' }}" required>
       </div>
       <div>
         <label>Purchase Order</label>
@@ -99,11 +99,11 @@
 
     <!-- REMARKS -->
     <h3 class="mt">Remarks</h3>
-    <textarea name="remarks" rows="4">{{ insp.remarks or "" }}</textarea>
+    <textarea name="remarks" rows="4">{{ inspection.remarks or "" }}</textarea>
 
     <div class="mt">
       <button class="btn btn-primary" type="submit">Save / Submit</button>
-      <a class="btn btn-muted" href="/mrr/{{ lot.id }}/inspection/id/{{ insp.id }}">Cancel</a>
+      <a class="btn btn-muted" href="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}">Cancel</a>
     </div>
   </form>
 </div>
