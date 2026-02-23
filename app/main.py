@@ -3520,19 +3520,39 @@ async def mrr_inspection_submit(
     except Exception:
         existing = {}
 
-    # Build inspection_json by taking EVERYTHING from the form
-    # (this fixes: fiber new keys + visual/doc review + anything added later)
+    # Build inspection_json safely:
+    # - store scalar fields normally
+    # - NEVER store "xxx[]" from form.items() (because it becomes only 1 value)
     data = dict(existing)
-
+    
     for k, v in form.items():
-        if k == "action":
+        if k in ("action",):
             continue
-        # keep normal scalar values
+    
+        # skip list-style keys here (we will collect them with getlist)
+        if k.endswith("[]"):
+            continue
+    
         if k != "batch_numbers":
             data[k] = (str(v).strip() if v is not None else "")
-
+    
     # overwrite batch_numbers with cleaned list
     data["batch_numbers"] = batch_numbers
+    
+    # Preserve ALL list fields properly (outsourced tables)
+    list_keys = [
+        "items_item[]", "items_desc[]", "items_size[]", "items_type[]",
+        "items_pressure[]", "items_qty[]", "items_mtc[]",
+        "vis_batch[]", "vis_flange[]", "vis_surface[]", "vis_damage[]",
+        "vis_package[]", "vis_marking[]", "vis_result[]",
+    ]
+    
+    for key in list_keys:
+        if hasattr(form, "getlist"):
+            lst = [str(x).strip() for x in form.getlist(key)]
+            # keep empty strings too? -> NO, but we must keep row alignment
+            # so DO NOT drop empties here; drop only trailing fully-empty rows later
+            data[key] = lst
 
     # Preserve list fields properly (important for outsourced tables)
     for key in [
@@ -3566,6 +3586,36 @@ async def mrr_inspection_submit(
             pass
     if qty_unit:
         insp.qty_unit = qty_unit
+
+    def _trim_table(prefix_keys):
+        cols = [data.get(k, []) for k in prefix_keys]
+        if not cols or not all(isinstance(c, list) for c in cols):
+            return
+        max_len = max((len(c) for c in cols), default=0)
+        last_keep = max_len
+        for i in range(max_len - 1, -1, -1):
+            row_empty = True
+            for c in cols:
+                v = c[i] if i < len(c) else ""
+                if str(v).strip() != "":
+                    row_empty = False
+                    break
+            if row_empty:
+                last_keep = i
+            else:
+                break
+        for k in prefix_keys:
+            data[k] = data.get(k, [])[:last_keep]
+    
+    _trim_table([
+        "items_item[]","items_desc[]","items_size[]",
+        "items_type[]","items_pressure[]","items_qty[]","items_mtc[]"
+    ])
+    
+    _trim_table([
+        "vis_batch[]","vis_flange[]","vis_surface[]",
+        "vis_damage[]","vis_package[]","vis_marking[]","vis_result[]"
+    ])
 
     # Save JSON
     insp.inspection_json = json.dumps(data, ensure_ascii=False)
@@ -5677,7 +5727,7 @@ def mrr_export_pdf(lot_id: int, request: Request, session: Session = Depends(get
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
-        # =========================
+# =========================
 # MRR MANAGER APPROVAL
 # =========================
 
