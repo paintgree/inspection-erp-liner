@@ -783,6 +783,11 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
 
         break
 
+    if len(t.rows) > start_row:
+    row = t.rows[start_row].cells
+    for c in range(len(row)):
+        _set_cell_text(row[c], f"COL{c+1}")
+
     # ---------------- REMARKS ----------------
     remarks = (data.get("remarks") or "").strip()
     if remarks:
