@@ -666,11 +666,39 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     _set_value_next_to_label(doc, "Delivery Note", getattr(inspection, "delivery_note_no", "") or "")
     _set_value_next_to_label(doc, "Purchase Order", getattr(lot, "po_number", "") or "")
 
-    # ---- Items table ----
-    # Expect JSON: data["items"] = [{"item":1,"po_desc":"...","size":"...","type":"...","pressure":"...","qty":"...","mtc_no":"..."}]
-    items = data.get("items") or []
-    if not isinstance(items, list):
-        items = []
+
+    # ---- Items table (reconstruct from form arrays) ----
+    items = []
+    
+    items_item = data.get("items_item[]", [])
+    items_desc = data.get("items_desc[]", [])
+    items_size = data.get("items_size[]", [])
+    items_type = data.get("items_type[]", [])
+    items_pressure = data.get("items_pressure[]", [])
+    items_qty = data.get("items_qty[]", [])
+    items_mtc = data.get("items_mtc[]", [])
+    
+    max_len = max(
+        len(items_item),
+        len(items_desc),
+        len(items_size),
+        len(items_type),
+        len(items_pressure),
+        len(items_qty),
+        len(items_mtc),
+        0
+    )
+    
+    for i in range(max_len):
+        items.append({
+            "item": items_item[i] if i < len(items_item) else "",
+            "po_desc": items_desc[i] if i < len(items_desc) else "",
+            "size": items_size[i] if i < len(items_size) else "",
+            "type": items_type[i] if i < len(items_type) else "",
+            "pressure": items_pressure[i] if i < len(items_pressure) else "",
+            "qty": items_qty[i] if i < len(items_qty) else "",
+            "mtc_no": items_mtc[i] if i < len(items_mtc) else "",
+        })
 
     for t in doc.tables:
         header_row = _find_row_index_with_headers(
@@ -717,10 +745,38 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
         break  # stop after first matching table
 
     # ---- Visual inspection table ----
-    # Expect JSON: data["visual_rows"] = [{"heat_batch":"...","flange_id":"...","surface":"...","damage":"...","package":"...","marking":"...","result":"ACC"}]
-    visual_rows = data.get("visual_rows") or []
-    if not isinstance(visual_rows, list):
-        visual_rows = []
+    # ---- Visual inspection table (reconstruct from form arrays) ----
+    visual_rows = []
+    
+    vis_batch = data.get("vis_batch[]", [])
+    vis_flange = data.get("vis_flange[]", [])
+    vis_surface = data.get("vis_surface[]", [])
+    vis_damage = data.get("vis_damage[]", [])
+    vis_package = data.get("vis_package[]", [])
+    vis_marking = data.get("vis_marking[]", [])
+    vis_result = data.get("vis_result[]", [])
+    
+    max_len = max(
+        len(vis_batch),
+        len(vis_flange),
+        len(vis_surface),
+        len(vis_damage),
+        len(vis_package),
+        len(vis_marking),
+        len(vis_result),
+        0
+    )
+    
+    for i in range(max_len):
+        visual_rows.append({
+            "heat_batch": vis_batch[i] if i < len(vis_batch) else "",
+            "flange_id": vis_flange[i] if i < len(vis_flange) else "",
+            "surface": vis_surface[i] if i < len(vis_surface) else "",
+            "damage": vis_damage[i] if i < len(vis_damage) else "",
+            "package": vis_package[i] if i < len(vis_package) else "",
+            "marking": vis_marking[i] if i < len(vis_marking) else "",
+            "result": vis_result[i] if i < len(vis_result) else "",
+        })
 
     for t in doc.tables:
         header_row = _find_row_index_with_headers(
