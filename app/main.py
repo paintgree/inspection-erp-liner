@@ -718,130 +718,126 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     _set_bookmark_text(doc, "BM_DELIVERY_NOTE", getattr(inspection, "delivery_note_no", "") or "")
     _set_bookmark_text(doc, "BM_PO_NUMBER", getattr(lot, "po_number", "") or "")
 
+    # Helper: get the LEFT-most cell index for a bookmark (works with merged cells)
+    def _bookmark_col_index(bookmark: str):
+        hit = _find_cell_by_bookmark(doc, bookmark)
+        if not hit:
+            return None
+        t0, r0, c0 = hit
+
+        min_c = c0
+        for _c in range(len(t0.rows[r0].cells)):
+            cell = t0.rows[r0].cells[_c]
+            for p in cell.paragraphs:
+                for child in p._p.iter():
+                    if child.tag == qn("w:bookmarkStart") and child.get(qn("w:name")) == bookmark:
+                        min_c = min(min_c, _c)
+        return (t0, r0, min_c)
+
     # -------------------------
-    # ITEMS TABLE (bookmark-based column map)
+    # Build Items rows from saved JSON arrays
     # -------------------------
-    items_item = data.get("items_item[]", []) or []
-    items_desc = data.get("items_desc[]", []) or []
-    items_size = data.get("items_size[]", []) or []
-    items_type = data.get("items_type[]", []) or []
-    items_pressure = data.get("items_pressure[]", []) or []
-    items_qty = data.get("items_qty[]", []) or []
-    items_mtc = data.get("items_mtc[]", []) or []
-    
+    items_item = data.get("items_item[]", [])
+    items_desc = data.get("items_desc[]", [])
+    items_size = data.get("items_size[]", [])
+    items_type = data.get("items_type[]", [])
+    items_pressure = data.get("items_pressure[]", [])
+    items_qty = data.get("items_qty[]", [])
+    items_mtc = data.get("items_mtc[]", [])
+
     max_items = max(
         len(items_item), len(items_desc), len(items_size), len(items_type),
         len(items_pressure), len(items_qty), len(items_mtc), 0
     )
-    
-    # Locate columns using HEADER bookmarks (stable even with merged cells)
-    col_bms = {
-        "item": "BM_ITEMS_H_ITEM",
-        "desc": "BM_ITEMS_H_DESC",
-        "size": "BM_ITEMS_H_SIZE",
-        "type": "BM_ITEMS_H_TYPE",
-        "pressure": "BM_ITEMS_H_PRESSURE",
-        "qty": "BM_ITEMS_H_QTY",
-        "mtc": "BM_ITEMS_H_MTC",
-    }
-    
-    found = {}
-    table_ref = None
-    header_row_index = None
-    
-    for k, bm in col_bms.items():
-        pos = _find_cell_by_bookmark(doc, bm)  # returns (table, row_i, col_i) or None
-        if pos:
-            t, r_i, c_i = pos
-            found[k] = (r_i, c_i)
-            table_ref = t
-            header_row_index = r_i
-    
-    # Fill only if we found at least ITEM column and a table
-    if table_ref and "item" in found:
-        start_row = header_row_index + 1  # first data row under header
-    
-        for i in range(max_items):
-            # ensure enough rows
-            while (start_row + i) >= len(table_ref.rows):
-                table_ref.add_row()
-    
-            r = table_ref.rows[start_row + i].cells
-    
-            def put(key, val):
-                if key in found:
-                    _, c = found[key]
-                    if c < len(r):
-                        _set_cell_text(r[c], "" if val is None else str(val))
-    
-            put("item", items_item[i] if i < len(items_item) else "")
-            put("desc", items_desc[i] if i < len(items_desc) else "")
-            put("size", items_size[i] if i < len(items_size) else "")
-            put("type", items_type[i] if i < len(items_type) else "")
-            put("pressure", items_pressure[i] if i < len(items_pressure) else "")
-            put("qty", items_qty[i] if i < len(items_qty) else "")
-            put("mtc", items_mtc[i] if i < len(items_mtc) else "")
 
-   # -------------------------
-    # VISUAL TABLE (bookmark-based column map)
+    # Map item columns using bookmarks BM_ITEMS_R1_C1..C7
+    cols = {}
+    for idx in range(1, 8):
+        cols[idx] = _bookmark_col_index(f"BM_ITEMS_R1_C{idx}")
+
+    if cols.get(1):
+        t, start_r, _ = cols[1]
+
+        col_indices = []
+        for idx in range(1, 8):
+            col_indices.append(cols[idx][2] if cols.get(idx) else None)
+
+        # fallback (won’t crash if template is missing some bookmarks)
+        if any(c is None for c in col_indices):
+            col_indices = list(range(0, 7))
+
+        for i in range(max_items):
+            while (start_r + i) >= len(t.rows):
+                t.add_row()
+
+            row_cells = t.rows[start_r + i].cells
+            vals = [
+                items_item[i] if i < len(items_item) else "",
+                items_desc[i] if i < len(items_desc) else "",
+                items_size[i] if i < len(items_size) else "",
+                items_type[i] if i < len(items_type) else "",
+                items_pressure[i] if i < len(items_pressure) else "",
+                items_qty[i] if i < len(items_qty) else "",
+                items_mtc[i] if i < len(items_mtc) else "",
+            ]
+
+            for j, v in enumerate(vals):
+                cidx = col_indices[j]
+                if cidx is None or cidx >= len(row_cells):
+                    continue
+                _set_cell_text(row_cells[cidx], str(v))
+
     # -------------------------
-    vis_batch = data.get("vis_batch[]", []) or []
-    vis_flange = data.get("vis_flange[]", []) or []
-    vis_surface = data.get("vis_surface[]", []) or []
-    vis_damage = data.get("vis_damage[]", []) or []
-    vis_package = data.get("vis_package[]", []) or []
-    vis_marking = data.get("vis_marking[]", []) or []
-    vis_result = data.get("vis_result[]", []) or []
-    
+    # Build Visual rows from saved JSON arrays
+    # -------------------------
+    vis_batch = data.get("vis_batch[]", [])
+    vis_flange = data.get("vis_flange[]", [])
+    vis_surface = data.get("vis_surface[]", [])
+    vis_damage = data.get("vis_damage[]", [])
+    vis_package = data.get("vis_package[]", [])
+    vis_marking = data.get("vis_marking[]", [])
+    vis_result = data.get("vis_result[]", [])
+
     max_vis = max(
-        len(vis_batch), len(vis_flange), len(vis_surface),
-        len(vis_damage), len(vis_package), len(vis_marking), len(vis_result), 0
+        len(vis_batch), len(vis_flange), len(vis_surface), len(vis_damage),
+        len(vis_package), len(vis_marking), len(vis_result), 0
     )
-    
-    col_bms = {
-        "heat": "BM_VIS_H_HEAT",
-        "flange": "BM_VIS_H_FLANGE",
-        "surface": "BM_VIS_H_SURFACE",
-        "damage": "BM_VIS_H_DAMAGE",
-        "package": "BM_VIS_H_PACKAGE",
-        "marking": "BM_VIS_H_MARKING",
-        "result": "BM_VIS_H_RESULT",
-    }
-    
-    found = {}
-    table_ref = None
-    header_row_index = None
-    
-    for k, bm in col_bms.items():
-        pos = _find_cell_by_bookmark(doc, bm)
-        if pos:
-            t, r_i, c_i = pos
-            found[k] = (r_i, c_i)
-            table_ref = t
-            header_row_index = r_i
-    
-    if table_ref and "heat" in found:
-        start_row = header_row_index + 1
-    
+
+    # Map visual columns using bookmarks BM_VIS_R1_C1..C7
+    vcols = {}
+    for idx in range(1, 8):
+        vcols[idx] = _bookmark_col_index(f"BM_VIS_R1_C{idx}")
+
+    if vcols.get(1):
+        t, start_r, _ = vcols[1]
+
+        v_col_indices = []
+        for idx in range(1, 8):
+            v_col_indices.append(vcols[idx][2] if vcols.get(idx) else None)
+
+        if any(c is None for c in v_col_indices):
+            v_col_indices = list(range(0, 7))
+
         for i in range(max_vis):
-            while (start_row + i) >= len(table_ref.rows):
-                table_ref.add_row()
-    
-            r = table_ref.rows[start_row + i].cells
-    
-            def put(key, val):
-                if key in found:
-                    _, c = found[key]
-                    if c < len(r):
-                        _set_cell_text(r[c], "" if val is None else str(val))
-    
-            put("heat", vis_batch[i] if i < len(vis_batch) else "")
-            put("flange", vis_flange[i] if i < len(vis_flange) else "")
-            put("surface", vis_surface[i] if i < len(vis_surface) else "")
-            put("damage", vis_damage[i] if i < len(vis_damage) else "")
-            put("package", vis_package[i] if i < len(vis_package) else "")
-            put("marking", vis_marking[i] if i < len(vis_marking) else "")
-            put("result", vis_result[i] if i < len(vis_result) else "")
+            while (start_r + i) >= len(t.rows):
+                t.add_row()
+
+            row_cells = t.rows[start_r + i].cells
+            vals = [
+                vis_batch[i] if i < len(vis_batch) else "",
+                vis_flange[i] if i < len(vis_flange) else "",
+                vis_surface[i] if i < len(vis_surface) else "",
+                vis_damage[i] if i < len(vis_damage) else "",
+                vis_package[i] if i < len(vis_package) else "",
+                vis_marking[i] if i < len(vis_marking) else "",
+                vis_result[i] if i < len(vis_result) else "",
+            ]
+
+            for j, v in enumerate(vals):
+                cidx = v_col_indices[j]
+                if cidx is None or cidx >= len(row_cells):
+                    continue
+                _set_cell_text(row_cells[cidx], str(v))
 
     # -------------------------
     # Remarks + signatures
@@ -854,7 +850,6 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     bio = io.BytesIO()
     doc.save(bio)
     return bio.getvalue()
-
 
 def docx_bytes_to_pdf_bytes(docx_bytes: bytes) -> bytes:
     """
