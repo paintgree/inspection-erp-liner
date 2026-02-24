@@ -717,89 +717,129 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     _set_bookmark_text(doc, "BM_PO_NUMBER", getattr(lot, "po_number", "") or "")
 
     # -------------------------
-    # Build Items rows from saved JSON arrays
+    # ITEMS TABLE (bookmark-based column map)
     # -------------------------
-    items_item = data.get("items_item[]", [])
-    items_desc = data.get("items_desc[]", [])
-    items_size = data.get("items_size[]", [])
-    items_type = data.get("items_type[]", [])
-    items_pressure = data.get("items_pressure[]", [])
-    items_qty = data.get("items_qty[]", [])
-    items_mtc = data.get("items_mtc[]", [])
-
+    items_item = data.get("items_item[]", []) or []
+    items_desc = data.get("items_desc[]", []) or []
+    items_size = data.get("items_size[]", []) or []
+    items_type = data.get("items_type[]", []) or []
+    items_pressure = data.get("items_pressure[]", []) or []
+    items_qty = data.get("items_qty[]", []) or []
+    items_mtc = data.get("items_mtc[]", []) or []
+    
     max_items = max(
         len(items_item), len(items_desc), len(items_size), len(items_type),
         len(items_pressure), len(items_qty), len(items_mtc), 0
     )
-
-    # -------------------------
-    # Locate Items table by bookmark anchor (first data row)
-    # Put bookmark BM_ITEMS_R1_C1 in the first data row, first column cell
-    # -------------------------
-    anchor = _find_cell_by_bookmark(doc, "BM_ITEMS_R1_C1")
-    if anchor:
-        t, start_r, start_c = anchor  # start_c should be 0 normally
-
+    
+    # Locate columns using HEADER bookmarks (stable even with merged cells)
+    col_bms = {
+        "item": "BM_ITEMS_H_ITEM",
+        "desc": "BM_ITEMS_H_DESC",
+        "size": "BM_ITEMS_H_SIZE",
+        "type": "BM_ITEMS_H_TYPE",
+        "pressure": "BM_ITEMS_H_PRESSURE",
+        "qty": "BM_ITEMS_H_QTY",
+        "mtc": "BM_ITEMS_H_MTC",
+    }
+    
+    found = {}
+    table_ref = None
+    header_row_index = None
+    
+    for k, bm in col_bms.items():
+        pos = _find_cell_by_bookmark(doc, bm)  # returns (table, row_i, col_i) or None
+        if pos:
+            t, r_i, c_i = pos
+            found[k] = (r_i, c_i)
+            table_ref = t
+            header_row_index = r_i
+    
+    # Fill only if we found at least ITEM column and a table
+    if table_ref and "item" in found:
+        start_row = header_row_index + 1  # first data row under header
+    
         for i in range(max_items):
             # ensure enough rows
-            while (start_r + i) >= len(t.rows):
-                t.add_row()
+            while (start_row + i) >= len(table_ref.rows):
+                table_ref.add_row()
+    
+            r = table_ref.rows[start_row + i].cells
+    
+            def put(key, val):
+                if key in found:
+                    _, c = found[key]
+                    if c < len(r):
+                        _set_cell_text(r[c], "" if val is None else str(val))
+    
+            put("item", items_item[i] if i < len(items_item) else "")
+            put("desc", items_desc[i] if i < len(items_desc) else "")
+            put("size", items_size[i] if i < len(items_size) else "")
+            put("type", items_type[i] if i < len(items_type) else "")
+            put("pressure", items_pressure[i] if i < len(items_pressure) else "")
+            put("qty", items_qty[i] if i < len(items_qty) else "")
+            put("mtc", items_mtc[i] if i < len(items_mtc) else "")
 
-            row_cells = t.rows[start_r + i].cells
-            vals = [
-                items_item[i] if i < len(items_item) else "",
-                items_desc[i] if i < len(items_desc) else "",
-                items_size[i] if i < len(items_size) else "",
-                items_type[i] if i < len(items_type) else "",
-                items_pressure[i] if i < len(items_pressure) else "",
-                items_qty[i] if i < len(items_qty) else "",
-                items_mtc[i] if i < len(items_mtc) else "",
-            ]
-
-            for col in range(min(len(vals), len(row_cells))):
-                _set_cell_text(row_cells[col], str(vals[col]))
-
+   # -------------------------
+    # VISUAL TABLE (bookmark-based column map)
     # -------------------------
-    # Build Visual rows from saved JSON arrays
-    # -------------------------
-    vis_batch = data.get("vis_batch[]", [])
-    vis_flange = data.get("vis_flange[]", [])
-    vis_surface = data.get("vis_surface[]", [])
-    vis_damage = data.get("vis_damage[]", [])
-    vis_package = data.get("vis_package[]", [])
-    vis_marking = data.get("vis_marking[]", [])
-    vis_result = data.get("vis_result[]", [])
-
+    vis_batch = data.get("vis_batch[]", []) or []
+    vis_flange = data.get("vis_flange[]", []) or []
+    vis_surface = data.get("vis_surface[]", []) or []
+    vis_damage = data.get("vis_damage[]", []) or []
+    vis_package = data.get("vis_package[]", []) or []
+    vis_marking = data.get("vis_marking[]", []) or []
+    vis_result = data.get("vis_result[]", []) or []
+    
     max_vis = max(
-        len(vis_batch), len(vis_flange), len(vis_surface), len(vis_damage),
-        len(vis_package), len(vis_marking), len(vis_result), 0
+        len(vis_batch), len(vis_flange), len(vis_surface),
+        len(vis_damage), len(vis_package), len(vis_marking), len(vis_result), 0
     )
-
-    # -------------------------
-    # Locate Visual table by bookmark anchor
-    # Put bookmark BM_VIS_R1_C1 in the first visual data row, first column cell
-    # -------------------------
-    anchor = _find_cell_by_bookmark(doc, "BM_VIS_R1_C1")
-    if anchor:
-        t, start_r, start_c = anchor
-
+    
+    col_bms = {
+        "heat": "BM_VIS_H_HEAT",
+        "flange": "BM_VIS_H_FLANGE",
+        "surface": "BM_VIS_H_SURFACE",
+        "damage": "BM_VIS_H_DAMAGE",
+        "package": "BM_VIS_H_PACKAGE",
+        "marking": "BM_VIS_H_MARKING",
+        "result": "BM_VIS_H_RESULT",
+    }
+    
+    found = {}
+    table_ref = None
+    header_row_index = None
+    
+    for k, bm in col_bms.items():
+        pos = _find_cell_by_bookmark(doc, bm)
+        if pos:
+            t, r_i, c_i = pos
+            found[k] = (r_i, c_i)
+            table_ref = t
+            header_row_index = r_i
+    
+    if table_ref and "heat" in found:
+        start_row = header_row_index + 1
+    
         for i in range(max_vis):
-            while (start_r + i) >= len(t.rows):
-                t.add_row()
-
-            row_cells = t.rows[start_r + i].cells
-            vals = [
-                vis_batch[i] if i < len(vis_batch) else "",
-                vis_flange[i] if i < len(vis_flange) else "",
-                vis_surface[i] if i < len(vis_surface) else "",
-                vis_damage[i] if i < len(vis_damage) else "",
-                vis_package[i] if i < len(vis_package) else "",
-                vis_marking[i] if i < len(vis_marking) else "",
-                vis_result[i] if i < len(vis_result) else "",
-            ]
-
-            for col in range(min(len(vals), len(row_cells))):
-                _set_cell_text(row_cells[col], str(vals[col]))
+            while (start_row + i) >= len(table_ref.rows):
+                table_ref.add_row()
+    
+            r = table_ref.rows[start_row + i].cells
+    
+            def put(key, val):
+                if key in found:
+                    _, c = found[key]
+                    if c < len(r):
+                        _set_cell_text(r[c], "" if val is None else str(val))
+    
+            put("heat", vis_batch[i] if i < len(vis_batch) else "")
+            put("flange", vis_flange[i] if i < len(vis_flange) else "")
+            put("surface", vis_surface[i] if i < len(vis_surface) else "")
+            put("damage", vis_damage[i] if i < len(vis_damage) else "")
+            put("package", vis_package[i] if i < len(vis_package) else "")
+            put("marking", vis_marking[i] if i < len(vis_marking) else "")
+            put("result", vis_result[i] if i < len(vis_result) else "")
 
     # -------------------------
     # Remarks + signatures
@@ -1477,7 +1517,7 @@ def mrr_export_inspection_pdf(
 
     tpl = _resolve_template_type(lot, insp)
 
-    # ---------- OUTSOURCED => F02 (DOCX) ----------
+    # ---------- OUTSOURCED => F02 (DOCX -> PDF) ----------
     if tpl == "OUTSOURCED":
         docx_bytes = fill_mrr_f02_docx_bytes(
             lot=lot,
@@ -1485,10 +1525,20 @@ def mrr_export_inspection_pdf(
             receiving=receiving,
             docs=docs,
         )
+
+        pdf_bytes = docx_bytes_to_pdf_bytes(docx_bytes)
+
+        # Optional footer stamp
+        try:
+            pdf_bytes = stamp_footer_on_pdf(pdf_bytes, "QAP0600-F02")
+        except Exception:
+            pass
+
+        filename = f"{getattr(insp, 'report_no', 'MRR')}_F02.pdf"
         return Response(
-            content=docx_bytes,
-            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            headers={"Content-Disposition": f'attachment; filename="{getattr(insp, "report_no", "MRR")}_F02.docx"'},
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
     # ---------- RAW => F01 (XLSX -> PDF) ----------
@@ -1502,7 +1552,7 @@ def mrr_export_inspection_pdf(
 
     pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
 
-    # Optional digital signatures (if helper exists)
+    # Optional digital signatures
     try:
         data = json.loads(getattr(insp, "inspection_json", None) or "{}")
     except Exception:
@@ -1530,7 +1580,6 @@ def mrr_export_inspection_pdf(
                 manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
             )
     except Exception:
-        # Do not block export if signature stamping fails
         pass
 
     return Response(pdf_bytes, media_type="application/pdf")
