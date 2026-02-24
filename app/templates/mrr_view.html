@@ -33,6 +33,9 @@
         <form method="post" action="/mrr/{{ lot.id }}/cancel" style="display:inline;"
               onsubmit="return confirm('Cancel this ticket? It will be hidden from normal list and actions will be blocked.')">
           <button class="btn btn-warn" type="submit">Cancel Ticket</button>
+          <a class="btn btn-muted" href="/mrr/{{ lot.id }}/docs?attach_to=SHIPMENT&attach_inspection_id={{ inspection.id }}">
+            Uploads / Documentation
+          </a>
         </form>
       {% endif %}
 
