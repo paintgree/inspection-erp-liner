@@ -56,10 +56,11 @@
       <div class="muted mt">Actions disabled (ticket canceled).</div>
     {% else %}
       <form class="mt" action="/mrr/{{ lot.id }}/docs/upload" method="post" enctype="multipart/form-data">
+      
         <div class="grid3">
           <div>
             <label>Document Type</label>
-            <select name="doc_type" required>
+            <select name="doc_type" required id="docType">
               <option value="PO">PO</option>
               <option value="DELIVERY_NOTE">DELIVERY NOTE</option>
               <option value="COA">COA</option>
@@ -67,25 +68,110 @@
               <option value="GENERAL" selected>GENERAL</option>
             </select>
           </div>
+      
           <div>
             <label>Document Title (optional)</label>
             <input name="doc_title" placeholder="e.g., Supplier COA">
           </div>
+      
           <div>
             <label>Document Number (optional)</label>
-            <input name="doc_number" placeholder="e.g., COA-2026-001">
+            <input name="doc_number" id="docNumber" placeholder="e.g., COA-2026-001">
           </div>
         </div>
-
-        <div class="mt">
-          <label>File</label>
-          <input type="file" name="file" required>
+      
+        <div class="grid3 mt">
+          <div>
+            <label>Attach uploads to</label>
+            <select name="attach_to" id="attachTo">
+              <option value="AUTO" selected>AUTO (Latest Draft Shipment)</option>
+              <option value="SHIPMENT">Choose Shipment</option>
+              <option value="TICKET">Ticket-level (Shared)</option>
+            </select>
+            <div class="muted mt" style="font-size: 12px;">
+              Tip: Use “Choose Shipment” to add missing DN/COA to an older shipment.
+            </div>
+          </div>
+      
+          <div>
+            <label>Shipment (if Choose Shipment)</label>
+            <select name="attach_inspection_id" id="attachInspection">
+              <option value="">-- Select Shipment --</option>
+              {% if inspections %}
+                {% for s in inspections %}
+                  {% set label = "Shipment #" ~ loop.index ~ " • " ~ (s.report_no or ("ID " ~ s.id)) %}
+                  {% if s.delivery_note_no %}
+                    {% set label = label ~ " • DN " ~ s.delivery_note_no %}
+                  {% endif %}
+                  <option value="{{ s.id }}" {% if default_insp_id and s.id == default_insp_id %}selected{% endif %}>
+                    {{ label }}
+                  </option>
+                {% endfor %}
+              {% endif %}
+            </select>
+          </div>
+      
+          <div>
+            <label>File</label>
+            <input type="file" name="file" required>
+          </div>
         </div>
-
+      
         <div class="mt">
           <button class="btn btn-secondary" type="submit">Upload</button>
         </div>
       </form>
+      
+      <script>
+      (function(){
+        const docType = document.getElementById("docType");
+        const docNumber = document.getElementById("docNumber");
+        const attachTo = document.getElementById("attachTo");
+        const attachInspection = document.getElementById("attachInspection");
+      
+        function toggleDocNumberRequired() {
+          const t = (docType.value || "").toUpperCase();
+          const isDN = (t === "DELIVERY_NOTE");
+          docNumber.required = isDN;
+          docNumber.placeholder = isDN
+            ? "Required (must match Delivery Note Number exactly)"
+            : "Optional";
+        }
+      
+        function applyAttachRules() {
+          const t = (docType.value || "").toUpperCase();
+      
+          // PO must be ticket-level (shared)
+          if (t === "PO") {
+            attachTo.value = "TICKET";
+            attachTo.disabled = true;
+            attachInspection.disabled = true;
+            attachInspection.value = "";
+            return;
+          }
+      
+          attachTo.disabled = false;
+      
+          const mode = (attachTo.value || "AUTO").toUpperCase();
+          if (mode === "SHIPMENT") {
+            attachInspection.disabled = false;
+          } else {
+            attachInspection.disabled = true;
+            attachInspection.value = "";
+          }
+        }
+      
+        docType.addEventListener("change", () => {
+          toggleDocNumberRequired();
+          applyAttachRules();
+        });
+      
+        attachTo.addEventListener("change", applyAttachRules);
+      
+        toggleDocNumberRequired();
+        applyAttachRules();
+      })();
+      </script>
     {% endif %}
   </div>
 
