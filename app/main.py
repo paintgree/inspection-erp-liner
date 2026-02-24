@@ -1088,9 +1088,28 @@ def _merge_pdf_bytes_in_order(parts: list[bytes]) -> bytes:
 
 def _generate_shipment_report_pdf_bytes(*, lot, insp, receiving, docs) -> bytes:
     """
-    Generate the standalone shipment REPORT PDF (F01 or F02 depending on template).
+    Generate the standalone shipment REPORT PDF (F01 or F02 depending on template),
+    including footer + digital signatures (same behavior as export/pdf endpoint).
     """
     tpl = _resolve_template_type(lot, insp)
+
+    # Read inspection json (for timestamps / approved-by name)
+    try:
+        data = json.loads(getattr(insp, "inspection_json", None) or "{}")
+    except Exception:
+        data = {}
+
+    inspector_name = (getattr(insp, "inspector_name", "") or "").strip()
+    inspector_date = ""
+    if getattr(insp, "inspector_confirmed", False):
+        ts = data.get("submitted_at_utc") or getattr(insp, "created_at", None)
+        inspector_date = _as_date_str(ts) if ts else _as_date_str(datetime.utcnow())
+
+    manager_name = (data.get("manager_approved_by") or "").strip()
+    manager_date = ""
+    if getattr(insp, "manager_approved", False):
+        ts2 = data.get("manager_approved_at_utc") or datetime.utcnow().isoformat()
+        manager_date = _as_date_str(ts2)
 
     if tpl == "OUTSOURCED":
         docx_bytes = fill_mrr_f02_docx_bytes(
@@ -1101,9 +1120,19 @@ def _generate_shipment_report_pdf_bytes(*, lot, insp, receiving, docs) -> bytes:
         )
         pdf_bytes = docx_bytes_to_pdf_bytes(docx_bytes)
 
-        # Optional footer stamp (if present)
         try:
             pdf_bytes = stamp_footer_on_pdf(pdf_bytes, "QAP0600-F02")
+        except Exception:
+            pass
+
+        try:
+            pdf_bytes = stamp_signatures_on_pdf_f02(
+                pdf_bytes,
+                inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
+                inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
+                manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
+                manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
+            )
         except Exception:
             pass
 
@@ -1119,14 +1148,23 @@ def _generate_shipment_report_pdf_bytes(*, lot, insp, receiving, docs) -> bytes:
     )
     pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
 
-    # Optional signatures/stamps if your code supports it
     try:
         pdf_bytes = stamp_footer_on_pdf(pdf_bytes, "QAP0600-F01")
     except Exception:
         pass
 
-    return pdf_bytes
+    try:
+        pdf_bytes = stamp_signatures_on_pdf(
+            pdf_bytes,
+            inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
+            inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
+            manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
+            manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
+        )
+    except Exception:
+        pass
 
+    return pdf_bytes
 
 def _soffice_convert_file_to_pdf_bytes(input_path: str) -> bytes | None:
     """
@@ -1446,6 +1484,105 @@ def make_signature_stamp_pdf(
     return buf.getvalue()
 
 
+def make_signature_stamp_pdf_f02(
+    page_w: float,
+    page_h: float,
+    inspector_name: str | None = None,
+    inspector_date: str | None = None,
+    reviewer_name: str | None = None,
+    reviewer_date: str | None = None,
+    manager_name: str | None = None,
+    manager_date: str | None = None,
+) -> bytes:
+    """
+    Transparent overlay PDF with digital signature text for QAP0600-F02.
+    3 stamps:
+      - Inspected by (left)
+      - Reviewed by (middle) (optional)
+      - Approved by (right) (manager)
+    """
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=(page_w, page_h))
+
+    try:
+        c.setFillAlpha(0.55)
+    except Exception:
+        pass
+
+    c.setFont("Helvetica", 8)
+    c.setFillColorRGB(0.10, 0.10, 0.10)
+
+    # Tuned for bottom signature table on F02 A4 portrait.
+    # If you want to move down/up: adjust y_base.
+    y_base = 105
+
+    # Left / Middle / Right boxes
+    insp_x = 55
+    rev_x = page_w * 0.41
+    appr_x = page_w * 0.73
+
+    # Inspector (left)
+    if inspector_name:
+        c.drawString(insp_x, y_base + 14, f"Digitally signed by: {inspector_name}")
+        if inspector_date:
+            c.drawString(insp_x, y_base, f"Date: {inspector_date}")
+
+    # Reviewer (middle) - optional
+    if reviewer_name:
+        c.drawString(rev_x, y_base + 14, f"Digitally reviewed by: {reviewer_name}")
+        if reviewer_date:
+            c.drawString(rev_x, y_base, f"Date: {reviewer_date}")
+
+    # Manager (right) - approval
+    if manager_name:
+        c.drawString(appr_x, y_base + 14, f"Digitally approved by: {manager_name}")
+        if manager_date:
+            c.drawString(appr_x, y_base, f"Date: {manager_date}")
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def stamp_signatures_on_pdf_f02(
+    pdf_bytes: bytes,
+    inspector_name: str | None = None,
+    inspector_date: str | None = None,
+    reviewer_name: str | None = None,
+    reviewer_date: str | None = None,
+    manager_name: str | None = None,
+    manager_date: str | None = None,
+) -> bytes:
+    """
+    Overlay F02 signatures on every page.
+    """
+    reader = PdfReader(BytesIO(pdf_bytes))
+    writer = PdfWriter()
+
+    for page in reader.pages:
+        w = float(page.mediabox.width)
+        h = float(page.mediabox.height)
+
+        stamp_pdf = make_signature_stamp_pdf_f02(
+            w, h,
+            inspector_name=inspector_name,
+            inspector_date=inspector_date,
+            reviewer_name=reviewer_name,
+            reviewer_date=reviewer_date,
+            manager_name=manager_name,
+            manager_date=manager_date,
+        )
+        stamp_reader = PdfReader(BytesIO(stamp_pdf))
+        page.merge_page(stamp_reader.pages[0])
+        writer.add_page(page)
+
+    out = BytesIO()
+    writer.write(out)
+    out.seek(0)
+    return out.getvalue()
+
+
 def stamp_signatures_on_pdf(
     pdf_bytes: bytes,
     inspector_name: str | None = None,
@@ -1747,7 +1884,26 @@ def mrr_export_inspection_pdf(
 
     tpl = _resolve_template_type(lot, insp)
 
-    # ---------- OUTSOURCED => F02 (DOCX -> PDF) ----------
+    # Read inspection json (for timestamps / approved-by name)
+    try:
+        data = json.loads(getattr(insp, "inspection_json", None) or "{}")
+    except Exception:
+        data = {}
+
+    # Build signature data (same logic style as F01)
+    inspector_name = (getattr(insp, "inspector_name", "") or "").strip()
+    inspector_date = ""
+    if getattr(insp, "inspector_confirmed", False):
+        ts = data.get("submitted_at_utc") or getattr(insp, "created_at", None)
+        inspector_date = _as_date_str(ts) if ts else _as_date_str(datetime.utcnow())
+
+    manager_name = (data.get("manager_approved_by") or "").strip()
+    manager_date = ""
+    if getattr(insp, "manager_approved", False):
+        ts2 = data.get("manager_approved_at_utc") or datetime.utcnow().isoformat()
+        manager_date = _as_date_str(ts2)
+
+    # ---------- OUTSOURCED => F02 (DOCX -> PDF + signatures) ----------
     if tpl == "OUTSOURCED":
         docx_bytes = fill_mrr_f02_docx_bytes(
             lot=lot,
@@ -1758,9 +1914,30 @@ def mrr_export_inspection_pdf(
 
         pdf_bytes = docx_bytes_to_pdf_bytes(docx_bytes)
 
-        # Optional footer stamp
+        # Footer stamp (optional)
         try:
             pdf_bytes = stamp_footer_on_pdf(pdf_bytes, "QAP0600-F02")
+        except Exception:
+            pass
+
+        # Digital signatures (F02 placement)
+        try:
+            pdf_bytes = stamp_signatures_on_pdf_f02(
+                pdf_bytes,
+                reviewer_name = (data.get("reviewed_by") or "").strip()
+                reviewer_date = ""
+                if reviewer_name:
+                    reviewer_date = _as_date_str(data.get("reviewed_at_utc") or "")
+                
+                pdf_bytes = stamp_signatures_on_pdf_f02(
+                    pdf_bytes,
+                    inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
+                    inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
+                    reviewer_name=reviewer_name,
+                    reviewer_date=reviewer_date,
+                    manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
+                    manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
+                )
         except Exception:
             pass
 
@@ -1771,7 +1948,7 @@ def mrr_export_inspection_pdf(
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
-    # ---------- RAW => F01 (XLSX -> PDF) ----------
+    # ---------- RAW => F01 (XLSX -> PDF + signatures) ----------
     xlsx_bytes = fill_mrr_f01_xlsx_bytes(
         lot=lot,
         receiving=receiving,
@@ -1782,38 +1959,25 @@ def mrr_export_inspection_pdf(
 
     pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
 
-    # Optional digital signatures
+    # Footer stamp (optional)
     try:
-        data = json.loads(getattr(insp, "inspection_json", None) or "{}")
+        pdf_bytes = stamp_footer_on_pdf(pdf_bytes, "QAP0600-F01")
     except Exception:
-        data = {}
+        pass
 
+    # Digital signatures (F01 placement)
     try:
-        inspector_name = (getattr(insp, "inspector_name", "") or "").strip()
-        inspector_date = ""
-        if getattr(insp, "inspector_confirmed", False):
-            ts = data.get("submitted_at_utc") or getattr(insp, "created_at", None)
-            inspector_date = _as_date_str(ts) if ts else _as_date_str(datetime.utcnow())
-
-        manager_name = (data.get("manager_approved_by") or "").strip()
-        manager_date = ""
-        if getattr(insp, "manager_approved", False):
-            ts2 = data.get("manager_approved_at_utc") or datetime.utcnow().isoformat()
-            manager_date = _as_date_str(ts2)
-
-        if "stamp_signatures_on_pdf" in globals():
-            pdf_bytes = stamp_signatures_on_pdf(
-                pdf_bytes,
-                inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
-                inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
-                manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
-                manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
-            )
+        pdf_bytes = stamp_signatures_on_pdf(
+            pdf_bytes,
+            inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
+            inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
+            manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
+            manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
+        )
     except Exception:
         pass
 
     return Response(pdf_bytes, media_type="application/pdf")
-
 @app.get("/mrr/{lot_id}/inspection/id/{inspection_id}/export/package")
 def mrr_export_inspection_package(
     lot_id: int,
@@ -3267,24 +3431,40 @@ def mrr_docs_page(
 
     readonly = is_mrr_canceled(lot)
 
-    # Shipments list for "Attach to shipment" dropdown
     inspections = session.exec(
         select(MrrReceivingInspection)
         .where(MrrReceivingInspection.ticket_id == lot_id)
         .order_by(MrrReceivingInspection.created_at.asc())
     ).all()
 
-    # Default selection = latest draft shipment (fast flow), else latest shipment
+    # Defaults
     default_insp_id = None
+    draft = None
     try:
         draft = get_latest_draft_shipment(session, lot_id)
-        if draft and getattr(draft, "id", None) is not None:
-            default_insp_id = int(draft.id)
-        elif inspections:
-            default_insp_id = int(inspections[-1].id)
     except Exception:
-        if inspections:
-            default_insp_id = int(inspections[-1].id)
+        draft = None
+
+    if draft and getattr(draft, "id", None) is not None:
+        default_insp_id = int(draft.id)
+    elif inspections:
+        default_insp_id = int(inspections[-1].id)
+
+    # NEW: allow preselect from query params
+    qp_attach_to = (request.query_params.get("attach_to") or "").strip().upper()
+    qp_insp = (request.query_params.get("attach_inspection_id") or "").strip()
+
+    initial_attach_to = qp_attach_to if qp_attach_to in ("AUTO", "TICKET", "SHIPMENT") else "AUTO"
+    if qp_insp:
+        try:
+            picked = int(qp_insp)
+            # validate belongs to this ticket
+            found = any(int(s.id) == picked for s in inspections)
+            if found:
+                default_insp_id = picked
+                initial_attach_to = "SHIPMENT"
+        except Exception:
+            pass
 
     return templates.TemplateResponse(
         "mrr_doc_upload.html",
@@ -3297,9 +3477,9 @@ def mrr_docs_page(
             "readonly": readonly,
             "inspections": inspections,
             "default_insp_id": default_insp_id,
+            "initial_attach_to": initial_attach_to,   # NEW
         },
     )
-
 @app.post("/mrr/{lot_id}/docs/upload")
 async def mrr_doc_upload(
     lot_id: int,
@@ -3806,38 +3986,27 @@ async def mrr_inspection_submit(
     if not insp or insp.ticket_id != lot_id:
         raise HTTPException(404, "MRR Inspection not found")
 
-    # ✅ LOCK RULE:
-    # - Inspector can edit until manager approves OR ticket becomes APPROVED
-    # - After that: view only (manager can reopen via separate manager endpoint)
-    # LOCK RULE: if manager approved OR ticket approved, block changes
+    # LOCK after manager approval or ticket approved/closed
     if insp.manager_approved or (lot.status in ["APPROVED", "CLOSED"]):
         return RedirectResponse(
             url=f"/mrr/{lot_id}/inspection/id/{inspection_id}?error=Inspection%20is%20locked%20(manager%20approved%20/%20ticket%20approved).",
             status_code=303
         )
 
-
     form = await request.form()
-
-    # Determine template type (RAW vs OUTSOURCED) for validation rules
     tpl = _resolve_template_type(lot, insp)
-
-    # action = draft OR submit
     action = (form.get("action") or "submit").strip().lower()
 
-    # batch_numbers can be multiple inputs with same name (RAW only)
     batch_numbers = form.getlist("batch_numbers") if hasattr(form, "getlist") else []
     batch_numbers = [str(x).strip() for x in (batch_numbers or []) if str(x).strip()]
 
-    # OUTSOURCED uses Heat/Batch No in visual table (vis_batch[])
     vis_heat = form.getlist("vis_batch[]") if hasattr(form, "getlist") else []
     vis_heat = [str(x).strip() for x in (vis_heat or []) if str(x).strip()]
 
-    # Final submit validation differs by template
+    # Validation on submit
     if action == "submit":
         if tpl == "OUTSOURCED":
             if not vis_heat:
-                # Use your modal pattern instead of 400 to show a friendly message
                 return RedirectResponse(
                     url=f"/mrr/{lot_id}/inspection/id/{inspection_id}?error=Heat%20number%20is%20required%20to%20submit.",
                     status_code=303,
@@ -3849,7 +4018,7 @@ async def mrr_inspection_submit(
                     status_code=303,
                 )
 
-    # Load existing json (so we don’t lose fields)
+    # Load existing json
     try:
         existing = json.loads(insp.inspection_json or "{}")
         if not isinstance(existing, dict):
@@ -3857,72 +4026,29 @@ async def mrr_inspection_submit(
     except Exception:
         existing = {}
 
-    # Build inspection_json safely:
-    # - store scalar fields normally
-    # - NEVER store "xxx[]" from form.items() (because it becomes only 1 value)
     data = dict(existing)
-    
+
+    # store scalar fields safely
     for k, v in form.items():
         if k in ("action",):
             continue
-    
-        # skip list-style keys here (we will collect them with getlist)
         if k.endswith("[]"):
             continue
-    
         if k != "batch_numbers":
             data[k] = (str(v).strip() if v is not None else "")
-    
-    # overwrite batch_numbers with cleaned list
+
     data["batch_numbers"] = batch_numbers
-    
-    # Preserve ALL list fields properly (outsourced tables)
+
+    # Preserve list fields (keep row alignment)
     list_keys = [
         "items_item[]", "items_desc[]", "items_size[]", "items_type[]",
         "items_pressure[]", "items_qty[]", "items_mtc[]",
         "vis_batch[]", "vis_flange[]", "vis_surface[]", "vis_damage[]",
         "vis_package[]", "vis_marking[]", "vis_result[]",
     ]
-    
     for key in list_keys:
         if hasattr(form, "getlist"):
-            lst = [str(x).strip() for x in form.getlist(key)]
-            # keep empty strings too? -> NO, but we must keep row alignment
-            # so DO NOT drop empties here; drop only trailing fully-empty rows later
-            data[key] = lst
-
-    # Preserve list fields properly (important for outsourced tables)
-    for key in [
-        "items_item[]","items_desc[]","items_size[]","items_type[]",
-        "items_pressure[]","items_qty[]","items_mtc[]",
-        "vis_batch[]","vis_flange[]","vis_surface[]",
-        "vis_damage[]","vis_package[]","vis_marking[]","vis_result[]"
-    ]:
-        if hasattr(form, "getlist"):
-            lst = [str(x).strip() for x in form.getlist(key) if str(x).strip() != ""]
-            if lst:
-                data[key] = lst
-    
-    # Always keep report_no from model
-    data["report_no"] = getattr(insp, "report_no", "") or data.get("report_no", "")
-
-    # Always set inspected_by based on logged in user (no manual typing)
-    data["inspected_by"] = getattr(user, "display_name", "") or data.get("inspected_by", "")
-
-    # Save model fields too (needed by report header)
-    dn = (form.get("delivery_note_no") or "").strip()
-    qty_arrived = form.get("qty_arrived")
-    qty_unit = (form.get("qty_unit") or "").strip()
-
-    if dn:
-        insp.delivery_note_no = dn
-    if qty_arrived is not None and str(qty_arrived).strip() != "":
-        try:
-            insp.qty_arrived = float(qty_arrived)
-        except Exception:
-            pass
-    if qty_unit:
-        insp.qty_unit = qty_unit
+            data[key] = [str(x).strip() for x in form.getlist(key)]
 
     def _trim_table(prefix_keys):
         cols = [data.get(k, []) for k in prefix_keys]
@@ -3943,47 +4069,80 @@ async def mrr_inspection_submit(
                 break
         for k in prefix_keys:
             data[k] = data.get(k, [])[:last_keep]
-    
+
     _trim_table([
         "items_item[]","items_desc[]","items_size[]",
         "items_type[]","items_pressure[]","items_qty[]","items_mtc[]"
     ])
-    
     _trim_table([
         "vis_batch[]","vis_flange[]","vis_surface[]",
         "vis_damage[]","vis_package[]","vis_marking[]","vis_result[]"
     ])
 
-    # Save JSON
-    insp.inspection_json = json.dumps(data, ensure_ascii=False)
+    # Save model fields needed for header
+    dn = (form.get("delivery_note_no") or "").strip()
+    qty_arrived = form.get("qty_arrived")
+    qty_unit = (form.get("qty_unit") or "").strip()
 
-    # ✅ Track inspector identity in DB (used for PDF signature + table)
-    insp.inspector_id = getattr(user, "id", insp.inspector_id)
-    insp.inspector_name = (getattr(user, "display_name", "") or "").strip()
+    if dn:
+        insp.delivery_note_no = dn
+    if qty_arrived is not None and str(qty_arrived).strip() != "":
+        try:
+            insp.qty_arrived = float(qty_arrived)
+        except Exception:
+            pass
+    if qty_unit:
+        insp.qty_unit = qty_unit
 
-    # ✅ Store submit meta in JSON too (useful later)
-    try:
-        _d = json.loads(insp.inspection_json or "{}")
-    except Exception:
-        _d = {}
-    _d["submitted_by"] = insp.inspector_name
-    _d["submitted_at_utc"] = datetime.utcnow().isoformat()
-    insp.inspection_json = json.dumps(_d, ensure_ascii=False)
+    # Always keep report_no from model
+    data["report_no"] = getattr(insp, "report_no", "") or data.get("report_no", "")
 
+    # --- Signature logic ---
+    now_utc = datetime.utcnow().isoformat()
+    current_name = (getattr(user, "display_name", "") or "").strip()
+    current_id = getattr(user, "id", None)
 
-    # Inspector name stored in column area and for list table
-    insp.inspector_name = getattr(user, "display_name", "") or ""
-
+    # If draft save: do not sign anything
     if action == "draft":
+        insp.inspection_json = json.dumps(data, ensure_ascii=False)
         insp.inspector_confirmed = False
         session.add(insp)
         session.commit()
         return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}?saved=draft", status_code=303)
 
-    # submit
-    insp.inspector_confirmed = True
+    # SUBMIT behavior:
+    # 1) If not yet submitted: current user becomes INSPECTOR signature
+    # 2) If already submitted AND current user is different: optional REVIEWER signature (one time)
+    # 3) If already submitted AND same user: do nothing (no overwrite)
+
+    # Ensure inspector fields exist when first submitted
+    if not getattr(insp, "inspector_confirmed", False):
+        # First-time submission -> inspector signs
+        insp.inspector_id = current_id
+        insp.inspector_name = current_name
+        insp.inspector_confirmed = True
+
+        data["inspected_by"] = current_name
+        data["submitted_by"] = current_name
+        data["submitted_at_utc"] = now_utc
+
+    else:
+        # Already submitted: reviewer is optional if different user and not already reviewed
+        already_reviewed = bool(data.get("reviewed_by"))
+        same_user = (current_id is not None and current_id == getattr(insp, "inspector_id", None)) or (
+            current_name and (current_name == (getattr(insp, "inspector_name", "") or "").strip())
+        )
+
+        if (not same_user) and (not already_reviewed):
+            data["reviewed_by"] = current_name
+            data["reviewed_at_utc"] = now_utc
+
+        # Do NOT overwrite submitted_by/submitted_at_utc
+
+    insp.inspection_json = json.dumps(data, ensure_ascii=False)
     session.add(insp)
     session.commit()
+
     return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
 
 
