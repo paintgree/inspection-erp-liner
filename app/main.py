@@ -3252,9 +3252,28 @@ def mrr_docs_page(lot_id: int, request: Request, session: Session = Depends(get_
         raise HTTPException(404, "MRR Ticket not found")
 
     receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
-    docs = session.exec(select(MrrDocument).where(MrrDocument.ticket_id == lot_id).order_by(MrrDocument.created_at.desc())).all()
+    docs = session.exec(
+        select(MrrDocument)
+        .where(MrrDocument.ticket_id == lot_id)
+        .order_by(MrrDocument.created_at.desc())
+    ).all()
 
     readonly = is_mrr_canceled(lot)
+
+    # Load all shipment inspections for dropdown
+    inspections = session.exec(
+        select(MrrReceivingInspection)
+        .where(MrrReceivingInspection.ticket_id == lot_id)
+        .order_by(MrrReceivingInspection.created_at.asc())
+    ).all()
+
+    # Default target: latest draft shipment if exists, otherwise latest shipment, otherwise none
+    default_insp_id = None
+    draft = get_latest_draft_shipment(session, lot_id)
+    if draft and getattr(draft, "id", None) is not None:
+        default_insp_id = int(draft.id)
+    elif inspections:
+        default_insp_id = int(inspections[-1].id)
 
     return render_template(
         request,
@@ -3265,9 +3284,10 @@ def mrr_docs_page(lot_id: int, request: Request, session: Session = Depends(get_
             "receiving": receiving,
             "docs": docs,
             "readonly": readonly,
+            "inspections": inspections,
+            "default_insp_id": default_insp_id,
         },
     )
-
 
 @app.post("/mrr/{lot_id}/docs/upload")
 async def mrr_doc_upload(
@@ -3277,6 +3297,8 @@ async def mrr_doc_upload(
     doc_type: str = Form(...),
     doc_title: str = Form(""),
     doc_number: str = Form(""),
+    attach_to: str = Form("AUTO"),                 # NEW: AUTO / TICKET / SHIPMENT
+    attach_inspection_id: str = Form(""),          # NEW: chosen inspection id
     file: UploadFile = File(...),
 ):
     user = get_current_user(request, session)
@@ -3285,8 +3307,6 @@ async def mrr_doc_upload(
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
     block_if_mrr_canceled(lot)
-
-    
 
     safe_original = os.path.basename(file.filename or "upload.bin")
     filename = f"{lot_id}_{int(datetime.utcnow().timestamp())}_{safe_original}"
@@ -3297,10 +3317,12 @@ async def mrr_doc_upload(
         f.write(await file.read())
 
     dt = (doc_type or "").strip().upper()
-        # ✅ For PO docs, doc number is the ticket PO number (auto)
+
+    # For PO docs, doc number is the ticket PO number (auto) and must be ticket-level
     if dt == "PO":
         doc_number = (lot.po_number or "").strip()
-
+        attach_to = "TICKET"
+        attach_inspection_id = ""
 
     # Auto doc name unless RELATED
     title = (doc_title or "").strip()
@@ -3309,26 +3331,50 @@ async def mrr_doc_upload(
             "PO": "PO Copy",
             "DELIVERY_NOTE": "Delivery Note",
             "COA": "COA / Lab Test",
+            "GENERAL": "General Document",
         }.get(dt, dt)
 
     if dt == "RELATED" and not title:
         raise HTTPException(400, "Document Name is required when type is RELATED")
 
-    # ✅ store RELATIVE path (portable)
+    # store RELATIVE path (portable)
     rel_path = os.path.relpath(abs_path, BASE_DIR)
 
     if dt != "PO" and not (doc_number or "").strip():
-        raise HTTPException(400, "Document Number is required")
+        # allow GENERAL without number
+        if dt not in ("GENERAL", "RELATED"):
+            raise HTTPException(400, "Document Number is required")
 
-
-    # Auto-link shipment-specific documents to the current draft inspection (if any).
-    # If no draft exists yet (uploads happen BEFORE starting inspection), we keep inspection_id=None,
-    # and the system will auto-assign these docs to the NEXT created inspection.
+    # Decide target inspection id based on attach_to
     target_insp_id = None
-    if dt != "PO":
-        draft = get_latest_draft_shipment(session, lot_id)
-        if draft and getattr(draft, "id", None) is not None:
-            target_insp_id = int(draft.id)
+
+    mode = (attach_to or "AUTO").strip().upper()
+
+    if mode == "TICKET":
+        target_insp_id = None
+
+    elif mode == "SHIPMENT":
+        try:
+            chosen = int((attach_inspection_id or "").strip())
+        except Exception:
+            chosen = 0
+        if chosen <= 0:
+            raise HTTPException(400, "Please select a shipment to attach this document to.")
+        # validate shipment belongs to this ticket
+        insp = session.get(MrrReceivingInspection, chosen)
+        if not insp or insp.ticket_id != lot_id:
+            raise HTTPException(400, "Invalid shipment selected.")
+        target_insp_id = chosen
+
+    else:
+        # AUTO behavior (your current flow): attach to latest draft shipment if exists
+        if dt != "PO":
+            draft = get_latest_draft_shipment(session, lot_id)
+            if draft and getattr(draft, "id", None) is not None:
+                target_insp_id = int(draft.id)
+            else:
+                # no draft exists yet -> keep ticket-level (will not mis-attach)
+                target_insp_id = None
 
     doc = MrrDocument(
         ticket_id=lot_id,
@@ -3344,8 +3390,7 @@ async def mrr_doc_upload(
     session.add(doc)
     session.commit()
 
-    return RedirectResponse(f"/mrr/{lot_id}", status_code=303)
-
+    return RedirectResponse(f"/mrr/{lot_id}/docs", status_code=303)
 
 
 
