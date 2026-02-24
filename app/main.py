@@ -229,12 +229,21 @@ def _to_float(x, default=0.0):
     except Exception:
         return default
 
-def _as_date_str(d) -> str:
-    if isinstance(d, (datetime, date)):
-        return d.strftime("%Y-%m-%d")
-    if isinstance(d, str) and d.strip():
-        return d.strip()
-    return ""
+def _as_date_str(x) -> str:
+    try:
+        if isinstance(x, datetime):
+            return x.strftime("%Y-%m-%d")
+        s = str(x)
+        if not s:
+            return ""
+        # try ISO parse
+        try:
+            dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+            return dt.strftime("%Y-%m-%d")
+        except Exception:
+            return s[:10]
+    except Exception:
+        return ""
 
 def _normalize_key(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip()).lower()
@@ -740,6 +749,38 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
         raise HTTPException(500, f"OUTSOURCED template missing. Put QAP0600-F02.docx in {MRR_TEMPLATE_DIR}")
 
     doc = Document(template_path)
+    # --- Apply signatures inside the DOCX boxes (placeholders in template) ---
+    try:
+        insp_json = json.loads(getattr(inspection, "inspection_json", None) or "{}")
+        if not isinstance(insp_json, dict):
+            insp_json = {}
+    except Exception:
+        insp_json = {}
+
+    inspector_name = (getattr(inspection, "inspector_name", "") or "").strip()
+    inspector_date = ""
+    if getattr(inspection, "inspector_confirmed", False):
+        inspector_date = _as_date_str(insp_json.get("submitted_at_utc") or "")
+
+    reviewer_name = (insp_json.get("reviewed_by") or "").strip()
+    reviewer_date = ""
+    if reviewer_name:
+        reviewer_date = _as_date_str(insp_json.get("reviewed_at_utc") or "")
+
+    manager_name = (insp_json.get("manager_approved_by") or "").strip()
+    manager_date = ""
+    if getattr(inspection, "manager_approved", False):
+        manager_date = _as_date_str(insp_json.get("manager_approved_at_utc") or "")
+
+    _apply_f02_docx_signatures(
+        doc,
+        inspector_name=inspector_name,
+        inspector_date=inspector_date,
+        reviewer_name=reviewer_name,
+        reviewer_date=reviewer_date,
+        manager_name=manager_name,
+        manager_date=manager_date,
+    )
     data = safe_json_loads(getattr(inspection, "inspection_json", None)) or {}
 
     # -------------------------
@@ -751,6 +792,9 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     _set_bookmark_text(doc, "BM_PO_NUMBER", getattr(lot, "po_number", "") or "")
 
     # Helper: get the LEFT-most cell index for a bookmark (works with merged cells)
+
+
+    
     def _bookmark_col_index(bookmark: str):
         hit = _find_cell_by_bookmark(doc, bookmark)
         if not hit:
@@ -1012,6 +1056,27 @@ def _safe_filename(name: str) -> str:
 def _read_file_bytes(path: str) -> bytes:
     with open(path, "rb") as f:
         return f.read()
+
+def _docx_replace_all(doc: Document, needle: str, repl: str) -> None:
+    """
+    Replace text in paragraphs AND table cells (python-docx has no global replace).
+    """
+    # paragraphs
+    for p in doc.paragraphs:
+        if needle in p.text:
+            for r in p.runs:
+                if needle in r.text:
+                    r.text = r.text.replace(needle, repl)
+
+    # tables
+    for t in doc.tables:
+        for row in t.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    if needle in p.text:
+                        for r in p.runs:
+                            if needle in r.text:
+                                r.text = r.text.replace(needle, repl)
 
 
 def _image_path_to_pdf_bytes(image_path: str) -> bytes:
@@ -1543,6 +1608,36 @@ def make_signature_stamp_pdf_f02(
     c.save()
     buf.seek(0)
     return buf.getvalue()
+
+def _apply_f02_docx_signatures(
+    doc: Document,
+    inspector_name: str = "",
+    inspector_date: str = "",
+    reviewer_name: str = "",
+    reviewer_date: str = "",
+    manager_name: str = "",
+    manager_date: str = "",
+) -> None:
+    """
+    Replace signature placeholders inside F02 docx.
+    Placeholders must exist in the template inside the signature boxes:
+      BM_INSPECTED_BY, BM_REVIEWED_BY, BM_APPROVED_BY
+    """
+    ins_txt = ""
+    if inspector_name:
+        ins_txt = f"Digitally signed by: {inspector_name}\nDate: {inspector_date}".strip()
+
+    rev_txt = ""
+    if reviewer_name:
+        rev_txt = f"Digitally reviewed by: {reviewer_name}\nDate: {reviewer_date}".strip()
+
+    appr_txt = ""
+    if manager_name:
+        appr_txt = f"Digitally approved by: {manager_name}\nDate: {manager_date}".strip()
+
+    _docx_replace_all(doc, "BM_INSPECTED_BY", ins_txt)
+    _docx_replace_all(doc, "BM_REVIEWED_BY", rev_txt)
+    _docx_replace_all(doc, "BM_APPROVED_BY", appr_txt)
 
 
 def stamp_signatures_on_pdf_f02(
