@@ -1884,26 +1884,35 @@ def mrr_export_inspection_pdf(
 
     tpl = _resolve_template_type(lot, insp)
 
-    # Read inspection json (for timestamps / approved-by name)
+    # Read inspection json (for timestamps / reviewer / manager)
     try:
         data = json.loads(getattr(insp, "inspection_json", None) or "{}")
+        if not isinstance(data, dict):
+            data = {}
     except Exception:
         data = {}
 
-    # Build signature data (same logic style as F01)
+    # Inspector signature info (first submit)
     inspector_name = (getattr(insp, "inspector_name", "") or "").strip()
     inspector_date = ""
     if getattr(insp, "inspector_confirmed", False):
         ts = data.get("submitted_at_utc") or getattr(insp, "created_at", None)
         inspector_date = _as_date_str(ts) if ts else _as_date_str(datetime.utcnow())
 
+    # Reviewer (optional)
+    reviewer_name = (data.get("reviewed_by") or "").strip()
+    reviewer_date = ""
+    if reviewer_name:
+        reviewer_date = _as_date_str(data.get("reviewed_at_utc") or "")
+
+    # Manager approval
     manager_name = (data.get("manager_approved_by") or "").strip()
     manager_date = ""
     if getattr(insp, "manager_approved", False):
         ts2 = data.get("manager_approved_at_utc") or datetime.utcnow().isoformat()
         manager_date = _as_date_str(ts2)
 
-    # ---------- OUTSOURCED => F02 (DOCX -> PDF + signatures) ----------
+    # ---------- OUTSOURCED => F02 ----------
     if tpl == "OUTSOURCED":
         docx_bytes = fill_mrr_f02_docx_bytes(
             lot=lot,
@@ -1920,24 +1929,17 @@ def mrr_export_inspection_pdf(
         except Exception:
             pass
 
-        # Digital signatures (F02 placement)
+        # Digital signatures (F02)
         try:
             pdf_bytes = stamp_signatures_on_pdf_f02(
                 pdf_bytes,
-                reviewer_name = (data.get("reviewed_by") or "").strip()
-                reviewer_date = ""
-                if reviewer_name:
-                    reviewer_date = _as_date_str(data.get("reviewed_at_utc") or "")
-                
-                pdf_bytes = stamp_signatures_on_pdf_f02(
-                    pdf_bytes,
-                    inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
-                    inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
-                    reviewer_name=reviewer_name,
-                    reviewer_date=reviewer_date,
-                    manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
-                    manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
-                )
+                inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
+                inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
+                reviewer_name=reviewer_name,
+                reviewer_date=reviewer_date,
+                manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
+                manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
+            )
         except Exception:
             pass
 
@@ -1948,7 +1950,7 @@ def mrr_export_inspection_pdf(
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
-    # ---------- RAW => F01 (XLSX -> PDF + signatures) ----------
+    # ---------- RAW => F01 ----------
     xlsx_bytes = fill_mrr_f01_xlsx_bytes(
         lot=lot,
         receiving=receiving,
@@ -1965,7 +1967,7 @@ def mrr_export_inspection_pdf(
     except Exception:
         pass
 
-    # Digital signatures (F01 placement)
+    # Digital signatures (F01)
     try:
         pdf_bytes = stamp_signatures_on_pdf(
             pdf_bytes,
@@ -1978,6 +1980,7 @@ def mrr_export_inspection_pdf(
         pass
 
     return Response(pdf_bytes, media_type="application/pdf")
+    
 @app.get("/mrr/{lot_id}/inspection/id/{inspection_id}/export/package")
 def mrr_export_inspection_package(
     lot_id: int,
