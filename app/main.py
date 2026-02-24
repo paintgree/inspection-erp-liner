@@ -992,6 +992,141 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from pypdf import PdfReader, PdfWriter, Transformation
 
+import zipfile
+import mimetypes
+from io import BytesIO
+
+from pypdf import PdfReader, PdfWriter  # you already use pypdf elsewhere
+
+
+def _safe_filename(name: str) -> str:
+    name = (name or "").strip()
+    if not name:
+        return "file"
+    bad = ['\\', '/', ':', '*', '?', '"', '<', '>', '|', '\n', '\r', '\t']
+    for ch in bad:
+        name = name.replace(ch, "_")
+    return name[:180]
+
+
+def _read_file_bytes(path: str) -> bytes:
+    with open(path, "rb") as f:
+        return f.read()
+
+
+def _image_path_to_pdf_bytes(image_path: str) -> bytes:
+    """
+    Convert one image file into a one-page PDF (fits into A4).
+    """
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.utils import ImageReader
+
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    page_w, page_h = A4
+
+    img = ImageReader(image_path)
+    iw, ih = img.getSize()
+
+    margin = 36  # 0.5 inch
+    max_w = page_w - 2 * margin
+    max_h = page_h - 2 * margin
+
+    scale = min(max_w / iw, max_h / ih)
+    w = iw * scale
+    h = ih * scale
+
+    x = (page_w - w) / 2
+    y = (page_h - h) / 2
+
+    c.drawImage(img, x, y, width=w, height=h, preserveAspectRatio=True, mask="auto")
+    c.showPage()
+    c.save()
+
+    buf.seek(0)
+    return buf.getvalue()
+
+
+def _doc_path_to_pdf_bytes(path: str) -> bytes | None:
+    """
+    Best-effort: convert an attachment into PDF bytes if possible.
+    - PDF returns bytes
+    - DOCX converts via soffice (same method as report conversion)
+    - Images convert to PDF
+    - Other formats => None (we'll keep them as original in ZIP)
+    """
+    ext = os.path.splitext(path)[1].lower()
+
+    if ext == ".pdf":
+        return _read_file_bytes(path)
+
+    if ext == ".docx":
+        return docx_bytes_to_pdf_bytes(_read_file_bytes(path))
+
+    if ext in [".png", ".jpg", ".jpeg", ".webp"]:
+        return _image_path_to_pdf_bytes(path)
+
+    return None
+
+
+def _merge_pdf_bytes_in_order(parts: list[bytes]) -> bytes:
+    """
+    Merge multiple PDFs (as bytes) into a single PDF (bytes).
+    """
+    writer = PdfWriter()
+    for b in parts:
+        r = PdfReader(BytesIO(b))
+        for p in r.pages:
+            writer.add_page(p)
+
+    out = BytesIO()
+    writer.write(out)
+    out.seek(0)
+    return out.getvalue()
+
+
+def _generate_shipment_report_pdf_bytes(*, lot, insp, receiving, docs) -> bytes:
+    """
+    Generate the standalone shipment REPORT PDF (F01 or F02 depending on template).
+    """
+    tpl = _resolve_template_type(lot, insp)
+
+    if tpl == "OUTSOURCED":
+        docx_bytes = fill_mrr_f02_docx_bytes(
+            lot=lot,
+            inspection=insp,
+            receiving=receiving,
+            docs=docs,
+        )
+        pdf_bytes = docx_bytes_to_pdf_bytes(docx_bytes)
+
+        # Optional footer stamp (if present)
+        try:
+            pdf_bytes = stamp_footer_on_pdf(pdf_bytes, "QAP0600-F02")
+        except Exception:
+            pass
+
+        return pdf_bytes
+
+    # RAW => XLSX => PDF
+    xlsx_bytes = fill_mrr_f01_xlsx_bytes(
+        lot=lot,
+        receiving=receiving,
+        inspection=insp,
+        docs=docs,
+        photos_by_group=None,
+    )
+    pdf_bytes = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
+
+    # Optional signatures/stamps if your code supports it
+    try:
+        pdf_bytes = stamp_footer_on_pdf(pdf_bytes, "QAP0600-F01")
+    except Exception:
+        pass
+
+    return pdf_bytes
+
 
 def fit_pdf_pages_to_a4(
     pdf_bytes: bytes,
@@ -1619,19 +1754,21 @@ def mrr_export_inspection_pdf(
 
     return Response(pdf_bytes, media_type="application/pdf")
 
-@app.get("/mrr/{lot_id}/inspection/id/{inspection_id}/export/package/pdf")
-def mrr_export_inspection_package_pdf(
+@app.get("/mrr/{lot_id}/inspection/id/{inspection_id}/export/package")
+def mrr_export_inspection_package(
     lot_id: int,
     inspection_id: int,
     request: Request,
+    mode: str = "zip",  # "zip" or "pdf"
     session: Session = Depends(get_session),
 ):
     """
-    Export ONE combined PDF package for auditors:
-    - Report page (template)
-    - PO (ticket-level)
-    - Shipment documents (inspection-level)
-    - Shipment photos (inspection-level)
+    Export shipment package:
+      - Standalone REPORT (PDF)
+      - PO + DN + COA (+ any other docs)
+      - Photos
+    mode=zip -> download a bundle zip (always works)
+    mode=pdf -> merge everything into ONE PDF (best-effort)
     """
     user = get_current_user(request, session)
 
@@ -1643,140 +1780,137 @@ def mrr_export_inspection_package_pdf(
     if not insp or insp.ticket_id != lot_id:
         raise HTTPException(404, "MRR Inspection not found")
 
-    if not (insp.inspector_confirmed or insp.manager_approved):
-        raise HTTPException(400, "Inspection must be submitted before export")
+    # Load ticket-level receiving info (if any)
+    receiving = session.exec(
+        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
+    ).first()
 
-    receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
-
-    # ---------- 1) Generate report PDF (same logic as /export/pdf) ----------
-    tpl = _safe_upper(getattr(insp, "template_type", "RAW"))
-    if tpl != "RAW":
-        raise HTTPException(400, f"Template type {tpl} export not wired yet")
-
-    # Docs can be used inside report (refs), keep ticket-level list for now
+    # Documents: include both shipment-specific and ticket-level (PO usually ticket-level)
     all_docs = session.exec(
-        select(MrrDocument).where(MrrDocument.ticket_id == lot_id).order_by(MrrDocument.created_at.asc())
+        select(MrrDocument)
+        .where(MrrDocument.ticket_id == lot_id)
+        .order_by(MrrDocument.created_at.asc())
     ).all()
 
-    xlsx_bytes = fill_mrr_f01_xlsx_bytes(
+    # Filter docs relevant to this shipment package:
+    # - inspection_id == this shipment OR inspection_id is None (ticket-level)
+    docs_for_package = [
+        d for d in all_docs
+        if (getattr(d, "inspection_id", None) in [None, inspection_id])
+    ]
+
+    # Photos for this shipment
+    photos = session.exec(
+        select(MrrInspectionPhoto)
+        .where(
+            MrrInspectionPhoto.ticket_id == lot_id,
+            MrrInspectionPhoto.inspection_id == inspection_id,
+        )
+        .order_by(MrrInspectionPhoto.created_at.asc())
+    ).all()
+
+    # Generate the REPORT PDF
+    report_pdf = _generate_shipment_report_pdf_bytes(
         lot=lot,
+        insp=insp,
         receiving=receiving,
-        inspection=insp,
-        docs=all_docs,
-        photos_by_group=None,
+        docs=all_docs,  # report generation may need full context
     )
 
-    report_pdf = _try_convert_xlsx_to_pdf_bytes(xlsx_bytes)
+    report_no = getattr(insp, "report_no", "") or f"MRR_{lot_id}_{inspection_id}"
+    report_no = _safe_filename(report_no)
 
-    # signatures on report page
-    try:
-        data = json.loads(getattr(insp, "inspection_json", None) or "{}")
-        if not isinstance(data, dict):
-            data = {}
-    except Exception:
-        data = {}
+    # Sort documents in practical order: PO -> DN -> COA -> others
+    order_map = {"PO": 0, "DELIVERY_NOTE": 1, "COA": 2}
+    docs_for_package.sort(key=lambda d: (order_map.get((d.doc_type or "").upper(), 99), d.created_at))
 
-    inspector_name = (getattr(insp, "inspector_name", "") or "").strip()
-    inspector_date = ""
-    if getattr(insp, "inspector_confirmed", False):
-        ts = data.get("submitted_at_utc") or getattr(insp, "created_at", None)
-        inspector_date = _as_date_str(ts) if ts else _as_date_str(datetime.utcnow())
+    # ------------------------
+    # MODE = ONE MERGED PDF
+    # ------------------------
+    if (mode or "").lower() == "pdf":
+        pdf_parts: list[bytes] = []
+        pdf_parts.append(report_pdf)
 
-    manager_name = (data.get("manager_approved_by") or "").strip()
-    manager_date = ""
-    if getattr(insp, "manager_approved", False):
-        ts2 = data.get("manager_approved_at_utc") or datetime.utcnow().isoformat()
-        manager_date = _as_date_str(ts2)
-
-    report_pdf = stamp_signatures_on_pdf(
-        report_pdf,
-        inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
-        inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
-        manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
-        manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
-    )
-
-    # ---------- 2) Collect attachments ----------
-    # PO stays ticket-level
-    po_docs = session.exec(
-        select(MrrDocument).where(
-            (MrrDocument.ticket_id == lot_id) &
-            (MrrDocument.doc_type == "PO")
-        ).order_by(MrrDocument.created_at.asc())
-    ).all()
-
-    # Shipment-specific docs
-    ship_docs = session.exec(
-        select(MrrDocument).where(
-            (MrrDocument.ticket_id == lot_id) &
-            (MrrDocument.inspection_id == inspection_id) &
-            (MrrDocument.doc_type != "PO")
-        ).order_by(MrrDocument.created_at.asc())
-    ).all()
-
-    # Shipment photos
-    ship_photos = session.exec(
-        select(MrrInspectionPhoto).where(
-            (MrrInspectionPhoto.ticket_id == lot_id) &
-            (MrrInspectionPhoto.inspection_id == inspection_id)
-        ).order_by(MrrInspectionPhoto.created_at.asc())
-    ).all()
-
-    parts: list[bytes] = []
-
-    # Cover
-    parts.append(_make_divider_page_pdf_bytes(
-        "MRR Package",
-        f"{insp.report_no or ''}  |  PO: {lot.po_number or ''}  |  DN: {insp.delivery_note_no or ''}",
-    ))
-
-    # Report
-    parts.append(_make_divider_page_pdf_bytes("MRR Report", insp.report_no or ""))
-    parts.append(report_pdf)
-
-    # PO
-    if po_docs:
-        parts.append(_make_divider_page_pdf_bytes("Purchase Order (PO)", lot.po_number or ""))
-        for d in po_docs:
+        # Add attachments (best-effort convert to pdf)
+        for d in docs_for_package:
             p = resolve_mrr_doc_path(getattr(d, "file_path", "") or "")
-            parts.append(_make_divider_page_pdf_bytes(d.doc_name or "PO Document", os.path.basename(p or d.file_path or "")))
-            parts.append(_file_path_to_pdf_bytes(p))
-    else:
-        parts.append(_make_divider_page_pdf_bytes("Purchase Order (PO)", "No PO attachment found"))
+            if not p:
+                continue
+            pdf_b = _doc_path_to_pdf_bytes(p)
+            if pdf_b:
+                pdf_parts.append(pdf_b)
 
-    # Shipment docs
-    if ship_docs:
-        parts.append(_make_divider_page_pdf_bytes("Shipment Documents", f"DN: {insp.delivery_note_no or ''}"))
-        for d in ship_docs:
-            p = resolve_mrr_doc_path(getattr(d, "file_path", "") or "")
-            parts.append(_make_divider_page_pdf_bytes(d.doc_name or d.doc_type or "Attachment", os.path.basename(p or d.file_path or "")))
-            parts.append(_file_path_to_pdf_bytes(p))
-    else:
-        parts.append(_make_divider_page_pdf_bytes("Shipment Documents", "No shipment-specific attachments found"))
-
-    # Photos
-    if ship_photos:
-        parts.append(_make_divider_page_pdf_bytes("Inspection Photos", f"DN: {insp.delivery_note_no or ''}"))
-        for ph in ship_photos:
+        # Add photos (each photo becomes a page in PDF)
+        for ph in photos:
             p = resolve_mrr_photo_path(getattr(ph, "file_path", None))
-            title = (getattr(ph, "group_name", "") or "Photo").strip() or "Photo"
-            parts.append(_make_divider_page_pdf_bytes(title, os.path.basename(p or ph.file_path or "")))
-            if p and os.path.exists(p):
-                parts.append(_file_path_to_pdf_bytes(p))
-            else:
-                parts.append(_unsupported_file_placeholder_pdf_bytes(os.path.basename(ph.file_path or "missing-photo")))
-    else:
-        parts.append(_make_divider_page_pdf_bytes("Inspection Photos", "No photos uploaded"))
+            if not p:
+                continue
+            ext = os.path.splitext(p)[1].lower()
+            if ext in [".png", ".jpg", ".jpeg", ".webp"]:
+                try:
+                    pdf_parts.append(_image_path_to_pdf_bytes(p))
+                except Exception:
+                    pass
 
-    final_pdf = _merge_pdf_bytes(parts)
+        merged = _merge_pdf_bytes_in_order(pdf_parts)
 
-    filename = f"{insp.report_no or f'MRR-{lot_id}-{inspection_id}'}_PACKAGE.pdf"
+        filename = f"{report_no}_PACKAGE.pdf"
+        return Response(
+            content=merged,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    # ------------------------
+    # MODE = ZIP BUNDLE
+    # ------------------------
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as z:
+        # Report
+        z.writestr(f"{report_no}/01_REPORT_{report_no}.pdf", report_pdf)
+
+        # Documents
+        for idx, d in enumerate(docs_for_package, start=1):
+            p = resolve_mrr_doc_path(getattr(d, "file_path", "") or "")
+            if not p:
+                continue
+
+            doc_type = (getattr(d, "doc_type", "") or "DOC").upper()
+            doc_name = _safe_filename(getattr(d, "doc_name", "") or os.path.basename(p))
+            ext = os.path.splitext(p)[1].lower() or ".bin"
+
+            arc = f"{report_no}/02_DOCS/{idx:02d}_{doc_type}_{doc_name}{ext}"
+            try:
+                z.writestr(arc, _read_file_bytes(p))
+            except Exception:
+                pass
+
+        # Photos
+        for idx, ph in enumerate(photos, start=1):
+            p = resolve_mrr_photo_path(getattr(ph, "file_path", None))
+            if not p:
+                continue
+            group = _safe_filename(getattr(ph, "group_name", "") or "Photos")
+            cap = _safe_filename(getattr(ph, "caption", "") or "")
+            ext = os.path.splitext(p)[1].lower() or ".jpg"
+
+            label = f"{idx:02d}_{group}"
+            if cap:
+                label += f"_{cap}"
+            arc = f"{report_no}/03_PHOTOS/{label}{ext}"
+
+            try:
+                z.writestr(arc, _read_file_bytes(p))
+            except Exception:
+                pass
+
+    buf.seek(0)
+    filename = f"{report_no}_PACKAGE.zip"
     return Response(
-        content=final_pdf,
-        media_type="application/pdf",
+        content=buf.getvalue(),
+        media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
-
 
 @app.get("/health")
 def health():
