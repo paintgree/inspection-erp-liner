@@ -20,6 +20,8 @@ from pathlib import Path
 import subprocess
 # --- collections helpers ---
 from collections import defaultdict
+# --- hashing helpers ---
+import hashlib
 import tempfile
 import json
 import os
