@@ -18,6 +18,8 @@ from sqlalchemy import func
 from typing import Dict, List, Optional, Tuple
 from pathlib import Path
 import subprocess
+# --- collections helpers ---
+from collections import defaultdict
 import tempfile
 import json
 import os
