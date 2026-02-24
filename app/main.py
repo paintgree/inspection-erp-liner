@@ -713,7 +713,7 @@ def _apply_f02_pdf_layout_tweaks(doc: Document) -> None:
 
     # Push body down a bit (helps if header/logo area differs in PDF conversion)
     for sec in doc.sections:
-        sec.top_margin = Inches(0.6)         # increase top margin
+        sec.top_margin = Inches(4)         # increase top margin
         sec.header_distance = Inches(0.25)   # distance between header and body
 
     # Default font size smaller
