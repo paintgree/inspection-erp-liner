@@ -532,6 +532,9 @@
                 </td>
                 <td>
                   <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}">Open</a>
+                  <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}/export/pdf">Report PDF</a>
+                  <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}/export/package?mode=zip">Package ZIP</a>
+                  <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}/export/package?mode=pdf">Package PDF</a>
                   {# Per-shipment export: OUTSOURCED uses DOCX template -> export/pdf returns a real PDF #}
                   {% set _tpl = ((s.template_type or lot.lot_type or '')|upper) %}
                   {% if _tpl != 'OUTSOURCED' %}
