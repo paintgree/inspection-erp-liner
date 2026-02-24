@@ -3244,14 +3244,21 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
     )
 
 @app.get("/mrr/{lot_id}/docs")
-def mrr_docs_page(lot_id: int, request: Request, session: Session = Depends(get_session)):
+def mrr_docs_page(
+    lot_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
     user = get_current_user(request, session)
 
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
 
-    receiving = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)).first()
+    receiving = session.exec(
+        select(MrrReceiving).where(MrrReceiving.ticket_id == lot_id)
+    ).first()
+
     docs = session.exec(
         select(MrrDocument)
         .where(MrrDocument.ticket_id == lot_id)
@@ -3260,25 +3267,29 @@ def mrr_docs_page(lot_id: int, request: Request, session: Session = Depends(get_
 
     readonly = is_mrr_canceled(lot)
 
-    # Load all shipment inspections for dropdown
+    # Shipments list for "Attach to shipment" dropdown
     inspections = session.exec(
         select(MrrReceivingInspection)
         .where(MrrReceivingInspection.ticket_id == lot_id)
         .order_by(MrrReceivingInspection.created_at.asc())
     ).all()
 
-    # Default target: latest draft shipment if exists, otherwise latest shipment, otherwise none
+    # Default selection = latest draft shipment (fast flow), else latest shipment
     default_insp_id = None
-    draft = get_latest_draft_shipment(session, lot_id)
-    if draft and getattr(draft, "id", None) is not None:
-        default_insp_id = int(draft.id)
-    elif inspections:
-        default_insp_id = int(inspections[-1].id)
+    try:
+        draft = get_latest_draft_shipment(session, lot_id)
+        if draft and getattr(draft, "id", None) is not None:
+            default_insp_id = int(draft.id)
+        elif inspections:
+            default_insp_id = int(inspections[-1].id)
+    except Exception:
+        if inspections:
+            default_insp_id = int(inspections[-1].id)
 
-    return render_template(
-        request,
+    return templates.TemplateResponse(
         "mrr_doc_upload.html",
         {
+            "request": request,
             "user": user,
             "lot": lot,
             "receiving": receiving,
@@ -3463,20 +3474,38 @@ def mrr_doc_view(
     if not ctype:
         ctype = "application/octet-stream"
 
-    # Safe filenames (remove LRM/RLM and anything that can break headers)
+    # Decide inline vs download:
+    # - PDFs & images open inline
+    # - everything else downloads
+    ext = os.path.splitext(resolved)[1].lower()
+    inline = (ctype == "application/pdf") or (ctype.startswith("image/")) or (ext in [".pdf", ".png", ".jpg", ".jpeg", ".webp"])
+
+    disposition_type = "inline" if inline else "attachment"
+
+    # Filename handling: sanitize hidden RTL/LTR marks + use RFC5987 for UTF-8
     raw_name = getattr(d, "doc_name", "") or os.path.basename(resolved)
-    raw_name = raw_name.replace("\u200e", "").replace("\u200f", "").replace("\u202a", "").replace("\u202b", "").replace("\u202c", "")
+
+    # Remove invisible direction marks that break latin-1 header encoding
+    raw_name = (
+        raw_name.replace("\u200e", "")
+                .replace("\u200f", "")
+                .replace("\u202a", "")
+                .replace("\u202b", "")
+                .replace("\u202c", "")
+                .strip()
+    )
+
+    # ASCII-safe fallback (for filename="")
     safe_ascii = _safe_filename(raw_name)
     if not safe_ascii:
         safe_ascii = "document"
 
-    # RFC5987 for UTF-8 filename*
-    # Keep header latin-1 safe by using only ascii in filename=""
+    # RFC5987 filename*=UTF-8''...
     from urllib.parse import quote
     utf8_name = quote(raw_name.encode("utf-8"))
 
     headers = {
-        "Content-Disposition": f'inline; filename="{safe_ascii}"; filename*=UTF-8\'\'{utf8_name}'
+        "Content-Disposition": f'{disposition_type}; filename="{safe_ascii}"; filename*=UTF-8\'\'{utf8_name}'
     }
 
     return FileResponse(resolved, media_type=ctype, headers=headers)
