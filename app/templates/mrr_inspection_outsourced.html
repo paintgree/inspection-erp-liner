@@ -145,31 +145,29 @@
 </div>
 
 <script>
-function removeRow(btn){
-  const tr = btn.closest("tr");
-  const tbody = tr.closest("tbody");
-  tr.remove();
-
-  // If all rows removed, leave table empty — add-row functions can recreate rows.
+function removeRow(btn) {
+  const tr = btn.closest('tr');
+  if (tr) tr.remove();
 }
 
-function _cloneOrCreateRow(tbody, htmlRow){
-  let tpl = tbody.querySelector('tr[data-template="1"]') || tbody.querySelector("tr");
-
+function _cloneOrCreateRow(tbody, htmlRow) {
+  const tpl = tbody.querySelector('tr[data-template="1"]') || tbody.querySelector('tr');
   if (!tpl) {
-    tbody.insertAdjacentHTML("beforeend", htmlRow);
+    tbody.insertAdjacentHTML('beforeend', htmlRow);
     return;
   }
 
   const tr = tpl.cloneNode(true);
-  tr.querySelectorAll("input").forEach(i => i.value = "");
-  tr.querySelectorAll("select").forEach(s => s.value = "");
+  tr.querySelectorAll('input').forEach(i => (i.value = ''));
+  tr.querySelectorAll('select').forEach(s => (s.value = ''));
   tbody.appendChild(tr);
 }
 
-function addItemRow(){
-  const tbody = document.querySelector("#itemsTable tbody");
-  _cloneOrCreateRow(tbody, `
+function addItemRow() {
+  const tbody = document.querySelector('#itemsTable tbody');
+  _cloneOrCreateRow(
+    tbody,
+    `
     <tr data-template="1">
       <td><input name="items_item[]"></td>
       <td><input name="items_desc[]"></td>
@@ -180,12 +178,15 @@ function addItemRow(){
       <td><input name="items_mtc[]"></td>
       <td><button type="button" class="btn btn-muted" onclick="removeRow(this)">X</button></td>
     </tr>
-  `);
+    `
+  );
 }
 
-function addVisualRow(){
-  const tbody = document.querySelector("#visualTable tbody");
-  _cloneOrCreateRow(tbody, `
+function addVisualRow() {
+  const tbody = document.querySelector('#visualTable tbody');
+  _cloneOrCreateRow(
+    tbody,
+    `
     <tr data-template="1">
       <td><input name="vis_batch[]"></td>
       <td><input name="vis_flange[]"></td>
@@ -202,29 +203,26 @@ function addVisualRow(){
       </td>
       <td><button type="button" class="btn btn-muted" onclick="removeRow(this)">X</button></td>
     </tr>
-  `);
+    `
+  );
 
-  <style>
-  a[href*="export/xlsx"], button[data-export="xlsx"] { display: none !important; }
-  </style>
-
-  // Optional auto-fill new row heat number from first row if available
+  // Auto-fill new row heat number from first row if available
   const firstHeat = document.querySelector('#visualTable tbody tr input[name="vis_batch[]"]');
   const rows = document.querySelectorAll('#visualTable tbody tr');
   const last = rows[rows.length - 1];
-  const heat = (firstHeat?.value || "").trim();
+  const heat = (firstHeat ? firstHeat.value : '').trim();
   if (heat && last) {
     const inp = last.querySelector('input[name="vis_batch[]"]');
     if (inp) inp.value = heat;
   }
 }
 
-function copyHeatToAll(){
-  const rows = document.querySelectorAll("#visualTable tbody tr");
+function copyHeatToAll() {
+  const rows = document.querySelectorAll('#visualTable tbody tr');
   if (!rows.length) return;
 
   const first = rows[0].querySelector('input[name="vis_batch[]"]');
-  const heat = (first?.value || "").trim();
+  const heat = (first ? first.value : '').trim();
   if (!heat) return;
 
   rows.forEach(tr => {
@@ -233,4 +231,3 @@ function copyHeatToAll(){
   });
 }
 </script>
-{% endblock %}
