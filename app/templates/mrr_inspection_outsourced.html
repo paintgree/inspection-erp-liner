@@ -204,6 +204,10 @@ function addVisualRow(){
     </tr>
   `);
 
+  <style>
+  a[href*="export/xlsx"], button[data-export="xlsx"] { display: none !important; }
+  </style>
+
   // Optional auto-fill new row heat number from first row if available
   const firstHeat = document.querySelector('#visualTable tbody tr input[name="vis_batch[]"]');
   const rows = document.querySelectorAll('#visualTable tbody tr');
