@@ -1050,25 +1050,25 @@ def _image_path_to_pdf_bytes(image_path: str) -> bytes:
 
 def _doc_path_to_pdf_bytes(path: str) -> bytes | None:
     """
-    Best-effort: convert an attachment into PDF bytes if possible.
+    Convert an attachment into PDF bytes if possible.
     - PDF returns bytes
-    - DOCX converts via soffice (same method as report conversion)
+    - DOC/DOCX/XLS/XLSX converts via LibreOffice
     - Images convert to PDF
-    - Other formats => None (we'll keep them as original in ZIP)
+    - Other formats => None (kept as original in ZIP)
     """
     ext = os.path.splitext(path)[1].lower()
 
     if ext == ".pdf":
         return _read_file_bytes(path)
 
-    if ext == ".docx":
-        return docx_bytes_to_pdf_bytes(_read_file_bytes(path))
-
     if ext in [".png", ".jpg", ".jpeg", ".webp"]:
         return _image_path_to_pdf_bytes(path)
 
-    return None
+    # Use LibreOffice for office files (most reliable)
+    if ext in [".doc", ".docx", ".xls", ".xlsx"]:
+        return _soffice_convert_file_to_pdf_bytes(path)
 
+    return None
 
 def _merge_pdf_bytes_in_order(parts: list[bytes]) -> bytes:
     """
@@ -1127,6 +1127,66 @@ def _generate_shipment_report_pdf_bytes(*, lot, insp, receiving, docs) -> bytes:
 
     return pdf_bytes
 
+
+def _soffice_convert_file_to_pdf_bytes(input_path: str) -> bytes | None:
+    """
+    Convert a file to PDF using LibreOffice (soffice).
+    Works for: .doc, .docx, .xls, .xlsx, and many others.
+    Returns PDF bytes or None if conversion fails.
+    """
+    import subprocess
+    import tempfile
+    import shutil
+
+    if not input_path or not os.path.exists(input_path):
+        return None
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Copy to temp to avoid filename issues
+        base = os.path.basename(input_path)
+        safe_base = _safe_filename(base)
+        tmp_in = os.path.join(tmpdir, safe_base)
+
+        try:
+            shutil.copy2(input_path, tmp_in)
+        except Exception:
+            tmp_in = input_path  # fallback
+
+        cmd = [
+            "soffice",
+            "--headless",
+            "--nologo",
+            "--nofirststartwizard",
+            "--convert-to",
+            "pdf",
+            "--outdir",
+            tmpdir,
+            tmp_in,
+        ]
+
+        try:
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except Exception:
+            return None
+
+        # LibreOffice outputs same filename with .pdf
+        out_pdf = os.path.splitext(os.path.basename(tmp_in))[0] + ".pdf"
+        out_path = os.path.join(tmpdir, out_pdf)
+
+        if not os.path.exists(out_path):
+            # Sometimes LO changes extension casing, do a scan
+            for f in os.listdir(tmpdir):
+                if f.lower().endswith(".pdf"):
+                    out_path = os.path.join(tmpdir, f)
+                    break
+
+        if not os.path.exists(out_path):
+            return None
+
+        try:
+            return _read_file_bytes(out_path)
+        except Exception:
+            return None
 
 def fit_pdf_pages_to_a4(
     pdf_bytes: bytes,
@@ -3338,58 +3398,43 @@ def mrr_doc_inline(doc_id: int, request: Request, session: Session = Depends(get
 
 
 @app.get("/mrr/docs/{doc_id}/view")
-def mrr_doc_view(doc_id: int, request: Request, session: Session = Depends(get_session)):
-    """
-    View an uploaded MRR document in the browser (PDF/images inline).
-    Falls back to download for other file types.
-
-    NOTE: We intentionally do NOT rely on the `filename=` parameter here because
-    some Starlette versions behave differently on mobile Safari when combined with
-    inline Content-Disposition.
-    """
+def mrr_doc_view(
+    doc_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
     user = get_current_user(request, session)
-    
 
-    doc = session.get(MrrDocument, doc_id)
-    if not doc:
+    d = session.get(MrrDocument, doc_id)
+    if not d:
         raise HTTPException(404, "Document not found")
 
-    resolved = resolve_mrr_doc_path(doc.file_path or "")
+    resolved = resolve_mrr_doc_path(getattr(d, "file_path", "") or "")
     if not resolved or not os.path.exists(resolved):
-        # Keep same behavior as download: explicit 404
-        raise HTTPException(404, "File not found")
+        raise HTTPException(404, "File missing on server")
 
-    # Guess content-type
+    # Detect content type
     ctype, _ = mimetypes.guess_type(resolved)
-    ctype = ctype or "application/octet-stream"
+    if not ctype:
+        ctype = "application/octet-stream"
 
-    # Inline only for types browsers can render nicely
-    is_inline = (
-        ctype.startswith("image/") or
-        ctype in ("application/pdf",)
-    )
+    # Safe filenames (remove LRM/RLM and anything that can break headers)
+    raw_name = getattr(d, "doc_name", "") or os.path.basename(resolved)
+    raw_name = raw_name.replace("\u200e", "").replace("\u200f", "").replace("\u202a", "").replace("\u202b", "").replace("\u202c", "")
+    safe_ascii = _safe_filename(raw_name)
+    if not safe_ascii:
+        safe_ascii = "document"
 
-    safe_name = os.path.basename(resolved)
+    # RFC5987 for UTF-8 filename*
+    # Keep header latin-1 safe by using only ascii in filename=""
+    from urllib.parse import quote
+    utf8_name = quote(raw_name.encode("utf-8"))
 
-    headers = {}
-    if is_inline:
-        headers["Content-Disposition"] = f'inline; filename="{safe_name}"'
-    else:
-        headers["Content-Disposition"] = f'attachment; filename="{safe_name}"'
+    headers = {
+        "Content-Disposition": f'inline; filename="{safe_ascii}"; filename*=UTF-8\'\'{utf8_name}'
+    }
 
-    try:
-        return FileResponse(resolved, media_type=ctype, headers=headers)
-    except Exception as e:
-        # If FileResponse fails for any environment-specific reason, stream it.
-        def file_iter():
-            with open(resolved, "rb") as f:
-                while True:
-                    chunk = f.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    yield chunk
-
-        return StreamingResponse(file_iter(), media_type=ctype, headers=headers)
+    return FileResponse(resolved, media_type=ctype, headers=headers)
 
 @app.post("/mrr/{lot_id}/docs/submit")
 def mrr_docs_submit(
