@@ -16,7 +16,11 @@
     </div>
 
     <div class="actions">
-      <a class="btn" href="/mrr/{{ lot.id }}/export/xlsx">Export XLSX</a>
+      {# Ticket-level export: for OUTSOURCED tickets we only support PDF (F02) #}
+      {% set _ticket_tpl = ((lot.lot_type or '')|upper) %}
+      {% if _ticket_tpl != 'OUTSOURCED' %}
+        <a class="btn" href="/mrr/{{ lot.id }}/export/xlsx">Export XLSX</a>
+      {% endif %}
       <a class="btn" href="/mrr/{{ lot.id }}/export/pdf">Export PDF</a>
 
       {% if user.role and user.role|upper == "MANAGER" %}
@@ -528,7 +532,11 @@
                 </td>
                 <td>
                   <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}">Open</a>
-                  <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}/export/xlsx">XLSX</a>
+                  {# Per-shipment export: OUTSOURCED uses DOCX template -> export/pdf returns a real PDF #}
+                  {% set _tpl = ((s.template_type or lot.lot_type or '')|upper) %}
+                  {% if _tpl != 'OUTSOURCED' %}
+                    <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}/export/xlsx">XLSX</a>
+                  {% endif %}
                   <a class="btn btn-sm" href="/mrr/{{ lot.id }}/inspection/id/{{ s.id }}/export/pdf">PDF</a>
                 </td>
 
