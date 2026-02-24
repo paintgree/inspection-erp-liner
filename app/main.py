@@ -703,7 +703,37 @@ def _find_cell_by_bookmark(doc, bookmark_name: str):
                             return (t, r_i, c_i)
     return None
 
+def _apply_f02_pdf_layout_tweaks(doc: Document) -> None:
+    """
+    Make DOCX->PDF output closer to the Word template:
+    - slightly smaller text
+    - push content down to avoid logo overlap
+    """
+    from docx.shared import Pt, Inches
 
+    # Push body down a bit (helps if header/logo area differs in PDF conversion)
+    for sec in doc.sections:
+        sec.top_margin = Inches(0.6)         # increase top margin
+        sec.header_distance = Inches(0.25)   # distance between header and body
+
+    # Default font size smaller
+    try:
+        normal = doc.styles["Normal"]
+        normal.font.size = Pt(9)
+    except Exception:
+        pass
+
+    # Force all table runs to same size (LibreOffice conversion behaves better this way)
+    for t in doc.tables:
+        for row in t.rows:
+            for cell in row.cells:
+                for p in cell.paragraphs:
+                    for r in p.runs:
+                        try:
+                            r.font.size = Pt(9)
+                        except Exception:
+                            pass
+                            
 def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     template_path = MRR_TEMPLATE_DOCX_MAP.get("OUTSOURCED")
     if not template_path or not os.path.exists(template_path):
@@ -848,6 +878,12 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     _set_bookmark_text(doc, "BM_INSPECTED_BY", getattr(inspection, "inspector_name", "") or "")
     _set_bookmark_text(doc, "BM_REVIEWED_BY", "Quality Manager" if getattr(inspection, "manager_approved", False) else "")
     _set_bookmark_text(doc, "BM_APPROVED_BY", "Approved" if getattr(inspection, "ticket_approved", False) else "")
+
+    # Make exported PDF match template better (smaller font + lower content)
+    try:
+        _apply_f02_pdf_layout_tweaks(doc)
+    except Exception:
+        pass
 
     bio = io.BytesIO()
     doc.save(bio)
