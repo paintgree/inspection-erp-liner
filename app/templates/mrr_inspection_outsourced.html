@@ -98,7 +98,7 @@
           <th></th>
         </tr>
       </thead>
-
+    
       <tbody>
         {% set vis_batch = form_data.get('vis_batch[]', []) %}
         {% set vis_flange = form_data.get('vis_flange[]', []) %}
@@ -107,26 +107,66 @@
         {% set vis_package = form_data.get('vis_package[]', []) %}
         {% set vis_marking = form_data.get('vis_marking[]', []) %}
         {% set vis_result = form_data.get('vis_result[]', []) %}
-
+    
         {% set vmax = [vis_batch|length, vis_flange|length, vis_surface|length, vis_damage|length, vis_package|length, vis_marking|length, vis_result|length] | max %}
         {% if vmax < 1 %}{% set vmax = 1 %}{% endif %}
-
+    
+        {% set cond_options = ["ACCEPTABLE", "OBSERVED (Minor issue)", "NOT ACCEPTABLE"] %}
+    
         {% for i in range(vmax) %}
         <tr data-template="1">
           <td><input name="vis_batch[]" value="{{ vis_batch[i] if i < vis_batch|length else '' }}"></td>
           <td><input name="vis_flange[]" value="{{ vis_flange[i] if i < vis_flange|length else '' }}"></td>
-          <td><input name="vis_surface[]" value="{{ vis_surface[i] if i < vis_surface|length else '' }}"></td>
-          <td><input name="vis_damage[]" value="{{ vis_damage[i] if i < vis_damage|length else '' }}"></td>
-          <td><input name="vis_package[]" value="{{ vis_package[i] if i < vis_package|length else '' }}"></td>
-          <td><input name="vis_marking[]" value="{{ vis_marking[i] if i < vis_marking|length else '' }}"></td>
+    
+          {% set cur_surface = (vis_surface[i] if i < vis_surface|length else '') %}
           <td>
+            <select name="vis_surface[]">
+              <option value="">-</option>
+              {% for opt in cond_options %}
+                <option value="{{ opt }}" {% if cur_surface == opt %}selected{% endif %}>{{ opt }}</option>
+              {% endfor %}
+            </select>
+          </td>
+    
+          {% set cur_damage = (vis_damage[i] if i < vis_damage|length else '') %}
+          <td>
+            <select name="vis_damage[]">
+              <option value="">-</option>
+              {% for opt in cond_options %}
+                <option value="{{ opt }}" {% if cur_damage == opt %}selected{% endif %}>{{ opt }}</option>
+              {% endfor %}
+            </select>
+          </td>
+    
+          {% set cur_package = (vis_package[i] if i < vis_package|length else '') %}
+          <td>
+            <select name="vis_package[]">
+              <option value="">-</option>
+              {% for opt in cond_options %}
+                <option value="{{ opt }}" {% if cur_package == opt %}selected{% endif %}>{{ opt }}</option>
+              {% endfor %}
+            </select>
+          </td>
+    
+          {% set cur_marking = (vis_marking[i] if i < vis_marking|length else '') %}
+          <td>
+            <select name="vis_marking[]">
+              <option value="">-</option>
+              {% for opt in cond_options %}
+                <option value="{{ opt }}" {% if cur_marking == opt %}selected{% endif %}>{{ opt }}</option>
+              {% endfor %}
+            </select>
+          </td>
+    
+          <td>
+            {% set cur = (vis_result[i] if i < vis_result|length else '') %}
             <select name="vis_result[]">
-              {% set cur = (vis_result[i] if i < vis_result|length else '') %}
               <option value="" {% if cur == '' %}selected{% endif %}>-</option>
               <option value="ACC" {% if cur == 'ACC' %}selected{% endif %}>ACC</option>
               <option value="REJ" {% if cur == 'REJ' %}selected{% endif %}>REJ</option>
             </select>
           </td>
+    
           <td><button type="button" class="btn btn-muted" onclick="removeRow(this)">X</button></td>
         </tr>
         {% endfor %}
@@ -147,54 +187,50 @@
 </div>
 
 <script>
-function removeRow(btn) {
-  const tr = btn.closest('tr');
-  if (tr) tr.remove();
-}
-
-function _cloneOrCreateRow(tbody, htmlRow) {
-  const tpl = tbody.querySelector('tr[data-template="1"]') || tbody.querySelector('tr');
-  if (!tpl) {
-    tbody.insertAdjacentHTML('beforeend', htmlRow);
-    return;
-  }
-  const tr = tpl.cloneNode(true);
-  tr.querySelectorAll('input').forEach(i => (i.value = ''));
-  tr.querySelectorAll('select').forEach(s => (s.value = ''));
-  tbody.appendChild(tr);
-}
-
-function addItemRow() {
-  const tbody = document.querySelector('#itemsTable tbody');
-  _cloneOrCreateRow(
-    tbody,
-    `
-    <tr data-template="1">
-      <td><input name="items_item[]"></td>
-      <td><input name="items_desc[]"></td>
-      <td><input name="items_size[]"></td>
-      <td><input name="items_type[]"></td>
-      <td><input name="items_pressure[]"></td>
-      <td><input name="items_qty[]"></td>
-      <td><input name="items_mtc[]"></td>
-      <td><button type="button" class="btn btn-muted" onclick="removeRow(this)">X</button></td>
-    </tr>
-    `
-  );
-}
-
 function addVisualRow() {
   const tbody = document.querySelector('#visualTable tbody');
-  _cloneOrCreateRow(
-    tbody,
-    `
+
+  tbody.insertAdjacentHTML('beforeend', `
     <tr data-template="1">
       <td><input name="vis_batch[]"></td>
       <td><input name="vis_flange[]"></td>
-      <td><input name="vis_surface[]"></td>
-      <td><input name="vis_damage[]"></td>
-      <td><input name="vis_package[]"></td>
-      <td><input name="vis_marking[]"></td>
+
+      <td>
+        <select name="vis_surface[]">
+          <option value="">-</option>
+          <option value="ACCEPTABLE">ACCEPTABLE</option>
+          <option value="OBSERVED (Minor issue)">OBSERVED (Minor issue)</option>
+          <option value="NOT ACCEPTABLE">NOT ACCEPTABLE</option>
+        </select>
+      </td>
+
+      <td>
+        <select name="vis_damage[]">
+          <option value="">-</option>
+          <option value="ACCEPTABLE">ACCEPTABLE</option>
+          <option value="OBSERVED (Minor issue)">OBSERVED (Minor issue)</option>
+          <option value="NOT ACCEPTABLE">NOT ACCEPTABLE</option>
+        </select>
+      </td>
+
+      <td>
+        <select name="vis_package[]">
+          <option value="">-</option>
+          <option value="ACCEPTABLE">ACCEPTABLE</option>
+          <option value="OBSERVED (Minor issue)">OBSERVED (Minor issue)</option>
+          <option value="NOT ACCEPTABLE">NOT ACCEPTABLE</option>
+        </select>
+      </td>
+
+      <td>
+        <select name="vis_marking[]">
+          <option value="">-</option>
+          <option value="ACCEPTABLE">ACCEPTABLE</option>
+          <option value="OBSERVED (Minor issue)">OBSERVED (Minor issue)</option>
+          <option value="NOT ACCEPTABLE">NOT ACCEPTABLE</option>
+        </select>
+      </td>
+
       <td>
         <select name="vis_result[]">
           <option value="">-</option>
@@ -202,10 +238,10 @@ function addVisualRow() {
           <option value="REJ">REJ</option>
         </select>
       </td>
+
       <td><button type="button" class="btn btn-muted" onclick="removeRow(this)">X</button></td>
     </tr>
-    `
-  );
+  `);
 
   // Auto-fill new row heat number from first row if available
   const firstHeat = document.querySelector('#visualTable tbody tr input[name="vis_batch[]"]');
@@ -216,20 +252,6 @@ function addVisualRow() {
     const inp = last.querySelector('input[name="vis_batch[]"]');
     if (inp) inp.value = heat;
   }
-}
-
-function copyHeatToAll() {
-  const rows = document.querySelectorAll('#visualTable tbody tr');
-  if (!rows.length) return;
-
-  const first = rows[0].querySelector('input[name="vis_batch[]"]');
-  const heat = (first ? first.value : '').trim();
-  if (!heat) return;
-
-  rows.forEach(tr => {
-    const inp = tr.querySelector('input[name="vis_batch[]"]');
-    if (inp) inp.value = heat;
-  });
 }
 </script>
 
