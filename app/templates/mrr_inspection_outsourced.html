@@ -8,6 +8,10 @@
 
   <form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/submit" class="form mt">
 
+  <a class="btn btn-muted" href="/mrr/{{ lot.id }}/docs?attach_to=SHIPMENT&attach_inspection_id={{ inspection.id }}">
+    Uploads / Documentation
+  </a>
+
     <!-- HEADER -->
     <div class="grid-2">
       <div>
