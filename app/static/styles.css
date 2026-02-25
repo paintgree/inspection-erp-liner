@@ -84,6 +84,17 @@ input[type="file"]{
   background:#fff;
 }
 
+/* --- Mobile Safari / WebView button text fix --- */
+button.btn{
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-text-fill-color: currentColor;
+}
+
+.btn-primary{
+  -webkit-text-fill-color: #fff;
+}
+
 /* Modern browsers */
 input[type="file"]::file-selector-button{
   padding:10px 12px;
@@ -545,5 +556,6 @@ tr.length-row td{
 .no { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
 .warn { background:#fffbeb; border-color:#fde68a; color:#92400e; }
 .info { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
+
 
 
