@@ -190,6 +190,79 @@
   </form>
 </div>
 
+  <!-- =========================
+       Photo Evidence
+  ========================== -->
+  <div class="card inner mt">
+    <div class="sectiontitle accent-blue">Photo Evidence</div>
+    <div class="muted tiny">Add photos (packaging, labeling, damage, etc.). Anyone viewing this report will see them.</div>
+
+    {% if photo_error %}
+      <div class="alert alert-error mt">{{ photo_error }}</div>
+    {% endif %}
+
+    {% if not inspection.inspector_confirmed %}
+      <form class="mt" action="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}/photos/upload" method="post" enctype="multipart/form-data">
+        <div class="grid3">
+          <div>
+            <label>Group / Category</label>
+            <input name="group_name" placeholder="e.g., Packaging / Labeling / Damage" required>
+            <div class="muted tiny">Use the same group name to keep photos together.</div>
+          </div>
+          <div>
+            <label>Description (optional)</label>
+            <input name="caption" placeholder="e.g., Outer wrap torn on one side">
+          </div>
+          <div>
+            <label>Photos</label>
+            <input type="file" name="photos" accept="image/*" capture="environment" multiple required>
+            <div class="muted tiny">Capture from camera or upload (multiple allowed).</div>
+          </div>
+        </div>
+        <div class="mt">
+          <button class="btn btn-secondary" type="submit">Upload Photos</button>
+        </div>
+      </form>
+    {% else %}
+      <div class="muted tiny mt">Inspection is submitted — photos are locked (view only).</div>
+    {% endif %}
+
+    <style>
+      .photo-thumb { width: 100%; max-height: 200px; object-fit: cover; border-radius: 10px; border: 1px solid rgba(0,0,0,0.08); }
+      .photo-card { padding: 8px; }
+      .btn-small { padding: 6px 10px; font-size: 12px; }
+    </style>
+
+    {% if photo_groups and photo_groups|length > 0 %}
+      <div class="mt">
+        {% for gname, items in photo_groups.items() %}
+          <div class="card inner mt">
+            <div class="sectiontitle">{{ gname }}</div>
+            <div class="grid3 mt">
+              {% for p in items %}
+                <div class="photo-card">
+                  <a href="/mrr/photos/{{ p.id }}/view" target="_blank">
+                    <img class="photo-thumb" src="/mrr/photos/{{ p.id }}/view" alt="photo">
+                  </a>
+                  {% if p.caption %}
+                    <div class="muted tiny mt">{{ p.caption }}</div>
+                  {% endif %}
+                  {% if not inspection.inspector_confirmed %}
+                    <form class="mt" action="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}/photos/{{ p.id }}/delete" method="post">
+                      <button class="btn btn-ghost btn-small" type="submit">Delete</button>
+                    </form>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="muted tiny mt">No photos uploaded yet.</div>
+    {% endif %}
+  </div>
+            
 <script>
 function addVisualRow() {
   const tbody = document.querySelector('#visualTable tbody');
