@@ -2127,7 +2127,8 @@ def mrr_export_inspection_xlsx(
 def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
     """
     Best-effort conversion using LibreOffice.
-    If LO is not installed in your environment, we raise a clear error.
+    IMPORTANT: Do NOT zoom/shift for Excel-based templates (F01),
+    because it makes the page too large and breaks the layout.
     """
     tmp_dir = "/tmp/mrr_export"
     os.makedirs(tmp_dir, exist_ok=True)
@@ -2136,7 +2137,6 @@ def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
     with open(xlsx_path, "wb") as f:
         f.write(xlsx_bytes)
 
-    # Try LibreOffice headless conversion
     cmd = [
         "soffice",
         "--headless",
@@ -2150,13 +2150,14 @@ def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
         tmp_dir,
         xlsx_path,
     ]
+
     try:
         subprocess.check_call(cmd)
     except FileNotFoundError:
         raise HTTPException(
             500,
             "PDF export needs LibreOffice (soffice) installed on the server. "
-            "For now use Export XLSX, or tell me and I’ll add a pure-ReportLab PDF layout."
+            "For now use Export XLSX."
         )
     except Exception:
         raise HTTPException(500, "Failed to convert XLSX to PDF (LibreOffice error).")
@@ -2167,25 +2168,25 @@ def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
 
     with open(pdf_path, "rb") as f:
         pdf = f.read()
-    
-    # 1) Scale to A4 (makes it bigger / readable)
-    pdf = fit_pdf_pages_to_a4(pdf, margin_left_right=0.3, margin_bottom=0.3, header_reserved=55.0)
 
+    # ✅ Keep on A4 WITHOUT zoom/shift (avoid huge output)
+    pdf = fit_pdf_pages_to_a4(
+        pdf,
+        margin_left_right=0.3,
+        margin_bottom=0.3,
+        header_reserved=55.0,
+        zoom=1.0,
+        shift_x=0.0,
+        shift_y=0.0,
+    )
 
-
-    
-    # 2) Stamp logo in header area (top-center)
+    # ✅ Stamp logo + footer once
     base_dir = os.path.dirname(__file__)
     logo_path = os.path.join(base_dir, "static", "images", "logo.png")
     pdf = stamp_logo_on_pdf(pdf, logo_path)
-    pdf = stamp_logo_on_pdf(pdf, logo_path)
     pdf = stamp_footer_on_pdf(pdf, "QAP0600-F01")
 
-    # Keep conversion + scaling + logo + footer here.
-    # Do NOT stamp digital signatures here because this function
-    # does not know which inspection/user is exporting.
     return pdf
-
 
 
 
