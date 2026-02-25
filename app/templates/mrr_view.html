@@ -33,9 +33,6 @@
         <form method="post" action="/mrr/{{ lot.id }}/cancel" style="display:inline;"
               onsubmit="return confirm('Cancel this ticket? It will be hidden from normal list and actions will be blocked.')">
           <button class="btn btn-warn" type="submit">Cancel Ticket</button>
-          <a class="btn btn-muted" href="/mrr/{{ lot.id }}/docs?attach_to=SHIPMENT&attach_inspection_id={{ inspection.id }}">
-            Uploads / Documentation
-          </a>
         </form>
       {% endif %}
 
@@ -405,96 +402,25 @@
       {% endif %}
     </div>
 
-    <!-- UPLOAD AREA -->
     <div class="card inner mt">
-      <div class="sectiontitle accent-blue">Upload Document</div>
-
-      {% if readonly %}
-        <div class="muted mt">Actions disabled (ticket canceled).</div>
-      {% else %}
-        <form class="mt" action="/mrr/{{ lot.id }}/docs/upload" method="post" enctype="multipart/form-data" id="docUploadForm">
-          <div class="grid3">
-            <div>
-              <label>Document Type</label>
-              <select name="doc_type" id="doc_type" required>
-                <option value="PO">PO</option>
-                <option value="DELIVERY_NOTE">DELIVERY NOTE</option>
-                <option value="COA">COA / Lab Test</option>
-                <option value="MTC">MTC</option>
-                <option value="INSPECTION_REPORT">INSPECTION REPORT</option>
-                <option value="PACKING_LIST">PACKING LIST</option>
-                <option value="SDS">SDS / MSDS</option>
-                <option value="CERTIFICATE">CERTIFICATE</option>
-                <option value="RELATED">RELATED (Custom Name)</option>
-              </select>
-            </div>
-
-            <div>
-              <label>Document Name</label>
-              <input name="doc_title" id="doc_title" placeholder="Auto (except RELATED)">
-              <div class="muted tiny">If you choose RELATED, Document Name becomes required.</div>
-            </div>
-
-            <div>
-              <label>Document Number</label>
-              <input name="doc_number" placeholder="Optional (PO is auto)">
-            </div>
-          </div>
-
-          <div class="mt">
-            <label>File</label>
-            <input type="file" name="file" required>
-          </div>
-
-          <div class="mt">
-            <button class="btn btn-secondary" type="submit">Upload</button>
-          </div>
-        </form>
-
-        <script>
-          (function(){
-            const type = document.getElementById("doc_type");
-            const title = document.getElementById("doc_title");
-            function sync(){
-              const v = (type.value || "").toUpperCase();
-              if(v === "RELATED"){
-                title.required = true;
-                title.placeholder = "Required for RELATED";
-              } else {
-                title.required = false;
-                title.placeholder = "Auto (except RELATED)";
-              }
-            }
-            type.addEventListener("change", sync);
-            sync();
-          })();
-        </script>
-      {% endif %}
-    </div>
-
-    <!-- PO CHECK + CONFIRM -->
-    <div class="card inner mt">
-      <div class="sectiontitle accent-blue">PO Verification</div>
-
-      {% if readonly %}
-        <div class="muted mt">Actions disabled (ticket canceled).</div>
-      {% else %}
-        <form class="mt" action="/mrr/{{ lot.id }}/docs/submit_and_confirm" method="post"
-              onsubmit="return confirm('This will save your PO number and confirm documentation (requires PO uploaded + PO match). Continue?')">
-          <label>Inspector PO Number (type it exactly like the ticket PO)</label>
-          <input name="inspector_po_number" required value="{{ receiving.inspector_po_number if receiving else '' }}">
-          <div class="mt">
-            <button class="btn btn-primary" type="submit">Save & Confirm Documentation</button>
-          </div>
-        </form>
-
-        {% if user.role and user.role|upper == "MANAGER" %}
-          <form class="mt" action="/mrr/{{ lot.id }}/docs/approve" method="post"
-                onsubmit="return confirm('Manager approve documentation?')">
-            <button class="btn btn-warn" type="submit">Manager Approve Documentation</button>
-          </form>
+      <div class="sectiontitle accent-blue">Upload & Manage Documents</div>
+      <div class="muted tiny">
+        Use the documentation page to upload and attach documents to the correct shipment.
+      </div>
+    
+      <div class="mt">
+        {% if inspection %}
+          <a class="btn btn-muted"
+             href="/mrr/{{ lot.id }}/docs?attach_to=SHIPMENT&attach_inspection_id={{ inspection.id }}">
+            Open Documentation Page
+          </a>
+        {% else %}
+          <a class="btn btn-muted"
+             href="/mrr/{{ lot.id }}/docs">
+            Open Documentation Page
+          </a>
         {% endif %}
-      {% endif %}
+      </div>
     </div>
 
   </div>
