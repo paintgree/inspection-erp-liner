@@ -727,7 +727,115 @@ def _apply_f02_pdf_layout_tweaks(doc: Document) -> None:
                             r.font.size = Pt(9)
                         except Exception:
                             pass
-                            
+
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
+
+
+def _insert_multiline_text_at_bookmark(doc: Document, bookmark_name: str, lines: list[str], rgb_hex: str = "333333") -> bool:
+    """
+    Insert text at a WORD bookmark (real bookmark, not placeholder text).
+    Supports multiple lines using <w:br/>.
+    Example bookmarks: BM_INSPECTED_BY, BM_REVIEWD_BY, BM_APPROVED_BY
+    """
+    if not lines:
+        return False
+
+    # Find the bookmarkStart node
+    bm_nodes = doc._element.xpath(
+        f'.//w:bookmarkStart[@w:name="{bookmark_name}"]',
+        namespaces={"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"},
+    )
+    if not bm_nodes:
+        return False
+
+    bm = bm_nodes[0]
+    parent = bm.getparent()
+
+    # Build a run with color + font size + line breaks
+    r = OxmlElement("w:r")
+    rPr = OxmlElement("w:rPr")
+
+    color = OxmlElement("w:color")
+    color.set(qn("w:val"), rgb_hex)  # darker gray (not black)
+    rPr.append(color)
+
+    # 9pt font => 18 half-points
+    sz = OxmlElement("w:sz")
+    sz.set(qn("w:val"), "18")
+    rPr.append(sz)
+
+    r.append(rPr)
+
+    for i, line in enumerate(lines):
+        if i > 0:
+            br = OxmlElement("w:br")
+            r.append(br)
+
+        t = OxmlElement("w:t")
+        t.set(qn("xml:space"), "preserve")
+        t.text = line
+        r.append(t)
+
+    # Insert immediately after bookmarkStart
+    idx = parent.index(bm)
+    parent.insert(idx + 1, r)
+    return True
+
+
+def _apply_f02_bookmark_signatures(doc: Document, inspection: "MrrReceivingInspection") -> None:
+    """
+    Put signatures INSIDE the F02 boxes using bookmarks:
+      BM_INSPECTED_BY, BM_REVIEWD_BY, BM_APPROVED_BY
+    """
+    try:
+        data = json.loads(getattr(inspection, "inspection_json", None) or "{}")
+        if not isinstance(data, dict):
+            data = {}
+    except Exception:
+        data = {}
+
+    # Inspector
+    inspector_name = (getattr(inspection, "inspector_name", "") or "").strip()
+    inspector_time = _as_date_str(data.get("submitted_at_utc") or "")
+
+    # Optional reviewer
+    reviewer_name = (data.get("reviewed_by") or "").strip()
+    reviewer_time = _as_date_str(data.get("reviewed_at_utc") or "")
+
+    # Manager approval
+    manager_name = (data.get("manager_approved_by") or "").strip()
+    manager_time = _as_date_str(data.get("manager_approved_at_utc") or "")
+
+    # Darker gray than current output (more contrast, not black)
+    color = "333333"
+
+    if getattr(inspection, "inspector_confirmed", False) and inspector_name:
+        _insert_multiline_text_at_bookmark(
+            doc,
+            "BM_INSPECTED_BY",
+            [f"Digitally signed by: {inspector_name}", f"Date: {inspector_time}"],
+            rgb_hex=color,
+        )
+
+    if reviewer_name:
+        _insert_multiline_text_at_bookmark(
+            doc,
+            "BM_REVIEWD_BY",
+            [f"Digitally reviewed by: {reviewer_name}", f"Date: {reviewer_time}"],
+            rgb_hex=color,
+        )
+
+    if getattr(inspection, "manager_approved", False) and manager_name:
+        _insert_multiline_text_at_bookmark(
+            doc,
+            "BM_APPROVED_BY",
+            [f"Digitally approved by: {manager_name}", f"Date: {manager_time}"],
+            rgb_hex=color,
+        )
+
+
+
 def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     template_path = MRR_TEMPLATE_DOCX_MAP.get("OUTSOURCED")
     if not template_path or not os.path.exists(template_path):
@@ -739,39 +847,11 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
         _apply_f02_bookmark_signatures(doc, inspection)
     except Exception:
         pass
-    # --- Apply signatures inside the DOCX boxes (placeholders in template) ---
+    # Apply signatures using REAL Word bookmarks (F02)
     try:
-        insp_json = json.loads(getattr(inspection, "inspection_json", None) or "{}")
-        if not isinstance(insp_json, dict):
-            insp_json = {}
+        _apply_f02_bookmark_signatures(doc, inspection)
     except Exception:
-        insp_json = {}
-
-    inspector_name = (getattr(inspection, "inspector_name", "") or "").strip()
-    inspector_date = ""
-    if getattr(inspection, "inspector_confirmed", False):
-        inspector_date = _as_date_str(insp_json.get("submitted_at_utc") or "")
-
-    reviewer_name = (insp_json.get("reviewed_by") or "").strip()
-    reviewer_date = ""
-    if reviewer_name:
-        reviewer_date = _as_date_str(insp_json.get("reviewed_at_utc") or "")
-
-    manager_name = (insp_json.get("manager_approved_by") or "").strip()
-    manager_date = ""
-    if getattr(inspection, "manager_approved", False):
-        manager_date = _as_date_str(insp_json.get("manager_approved_at_utc") or "")
-
-    _apply_f02_docx_signatures(
-        doc,
-        inspector_name=inspector_name,
-        inspector_date=inspector_date,
-        reviewer_name=reviewer_name,
-        reviewer_date=reviewer_date,
-        manager_name=manager_name,
-        manager_date=manager_date,
-    )
-    data = safe_json_loads(getattr(inspection, "inspection_json", None)) or {}
+        pass
 
     # -------------------------
     # Header (BOOKMARKS)
@@ -1177,17 +1257,6 @@ def _generate_shipment_report_pdf_bytes(*, lot, insp, receiving, docs) -> bytes:
 
         try:
             pdf_bytes = stamp_footer_on_pdf(pdf_bytes, "QAP0600-F02")
-        except Exception:
-            pass
-
-        try:
-            pdf_bytes = stamp_signatures_on_pdf_f02(
-                pdf_bytes,
-                inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
-                inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
-                manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
-                manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
-            )
         except Exception:
             pass
 
@@ -1680,14 +1749,13 @@ def _as_date_str(x) -> str:
         if not s:
             return ""
 
-        # Handle Z timezone
         s2 = s.replace("Z", "+00:00")
 
         try:
             dt = datetime.fromisoformat(s2)
             return dt.strftime("%Y-%m-%d %H:%M")
         except Exception:
-            # fallback: if ISO like 2026-02-24T10:55:37...
+            # fallback: 2026-02-24T10:55:37...
             if "T" in s:
                 return s.replace("T", " ")[:16]
             return s[:16]
@@ -2037,20 +2105,6 @@ def mrr_export_inspection_pdf(
         # Footer stamp (optional)
         try:
             pdf_bytes = stamp_footer_on_pdf(pdf_bytes, "QAP0600-F02")
-        except Exception:
-            pass
-
-        # Digital signatures (F02)
-        try:
-            pdf_bytes = stamp_signatures_on_pdf_f02(
-                pdf_bytes,
-                inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
-                inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
-                reviewer_name=reviewer_name,
-                reviewer_date=reviewer_date,
-                manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
-                manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
-            )
         except Exception:
             pass
 
