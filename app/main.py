@@ -1092,9 +1092,11 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     if getattr(inspection, "manager_approved", False):
         manager_dt = _as_datetime_str(data.get("manager_approved_at_utc") or datetime.utcnow())
 
-        # Signatures inside DOCX using bookmarks
-    _apply_f02_bookmark_signatures(doc, inspection)
-        doc,
+            # --- F02 signatures (BOOKMARKS ONLY) ---
+        try:
+            _apply_f02_bookmark_signatures(doc, inspection)
+        except Exception:
+            pass
         inspector_name=inspector_name if getattr(inspection, "inspector_confirmed", False) else "",
         inspector_dt=inspector_dt if getattr(inspection, "inspector_confirmed", False) else "",
         reviewer_name=reviewed_by,
