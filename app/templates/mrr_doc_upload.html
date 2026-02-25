@@ -18,31 +18,33 @@
     <div class="sectiontitle accent-blue">Uploaded Documents</div>
 
     {% if docs and docs|length > 0 %}
-      <table class="table mt">
-        <thead>
-          <tr>
-            <th>Type</th>
-            <th>No.</th>
-            <th>Name</th>
-            <th>Uploaded By</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for d in docs %}
+      <div class="tablewrap mt">
+        <table class="table wide">
+          <thead>
             <tr>
-              <td><b>{{ d.doc_type }}</b></td>
-              <td>{{ d.doc_number or "-" }}</td>
-              <td>{{ d.doc_name or "-" }}</td>
-              <td>{{ d.uploaded_by_user_name or "-" }}</td>
-              <td>
-                <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/view">View</a>
-                <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/download">Download</a>
-              </td>
+              <th>Type</th>
+              <th>No.</th>
+              <th>Name</th>
+              <th>Uploaded By</th>
+              <th>Actions</th>
             </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {% for d in docs %}
+              <tr>
+                <td><b>{{ d.doc_type }}</b></td>
+                <td>{{ d.doc_number or "-" }}</td>
+                <td>{{ d.doc_name or "-" }}</td>
+                <td>{{ d.uploaded_by_user_name or "-" }}</td>
+                <td>
+                  <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/view">View</a>
+                  <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/download">Download</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     {% else %}
       <div class="muted mt">No documents uploaded yet.</div>
     {% endif %}
@@ -55,8 +57,9 @@
     {% if readonly %}
       <div class="muted mt">Actions disabled (ticket canceled).</div>
     {% else %}
+
       <form class="mt" action="/mrr/{{ lot.id }}/docs/upload" method="post" enctype="multipart/form-data">
-      
+
         <div class="grid3">
           <div>
             <label>Document Type</label>
@@ -68,31 +71,30 @@
               <option value="GENERAL" selected>GENERAL</option>
             </select>
           </div>
-      
+
           <div>
             <label>Document Title (optional)</label>
-            <input name="doc_title" placeholder="e.g., Supplier COA">
+            <input name="doc_title" id="docTitle" placeholder="Auto (except RELATED)">
+            <div class="muted tiny">If you choose RELATED, Document Title becomes required.</div>
           </div>
-      
+
           <div>
             <label>Document Number (optional)</label>
-            <input name="doc_number" id="docNumber" placeholder="e.g., COA-2026-001">
+            <input name="doc_number" id="docNumber" placeholder="Optional (PO is auto)">
           </div>
         </div>
-      
+
         <div class="grid3 mt">
           <div>
             <label>Attach uploads to</label>
             <select name="attach_to" id="attachTo">
-              <option value="AUTO" selected>AUTO (Latest Draft Shipment)</option>
+              <option value="AUTO">AUTO (Latest Draft Shipment)</option>
               <option value="SHIPMENT">Choose Shipment</option>
               <option value="TICKET">Ticket-level (Shared)</option>
             </select>
-            <div class="muted mt" style="font-size: 12px;">
-              Tip: Use “Choose Shipment” to add missing DN/COA to an older shipment.
-            </div>
+            <div class="muted tiny mt">Tip: Use “Choose Shipment” to attach DN/COA to an older shipment.</div>
           </div>
-      
+
           <div>
             <label>Shipment (if Choose Shipment)</label>
             <select name="attach_inspection_id" id="attachInspection">
@@ -110,87 +112,122 @@
               {% endif %}
             </select>
           </div>
-      
+
           <div>
             <label>File</label>
             <input type="file" name="file" required>
           </div>
         </div>
-      
+
         <div class="mt">
           <button class="btn btn-secondary" type="submit">Upload</button>
         </div>
+
       </form>
-      
+
       <script>
-(function(){
-  const docType = document.getElementById("docType");
-  const docNumber = document.getElementById("docNumber");
-  const attachTo = document.getElementById("attachTo");
-  const attachInspection = document.getElementById("attachInspection");
+      (function(){
+        const docType = document.getElementById("docType");
+        const docTitle = document.getElementById("docTitle");
+        const docNumber = document.getElementById("docNumber");
+        const attachTo = document.getElementById("attachTo");
+        const attachInspection = document.getElementById("attachInspection");
 
-  function toggleDocNumberRequired() {
-    const t = (docType.value || "").toUpperCase();
-    const isDN = (t === "DELIVERY_NOTE");
-    docNumber.required = isDN;
-    docNumber.placeholder = isDN ? "Required (must match Delivery Note Number exactly)" : "Optional";
-  }
+        function applyDocRules(){
+          const t = (docType.value || "").toUpperCase();
 
-  function applyAttachRules() {
-    const t = (docType.value || "").toUpperCase();
+          // RELATED requires title
+          if(t === "RELATED"){
+            docTitle.required = true;
+            docTitle.placeholder = "Required for RELATED";
+          } else {
+            docTitle.required = false;
+            docTitle.placeholder = "Auto (except RELATED)";
+          }
 
-    // PO must be ticket-level
-    if (t === "PO") {
-      attachTo.value = "TICKET";
-      attachTo.disabled = true;
-      attachInspection.disabled = true;
-      attachInspection.value = "";
-      return;
-    }
+          // Delivery Note requires number
+          const isDN = (t === "DELIVERY_NOTE");
+          docNumber.required = isDN;
+          docNumber.placeholder = isDN ? "Required (DN Number)" : "Optional (PO is auto)";
 
-    attachTo.disabled = false;
+          // PO must be ticket-level
+          if(t === "PO"){
+            attachTo.value = "TICKET";
+            attachTo.disabled = true;
+            attachInspection.disabled = true;
+            attachInspection.value = "";
+            return;
+          } else {
+            attachTo.disabled = false;
+          }
+        }
 
-    const mode = (attachTo.value || "AUTO").toUpperCase();
-    if (mode === "SHIPMENT") {
-      attachInspection.disabled = false;
-    } else {
-      attachInspection.disabled = true;
-      attachInspection.value = "";
-    }
-  }
+        function applyAttachRules(){
+          const mode = (attachTo.value || "AUTO").toUpperCase();
+          if(mode === "SHIPMENT"){
+            attachInspection.disabled = false;
+          } else {
+            attachInspection.disabled = true;
+            attachInspection.value = "";
+          }
+        }
 
-  // NEW: read initial_attach_to injected by backend (Jinja)
-  const initialAttachTo = "{{ (initial_attach_to or 'AUTO') }}".toUpperCase();
-  if (attachTo && (initialAttachTo === "SHIPMENT" || initialAttachTo === "TICKET" || initialAttachTo === "AUTO")) {
-    attachTo.value = initialAttachTo;
-  }
+        // apply initial selection from backend
+        const initialAttachTo = "{{ (initial_attach_to or 'AUTO') }}".toUpperCase();
+        if(initialAttachTo === "AUTO" || initialAttachTo === "SHIPMENT" || initialAttachTo === "TICKET"){
+          attachTo.value = initialAttachTo;
+        }
 
-  if (docType) {
-    docType.addEventListener("change", () => {
-      toggleDocNumberRequired();
-      applyAttachRules();
-    });
-  }
-  if (attachTo) attachTo.addEventListener("change", applyAttachRules);
+        docType.addEventListener("change", function(){
+          applyDocRules();
+          applyAttachRules();
+        });
 
-  toggleDocNumberRequired();
-  applyAttachRules();
-})();
-</script>
-  (function(){
-    const docType = document.querySelector('select[name="doc_type"]');
-    const docNumber = document.querySelector('input[name="doc_number"]');
-    if(!docType || !docNumber) return;
+        attachTo.addEventListener("change", function(){
+          applyAttachRules();
+        });
 
-    function toggleDocNumberRequired() {
-      const isDN = (docType.value || "").toUpperCase() === "DELIVERY_NOTE";
-      docNumber.required = isDN;
-      docNumber.placeholder = isDN
-        ? "Required (must match Delivery Note Number exactly)"
-        : (docNumber.placeholder || "Optional");
-    }
+        applyDocRules();
+        applyAttachRules();
+      })();
+      </script>
 
-    docType.addEventListener("change", toggleDocNumberRequired);
-    toggleDocNumberRequired();
-  })();
-</script>
+    {% endif %}
+  </div>
+
+  <!-- PO Check + Confirm moved here (instead of ticket page) -->
+  <div class="card inner mt">
+    <div class="sectiontitle accent-blue">Checklist & PO Verification</div>
+
+    {% if readonly %}
+      <div class="muted mt">Actions disabled (ticket canceled).</div>
+    {% else %}
+      <div class="kv"><span>Ticket PO number</span><b>{{ lot.po_number or "-" }}</b></div>
+      <div class="kv"><span>Inspector entered PO</span><b>{{ receiving.inspector_po_number if receiving else "-" }}</b></div>
+      <div class="kv"><span>PO Match</span>
+        <b>
+          {% if receiving and receiving.po_match %}YES{% else %}NO{% endif %}
+        </b>
+      </div>
+
+      <form class="mt" action="/mrr/{{ lot.id }}/docs/submit_and_confirm" method="post"
+            onsubmit="return confirm('Save PO number and confirm documentation? (Requires PO uploaded + PO match)');">
+        <label>Inspector PO Number (type it exactly like the ticket PO)</label>
+        <input name="inspector_po_number" required value="{{ receiving.inspector_po_number if receiving else '' }}">
+        <div class="mt">
+          <button class="btn btn-primary" type="submit">Inspector Confirm Documentation</button>
+        </div>
+      </form>
+
+      {% if user.role and user.role|upper == "MANAGER" %}
+        <form class="mt" action="/mrr/{{ lot.id }}/docs/approve" method="post"
+              onsubmit="return confirm('Manager approve documentation?');">
+          <button class="btn btn-warn" type="submit">Manager Approve Documentation</button>
+        </form>
+      {% endif %}
+    {% endif %}
+  </div>
+
+</div>
+
+{% endblock %}
