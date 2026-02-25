@@ -86,7 +86,10 @@
               <td style="display:flex; gap:8px; flex-wrap:wrap;">
                 <a class="btn btn-sm" href="/mrr/{{ r.ticket_id }}">Open Ticket</a>
                 <!-- Optional: if your ticket page supports focusing a shipment, this will still be safe -->
-                <a class="btn btn-sm btn-outline-secondary" href="/mrr/{{ r.ticket_id }}?shipment={{ r.id }}">Open Report</a>
+                <a class="btn btn-sm btn-outline-secondary"
+                   href="/mrr/{{ r.ticket_id }}/inspection/id/{{ r.id }}/export/package?mode=pdf">
+                  Open Report
+                </a>
               </td>
             </tr>
           {% endfor %}
