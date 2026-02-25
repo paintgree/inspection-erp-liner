@@ -1097,13 +1097,6 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
             _apply_f02_bookmark_signatures(doc, inspection)
         except Exception:
             pass
-        inspector_name=inspector_name if getattr(inspection, "inspector_confirmed", False) else "",
-        inspector_dt=inspector_dt if getattr(inspection, "inspector_confirmed", False) else "",
-        reviewer_name=reviewed_by,
-        reviewer_dt=reviewer_dt,
-        manager_name=manager_by if getattr(inspection, "manager_approved", False) else "",
-        manager_dt=manager_dt if getattr(inspection, "manager_approved", False) else "",
-    )
 
     # ---------- Layout tweaks (prevents overlap + “bigger” look) ----------
     try:
