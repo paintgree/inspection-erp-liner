@@ -886,12 +886,17 @@ def _insert_multiline_at_bookmark(
 
 def _apply_f02_bookmark_signatures(doc: Document, inspection: "MrrReceivingInspection") -> None:
     """
-    Uses your bookmarks:
-      BM_INSPECTED_BY
-      BM_REVIEWD_BY (your spelling)
-      BM_REVIEWED_BY (supported too)
-      BM_APPROVED_BY
-    Adds date+time.
+    Writes digital signature blocks INSIDE the Word bookmarks (so position stays correct even if multi-page).
+
+    Bookmarks used in QAP0600-F02.docx:
+      - BM_INSPECTED_BY
+      - BM_REVIEWED_BY (also supports BM_REVIEWD_BY)
+      - BM_APPROVED_BY
+
+    This version is "FORCED":
+      - If inspector_name exists, we write the inspector signature even if inspector_confirmed is False.
+      - If manager_approved is True, we write manager signature even if manager_approved_by is missing (fallback: "MANAGER").
+      - Includes date + time (YYYY-MM-DD HH:MM).
     """
     try:
         data = safe_json_loads(getattr(inspection, "inspection_json", None)) or {}
@@ -900,62 +905,78 @@ def _apply_f02_bookmark_signatures(doc: Document, inspection: "MrrReceivingInspe
     except Exception:
         data = {}
 
-    # Pull names
-    inspector_name = (getattr(inspection, "inspector_name", "") or "").strip()
+    # ----- Names (with safe fallbacks) -----
+    inspector_name = (getattr(inspection, "inspector_name", "") or "").strip() or (data.get("inspected_by") or "").strip()
     reviewer_name = (data.get("reviewed_by") or "").strip()
     manager_name = (data.get("manager_approved_by") or "").strip()
 
-    # Times (date + time). If missing, we still show current time.
-    submitted_at = data.get("submitted_at_utc") or getattr(inspection, "created_at", None) or datetime.utcnow()
+    # ----- Timestamps (date + time) -----
+    # Prefer stored timestamps if present, otherwise use created_at
+    submitted_at = data.get("submitted_at_utc") or data.get("inspected_at_utc") or getattr(inspection, "created_at", None) or datetime.utcnow()
     reviewed_at = data.get("reviewed_at_utc") or ""
-    approved_at = data.get("manager_approved_at_utc") or datetime.utcnow()
+    approved_at = data.get("manager_approved_at_utc") or ""
 
     inspector_dt = _as_datetime_str(submitted_at)
     reviewer_dt = _as_datetime_str(reviewed_at) if reviewer_name else ""
-    manager_dt = _as_datetime_str(approved_at) if getattr(inspection, "manager_approved", False) else ""
+    manager_dt = _as_datetime_str(approved_at) if approved_at else _as_datetime_str(datetime.utcnow())
 
-    # Darker gray (more contrast than before, not black)
-    color = "333333"
-    font_sz = "18"  # 9pt
+    # Style
+    font_pt = 8.5
+    rgb = (70, 70, 70)  # dark gray
 
-    # Inspector: show only if inspector_confirmed is True
-    if getattr(inspection, "inspector_confirmed", False) and inspector_name:
-        _insert_multiline_at_bookmark(
+    # Helper: write 2 lines into bookmark paragraph (cleans old runs => no duplicates)
+    def _write_sig(bookmark: str, line1: str, line2: str) -> bool:
+        ok = _set_bookmark_signature_block(
             doc,
-            "BM_INSPECTED_BY",
-            [f"Digitally signed by: {inspector_name}", f"Date: {inspector_dt}"],
-            rgb_hex=color,
-            font_half_points=font_sz,
+            bookmark,
+            line1,
+            line2,
+            font_pt=font_pt,
+            rgb=rgb,
+        )
+        if ok:
+            return True
+        # Fallback to XML insert method (if paragraph-based method fails for any reason)
+        return _insert_multiline_at_bookmark(
+            doc,
+            bookmark,
+            [line1, line2],
+            rgb_hex="333333",
+            font_half_points="18",
         )
 
-    # Reviewer: optional (support both bookmark spellings)
+    # ----- INSPECTOR (FORCED if name exists) -----
+    if inspector_name:
+        _write_sig(
+            "BM_INSPECTED_BY",
+            f"Digitally signed by: {inspector_name}",
+            f"Date: {inspector_dt}",
+        )
+
+    # ----- REVIEWER (optional) -----
     if reviewer_name:
-        ok = _insert_multiline_at_bookmark(
-            doc,
+        # Your system supports both spellings, keep both:
+        ok = _write_sig(
             "BM_REVIEWD_BY",
-            [f"Digitally reviewed by: {reviewer_name}", f"Date: {reviewer_dt}"],
-            rgb_hex=color,
-            font_half_points=font_sz,
+            f"Digitally reviewed by: {reviewer_name}",
+            f"Date: {reviewer_dt}",
         )
         if not ok:
-            _insert_multiline_at_bookmark(
-                doc,
+            _write_sig(
                 "BM_REVIEWED_BY",
-                [f"Digitally reviewed by: {reviewer_name}", f"Date: {reviewer_dt}"],
-                rgb_hex=color,
-                font_half_points=font_sz,
+                f"Digitally reviewed by: {reviewer_name}",
+                f"Date: {reviewer_dt}",
             )
 
-    # Approved: show only if manager_approved is True
-    if getattr(inspection, "manager_approved", False) and manager_name:
-        _insert_multiline_at_bookmark(
-            doc,
+    # ----- MANAGER (if approved) -----
+    if bool(getattr(inspection, "manager_approved", False)):
+        if not manager_name:
+            manager_name = "MANAGER"
+        _write_sig(
             "BM_APPROVED_BY",
-            [f"Digitally approved by: {manager_name}", f"Date: {manager_dt}"],
-            rgb_hex=color,
-            font_half_points=font_sz,
+            f"Digitally approved by: {manager_name}",
+            f"Date: {manager_dt}",
         )
-
 
 def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     template_path = MRR_TEMPLATE_DOCX_MAP.get("OUTSOURCED")
