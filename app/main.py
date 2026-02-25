@@ -2611,7 +2611,7 @@ def get_current_user(request: Request, session: Session) -> User:
     return user
 
 def require_manager(user: User):
-    if user.role != "MANAGER":
+    if (getattr(user, "role", "") or "").strip().upper() != "MANAGER":
         raise HTTPException(403, "Manager only")
 
 def forbid_boss(user: User):
