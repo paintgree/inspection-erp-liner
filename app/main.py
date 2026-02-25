@@ -842,16 +842,11 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
         raise HTTPException(500, f"OUTSOURCED template missing. Put QAP0600-F02.docx in {MRR_TEMPLATE_DIR}")
 
     doc = Document(template_path)
-    # Put signatures inside boxes using DOCX bookmarks (F02)
-    try:
-        _apply_f02_bookmark_signatures(doc, inspection)
-    except Exception:
-        pass
-    # Apply signatures using REAL Word bookmarks (F02)
-    try:
-        _apply_f02_bookmark_signatures(doc, inspection)
-    except Exception:
-        pass
+
+    # IMPORTANT: always load inspection_json into `data`
+    data = safe_json_loads(getattr(inspection, "inspection_json", None)) or {}
+    if not isinstance(data, dict):
+        data = {}
 
     # -------------------------
     # Header (BOOKMARKS)
@@ -862,9 +857,6 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     _set_bookmark_text(doc, "BM_PO_NUMBER", getattr(lot, "po_number", "") or "")
 
     # Helper: get the LEFT-most cell index for a bookmark (works with merged cells)
-
-
-    
     def _bookmark_col_index(bookmark: str):
         hit = _find_cell_by_bookmark(doc, bookmark)
         if not hit:
@@ -881,7 +873,7 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
         return (t0, r0, min_c)
 
     # -------------------------
-    # Build Items rows from saved JSON arrays
+    # Items table (from JSON arrays)
     # -------------------------
     items_item = data.get("items_item[]", [])
     items_desc = data.get("items_desc[]", [])
@@ -908,7 +900,7 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
         for idx in range(1, 8):
             col_indices.append(cols[idx][2] if cols.get(idx) else None)
 
-        # fallback (won’t crash if template is missing some bookmarks)
+        # fallback if mapping fails
         if any(c is None for c in col_indices):
             col_indices = list(range(0, 7))
 
@@ -934,7 +926,7 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
                 _set_cell_text(row_cells[cidx], str(v))
 
     # -------------------------
-    # Build Visual rows from saved JSON arrays
+    # Visual table (from JSON arrays)
     # -------------------------
     vis_batch = data.get("vis_batch[]", [])
     vis_flange = data.get("vis_flange[]", [])
@@ -986,22 +978,26 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
                 _set_cell_text(row_cells[cidx], str(v))
 
     # -------------------------
-    # Remarks + signatures
+    # Remarks
     # -------------------------
-    _set_bookmark_text(doc, "BM_REMARKS", (data.get("remarks") or "").strip())
-    _set_bookmark_text(doc, "BM_INSPECTED_BY", getattr(inspection, "inspector_name", "") or "")
-    _set_bookmark_text(doc, "BM_REVIEWED_BY", "Quality Manager" if getattr(inspection, "manager_approved", False) else "")
-    _set_bookmark_text(doc, "BM_APPROVED_BY", "Approved" if getattr(inspection, "ticket_approved", False) else "")
+    remarks = (data.get("remarks") or data.get("REMARKS") or "").strip()
+    if remarks:
+        _set_bookmark_text(doc, "BM_REMARKS", remarks)
 
-    # Make exported PDF match template better (smaller font + lower content)
+    # -------------------------
+    # Signatures via BOOKMARKS (NO PDF overlay)
+    # Uses your bookmarks: BM_INSPECTED_BY, BM_REVIEWD_BY, BM_APPROVED_BY
+    # -------------------------
     try:
-        _apply_f02_pdf_layout_tweaks(doc)
+        _apply_f02_bookmark_signatures(doc, inspection)
     except Exception:
         pass
 
-    bio = io.BytesIO()
-    doc.save(bio)
-    return bio.getvalue()
+    # Return docx bytes
+    out = BytesIO()
+    doc.save(out)
+    out.seek(0)
+    return out.getvalue()
 
 def docx_bytes_to_pdf_bytes(docx_bytes: bytes) -> bytes:
     """
