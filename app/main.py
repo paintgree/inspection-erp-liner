@@ -1075,7 +1075,9 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     # ---------- Remarks ----------
     _set_bookmark_text(doc, "BM_REMARKS", (data.get("remarks") or "").strip())
 
-    # ---------- Signatures using BOOKMARKS (FORCED, always attempted) ----------
+    # ✅ ---------- Signatures using BOOKMARKS (with TIME) ----------
+    # IMPORTANT: this MUST run regardless of manager_approved;
+    # the helper itself decides what to write based on inspector_confirmed/manager_approved.
     try:
         _apply_f02_bookmark_signatures(doc, inspection)
     except Exception:
