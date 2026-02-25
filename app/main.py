@@ -256,6 +256,38 @@ def _ws_set_value_safe(ws, addr: str, value):
     ws[addr].value = value
 
 
+def _apply_excel_print_fit_settings_f01(wb):
+    """
+    Force Excel print settings so LibreOffice exports F01 correctly:
+    - Fit all columns on 1 page width
+    - Allow multiple pages height
+    - A4 portrait
+    """
+    from openpyxl.worksheet.page import PageMargins
+
+    for ws in wb.worksheets:
+        try:
+            # Enable "Fit to page"
+            ws.sheet_properties.pageSetUpPr.fitToPage = True
+
+            # A4 paper
+            ws.page_setup.paperSize = ws.PAPERSIZE_A4
+
+            # Portrait (change to 'landscape' only if your template is landscape)
+            ws.page_setup.orientation = "portrait"
+
+            # ✅ This is the key:
+            ws.page_setup.fitToWidth = 1
+            ws.page_setup.fitToHeight = 0  # 0 = as many pages tall as needed
+
+            # Reasonable margins (tune if needed)
+            ws.page_margins = PageMargins(
+                left=0.25, right=0.25, top=0.35, bottom=0.35,
+                header=0.2, footer=0.2
+            )
+        except Exception:
+            pass
+
 def fill_mrr_f01_xlsx_bytes(
     *,
     lot,
@@ -373,6 +405,9 @@ def fill_mrr_f01_xlsx_bytes(
         _ws_set_value_safe(ws, "A11", "")
         _ws_set_value_safe(ws, "A24", "")
     # ✅ VERY IMPORTANT: return the filled Excel as bytes
+
+     # ✅ Force all columns to fit within page width when exporting to PDF
+    _apply_excel_print_fit_settings_f01(wb)
     return _xlsx_bytes_from_wb(wb)
 
         # ---- PROPERTIES TABLE FILL (generic matcher) ----
