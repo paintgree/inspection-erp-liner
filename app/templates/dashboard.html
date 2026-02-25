@@ -24,6 +24,13 @@
     <span>Material Receiving (MRR)</span>
   </a>
 
+  {% if user and user.role and user.role|upper == "MANAGER" %}
+    <a class="dash-nav-item" href="/users">
+      <span class="dash-nav-ico">👤</span>
+      <span>Users</span>
+    </a>
+  {% endif %}  
+
   <a class="dash-nav-item disabled" href="#" onclick="return false;">
     <span class="dash-nav-ico">💥</span>
     <span>Burst Testing</span>
@@ -159,6 +166,7 @@
 </div>
 
 {% endblock %}
+
 
 
 
