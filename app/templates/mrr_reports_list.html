@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="card">
+  <div class="runheader">
+    <div>
+      <h1>MRR — Inspection Reports</h1>
+      <div class="muted">This list shows submitted/approved receiving inspection reports. Tickets are still available under “Tickets”.</div>
+    </div>
+
+    <div class="actions">
+      <a class="btn btn-outline-secondary" href="/dashboard">← Back to Dashboard</a>
+      <a class="btn btn-outline-secondary" href="/mrr/tickets">Tickets</a>
+
+      {% if user and user.role and user.role|upper == "MANAGER" %}
+        <a class="btn btn-primary" href="/mrr/new">+ New Ticket</a>
+        <a class="btn btn-warn" href="/mrr-pending-approvals">Pending approvals</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="mt" style="margin-top:16px;">
+    <form method="get" action="/mrr" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <input
+        type="text"
+        name="q"
+        value="{{ q or '' }}"
+        placeholder="Search: report #, ticket #, supplier, PO, DN, material..."
+        style="max-width:520px; width:100%;"
+      >
+      <button class="btn btn-primary" type="submit">Search</button>
+      {% if q %}
+        <a class="btn btn-outline-secondary" href="/mrr">Clear</a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="card inner mt">
+    <h2>Inspection Reports</h2>
+
+    <div class="tablewrap mt">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Report No</th>
+            <th>Date</th>
+            <th>Ticket</th>
+            <th class="wrap">Material</th>
+            <th class="wrap">Supplier</th>
+            <th class="wrap">PO</th>
+            <th>DN</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% for r in reports %}
+            {% set lot = lot_map.get(r.ticket_id) %}
+            {% set st = "PENDING" %}
+            {% if r.manager_approved %}
+              {% set st = "APPROVED" %}
+            {% elif r.inspector_confirmed %}
+              {% set st = "SUBMITTED" %}
+            {% endif %}
+
+            <tr>
+              <td><b>{{ r.report_no or "-" }}</b></td>
+              <td>{{ (r.created_at|string)[:10] if r.created_at else "-" }}</td>
+              <td>{{ r.ticket_id }}</td>
+              <td class="wrap">{{ lot.material_name if lot else "-" }}</td>
+              <td class="wrap">{{ lot.supplier_name if lot else "-" }}</td>
+              <td class="wrap">{{ lot.po_number if lot else "-" }}</td>
+              <td>{{ r.delivery_note_no or "-" }}</td>
+
+              <td>
+                {% if st == "APPROVED" %}
+                  <span class="badge badge-ok">APPROVED</span>
+                {% elif st == "SUBMITTED" %}
+                  <span class="badge badge-warn">SUBMITTED</span>
+                {% else %}
+                  <span class="badge badge-muted">DRAFT</span>
+                {% endif %}
+              </td>
+
+              <td style="display:flex; gap:8px; flex-wrap:wrap;">
+                <a class="btn btn-sm" href="/mrr/{{ r.ticket_id }}">Open Ticket</a>
+                <!-- Optional: if your ticket page supports focusing a shipment, this will still be safe -->
+                <a class="btn btn-sm btn-outline-secondary" href="/mrr/{{ r.ticket_id }}?shipment={{ r.id }}">Open Report</a>
+              </td>
+            </tr>
+          {% endfor %}
+
+          {% if not reports or reports|length == 0 %}
+            <tr>
+              <td colspan="9" class="muted">No inspection reports found.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+{% endblock %}
