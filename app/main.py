@@ -664,23 +664,58 @@ def _clear_paragraph_runs(paragraph):
 def _set_bookmark_text(doc, bookmark_name: str, text: str) -> bool:
     """
     Writes `text` at a Word bookmark position.
-    Returns True if bookmark found and filled.
+    This version clears the paragraph cleanly but keeps it inside the same cell/box.
     """
     text = "" if text is None else str(text)
 
     for p in _iter_paragraphs_in_doc(doc):
-        # look for bookmarkStart inside this paragraph
         for child in p._p.iter():
             if child.tag == qn("w:bookmarkStart") and child.get(qn("w:name")) == bookmark_name:
-                # Found bookmark start. Put text in this paragraph.
-                # Strategy: clear runs and set first run to text.
+                # wipe paragraph
+                for r in p.runs:
+                    r.text = ""
                 if not p.runs:
                     p.add_run(text)
                 else:
-                    _clear_paragraph_runs(p)
                     p.runs[0].text = text
                 return True
+    return False
 
+def _set_bookmark_signature_block(
+    doc: Document,
+    bookmark_name: str,
+    signed_line: str,
+    dt_line: str,
+    font_pt: float = 8.5,
+    rgb=(70, 70, 70),
+) -> bool:
+    """
+    Writes 2 lines inside the bookmark paragraph:
+      line1
+      line2
+    Darker gray for better contrast.
+    """
+    from docx.shared import Pt, RGBColor
+
+    for p in _iter_paragraphs_in_doc(doc):
+        for child in p._p.iter():
+            if child.tag == qn("w:bookmarkStart") and child.get(qn("w:name")) == bookmark_name:
+                # clear runs
+                for r in p.runs:
+                    r.text = ""
+
+                # rebuild with formatting
+                r1 = p.add_run((signed_line or "").strip())
+                r1.font.size = Pt(font_pt)
+                r1.font.color.rgb = RGBColor(*rgb)
+
+                p.add_run().add_break()
+
+                r2 = p.add_run((dt_line or "").strip())
+                r2.font.size = Pt(font_pt)
+                r2.font.color.rgb = RGBColor(*rgb)
+
+                return True
     return False
 
 def _find_cell_by_bookmark(doc, bookmark_name: str):
@@ -843,26 +878,23 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
 
     doc = Document(template_path)
 
-    # IMPORTANT: always load inspection_json into `data`
+    # Load saved inspection JSON safely
     data = safe_json_loads(getattr(inspection, "inspection_json", None)) or {}
     if not isinstance(data, dict):
         data = {}
 
-    # -------------------------
-    # Header (BOOKMARKS)
-    # -------------------------
+    # ---------- Header bookmarks ----------
     _set_bookmark_text(doc, "BM_REPORT_NO", getattr(inspection, "report_no", "") or "")
     _set_bookmark_text(doc, "BM_REPORT_DATE", _as_date_str(getattr(inspection, "created_at", None) or datetime.utcnow()))
     _set_bookmark_text(doc, "BM_DELIVERY_NOTE", getattr(inspection, "delivery_note_no", "") or "")
     _set_bookmark_text(doc, "BM_PO_NUMBER", getattr(lot, "po_number", "") or "")
 
-    # Helper: get the LEFT-most cell index for a bookmark (works with merged cells)
+    # ---------- Helper: resolve column index for bookmarks ----------
     def _bookmark_col_index(bookmark: str):
         hit = _find_cell_by_bookmark(doc, bookmark)
         if not hit:
             return None
         t0, r0, c0 = hit
-
         min_c = c0
         for _c in range(len(t0.rows[r0].cells)):
             cell = t0.rows[r0].cells[_c]
@@ -872,9 +904,7 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
                         min_c = min(min_c, _c)
         return (t0, r0, min_c)
 
-    # -------------------------
-    # Items table (from JSON arrays)
-    # -------------------------
+    # ---------- Items table ----------
     items_item = data.get("items_item[]", [])
     items_desc = data.get("items_desc[]", [])
     items_size = data.get("items_size[]", [])
@@ -888,19 +918,10 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
         len(items_pressure), len(items_qty), len(items_mtc), 0
     )
 
-    # Map item columns using bookmarks BM_ITEMS_R1_C1..C7
-    cols = {}
-    for idx in range(1, 8):
-        cols[idx] = _bookmark_col_index(f"BM_ITEMS_R1_C{idx}")
-
+    cols = {idx: _bookmark_col_index(f"BM_ITEMS_R1_C{idx}") for idx in range(1, 8)}
     if cols.get(1):
         t, start_r, _ = cols[1]
-
-        col_indices = []
-        for idx in range(1, 8):
-            col_indices.append(cols[idx][2] if cols.get(idx) else None)
-
-        # fallback if mapping fails
+        col_indices = [(cols[idx][2] if cols.get(idx) else None) for idx in range(1, 8)]
         if any(c is None for c in col_indices):
             col_indices = list(range(0, 7))
 
@@ -918,16 +939,13 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
                 items_qty[i] if i < len(items_qty) else "",
                 items_mtc[i] if i < len(items_mtc) else "",
             ]
-
             for j, v in enumerate(vals):
                 cidx = col_indices[j]
                 if cidx is None or cidx >= len(row_cells):
                     continue
                 _set_cell_text(row_cells[cidx], str(v))
 
-    # -------------------------
-    # Visual table (from JSON arrays)
-    # -------------------------
+    # ---------- Visual table ----------
     vis_batch = data.get("vis_batch[]", [])
     vis_flange = data.get("vis_flange[]", [])
     vis_surface = data.get("vis_surface[]", [])
@@ -941,18 +959,10 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
         len(vis_package), len(vis_marking), len(vis_result), 0
     )
 
-    # Map visual columns using bookmarks BM_VIS_R1_C1..C7
-    vcols = {}
-    for idx in range(1, 8):
-        vcols[idx] = _bookmark_col_index(f"BM_VIS_R1_C{idx}")
-
+    vcols = {idx: _bookmark_col_index(f"BM_VIS_R1_C{idx}") for idx in range(1, 8)}
     if vcols.get(1):
         t, start_r, _ = vcols[1]
-
-        v_col_indices = []
-        for idx in range(1, 8):
-            v_col_indices.append(vcols[idx][2] if vcols.get(idx) else None)
-
+        v_col_indices = [(vcols[idx][2] if vcols.get(idx) else None) for idx in range(1, 8)]
         if any(c is None for c in v_col_indices):
             v_col_indices = list(range(0, 7))
 
@@ -970,34 +980,51 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
                 vis_marking[i] if i < len(vis_marking) else "",
                 vis_result[i] if i < len(vis_result) else "",
             ]
-
             for j, v in enumerate(vals):
                 cidx = v_col_indices[j]
                 if cidx is None or cidx >= len(row_cells):
                     continue
                 _set_cell_text(row_cells[cidx], str(v))
 
-    # -------------------------
-    # Remarks
-    # -------------------------
-    remarks = (data.get("remarks") or data.get("REMARKS") or "").strip()
-    if remarks:
-        _set_bookmark_text(doc, "BM_REMARKS", remarks)
+    # ---------- Remarks ----------
+    _set_bookmark_text(doc, "BM_REMARKS", (data.get("remarks") or "").strip())
 
-    # -------------------------
-    # Signatures via BOOKMARKS (NO PDF overlay)
-    # Uses your bookmarks: BM_INSPECTED_BY, BM_REVIEWD_BY, BM_APPROVED_BY
-    # -------------------------
+    # ---------- Signatures using BOOKMARKS (with TIME) ----------
+    inspector_name = (getattr(inspection, "inspector_name", "") or "").strip()
+    reviewed_by = (data.get("reviewed_by") or "").strip()
+    manager_by = (data.get("manager_approved_by") or "").strip()
+
+    inspector_dt = ""
+    if getattr(inspection, "inspector_confirmed", False):
+        inspector_dt = _as_datetime_str(data.get("submitted_at_utc") or getattr(inspection, "created_at", None) or datetime.utcnow())
+
+    reviewer_dt = ""
+    if reviewed_by:
+        reviewer_dt = _as_datetime_str(data.get("reviewed_at_utc") or "")
+
+    manager_dt = ""
+    if getattr(inspection, "manager_approved", False):
+        manager_dt = _as_datetime_str(data.get("manager_approved_at_utc") or datetime.utcnow())
+
+    _apply_f02_docx_signatures(
+        doc,
+        inspector_name=inspector_name if getattr(inspection, "inspector_confirmed", False) else "",
+        inspector_dt=inspector_dt if getattr(inspection, "inspector_confirmed", False) else "",
+        reviewer_name=reviewed_by,
+        reviewer_dt=reviewer_dt,
+        manager_name=manager_by if getattr(inspection, "manager_approved", False) else "",
+        manager_dt=manager_dt if getattr(inspection, "manager_approved", False) else "",
+    )
+
+    # ---------- Layout tweaks (prevents overlap + “bigger” look) ----------
     try:
-        _apply_f02_bookmark_signatures(doc, inspection)
+        _apply_f02_pdf_layout_tweaks(doc)
     except Exception:
         pass
 
-    # Return docx bytes
-    out = BytesIO()
-    doc.save(out)
-    out.seek(0)
-    return out.getvalue()
+    bio = io.BytesIO()
+    doc.save(bio)
+    return bio.getvalue()
 
 def docx_bytes_to_pdf_bytes(docx_bytes: bytes) -> bytes:
     """
@@ -1667,32 +1694,70 @@ def make_signature_stamp_pdf_f02(
 def _apply_f02_docx_signatures(
     doc: Document,
     inspector_name: str = "",
-    inspector_date: str = "",
+    inspector_dt: str = "",
     reviewer_name: str = "",
-    reviewer_date: str = "",
+    reviewer_dt: str = "",
     manager_name: str = "",
-    manager_date: str = "",
+    manager_dt: str = "",
 ) -> None:
     """
-    Replace signature placeholders inside F02 docx.
-    Placeholders must exist in the template inside the signature boxes:
-      BM_INSPECTED_BY, BM_REVIEWED_BY, BM_APPROVED_BY
+    Fill signatures INSIDE the signature boxes using bookmarks.
+    Supports your bookmark names:
+      BM_INSPECTED_BY
+      BM_REVIEWD_BY  (your spelling)
+      BM_REVIEWED_BY (correct spelling, supported too)
+      BM_APPROVED_BY
     """
-    ins_txt = ""
+
+    # Inspector
     if inspector_name:
-        ins_txt = f"Digitally signed by: {inspector_name}\nDate: {inspector_date}".strip()
+        _set_bookmark_signature_block(
+            doc,
+            "BM_INSPECTED_BY",
+            f"Digitally signed by: {inspector_name}",
+            f"Date: {inspector_dt}",
+            font_pt=8.5,
+            rgb=(70, 70, 70),
+        )
+    else:
+        _set_bookmark_text(doc, "BM_INSPECTED_BY", "")
 
-    rev_txt = ""
+    # Reviewer (optional)
     if reviewer_name:
-        rev_txt = f"Digitally reviewed by: {reviewer_name}\nDate: {reviewer_date}".strip()
+        # support both bookmark spellings
+        ok = _set_bookmark_signature_block(
+            doc,
+            "BM_REVIEWD_BY",
+            f"Digitally reviewed by: {reviewer_name}",
+            f"Date: {reviewer_dt}",
+            font_pt=8.5,
+            rgb=(70, 70, 70),
+        )
+        if not ok:
+            _set_bookmark_signature_block(
+                doc,
+                "BM_REVIEWED_BY",
+                f"Digitally reviewed by: {reviewer_name}",
+                f"Date: {reviewer_dt}",
+                font_pt=8.5,
+                rgb=(70, 70, 70),
+            )
+    else:
+        _set_bookmark_text(doc, "BM_REVIEWD_BY", "")
+        _set_bookmark_text(doc, "BM_REVIEWED_BY", "")
 
-    appr_txt = ""
+    # Manager approval
     if manager_name:
-        appr_txt = f"Digitally approved by: {manager_name}\nDate: {manager_date}".strip()
-
-    _docx_replace_all(doc, "BM_INSPECTED_BY", ins_txt)
-    _docx_replace_all(doc, "BM_REVIEWED_BY", rev_txt)
-    _docx_replace_all(doc, "BM_APPROVED_BY", appr_txt)
+        _set_bookmark_signature_block(
+            doc,
+            "BM_APPROVED_BY",
+            f"Digitally approved by: {manager_name}",
+            f"Date: {manager_dt}",
+            font_pt=8.5,
+            rgb=(70, 70, 70),
+        )
+    else:
+        _set_bookmark_text(doc, "BM_APPROVED_BY", "")
 
 
 def stamp_signatures_on_pdf_f02(
@@ -1734,26 +1799,40 @@ def stamp_signatures_on_pdf_f02(
 
 def _as_date_str(x) -> str:
     """
-    Return: YYYY-MM-DD HH:MM
-    Accepts datetime or ISO string.
+    Returns YYYY-MM-DD
+    Accepts datetime, ISO string, or anything convertible to str.
+    """
+    try:
+        if isinstance(x, datetime):
+            return x.strftime("%Y-%m-%d")
+        s = str(x or "").strip()
+        if not s:
+            return ""
+        try:
+            dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
+            return dt.strftime("%Y-%m-%d")
+        except Exception:
+            return s[:10]
+    except Exception:
+        return ""
+
+
+def _as_datetime_str(x) -> str:
+    """
+    Returns YYYY-MM-DD HH:MM (24h)
+    Accepts datetime, ISO string, or anything convertible to str.
     """
     try:
         if isinstance(x, datetime):
             return x.strftime("%Y-%m-%d %H:%M")
-
-        s = (str(x or "")).strip()
+        s = str(x or "").strip()
         if not s:
             return ""
-
-        s2 = s.replace("Z", "+00:00")
-
         try:
-            dt = datetime.fromisoformat(s2)
+            dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
             return dt.strftime("%Y-%m-%d %H:%M")
         except Exception:
-            # fallback: 2026-02-24T10:55:37...
-            if "T" in s:
-                return s.replace("T", " ")[:16]
+            # fallback: keep first 16 chars if it looks like datetime
             return s[:16]
     except Exception:
         return ""
