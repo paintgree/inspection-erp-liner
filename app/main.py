@@ -1667,6 +1667,32 @@ def stamp_signatures_on_pdf_f02(
     out.seek(0)
     return out.getvalue()
 
+def _as_date_str(x) -> str:
+    """
+    Return: YYYY-MM-DD HH:MM
+    Accepts datetime or ISO string.
+    """
+    try:
+        if isinstance(x, datetime):
+            return x.strftime("%Y-%m-%d %H:%M")
+
+        s = (str(x or "")).strip()
+        if not s:
+            return ""
+
+        # Handle Z timezone
+        s2 = s.replace("Z", "+00:00")
+
+        try:
+            dt = datetime.fromisoformat(s2)
+            return dt.strftime("%Y-%m-%d %H:%M")
+        except Exception:
+            # fallback: if ISO like 2026-02-24T10:55:37...
+            if "T" in s:
+                return s.replace("T", " ")[:16]
+            return s[:16]
+    except Exception:
+        return ""
 
 def stamp_signatures_on_pdf(
     pdf_bytes: bytes,
