@@ -1076,32 +1076,17 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
                 if cidx is None or cidx >= len(row_cells):
                     continue
                 _set_cell_text(row_cells[cidx], str(v))
-
     # ---------- Remarks ----------
     _set_bookmark_text(doc, "BM_REMARKS", (data.get("remarks") or "").strip())
 
     # ---------- Signatures using BOOKMARKS (with TIME) ----------
-    inspector_name = (getattr(inspection, "inspector_name", "") or "").strip()
-    reviewed_by = (data.get("reviewed_by") or "").strip()
-    manager_by = (data.get("manager_approved_by") or "").strip()
-
-    inspector_dt = ""
-    if getattr(inspection, "inspector_confirmed", False):
-        inspector_dt = _as_datetime_str(data.get("submitted_at_utc") or getattr(inspection, "created_at", None) or datetime.utcnow())
-
-    reviewer_dt = ""
-    if reviewed_by:
-        reviewer_dt = _as_datetime_str(data.get("reviewed_at_utc") or "")
-
-    manager_dt = ""
-    if getattr(inspection, "manager_approved", False):
-        manager_dt = _as_datetime_str(data.get("manager_approved_at_utc") or datetime.utcnow())
-
-            # --- F02 signatures (BOOKMARKS ONLY) ---
-        try:
-            _apply_f02_bookmark_signatures(doc, inspection)
-        except Exception:
-            pass
+    # IMPORTANT:
+    # Do NOT gate the bookmark signature insertion under manager_approved.
+    # _apply_f02_bookmark_signatures() already decides what to show based on flags.
+    try:
+        _apply_f02_bookmark_signatures(doc, inspection)
+    except Exception:
+        pass
 
     # ---------- Layout tweaks (prevents overlap + “bigger” look) ----------
     try:
@@ -2267,6 +2252,20 @@ def mrr_export_inspection_pdf(
         # Footer stamp (optional)
         try:
             pdf_bytes = stamp_footer_on_pdf(pdf_bytes, "QAP0600-F02")
+        except Exception:
+            pass
+
+        # Digital signatures overlay (F02)  ✅ ADD THIS
+        try:
+            pdf_bytes = stamp_signatures_on_pdf_f02(
+                pdf_bytes,
+                inspector_name=inspector_name if getattr(insp, "inspector_confirmed", False) else "",
+                inspector_date=inspector_date if getattr(insp, "inspector_confirmed", False) else "",
+                reviewer_name=reviewer_name or "",
+                reviewer_date=reviewer_date or "",
+                manager_name=manager_name if getattr(insp, "manager_approved", False) else "",
+                manager_date=manager_date if getattr(insp, "manager_approved", False) else "",
+            )
         except Exception:
             pass
 
