@@ -818,57 +818,143 @@ def _insert_multiline_text_at_bookmark(doc: Document, bookmark_name: str, lines:
     return True
 
 
+def _bookmark_exists(doc: Document, bookmark_name: str) -> bool:
+    try:
+        nodes = doc._element.xpath(
+            f'.//w:bookmarkStart[@w:name="{bookmark_name}"]',
+            namespaces={"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"},
+        )
+        return bool(nodes)
+    except Exception:
+        return False
+
+
+def _insert_multiline_at_bookmark(
+    doc: Document,
+    bookmark_name: str,
+    lines: list[str],
+    rgb_hex: str = "333333",   # darker gray (not black)
+    font_half_points: str = "18",  # 9pt
+) -> bool:
+    """
+    Inserts multiline text exactly at bookmark position (works inside tables).
+    """
+    if not lines:
+        return False
+
+    try:
+        nodes = doc._element.xpath(
+            f'.//w:bookmarkStart[@w:name="{bookmark_name}"]',
+            namespaces={"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"},
+        )
+        if not nodes:
+            return False
+
+        bm = nodes[0]
+        parent = bm.getparent()
+
+        r = OxmlElement("w:r")
+        rPr = OxmlElement("w:rPr")
+
+        color = OxmlElement("w:color")
+        color.set(qn("w:val"), rgb_hex)
+        rPr.append(color)
+
+        sz = OxmlElement("w:sz")
+        sz.set(qn("w:val"), font_half_points)
+        rPr.append(sz)
+
+        r.append(rPr)
+
+        for i, line in enumerate(lines):
+            if i > 0:
+                br = OxmlElement("w:br")
+                r.append(br)
+
+            t = OxmlElement("w:t")
+            t.set(qn("xml:space"), "preserve")
+            t.text = str(line)
+            r.append(t)
+
+        idx = parent.index(bm)
+        parent.insert(idx + 1, r)
+        return True
+
+    except Exception:
+        return False
+
+
 def _apply_f02_bookmark_signatures(doc: Document, inspection: "MrrReceivingInspection") -> None:
     """
-    Put signatures INSIDE the F02 boxes using bookmarks:
-      BM_INSPECTED_BY, BM_REVIEWD_BY, BM_APPROVED_BY
+    Uses your bookmarks:
+      BM_INSPECTED_BY
+      BM_REVIEWD_BY (your spelling)
+      BM_REVIEWED_BY (supported too)
+      BM_APPROVED_BY
+    Adds date+time.
     """
     try:
-        data = json.loads(getattr(inspection, "inspection_json", None) or "{}")
+        data = safe_json_loads(getattr(inspection, "inspection_json", None)) or {}
         if not isinstance(data, dict):
             data = {}
     except Exception:
         data = {}
 
-    # Inspector
+    # Pull names
     inspector_name = (getattr(inspection, "inspector_name", "") or "").strip()
-    inspector_time = _as_date_str(data.get("submitted_at_utc") or "")
-
-    # Optional reviewer
     reviewer_name = (data.get("reviewed_by") or "").strip()
-    reviewer_time = _as_date_str(data.get("reviewed_at_utc") or "")
-
-    # Manager approval
     manager_name = (data.get("manager_approved_by") or "").strip()
-    manager_time = _as_date_str(data.get("manager_approved_at_utc") or "")
 
-    # Darker gray than current output (more contrast, not black)
+    # Times (date + time). If missing, we still show current time.
+    submitted_at = data.get("submitted_at_utc") or getattr(inspection, "created_at", None) or datetime.utcnow()
+    reviewed_at = data.get("reviewed_at_utc") or ""
+    approved_at = data.get("manager_approved_at_utc") or datetime.utcnow()
+
+    inspector_dt = _as_datetime_str(submitted_at)
+    reviewer_dt = _as_datetime_str(reviewed_at) if reviewer_name else ""
+    manager_dt = _as_datetime_str(approved_at) if getattr(inspection, "manager_approved", False) else ""
+
+    # Darker gray (more contrast than before, not black)
     color = "333333"
+    font_sz = "18"  # 9pt
 
+    # Inspector: show only if inspector_confirmed is True
     if getattr(inspection, "inspector_confirmed", False) and inspector_name:
-        _insert_multiline_text_at_bookmark(
+        _insert_multiline_at_bookmark(
             doc,
             "BM_INSPECTED_BY",
-            [f"Digitally signed by: {inspector_name}", f"Date: {inspector_time}"],
+            [f"Digitally signed by: {inspector_name}", f"Date: {inspector_dt}"],
             rgb_hex=color,
+            font_half_points=font_sz,
         )
 
+    # Reviewer: optional (support both bookmark spellings)
     if reviewer_name:
-        _insert_multiline_text_at_bookmark(
+        ok = _insert_multiline_at_bookmark(
             doc,
             "BM_REVIEWD_BY",
-            [f"Digitally reviewed by: {reviewer_name}", f"Date: {reviewer_time}"],
+            [f"Digitally reviewed by: {reviewer_name}", f"Date: {reviewer_dt}"],
             rgb_hex=color,
+            font_half_points=font_sz,
         )
+        if not ok:
+            _insert_multiline_at_bookmark(
+                doc,
+                "BM_REVIEWED_BY",
+                [f"Digitally reviewed by: {reviewer_name}", f"Date: {reviewer_dt}"],
+                rgb_hex=color,
+                font_half_points=font_sz,
+            )
 
+    # Approved: show only if manager_approved is True
     if getattr(inspection, "manager_approved", False) and manager_name:
-        _insert_multiline_text_at_bookmark(
+        _insert_multiline_at_bookmark(
             doc,
             "BM_APPROVED_BY",
-            [f"Digitally approved by: {manager_name}", f"Date: {manager_time}"],
+            [f"Digitally approved by: {manager_name}", f"Date: {manager_dt}"],
             rgb_hex=color,
+            font_half_points=font_sz,
         )
-
 
 
 def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
@@ -1006,7 +1092,8 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     if getattr(inspection, "manager_approved", False):
         manager_dt = _as_datetime_str(data.get("manager_approved_at_utc") or datetime.utcnow())
 
-    _apply_f02_docx_signatures(
+        # Signatures inside DOCX using bookmarks
+    _apply_f02_bookmark_signatures(doc, inspection)
         doc,
         inspector_name=inspector_name if getattr(inspection, "inspector_confirmed", False) else "",
         inspector_dt=inspector_dt if getattr(inspection, "inspector_confirmed", False) else "",
