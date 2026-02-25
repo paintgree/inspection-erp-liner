@@ -990,6 +990,11 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
                         min_c = min(min_c, _c)
         return (t0, r0, min_c)
 
+    print("INSPECT bookmark:", _bookmark_exists(doc, "BM_INSPECTED_BY"))
+    print("REVIEW bookmark:", _bookmark_exists(doc, "BM_REVIEWD_BY"))
+    print("APPROVE bookmark:", _bookmark_exists(doc, "BM_APPROVED_BY"))
+    print("inspector_confirmed:", getattr(inspection, "inspector_confirmed", None))
+
     # ---------- Items table ----------
     items_item = data.get("items_item[]", [])
     items_desc = data.get("items_desc[]", [])
