@@ -17,7 +17,7 @@
         <a class="btn btn-warn" href="/mrr-pending-approvals">Pending approvals</a>
 
         {% if showing_canceled %}
-          <a class="btn btn-outline-primary" href="/mrr">← Back to Active Tickets</a>
+          <a class="btn btn-outline-primary" href="/mrr/tickets">← Back to Active Tickets</a>
         {% else %}
           <a class="btn btn-outline-secondary" href="/mrr/canceled">View Canceled Tickets</a>
         {% endif %}
@@ -38,7 +38,7 @@
       <button class="btn btn-primary" type="submit">Search</button>
 
       {% if q %}
-        <a class="btn btn-outline-secondary" href="/mrr">Clear</a>
+        <a class="btn btn-outline-secondary" href="/mrr/tickets">Clear</a>
       {% endif %}
     </form>
   </div>
