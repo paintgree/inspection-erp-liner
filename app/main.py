@@ -3356,8 +3356,61 @@ def batch_detail(batch_no: str, request: Request, session: Session = Depends(get
 from sqlalchemy import or_, cast
 from sqlalchemy.types import String as SqlString
 
+
 @app.get("/mrr", response_class=HTMLResponse)
-def mrr_list(request: Request, session: Session = Depends(get_session)):
+def mrr_reports_list(request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    q = (request.query_params.get("q") or "").strip().lower()
+
+    # show only submitted or approved inspections (real reports)
+    reports = session.exec(
+        select(MrrReceivingInspection)
+        .where(
+            (MrrReceivingInspection.inspector_confirmed == True) |
+            (MrrReceivingInspection.manager_approved == True)
+        )
+        .order_by(MrrReceivingInspection.created_at.desc())
+    ).all()
+
+    # load their tickets to show Material/Supplier/PO in the list
+    ticket_ids = sorted({r.ticket_id for r in reports if r.ticket_id})
+    lots = []
+    if ticket_ids:
+        lots = session.exec(select(MaterialLot).where(MaterialLot.id.in_(ticket_ids))).all()
+    lot_map = {l.id: l for l in lots}
+
+    # simple search across report + ticket + ticket fields
+    if q:
+        filtered = []
+        for r in reports:
+            lot = lot_map.get(r.ticket_id)
+            fields = [
+                str(r.report_no or ""),
+                str(r.delivery_note_no or ""),
+                str(r.ticket_id or ""),
+                str(lot.material_name if lot else ""),
+                str(lot.supplier_name if lot else ""),
+                str(lot.po_number if lot else ""),
+                str(lot.batch_no if lot else ""),
+            ]
+            if any(q in (f.lower()) for f in fields if f):
+                filtered.append(r)
+        reports = filtered
+
+    return templates.TemplateResponse(
+        "mrr_reports_list.html",
+        {
+            "request": request,
+            "user": user,
+            "q": request.query_params.get("q") or "",
+            "reports": reports,
+            "lot_map": lot_map,
+        },
+    )
+
+@app.get("/mrr/tickets", response_class=HTMLResponse)
+def mrr_tickets_list(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
     q = (request.query_params.get("q") or "").strip()
