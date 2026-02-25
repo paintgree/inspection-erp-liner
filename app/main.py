@@ -229,21 +229,6 @@ def _to_float(x, default=0.0):
     except Exception:
         return default
 
-def _as_date_str(x) -> str:
-    try:
-        if isinstance(x, datetime):
-            return x.strftime("%Y-%m-%d")
-        s = str(x)
-        if not s:
-            return ""
-        # try ISO parse
-        try:
-            dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
-            return dt.strftime("%Y-%m-%d")
-        except Exception:
-            return s[:10]
-    except Exception:
-        return ""
 
 def _normalize_key(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip()).lower()
@@ -749,6 +734,11 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
         raise HTTPException(500, f"OUTSOURCED template missing. Put QAP0600-F02.docx in {MRR_TEMPLATE_DIR}")
 
     doc = Document(template_path)
+    # Put signatures inside boxes using DOCX bookmarks (F02)
+    try:
+        _apply_f02_bookmark_signatures(doc, inspection)
+    except Exception:
+        pass
     # --- Apply signatures inside the DOCX boxes (placeholders in template) ---
     try:
         insp_json = json.loads(getattr(inspection, "inspection_json", None) or "{}")
