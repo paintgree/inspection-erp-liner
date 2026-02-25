@@ -990,11 +990,6 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
                         min_c = min(min_c, _c)
         return (t0, r0, min_c)
 
-    print("INSPECT bookmark:", _bookmark_exists(doc, "BM_INSPECTED_BY"))
-    print("REVIEW bookmark:", _bookmark_exists(doc, "BM_REVIEWD_BY"))
-    print("APPROVE bookmark:", _bookmark_exists(doc, "BM_APPROVED_BY"))
-    print("inspector_confirmed:", getattr(inspection, "inspector_confirmed", None))
-
     # ---------- Items table ----------
     items_item = data.get("items_item[]", [])
     items_desc = data.get("items_desc[]", [])
@@ -1076,19 +1071,17 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
                 if cidx is None or cidx >= len(row_cells):
                     continue
                 _set_cell_text(row_cells[cidx], str(v))
+
     # ---------- Remarks ----------
     _set_bookmark_text(doc, "BM_REMARKS", (data.get("remarks") or "").strip())
 
-    # ---------- Signatures using BOOKMARKS (with TIME) ----------
-    # IMPORTANT:
-    # Do NOT gate the bookmark signature insertion under manager_approved.
-    # _apply_f02_bookmark_signatures() already decides what to show based on flags.
+    # ---------- Signatures using BOOKMARKS (FORCED, always attempted) ----------
     try:
         _apply_f02_bookmark_signatures(doc, inspection)
     except Exception:
         pass
 
-    # ---------- Layout tweaks (prevents overlap + “bigger” look) ----------
+    # ---------- Layout tweaks ----------
     try:
         _apply_f02_pdf_layout_tweaks(doc)
     except Exception:
@@ -1707,18 +1700,16 @@ def make_signature_stamp_pdf_f02(
     page_w: float,
     page_h: float,
     inspector_name: str | None = None,
-    inspector_date: str | None = None,
+    inspector_dt: str | None = None,
     reviewer_name: str | None = None,
-    reviewer_date: str | None = None,
+    reviewer_dt: str | None = None,
     manager_name: str | None = None,
-    manager_date: str | None = None,
+    manager_dt: str | None = None,
+    y_offset: float = 0.0,   # + moves UP, - moves DOWN
 ) -> bytes:
     """
     Transparent overlay PDF with digital signature text for QAP0600-F02.
-    3 stamps:
-      - Inspected by (left)
-      - Reviewed by (middle) (optional)
-      - Approved by (right) (manager)
+    Stamps intended for the bottom signature table on the LAST page.
     """
     buf = BytesIO()
     c = canvas.Canvas(buf, pagesize=(page_w, page_h))
@@ -1731,9 +1722,8 @@ def make_signature_stamp_pdf_f02(
     c.setFont("Helvetica", 8)
     c.setFillColorRGB(0.10, 0.10, 0.10)
 
-    # Tuned for bottom signature table on F02 A4 portrait.
-    # If you want to move down/up: adjust y_base.
-    y_base = 105
+    # Base position (from bottom). Increase to move the stamp UP.
+    y_base = 105 + float(y_offset)
 
     # Left / Middle / Right boxes
     insp_x = 55
@@ -1743,20 +1733,20 @@ def make_signature_stamp_pdf_f02(
     # Inspector (left)
     if inspector_name:
         c.drawString(insp_x, y_base + 14, f"Digitally signed by: {inspector_name}")
-        if inspector_date:
-            c.drawString(insp_x, y_base, f"Date: {inspector_date}")
+        if inspector_dt:
+            c.drawString(insp_x, y_base, f"Date/Time: {inspector_dt}")
 
-    # Reviewer (middle) - optional
+    # Reviewer (middle)
     if reviewer_name:
         c.drawString(rev_x, y_base + 14, f"Digitally reviewed by: {reviewer_name}")
-        if reviewer_date:
-            c.drawString(rev_x, y_base, f"Date: {reviewer_date}")
+        if reviewer_dt:
+            c.drawString(rev_x, y_base, f"Date/Time: {reviewer_dt}")
 
-    # Manager (right) - approval
+    # Manager (right)
     if manager_name:
         c.drawString(appr_x, y_base + 14, f"Digitally approved by: {manager_name}")
-        if manager_date:
-            c.drawString(appr_x, y_base, f"Date: {manager_date}")
+        if manager_dt:
+            c.drawString(appr_x, y_base, f"Date/Time: {manager_dt}")
 
     c.showPage()
     c.save()
