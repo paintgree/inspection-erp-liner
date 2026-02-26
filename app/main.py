@@ -2352,9 +2352,9 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
     if not rep:
         raise HTTPException(404, "Burst report not found")
 
-    run = session.get(ProductionRun, rep.run_id)
-    if not run:
-        raise HTTPException(404, "Linked run not found")
+    run = None
+    if getattr(rep, "linked_run_id", None):
+        run = session.get(ProductionRun, rep.linked_run_id)
 
     produced_len = get_run_produced_length_m(session, run.id)
     total_len = float(run.total_length_m or 0.0)
