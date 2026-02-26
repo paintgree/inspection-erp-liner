@@ -614,16 +614,15 @@ tr.length-row td{
   border:1px solid #e5e7eb;
   margin-top:10px;
 }
+.burst-selected{
+  position:absolute;
+  top:0; bottom:0;
+  background:#ef4444;
+}
 .burst-produced{
   position:absolute;
   left:0; top:0; bottom:0;
   background:#d1fae5; /* produced range */
-}
-.burst-selected{
-  position:absolute;
-  top:0; bottom:0;
-  background:#ef4444; /* selected sample */
-  opacity:0.9;
 }
 .burst-labels{
   display:flex;
@@ -632,5 +631,6 @@ tr.length-row td{
   font-size:12px;
   opacity:0.8;
 }
+
 
 
