@@ -288,6 +288,50 @@ class MrrInspectionPhoto(SQLModel, table=True):
 # is MrrReceivingInspection. This alias fixes the import error cleanly.
 MrrInspection = MrrReceivingInspection
 
+# =========================
+# BURST TESTING
+# =========================
+
+class BurstTestReport(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    # link to production run (in-process inspection run)
+    run_id: int = Field(foreign_key="productionrun.id", index=True)
+
+    # sample location along the pipe
+    sample_from_m: float = Field(default=0.0)
+    sample_to_m: float = Field(default=0.0)
+
+    # test details
+    api_class: str = Field(default="API 15S")  # can change later
+    target_pressure_psi: float = Field(default=0.0)
+    actual_burst_psi: float = Field(default=0.0)
+    failure_mode: str = Field(default="")
+    test_temp_c: float = Field(default=0.0)
+
+    notes: str = Field(default="")
+
+    tested_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by_user_id: Optional[int] = Field(default=None, index=True)
+    created_by_user_name: str = Field(default="")
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class BurstAttachment(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    report_id: int = Field(foreign_key="bursttestreport.id", index=True)
+
+    # PHOTO / CHART / DOC
+    kind: str = Field(default="PHOTO", index=True)
+
+    caption: str = Field(default="")
+    file_path: str = Field(default="")  # store RELATIVE path like MRR
+    uploaded_by_user_id: Optional[int] = Field(default=None, index=True)
+    uploaded_by_user_name: str = Field(default="")
+
+    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 
