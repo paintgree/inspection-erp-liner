@@ -75,6 +75,8 @@ from .models import (
     MrrInspectionPhoto,      # ✅ NEW
     BurstTestReport,
     BurstAttachment,
+    BurstSample,
+    BurstAuditLog,
 
 )
 SLOTS = [
