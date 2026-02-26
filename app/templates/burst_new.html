@@ -67,7 +67,10 @@
       <label>Notes</label>
       <textarea name="notes" rows="3" placeholder="Any extra details..."></textarea>
 
-      <button class="btn primary" type="submit">Create Report</button>
+      <button id="createBtn" class="btn primary" type="submit"
+              onclick="this.disabled=true; this.innerText='Saving...'; this.form.submit();">
+        Create Report
+      </button>
     </form>
   {% else %}
     <p style="margin-top:10px;">Select a Production Run first.</p>
