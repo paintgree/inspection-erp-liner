@@ -191,20 +191,23 @@ class MaterialUseEvent(SQLModel, table=True):
 
 class MrrDocument(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    ticket_id: int
+    inspection_id: Optional[int] = None  # null for ticket-level docs, set for shipment-level docs
+
+    doc_type: str
+    doc_number: Optional[str] = None
+    doc_name: str
+    file_path: str
+
+    uploaded_by_user_id: Optional[int] = None
+    uploaded_by_user_name: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
-    ticket_id: int = Field(index=True)  # keep as your main.py expects
-
-    inspection_id: Optional[int] = Field(default=None, index=True)  # shipment-specific; None = ticket-level (e.g., PO)
-
-    doc_name: str = Field(default="")
-    doc_number: str = Field(default="")
-    file_path: str = Field(default="")
-
-    uploaded_by_user_id: Optional[int] = Field(default=None, index=True)
-    uploaded_by_user_name: str = Field(default="")
-
-    doc_type: str = Field(default="GENERAL")  # PO / DELIVERY_NOTE / COA / RELATED
+    # ✅ SAFE DELETE (TRASH)
+    is_deleted: bool = Field(default=False)
+    deleted_at_utc: Optional[datetime] = None
+    deleted_by_user_id: Optional[int] = None
+    deleted_by_user_name: Optional[str] = None
 
 
 class MrrReceiving(SQLModel, table=True):
