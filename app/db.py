@@ -130,6 +130,34 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE mrrdocument ADD COLUMN IF NOT EXISTS inspection_id INTEGER",
         "ALTER TABLE mrrdocument ADD COLUMN inspection_id INTEGER",
     )
+        # --- mrrdocument SAFE DELETE columns ---
+    _add_column_if_missing(
+        "mrrdocument",
+        "is_deleted",
+        "ALTER TABLE mrrdocument ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE mrrdocument ADD COLUMN is_deleted INTEGER DEFAULT 0",
+    )
+    _add_column_if_missing(
+        "mrrdocument",
+        "deleted_at_utc",
+        "ALTER TABLE mrrdocument ADD COLUMN IF NOT EXISTS deleted_at_utc TIMESTAMP NULL",
+        "ALTER TABLE mrrdocument ADD COLUMN deleted_at_utc TEXT",
+    )
+    _add_column_if_missing(
+        "mrrdocument",
+        "deleted_by_user_id",
+        "ALTER TABLE mrrdocument ADD COLUMN IF NOT EXISTS deleted_by_user_id INTEGER NULL",
+        "ALTER TABLE mrrdocument ADD COLUMN deleted_by_user_id INTEGER",
+    )
+    _add_column_if_missing(
+        "mrrdocument",
+        "deleted_by_user_name",
+        "ALTER TABLE mrrdocument ADD COLUMN IF NOT EXISTS deleted_by_user_name TEXT DEFAULT ''",
+        "ALTER TABLE mrrdocument ADD COLUMN deleted_by_user_name TEXT DEFAULT ''",
+    )
+
+
+
 
 
 
