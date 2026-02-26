@@ -3890,9 +3890,17 @@ def mrr_docs_page(
     ).first()
 
     docs = session.exec(
-        select(MrrDocument)
-        .where(MrrDocument.ticket_id == lot_id)
-        .order_by(MrrDocument.created_at.desc())
+        select(MrrDocument).where(
+            (MrrDocument.ticket_id == lot_id) &
+            (MrrDocument.is_deleted == False)
+        ).order_by(MrrDocument.created_at.desc())
+    ).all()
+    
+    deleted_docs = session.exec(
+        select(MrrDocument).where(
+            (MrrDocument.ticket_id == lot_id) &
+            (MrrDocument.is_deleted == True)
+        ).order_by(MrrDocument.deleted_at_utc.desc())
     ).all()
 
     readonly = is_mrr_canceled(lot)
@@ -4060,7 +4068,57 @@ async def mrr_doc_upload(
     return RedirectResponse(f"/mrr/{lot_id}/docs", status_code=303)
 
 
+from datetime import datetime
+from fastapi import Form
 
+@app.post("/mrr/docs/{doc_id}/trash")
+def trash_mrr_doc(
+    doc_id: int,
+    request: Request,
+    confirm_doc_number: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    doc = session.get(MrrDocument, doc_id)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    # ✅ Safety check: must type doc_number (or doc_name if no number)
+    expected = (doc.doc_number or doc.doc_name or "").strip()
+    if (confirm_doc_number or "").strip() != expected:
+        raise HTTPException(400, f"Type the exact document number/name to delete: {expected}")
+
+    if not doc.is_deleted:
+        doc.is_deleted = True
+        doc.deleted_at_utc = datetime.utcnow()
+        doc.deleted_by_user_id = user.id
+        doc.deleted_by_user_name = user.display_name or user.username
+        session.add(doc)
+        session.commit()
+
+    return RedirectResponse(url=f"/mrr/{doc.ticket_id}/docs", status_code=303)
+
+
+@app.post("/mrr/docs/{doc_id}/restore")
+def restore_mrr_doc(
+    doc_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(get_current_user),
+):
+    doc = session.get(MrrDocument, doc_id)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    # restore
+    doc.is_deleted = False
+    doc.deleted_at_utc = None
+    doc.deleted_by_user_id = None
+    doc.deleted_by_user_name = None
+    session.add(doc)
+    session.commit()
+
+    return RedirectResponse(url=f"/mrr/{doc.ticket_id}/docs", status_code=303)
 
 @app.get("/mrr/docs/{doc_id}/download")
 def mrr_doc_download(doc_id: int, request: Request, session: Session = Depends(get_session)):
