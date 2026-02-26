@@ -324,6 +324,46 @@ class BurstTestReport(SQLModel, table=True):
     created_by_user_name: str = Field(default="")
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    # -------------------------
+    # TEMPLATE: TEST DETAILS
+    # -------------------------
+    client_name_po: str = Field(default="")
+    specimen_specification: str = Field(default="")   # e.g. DN100-10MPa-65°C
+    reference_standard: str = Field(default="")       # e.g. API 15S / ASTM-D1599
+    reference_dhtp_procedure: str = Field(default="") # e.g. QAW1401
+    system_max_pressure: str = Field(default="")      # e.g. 100 (MPa)
+    laboratory_temperature: str = Field(default="")   # e.g. 24°C
+    testing_medium: str = Field(default="Water")
+    total_no_of_specimens: int = Field(default=1)
+    
+    # -------------------------
+    # TEMPLATE: SPECIMENS DETAILS
+    # -------------------------
+    specimen_ref_no: str = Field(default="")          # e.g. #4532
+    specimen_total_length: str = Field(default="")    # e.g. 1250mm
+    specimen_effective_length: str = Field(default="")# e.g. 700mm
+    
+    liner_material: str = Field(default="")
+    liner_thickness: str = Field(default="")          # e.g. 7.2 mm
+    
+    reinforcement_material: str = Field(default="")
+    reinforcement_thickness: str = Field(default="")  # e.g. 9 mm
+    
+    cover_material: str = Field(default="")
+    cover_thickness: str = Field(default="")          # e.g. 3 mm
+    
+    # -------------------------
+    # TEMPLATE: TEST RESULTS
+    # -------------------------
+    sample_serial_number: str = Field(default="")      # e.g. SP# 54359
+    pressurization_time_s: str = Field(default="")     # e.g. 62 (Sec)
+    test_result: str = Field(default="")               # PASS / FAIL
+    
+    # -------------------------
+    # TEMPLATE: SIGNATURES
+    # -------------------------
+    qa_qc_officer_name: str = Field(default="")
+    testing_operator_name: str = Field(default="")
 
 
 class BurstAttachment(SQLModel, table=True):
