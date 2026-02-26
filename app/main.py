@@ -4067,50 +4067,50 @@ async def mrr_doc_upload(
 
     return RedirectResponse(f"/mrr/{lot_id}/docs", status_code=303)
 
-
-from datetime import datetime
 from fastapi import Form
+from datetime import datetime
+from fastapi.responses import RedirectResponse
 
-@app.post("/mrr/docs/{doc_id}/trash")
+@app.post("/mrr/docs/{doc_id}/trash", response_class=RedirectResponse)
 def trash_mrr_doc(
     doc_id: int,
     request: Request,
     confirm_doc_number: str = Form(""),
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
 ):
+    user = get_current_user(request, session)
+
     doc = session.get(MrrDocument, doc_id)
     if not doc:
         raise HTTPException(404, "Document not found")
 
-    # ✅ Safety check: must type doc_number (or doc_name if no number)
     expected = (doc.doc_number or doc.doc_name or "").strip()
     if (confirm_doc_number or "").strip() != expected:
-        raise HTTPException(400, f"Type the exact document number/name to delete: {expected}")
+        raise HTTPException(400, f"Type exactly: {expected}")
 
     if not doc.is_deleted:
         doc.is_deleted = True
         doc.deleted_at_utc = datetime.utcnow()
-        doc.deleted_by_user_id = user.id
-        doc.deleted_by_user_name = user.display_name or user.username
+        doc.deleted_by_user_id = getattr(user, "id", None)
+        doc.deleted_by_user_name = (getattr(user, "display_name", None) or getattr(user, "username", None) or "").strip()
         session.add(doc)
         session.commit()
 
     return RedirectResponse(url=f"/mrr/{doc.ticket_id}/docs", status_code=303)
 
 
-@app.post("/mrr/docs/{doc_id}/restore")
+@app.post("/mrr/docs/{doc_id}/restore", response_class=RedirectResponse)
 def restore_mrr_doc(
     doc_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    user: User = Depends(get_current_user),
 ):
+    user = get_current_user(request, session)
+
     doc = session.get(MrrDocument, doc_id)
     if not doc:
         raise HTTPException(404, "Document not found")
 
-    # restore
     doc.is_deleted = False
     doc.deleted_at_utc = None
     doc.deleted_by_user_id = None
