@@ -21,13 +21,18 @@
   {% set to_pct = (rep.sample_to_m / total * 100) %}
   {% set sel_w = (to_pct - from_pct) %}
 
+  {% set total = total_len if total_len > 0 else 1 %}
+  {% set from_pct = (rep.sample_from_m / total * 100) %}
+  {% set to_pct = (rep.sample_to_m / total * 100) %}
+  {% set sel_w = (to_pct - from_pct) %}
+  
   <div class="burst-bar">
-    <div class="burst-produced" style="width: {{produced_pct}}%;"></div>
-    <div class="burst-selected" style="left: {{from_pct}}%; width: {{sel_w}}%;"></div>
+    <div class="burst-selected" style="left: {{'%.4f'|format(from_pct)}}%; width: {{'%.4f'|format(sel_w)}}%;"></div>
   </div>
+  
   <div class="burst-labels">
     <span>0m</span>
-    <span>{{ rep.sample_from_m }} → {{ rep.sample_to_m }} m (Used)</span>
+    <span>{{ rep.sample_from_m }} → {{ rep.sample_to_m }} m</span>
     <span>{{ total_len }}m</span>
   </div>
 
