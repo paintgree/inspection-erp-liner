@@ -379,20 +379,6 @@ class BurstAttachment(SQLModel, table=True):
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class BurstAttachment(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-
-    report_id: int = Field(foreign_key="bursttestreport.id", index=True)
-
-    # PHOTO / CHART / DOC
-    kind: str = Field(default="PHOTO", index=True)
-
-    caption: str = Field(default="")
-    file_path: str = Field(default="")  # store RELATIVE path like MRR
-    uploaded_by_user_id: Optional[int] = Field(default=None, index=True)
-    uploaded_by_user_name: str = Field(default="")
-
-    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 
