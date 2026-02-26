@@ -2211,7 +2211,7 @@ async def burst_create(
     run_id: int = Form(...),
     f = float(sample_from_m or 0.0)
     length = float(sample_length_m or 0.0)
-    t = f + length
+    t = f + length,
     api_class: str = Form("API 15S"),
     target_pressure_psi: float = Form(0.0),
     actual_burst_psi: float = Form(0.0),
