@@ -73,6 +73,9 @@ from .models import (
     MrrReceivingInspection,  # ✅ required because your code uses this name
     MrrInspection,           # ✅ now works (alias in models.py)
     MrrInspectionPhoto,      # ✅ NEW
+    BurstTestReport,
+    BurstAttachment,
+
 )
 SLOTS = [
     "00:00", "02:00", "04:00", "06:00",
@@ -2003,6 +2006,12 @@ DATA_DIR = os.environ.get("DATA_DIR", "/app/data")
 MRR_UPLOAD_DIR = os.path.join(DATA_DIR, "mrr_uploads")
 MRR_PHOTO_DIR = os.path.join(DATA_DIR, "mrr_photos")
 
+BURST_DIR = os.path.join(DATA_DIR, "burst")
+BURST_FILES_DIR = os.path.join(BURST_DIR, "files")
+
+os.makedirs(BURST_DIR, exist_ok=True)
+os.makedirs(BURST_FILES_DIR, exist_ok=True)
+
 os.makedirs(MRR_UPLOAD_DIR, exist_ok=True)
 os.makedirs(MRR_PHOTO_DIR, exist_ok=True)
 
@@ -2101,6 +2110,246 @@ def get_current_draft_shipment(session: Session, lot_id: int):
         .where(MrrReceivingInspection.manager_approved == False)
         .order_by(MrrReceivingInspection.created_at.desc())
     ).first()
+
+
+def resolve_burst_file_path(p: str) -> str:
+    """
+    Stored file_path is RELATIVE to BASE_DIR sometimes, or already absolute in older records.
+    This mirrors MRR behavior: resolve safely.
+    """
+    if not p:
+        return ""
+    if os.path.isabs(p):
+        return p
+    # most of our saved paths are relative to BASE_DIR
+    candidate = os.path.join(BASE_DIR, p)
+    if os.path.exists(candidate):
+        return candidate
+    # fallback: if someone stored relative to DATA_DIR
+    candidate2 = os.path.join(DATA_DIR, p)
+    return candidate2
+
+
+def get_run_produced_length_m(session: Session, run_id: int) -> float:
+    """
+    Smart produced length:
+    - look at InspectionValue where param_key == 'length_m'
+    - return the MAX value recorded for this run
+    """
+    q = session.exec(
+        select(InspectionValue.value)
+        .join(InspectionEntry, InspectionEntry.id == InspectionValue.entry_id)
+        .where(InspectionEntry.run_id == run_id)
+        .where(InspectionValue.param_key == "length_m")
+        .where(InspectionValue.value != None)  # noqa: E711
+    ).all()
+
+    vals = []
+    for v in q:
+        try:
+            vals.append(float(v))
+        except Exception:
+            pass
+
+    return max(vals) if vals else 0.0
+
+# =========================
+# BURST TESTING PAGES
+# =========================
+
+@app.get("/burst")
+def burst_dashboard(request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    # latest first
+    reports = session.exec(
+        select(BurstTestReport).order_by(BurstTestReport.tested_at.desc())
+    ).all()
+
+    # attach run info quickly
+    run_map = {}
+    for r in reports:
+        run = session.get(ProductionRun, r.run_id)
+        run_map[r.id] = run
+
+    return templates.TemplateResponse(
+        "burst_dashboard.html",
+        {
+            "request": request,
+            "user": user,
+            "reports": reports,
+            "run_map": run_map,
+        },
+    )
+
+
+@app.get("/burst/new")
+def burst_new(request: Request, session: Session = Depends(get_session), run_id: int = 0):
+    user = get_current_user(request, session)
+
+    runs = session.exec(select(ProductionRun).order_by(ProductionRun.id.desc())).all()
+
+    picked_run = session.get(ProductionRun, run_id) if run_id else None
+    produced_len = get_run_produced_length_m(session, run_id) if picked_run else 0.0
+
+    return templates.TemplateResponse(
+        "burst_new.html",
+        {
+            "request": request,
+            "user": user,
+            "runs": runs,
+            "picked_run": picked_run,
+            "produced_len": produced_len,
+        },
+    )
+
+
+@app.post("/burst/create")
+async def burst_create(
+    request: Request,
+    session: Session = Depends(get_session),
+    run_id: int = Form(...),
+    sample_from_m: float = Form(...),
+    sample_to_m: float = Form(...),
+    api_class: str = Form("API 15S"),
+    target_pressure_psi: float = Form(0.0),
+    actual_burst_psi: float = Form(0.0),
+    failure_mode: str = Form(""),
+    test_temp_c: float = Form(0.0),
+    notes: str = Form(""),
+):
+    user = get_current_user(request, session)
+
+    run = session.get(ProductionRun, int(run_id))
+    if not run:
+        raise HTTPException(404, "Production Run not found")
+
+    # Validation: basic
+    f = float(sample_from_m or 0.0)
+    t = float(sample_to_m or 0.0)
+
+    if f < 0 or t <= 0 or t <= f:
+        raise HTTPException(400, "Invalid sample range. Example: 100 to 103")
+
+    # Validation: within total planned length
+    total_len = float(run.total_length_m or 0.0)
+    if total_len > 0 and t > total_len:
+        raise HTTPException(400, f"Sample ends at {t}m but run total length is {total_len}m")
+
+    # Validation: within produced length (SMART rule)
+    produced_len = get_run_produced_length_m(session, run.id)
+    if t > produced_len:
+        raise HTTPException(
+            400,
+            f"Wrong range: run produced length is {produced_len}m but your sample ends at {t}m"
+        )
+
+    rep = BurstTestReport(
+        run_id=run.id,
+        sample_from_m=f,
+        sample_to_m=t,
+        api_class=(api_class or "").strip(),
+        target_pressure_psi=float(target_pressure_psi or 0.0),
+        actual_burst_psi=float(actual_burst_psi or 0.0),
+        failure_mode=(failure_mode or "").strip(),
+        test_temp_c=float(test_temp_c or 0.0),
+        notes=(notes or "").strip(),
+        created_by_user_id=user.id,
+        created_by_user_name=user.display_name,
+    )
+
+    session.add(rep)
+    session.commit()
+    session.refresh(rep)
+
+    return RedirectResponse(f"/burst/{rep.id}", status_code=303)
+
+
+@app.get("/burst/{report_id}")
+def burst_view(report_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    rep = session.get(BurstTestReport, report_id)
+    if not rep:
+        raise HTTPException(404, "Burst report not found")
+
+    run = session.get(ProductionRun, rep.run_id)
+    if not run:
+        raise HTTPException(404, "Linked run not found")
+
+    produced_len = get_run_produced_length_m(session, run.id)
+    total_len = float(run.total_length_m or 0.0)
+
+    attachments = session.exec(
+        select(BurstAttachment).where(BurstAttachment.report_id == report_id).order_by(BurstAttachment.uploaded_at.desc())
+    ).all()
+
+    return templates.TemplateResponse(
+        "burst_view.html",
+        {
+            "request": request,
+            "user": user,
+            "rep": rep,
+            "run": run,
+            "produced_len": produced_len,
+            "total_len": total_len,
+            "attachments": attachments,
+        },
+    )
+
+
+@app.post("/burst/{report_id}/upload")
+async def burst_upload(
+    report_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    kind: str = Form("PHOTO"),
+    caption: str = Form(""),
+    file: UploadFile = File(...),
+):
+    user = get_current_user(request, session)
+
+    rep = session.get(BurstTestReport, report_id)
+    if not rep:
+        raise HTTPException(404, "Burst report not found")
+
+    safe_original = os.path.basename(file.filename or "upload.bin")
+    filename = f"burst_{report_id}_{int(datetime.utcnow().timestamp())}_{safe_original}"
+    abs_path = os.path.join(BURST_FILES_DIR, filename)
+
+    with open(abs_path, "wb") as f:
+        f.write(await file.read())
+
+    rel_path = os.path.relpath(abs_path, BASE_DIR)
+
+    att = BurstAttachment(
+        report_id=report_id,
+        kind=(kind or "PHOTO").strip().upper(),
+        caption=(caption or "").strip(),
+        file_path=rel_path,
+        uploaded_by_user_id=user.id,
+        uploaded_by_user_name=user.display_name,
+    )
+    session.add(att)
+    session.commit()
+
+    return RedirectResponse(f"/burst/{report_id}", status_code=303)
+
+
+@app.get("/burst/files/{attachment_id}/view")
+def burst_file_view(attachment_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    att = session.get(BurstAttachment, attachment_id)
+    if not att:
+        raise HTTPException(404, "Attachment not found")
+
+    resolved = resolve_burst_file_path(att.file_path)
+    if not resolved or not os.path.exists(resolved):
+        raise HTTPException(404, "File missing")
+
+    mt, _ = mimetypes.guess_type(resolved)
+    return FileResponse(resolved, media_type=mt or "application/octet-stream")
 # ==========================================
 # EXPORT PER-INSPECTION (SEPARATE REPORTS)
 # ==========================================
