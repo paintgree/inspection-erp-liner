@@ -2454,6 +2454,14 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
         .order_by(BurstAttachment.uploaded_at.desc())
     ).all()
 
+    samples = session.exec(
+        select(BurstSample).where(BurstSample.report_id == report_id).order_by(BurstSample.id.asc())
+    ).all()
+    
+    audit = session.exec(
+        select(BurstAuditLog).where(BurstAuditLog.report_id == report_id).order_by(BurstAuditLog.id.desc())
+    ).all()
+
     return templates.TemplateResponse(
         "burst_view.html",
         {
@@ -2532,6 +2540,19 @@ async def burst_update(
 
     rep.qa_qc_officer_name = (qa_qc_officer_name or "").strip()
     rep.testing_operator_name = (testing_operator_name or "").strip()
+
+    rep.is_locked = True
+    rep.locked_at = datetime.utcnow()
+    rep.locked_by_user_id = user.id
+    rep.locked_by_user_name = user.display_name
+    
+    session.add(BurstAuditLog(
+        report_id=report_id,
+        action="LOCK",
+        note="Saved and locked report",
+        user_id=user.id,
+        user_name=user.display_name,
+    ))
 
     session.add(rep)
     session.commit()
@@ -2619,6 +2640,78 @@ def burst_file_view(file_id: int, request: Request, session: Session = Depends(g
 
     # send file
     return FileResponse(att.file_path)
+
+
+@app.post("/burst/{report_id}/samples/add")
+async def burst_add_sample(
+    report_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    sample_start_m: float = Form(...),
+    sample_length_m: float = Form(...),
+):
+    user = get_current_user(request, session)
+
+    rep = session.get(BurstTestReport, report_id)
+    if not rep:
+        raise HTTPException(404, detail="Burst report not found")
+    if rep.is_locked:
+        raise HTTPException(400, detail="Report is locked. Reopen it to add samples.")
+
+    start = float(sample_start_m or 0.0)
+    length = float(sample_length_m or 0.0)
+    end = start + length
+
+    total_len = float(rep.total_length_m or 0.0)
+    if total_len <= 0:
+        raise HTTPException(400, detail="Total length is 0. Update run length first.")
+    if start < 0 or length <= 0:
+        raise HTTPException(400, detail="Invalid sample. Example: start 300m, length 3m")
+    if end > total_len:
+        raise HTTPException(400, detail=f"Sample ends at {end}m but total length is {total_len}m")
+
+    s = BurstSample(report_id=report_id, sample_start_m=start, sample_length_m=length)
+    session.add(s)
+
+    session.add(BurstAuditLog(
+        report_id=report_id,
+        action="EDIT",
+        note=f"Added sample {start}→{end}m",
+        user_id=user.id,
+        user_name=user.display_name,
+    ))
+
+    session.commit()
+    return RedirectResponse(f"/burst/{report_id}", status_code=303)
+
+
+@app.post("/burst/{report_id}/reopen")
+async def burst_reopen(
+    report_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    reason: str = Form(""),
+):
+    user = get_current_user(request, session)
+
+    rep = session.get(BurstTestReport, report_id)
+    if not rep:
+        raise HTTPException(404, detail="Burst report not found")
+
+    rep.is_locked = False
+
+    session.add(BurstAuditLog(
+        report_id=report_id,
+        action="REOPEN",
+        note=(reason or "").strip() or "Reopened for edit",
+        user_id=user.id,
+        user_name=user.display_name,
+    ))
+
+    session.add(rep)
+    session.commit()
+
+    return RedirectResponse(f"/burst/{report_id}", status_code=303)
     
 # ==========================================
 # EXPORT PER-INSPECTION (SEPARATE REPORTS)
