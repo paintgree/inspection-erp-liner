@@ -1,6 +1,10 @@
 {% extends "base.html" %}
 {% block content %}
-
+{# Make the template resilient: accept inspection_data OR form_data OR data #}
+{% set inspection_data = inspection_data
+    if inspection_data is defined and inspection_data
+    else (form_data if form_data is defined and form_data else (data if data is defined and data else {}))
+%}
 <a class="btn btn-ghost" href="/mrr/{{ lot.id }}">← Back</a>
 
 <div class="card">
