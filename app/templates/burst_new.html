@@ -11,15 +11,16 @@
 <form method="post" action="/burst/create">
 
   <h3>Test Mode</h3>
-  <label>
-    <input type="radio" name="mode" value="linked" checked onclick="toggleMode()">
-    Linked to Cover Production
-  </label>
-
-  <label style="margin-left:20px;">
-    <input type="radio" name="mode" value="manual" onclick="toggleMode()">
-    Manual / Unlinked
-  </label>
+  <div class="mode-tabs">
+    <button type="button" id="tabLinked" class="mode-tab active" onclick="setMode('linked')">
+      Linked to Cover Production
+    </button>
+    <button type="button" id="tabManual" class="mode-tab" onclick="setMode('manual')">
+      Manual / Unlinked
+    </button>
+  </div>
+  
+  <input type="hidden" name="mode" id="modeInput" value="linked">
 
   <hr/>
 
@@ -109,11 +110,19 @@
 </div>
 
 <script>
-function toggleMode(){
-  const mode = document.querySelector('input[name="mode"]:checked').value;
-  document.getElementById('linked_section').style.display = mode === 'linked' ? 'block' : 'none';
-  document.getElementById('manual_section').style.display = mode === 'manual' ? 'block' : 'none';
+function setMode(mode){
+  document.getElementById('modeInput').value = mode;
+
+  const linked = mode === 'linked';
+  document.getElementById('linked_section').style.display = linked ? 'block' : 'none';
+  document.getElementById('manual_section').style.display = linked ? 'none' : 'block';
+
+  document.getElementById('tabLinked').classList.toggle('active', linked);
+  document.getElementById('tabManual').classList.toggle('active', !linked);
 }
+
+// set initial
+setMode('linked');
 </script>
 
 {% endblock %}
