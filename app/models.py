@@ -295,75 +295,88 @@ MrrInspection = MrrReceivingInspection
 class BurstTestReport(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
-    # Batch information
+    # Link / Identity
     batch_no: str = Field(default="", index=True)
-
-    # Link to cover production run (optional)
-    linked_run_id: Optional[int] = Field(default=None, foreign_key="productionrun.id")
+    linked_run_id: Optional[int] = Field(default=None, foreign_key="productionrun.id")  # COVER run only
     is_unlinked: bool = Field(default=False)
 
-    # Finished product length
+    # Finished pipe length
     total_length_m: float = Field(default=0.0)
 
-    # Sample
+    # Sample: start & length
     sample_start_m: float = Field(default=0.0)
     sample_length_m: float = Field(default=0.0)
 
-    # Test Data (from your template)
-    api_class: str = Field(default="")
-    test_temp_c: float = Field(default=0.0)
-    target_pressure_psi: float = Field(default=0.0)
-    actual_burst_psi: float = Field(default=0.0)
-    failure_mode: str = Field(default="")
-    time_to_burst_sec: float = Field(default=0.0)
-
-    notes: str = Field(default="")
-
-    tested_at: datetime = Field(default_factory=datetime.utcnow)
-    created_by_user_id: Optional[int] = Field(default=None)
-    created_by_user_name: str = Field(default="")
-
-    created_at: datetime = Field(default_factory=datetime.utcnow)
     # -------------------------
-    # TEMPLATE: TEST DETAILS
+    # TEMPLATE: TEST DETAILS (auto-filled when linked)
     # -------------------------
-    client_name_po: str = Field(default="")
-    specimen_specification: str = Field(default="")   # e.g. DN100-10MPa-65°C
-    reference_standard: str = Field(default="")       # e.g. API 15S / ASTM-D1599
-    reference_dhtp_procedure: str = Field(default="") # e.g. QAW1401
-    system_max_pressure: str = Field(default="")      # e.g. 100 (MPa)
-    laboratory_temperature: str = Field(default="")   # e.g. 24°C
+    client_name: str = Field(default="")
+    client_po: str = Field(default="")
+    pipe_specification: str = Field(default="")  # "Specimen Specification"
+
+    reference_standard: str = Field(default="")       # manual
+    reference_dhtp_procedure: str = Field(default="") # manual
+    system_max_pressure: str = Field(default="")      # manual (string to allow "100 MPa")
+    laboratory_temperature: str = Field(default="")   # manual
     testing_medium: str = Field(default="Water")
     total_no_of_specimens: int = Field(default=1)
-    
+
     # -------------------------
     # TEMPLATE: SPECIMENS DETAILS
     # -------------------------
-    specimen_ref_no: str = Field(default="")          # e.g. #4532
-    specimen_total_length: str = Field(default="")    # e.g. 1250mm
-    specimen_effective_length: str = Field(default="")# e.g. 700mm
-    
-    liner_material: str = Field(default="")
-    liner_thickness: str = Field(default="")          # e.g. 7.2 mm
-    
-    reinforcement_material: str = Field(default="")
-    reinforcement_thickness: str = Field(default="")  # e.g. 9 mm
-    
-    cover_material: str = Field(default="")
-    cover_thickness: str = Field(default="")          # e.g. 3 mm
-    
+    effective_length_m: str = Field(default="")  # manual (string to allow "700mm" etc)
+
+    # Material grades (auto-filled when linked)
+    liner_material_grade: str = Field(default="")
+    reinforcement_material_grade: str = Field(default="")
+    cover_material_grade: str = Field(default="")
+
+    # Wall thicknesses (manual)
+    liner_thickness: str = Field(default="")
+    reinforcement_thickness: str = Field(default="")
+    cover_thickness: str = Field(default="")
+
     # -------------------------
     # TEMPLATE: TEST RESULTS
     # -------------------------
-    sample_serial_number: str = Field(default="")      # e.g. SP# 54359
-    pressurization_time_s: str = Field(default="")     # e.g. 62 (Sec)
-    test_result: str = Field(default="")               # PASS / FAIL
-    
+    sample_serial_number: str = Field(default="")  # manual
+    target_pressure_psi: float = Field(default=0.0)
+    actual_burst_psi: float = Field(default=0.0)
+    pressurization_time_s: str = Field(default="")  # manual
+    test_result: str = Field(default="")            # PASS / FAIL
+    failure_mode: str = Field(default="")
+    test_temp_c: float = Field(default=0.0)
+
+    notes: str = Field(default="")
+
     # -------------------------
     # TEMPLATE: SIGNATURES
     # -------------------------
     qa_qc_officer_name: str = Field(default="")
     testing_operator_name: str = Field(default="")
+
+    # Audit
+    tested_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by_user_id: Optional[int] = Field(default=None)
+    created_by_user_name: str = Field(default="")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class BurstAttachment(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    report_id: int = Field(foreign_key="bursttestreport.id", index=True)
+
+    # CHART / FULL / SIDE_A / SIDE_B
+    kind: str = Field(default="PHOTO", index=True)
+    caption: str = Field(default="")
+
+    file_path: str = Field(default="")
+
+    uploaded_by_user_id: Optional[int] = Field(default=None)
+    uploaded_by_user_name: str = Field(default="")
+    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class BurstAttachment(SQLModel, table=True):
