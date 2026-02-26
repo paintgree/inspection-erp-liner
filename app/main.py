@@ -2251,75 +2251,96 @@ def burst_new(request: Request, session: Session = Depends(get_session), run_id:
 async def burst_create(
     request: Request,
     session: Session = Depends(get_session),
-    run_id: int = Form(...),
-    sample_from_m: float = Form(...),
+
+    mode: str = Form("linked"),
+
+    linked_run_id: Optional[int] = Form(None),
+    manual_batch_no: str = Form(""),
+    manual_total_length_m: float = Form(0.0),
+
+    sample_start_m: float = Form(...),
     sample_length_m: float = Form(...),
-    api_class: str = Form("API 15S"),
+
+    api_class: str = Form(""),
+    test_temp_c: float = Form(0.0),
     target_pressure_psi: float = Form(0.0),
     actual_burst_psi: float = Form(0.0),
     failure_mode: str = Form(""),
-    test_temp_c: float = Form(0.0),
     notes: str = Form(""),
 ):
     user = get_current_user(request, session)
-
-    run = session.get(ProductionRun, int(run_id))
-    if not run:
-        raise HTTPException(404, "Production Run not found")
-
-    # Validation + compute "to"
-    f = float(sample_from_m or 0.0)
-    length = float(sample_length_m or 0.0)
-    t = f + length
     
-    if f < 0 or length <= 0:
-        raise HTTPException(400, "Invalid sample. Example: start 300, length 3")
-
-    # Validation: within total planned length
-    total_len = float(run.total_length_m or 0.0)
-    if total_len > 0 and t > total_len:
-        raise HTTPException(400, f"Sample ends at {t}m but run total length is {total_len}m")
-
-    # Validation: within produced length (SMART rule)
-    produced_len = get_run_produced_length_m(session, run.id)
-    if t > produced_len:
+    mode = (mode or "linked").strip().lower()
+    is_manual = mode == "manual"
+    
+    # compute sample end
+    start = float(sample_start_m or 0.0)
+    length = float(sample_length_m or 0.0)
+    end = start + length
+    
+    if start < 0 or length <= 0:
+        raise HTTPException(400, detail="Invalid sample. Example: start 300m, length 3m")
+    
+    batch_no = ""
+    total_len = 0.0
+    linked_id = None
+    
+    if is_manual:
+        batch_no = (manual_batch_no or "").strip()
+        total_len = float(manual_total_length_m or 0.0)
+    
+        if not batch_no:
+            raise HTTPException(400, detail="Manual mode: Batch No is required")
+        if total_len <= 0:
+            raise HTTPException(400, detail="Manual mode: Total length must be > 0")
+    
+    else:
+        # linked mode
+        if not linked_run_id:
+            raise HTTPException(400, detail="Linked mode: please select a cover production run")
+    
+        run = session.get(ProductionRun, int(linked_run_id))
+        if not run:
+            raise HTTPException(404, detail="Cover production run not found")
+    
+        batch_no = (run.dhtp_batch_no or "").strip()
+        total_len = float(run.total_length_m or 0.0)
+        linked_id = run.id
+    
+        if total_len <= 0:
+            raise HTTPException(400, detail="This run has total length 0. Please update run length first.")
+    
+    # validate sample must be inside total length
+    if end > total_len:
         raise HTTPException(
             400,
-            f"Wrong range: run produced length is {produced_len}m but your sample ends at {t}m"
+            detail=f"Sample ends at {end}m but total finished length is {total_len}m"
         )
-
-    # --- Anti-duplicate guard: if same run + same range was created recently, reuse it ---
-    recent = session.exec(
-        select(BurstTestReport)
-        .where(BurstTestReport.run_id == run.id)
-        .order_by(BurstTestReport.created_at.desc())
-    ).first()
     
-    if recent:
-        # match same sample + within 60 seconds
-        same_sample = (abs(recent.sample_from_m - f) < 0.0001) and (abs(recent.sample_to_m - t) < 0.0001)
-        is_recent = (datetime.utcnow() - recent.created_at).total_seconds() < 60
-        if same_sample and is_recent:
-            return RedirectResponse(f"/burst/{recent.id}", status_code=303)
-
     rep = BurstTestReport(
-        run_id=run.id,
-        sample_from_m=f,
-        sample_to_m=t,
+        batch_no=batch_no,
+        linked_run_id=linked_id,
+        is_unlinked=is_manual,
+        total_length_m=total_len,
+    
+        sample_start_m=start,
+        sample_length_m=length,
+    
         api_class=(api_class or "").strip(),
+        test_temp_c=float(test_temp_c or 0.0),
         target_pressure_psi=float(target_pressure_psi or 0.0),
         actual_burst_psi=float(actual_burst_psi or 0.0),
         failure_mode=(failure_mode or "").strip(),
-        test_temp_c=float(test_temp_c or 0.0),
         notes=(notes or "").strip(),
+    
         created_by_user_id=user.id,
         created_by_user_name=user.display_name,
     )
-
+    
     session.add(rep)
     session.commit()
     session.refresh(rep)
-
+    
     return RedirectResponse(f"/burst/{rep.id}", status_code=303)
 
 
