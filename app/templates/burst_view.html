@@ -2,82 +2,232 @@
 {% block content %}
 
 <div class="page-head">
-  <h2>Burst Report #{{ rep.id }}</h2>
+  <h2>Short-Time Hydrostatic Burst Pressure Test</h2>
   <div style="display:flex; gap:10px;">
     <a class="btn" href="/burst">Back</a>
+    <!-- export button later -->
+    <!-- <a class="btn primary" href="/burst/{{rep.id}}/export/docx">Export DOCX</a> -->
   </div>
 </div>
 
 <div class="card">
   <div class="mini-info">
-    <div><b>Run:</b> #{{ run.id }} - {{ run.process }} - {{ run.dhtp_batch_no }}</div>
-    <div><b>Total Length:</b> {{ total_len }} m</div>
-    <div><b>Produced Length:</b> {{ produced_len }} m</div>
+    <div><b>Batch No:</b> {{ rep.batch_no }}</div>
+    <div><b>Total Length:</b> {{ rep.total_length_m }} m</div>
+    <div><b>Sample:</b> Start {{ rep.sample_start_m }} m / Length {{ rep.sample_length_m }} m</div>
+    <div><b>Test Date:</b> {{ rep.tested_at }}</div>
   </div>
 
-  {% set total = total_len if total_len > 0 else 1 %}
-  {% set produced_pct = (produced_len / total * 100) %}
-  {% set from_pct = (rep.sample_from_m / total * 100) %}
-  {% set to_pct = (rep.sample_to_m / total * 100) %}
+  {% set total = rep.total_length_m if rep.total_length_m > 0 else 1 %}
+  {% set from_pct = (rep.sample_start_m / total * 100) %}
+  {% set to_pct = ((rep.sample_start_m + rep.sample_length_m) / total * 100) %}
   {% set sel_w = (to_pct - from_pct) %}
 
-  {% set total = total_len if total_len > 0 else 1 %}
-  {% set from_pct = (rep.sample_from_m / total * 100) %}
-  {% set to_pct = (rep.sample_to_m / total * 100) %}
-  {% set sel_w = (to_pct - from_pct) %}
-  
   <div class="burst-bar">
     <div class="burst-selected" style="left: {{'%.4f'|format(from_pct)}}%; width: {{'%.4f'|format(sel_w)}}%;"></div>
   </div>
-  
   <div class="burst-labels">
     <span>0m</span>
-    <span>{{ rep.sample_from_m }} → {{ rep.sample_to_m }} m</span>
-    <span>{{ total_len }}m</span>
+    <span>{{ rep.sample_start_m }} → {{ rep.sample_start_m + rep.sample_length_m }} m (Used)</span>
+    <span>{{ rep.total_length_m }}m</span>
   </div>
-
-  <hr/>
-
-  <div class="grid-3">
-    <div class="stat">
-      <div class="k">API</div>
-      <div class="v">{{ rep.api_class }}</div>
-    </div>
-    <div class="stat">
-      <div class="k">Target</div>
-      <div class="v">{{ rep.target_pressure_psi }} PSI</div>
-    </div>
-    <div class="stat">
-      <div class="k">Actual</div>
-      <div class="v">{{ rep.actual_burst_psi }} PSI</div>
-    </div>
-  </div>
-
-  <div class="grid-2" style="margin-top:12px;">
-    <div class="stat">
-      <div class="k">Failure Mode</div>
-      <div class="v">{{ rep.failure_mode }}</div>
-    </div>
-    <div class="stat">
-      <div class="k">Temp</div>
-      <div class="v">{{ rep.test_temp_c }} °C</div>
-    </div>
-  </div>
-
-  {% if rep.notes %}
-    <div style="margin-top:12px;">
-      <div class="k"><b>Notes</b></div>
-      <div>{{ rep.notes }}</div>
-    </div>
-  {% endif %}
 </div>
 
+<form method="post" action="/burst/{{rep.id}}/update">
+  <div class="card">
+    <h3>TEST DETAILS</h3>
+
+    <div class="grid-2">
+      <div>
+        <label>Client Name & PO#</label>
+        <input name="client_name_po" value="{{ rep.client_name_po }}">
+      </div>
+      <div>
+        <label>Test Date</label>
+        <input value="{{ rep.tested_at }}" disabled>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label>Specimen Specification</label>
+        <input name="specimen_specification" value="{{ rep.specimen_specification }}">
+      </div>
+      <div>
+        <label>Reference Standard</label>
+        <input name="reference_standard" value="{{ rep.reference_standard }}">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label>DHTP Batch Number Ref</label>
+        <input value="{{ rep.batch_no }}" disabled>
+      </div>
+      <div>
+        <label>Reference DHTP Procedure</label>
+        <input name="reference_dhtp_procedure" value="{{ rep.reference_dhtp_procedure }}">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label>System Maximum Pressure</label>
+        <input name="system_max_pressure" value="{{ rep.system_max_pressure }}">
+      </div>
+      <div>
+        <label>Laboratory Temperature</label>
+        <input name="laboratory_temperature" value="{{ rep.laboratory_temperature }}">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label>Testing Medium</label>
+        <input name="testing_medium" value="{{ rep.testing_medium }}">
+      </div>
+      <div>
+        <label>Total No. of Specimens</label>
+        <input name="total_no_of_specimens" type="number" value="{{ rep.total_no_of_specimens }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>SPECIMENS DETAILS</h3>
+
+    <div class="grid-2">
+      <div>
+        <label>Specimen Ref #</label>
+        <input name="specimen_ref_no" value="{{ rep.specimen_ref_no }}">
+      </div>
+      <div></div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label>Total Length of Specimen</label>
+        <input name="specimen_total_length" value="{{ rep.specimen_total_length }}">
+      </div>
+      <div>
+        <label>Effective Length of Specimen</label>
+        <input name="specimen_effective_length" value="{{ rep.specimen_effective_length }}">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label>Liner Material</label>
+        <input name="liner_material" value="{{ rep.liner_material }}">
+      </div>
+      <div>
+        <label>Liner Wall Thickness</label>
+        <input name="liner_thickness" value="{{ rep.liner_thickness }}">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label>Reinforcement Material</label>
+        <input name="reinforcement_material" value="{{ rep.reinforcement_material }}">
+      </div>
+      <div>
+        <label>Reinforcement Wall Thickness</label>
+        <input name="reinforcement_thickness" value="{{ rep.reinforcement_thickness }}">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label>Cover Material</label>
+        <input name="cover_material" value="{{ rep.cover_material }}">
+      </div>
+      <div>
+        <label>Cover Wall Thickness</label>
+        <input name="cover_thickness" value="{{ rep.cover_thickness }}">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>TEST RESULTS</h3>
+
+    <div class="grid-2">
+      <div>
+        <label>Sample Serial Number</label>
+        <input name="sample_serial_number" value="{{ rep.sample_serial_number }}">
+      </div>
+      <div>
+        <label>Actual Burst Pressure</label>
+        <input name="actual_burst_psi" type="number" step="0.01" value="{{ rep.actual_burst_psi }}">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label>Pressurization Time (Sec)</label>
+        <input name="pressurization_time_s" value="{{ rep.pressurization_time_s }}">
+      </div>
+      <div>
+        <label>Result (PASS/FAIL)</label>
+        <select name="test_result">
+          <option value="" {% if rep.test_result=="" %}selected{% endif %}></option>
+          <option value="PASS" {% if rep.test_result=="PASS" %}selected{% endif %}>PASS</option>
+          <option value="FAIL" {% if rep.test_result=="FAIL" %}selected{% endif %}>FAIL</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label>API Class</label>
+        <input name="api_class" value="{{ rep.api_class }}">
+      </div>
+      <div>
+        <label>Test Temp (°C)</label>
+        <input name="test_temp_c" type="number" step="0.1" value="{{ rep.test_temp_c }}">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div>
+        <label>Target Pressure (PSI)</label>
+        <input name="target_pressure_psi" type="number" step="0.01" value="{{ rep.target_pressure_psi }}">
+      </div>
+      <div>
+        <label>Failure Mode</label>
+        <input name="failure_mode" value="{{ rep.failure_mode }}">
+      </div>
+    </div>
+
+    <label>Notes</label>
+    <textarea name="notes" rows="3">{{ rep.notes }}</textarea>
+
+    <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+      <button class="btn primary" type="submit">Save</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Approval & Signature</h3>
+
+    <div class="grid-2">
+      <div>
+        <label>QA/QC Officer</label>
+        <input name="qa_qc_officer_name" value="{{ rep.qa_qc_officer_name }}">
+      </div>
+      <div>
+        <label>Testing Operator</label>
+        <input name="testing_operator_name" value="{{ rep.testing_operator_name }}">
+      </div>
+    </div>
+  </div>
+</form>
+
 <div class="card">
-  <h3>Upload Photos / Burst Chart</h3>
-  
+  <h3>Test Curve & Photos of Specimens (After Burst)</h3>
+
   <div class="upload-grid">
-  
-    <!-- Chart -->
     <div class="upload-box">
       <h4>Burst Chart (PDF/Image)</h4>
       <form method="post" action="/burst/{{rep.id}}/upload" enctype="multipart/form-data">
@@ -87,10 +237,9 @@
         <button class="btn primary" type="submit">Upload / Replace</button>
       </form>
     </div>
-  
-    <!-- Full length -->
+
     <div class="upload-box">
-      <h4>Photo: Full Length</h4>
+      <h4>FULL LENGTH</h4>
       <form method="post" action="/burst/{{rep.id}}/upload" enctype="multipart/form-data">
         <input type="hidden" name="kind" value="FULL">
         <input type="hidden" name="caption" value="Full Length">
@@ -98,56 +247,48 @@
         <button class="btn primary" type="submit">Upload / Replace</button>
       </form>
     </div>
-  
-    <!-- Side A -->
+
     <div class="upload-box">
-      <h4>Photo: Side A (Left)</h4>
+      <h4>SIDE A</h4>
       <form method="post" action="/burst/{{rep.id}}/upload" enctype="multipart/form-data">
         <input type="hidden" name="kind" value="SIDE_A">
-        <input type="hidden" name="caption" value="Side A (Left)">
+        <input type="hidden" name="caption" value="Side A">
         <input type="file" name="file" required>
         <button class="btn primary" type="submit">Upload / Replace</button>
       </form>
     </div>
-  
-    <!-- Side B -->
+
     <div class="upload-box">
-      <h4>Photo: Side B (Right)</h4>
+      <h4>SIDE B</h4>
       <form method="post" action="/burst/{{rep.id}}/upload" enctype="multipart/form-data">
         <input type="hidden" name="kind" value="SIDE_B">
-        <input type="hidden" name="caption" value="Side B (Right)">
+        <input type="hidden" name="caption" value="Side B">
         <input type="file" name="file" required>
         <button class="btn primary" type="submit">Upload / Replace</button>
       </form>
     </div>
-  
   </div>
 
   <hr/>
 
-  <h3>Attachments</h3>
-  {% if attachments %}
-    {% set slot_map = {} %}
-    {% for a in attachments %}
-      {% set _ = slot_map.update({a.kind: a}) %}
+  {% set slot_map = {} %}
+  {% for a in attachments %}
+    {% set _ = slot_map.update({a.kind: a}) %}
+  {% endfor %}
+
+  <ul>
+    {% for k in ["CHART","FULL","SIDE_A","SIDE_B"] %}
+      <li>
+        <b>{{k}}</b> —
+        {% if slot_map.get(k) %}
+          <a href="/burst/files/{{slot_map.get(k).id}}/view" target="_blank">Open</a>
+          <small>({{slot_map.get(k).caption}})</small>
+        {% else %}
+          <span style="opacity:0.6;">Not uploaded</span>
+        {% endif %}
+      </li>
     {% endfor %}
-    
-    <ul>
-      {% for k in ["CHART","FULL","SIDE_A","SIDE_B"] %}
-        <li>
-          <b>{{k}}</b> —
-          {% if slot_map.get(k) %}
-            <a href="/burst/files/{{slot_map.get(k).id}}/view" target="_blank">Open</a>
-            <small>({{slot_map.get(k).caption}})</small>
-          {% else %}
-            <span style="opacity:0.6;">Not uploaded</span>
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>No attachments yet.</p>
-  {% endif %}
+  </ul>
 </div>
 
 {% endblock %}
