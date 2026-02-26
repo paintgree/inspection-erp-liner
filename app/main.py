@@ -2351,40 +2351,38 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
     user = get_current_user(request, session)
 
     rep = session.get(BurstTestReport, report_id)
-if not rep:
-    raise HTTPException(404, "Burst report not found")
+    if not rep:
+        raise HTTPException(404, "Burst report not found")
 
-# optional linked cover run
-run = None
-produced_len = 0.0
+    # optional linked cover run
+    run = None
+    produced_len = 0.0
 
-if getattr(rep, "linked_run_id", None):
-    run = session.get(ProductionRun, rep.linked_run_id)
-    if run:
-        produced_len = get_run_produced_length_m(session, run.id)
+    if getattr(rep, "linked_run_id", None):
+        run = session.get(ProductionRun, rep.linked_run_id)
+        if run:
+            produced_len = get_run_produced_length_m(session, run.id)
 
-# total length is stored on the burst report itself (works for linked + manual)
-total_len = float(getattr(rep, "total_length_m", 0.0) or 0.0)
+    total_len = float(getattr(rep, "total_length_m", 0.0) or 0.0)
 
-attachments = session.exec(
-    select(BurstAttachment)
-    .where(BurstAttachment.report_id == report_id)
-    .order_by(BurstAttachment.uploaded_at.desc())
-).all()
+    attachments = session.exec(
+        select(BurstAttachment)
+        .where(BurstAttachment.report_id == report_id)
+        .order_by(BurstAttachment.uploaded_at.desc())
+    ).all()
 
-return templates.TemplateResponse(
-    "burst_view.html",
-    {
-        "request": request,
-        "user": user,
-        "rep": rep,
-        "run": run,                   # can be None
-        "produced_len": produced_len, # 0.0 if manual
-        "total_len": total_len,
-        "attachments": attachments,
-    },
-)
-
+    return templates.TemplateResponse(
+        "burst_view.html",
+        {
+            "request": request,
+            "user": user,
+            "rep": rep,
+            "run": run,                   # can be None
+            "produced_len": produced_len, # 0.0 if manual/unlinked
+            "total_len": total_len,
+            "attachments": attachments,
+        },
+    )
 
 @app.post("/burst/{report_id}/update")
 async def burst_update(
