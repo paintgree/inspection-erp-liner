@@ -86,7 +86,20 @@
 
         if (ct.includes("application/json")) {
           const data = await res.json();
-          msg = data.detail || data.message || msg;
+          function formatDetail(detail){
+          if(!detail) return "";
+          if(typeof detail === "string") return detail;
+          if(Array.isArray(detail)){
+            // FastAPI validation errors are often: [{loc:..., msg:..., type:...}, ...]
+            return detail.map(e => e.msg || JSON.stringify(e)).join("\n");
+          }
+          if(typeof detail === "object"){
+            return detail.msg || JSON.stringify(detail);
+          }
+          return String(detail);
+        }
+        
+        msg = formatDetail(data.detail) || data.message || msg;
         } else {
           // sometimes backend returns HTML/text; show a short message
           const text = await res.text();
@@ -117,6 +130,7 @@
 
 </body>
 </html>
+
 
 
 
