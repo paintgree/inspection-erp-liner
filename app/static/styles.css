@@ -681,3 +681,51 @@ input:focus, select:focus, textarea:focus{
   border-color:#4f46e5;
 }
 
+.pipe-visual{
+  padding: 12px 0;
+}
+.pipe-track{
+  position: relative;
+  height: 18px;
+  border-radius: 999px;
+  background: #eef2f7;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+.pipe-fill{
+  position:absolute;
+  inset:0;
+  background: linear-gradient(90deg, rgba(17,24,39,0.08), rgba(17,24,39,0.02));
+}
+.pipe-sample{
+  position:absolute;
+  top: 2px;
+  bottom: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ef4444, #f97316);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.7) inset;
+}
+.pipe-scale{
+  display:flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-top: 8px;
+}
+.locked-banner{
+  padding: 12px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  border: 1px solid #e5e7eb;
+  font-weight: 700;
+  margin: 10px 0;
+}
+.reopen-box{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin: 10px 0 20px;
+}
+.reopen-box input{
+  flex:1;
+}
+
