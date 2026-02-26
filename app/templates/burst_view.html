@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-head">
+  <h2>Burst Report #{{ rep.id }}</h2>
+  <div style="display:flex; gap:10px;">
+    <a class="btn" href="/burst">Back</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="mini-info">
+    <div><b>Run:</b> #{{ run.id }} - {{ run.process }} - {{ run.dhtp_batch_no }}</div>
+    <div><b>Total Length:</b> {{ total_len }} m</div>
+    <div><b>Produced Length:</b> {{ produced_len }} m</div>
+  </div>
+
+  {% set total = total_len if total_len > 0 else 1 %}
+  {% set produced_pct = (produced_len / total * 100) %}
+  {% set from_pct = (rep.sample_from_m / total * 100) %}
+  {% set to_pct = (rep.sample_to_m / total * 100) %}
+  {% set sel_w = (to_pct - from_pct) %}
+
+  <div class="burst-bar">
+    <div class="burst-produced" style="width: {{produced_pct}}%;"></div>
+    <div class="burst-selected" style="left: {{from_pct}}%; width: {{sel_w}}%;"></div>
+  </div>
+  <div class="burst-labels">
+    <span>0m</span>
+    <span>{{ rep.sample_from_m }} → {{ rep.sample_to_m }} m (Used)</span>
+    <span>{{ total_len }}m</span>
+  </div>
+
+  <hr/>
+
+  <div class="grid-3">
+    <div class="stat">
+      <div class="k">API</div>
+      <div class="v">{{ rep.api_class }}</div>
+    </div>
+    <div class="stat">
+      <div class="k">Target</div>
+      <div class="v">{{ rep.target_pressure_psi }} PSI</div>
+    </div>
+    <div class="stat">
+      <div class="k">Actual</div>
+      <div class="v">{{ rep.actual_burst_psi }} PSI</div>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-top:12px;">
+    <div class="stat">
+      <div class="k">Failure Mode</div>
+      <div class="v">{{ rep.failure_mode }}</div>
+    </div>
+    <div class="stat">
+      <div class="k">Temp</div>
+      <div class="v">{{ rep.test_temp_c }} °C</div>
+    </div>
+  </div>
+
+  {% if rep.notes %}
+    <div style="margin-top:12px;">
+      <div class="k"><b>Notes</b></div>
+      <div>{{ rep.notes }}</div>
+    </div>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>Upload Photos / Burst Chart</h3>
+  <form method="post" action="/burst/{{rep.id}}/upload" enctype="multipart/form-data">
+    <label>Type</label>
+    <select name="kind">
+      <option value="PHOTO">PHOTO</option>
+      <option value="CHART">CHART</option>
+      <option value="DOC">DOC</option>
+    </select>
+
+    <label>Caption</label>
+    <input name="caption" placeholder="Example: Burst chart / Sample photo">
+
+    <label>File</label>
+    <input type="file" name="file" required>
+
+    <button class="btn primary" type="submit">Upload</button>
+  </form>
+
+  <hr/>
+
+  <h3>Attachments</h3>
+  {% if attachments %}
+    <ul>
+      {% for a in attachments %}
+        <li>
+          <b>[{{a.kind}}]</b> {{a.caption}}
+          — <a href="/burst/files/{{a.id}}/view" target="_blank">Open</a>
+          <small>(uploaded by {{a.uploaded_by_user_name}})</small>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No attachments yet.</p>
+  {% endif %}
+</div>
+
+{% endblock %}
