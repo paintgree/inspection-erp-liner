@@ -12,31 +12,36 @@
       <tr>
         <th>ID</th>
         <th>Run</th>
-        <td>
-          {{ "%.1f"|format(r.sample_to_m - r.sample_from_m) }} m
-          <small style="opacity:0.7;">(start {{ "%.1f"|format(r.sample_from_m) }}m)</small>
-        </td>
+        <th>Sample</th>
         <th>Result</th>
         <th>Date</th>
       </tr>
     </thead>
+
     <tbody>
-    {% for r in reports %}
-      {% set run = run_map.get(r.id) %}
-      <tr>
-        <td><a href="/burst/{{r.id}}">#{{ r.id }}</a></td>
-        <td>
-          {% if run %}
-            {{ run.process }} / {{ run.dhtp_batch_no }}
-          {% else %}
-            (missing run)
-          {% endif %}
-        </td>
-        <td>{{ "%.1f"|format(r.sample_from_m) }} → {{ "%.1f"|format(r.sample_to_m) }} m</td>
-        <td>{{ "%.0f"|format(r.actual_burst_psi) }} PSI</td>
-        <td>{{ r.tested_at }}</td>
-      </tr>
-    {% endfor %}
+      {% for r in reports %}
+        {% set run = run_map.get(r.id) %}
+        <tr>
+          <td><a href="/burst/{{ r.id }}">#{{ r.id }}</a></td>
+
+          <td>
+            {% if run %}
+              {{ run.process }} / {{ run.dhtp_batch_no }}
+            {% else %}
+              (missing run)
+            {% endif %}
+          </td>
+
+          <td>
+            {{ "%.1f"|format((r.sample_to_m or 0) - (r.sample_from_m or 0)) }} m
+            <small style="opacity:0.7;">(start {{ "%.1f"|format(r.sample_from_m or 0) }}m)</small>
+          </td>
+
+          <td>{{ "%.0f"|format(r.actual_burst_psi or 0) }} PSI</td>
+
+          <td>{{ r.tested_at }}</td>
+        </tr>
+      {% endfor %}
     </tbody>
   </table>
 </div>
