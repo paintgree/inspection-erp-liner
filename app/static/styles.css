@@ -646,5 +646,26 @@ tr.length-row td{
   margin:0 0 10px 0;
 }
 
+.mode-tabs{
+  display:inline-flex;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  overflow:hidden;
+  background:#f8fafc;
+}
+
+.mode-tab{
+  padding:10px 14px;
+  border:none;
+  background:transparent;
+  font-weight:700;
+  cursor:pointer;
+  color:#334155;
+}
+
+.mode-tab.active{
+  background:#111827;
+  color:#fff;
+}
 
 
