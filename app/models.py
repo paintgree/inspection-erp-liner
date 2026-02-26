@@ -295,24 +295,32 @@ MrrInspection = MrrReceivingInspection
 class BurstTestReport(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
-    # link to production run (in-process inspection run)
-    run_id: int = Field(foreign_key="productionrun.id", index=True)
+    # Batch information
+    batch_no: str = Field(default="", index=True)
 
-    # sample location along the pipe
-    sample_from_m: float = Field(default=0.0)
-    sample_to_m: float = Field(default=0.0)
+    # Link to cover production run (optional)
+    linked_run_id: Optional[int] = Field(default=None, foreign_key="productionrun.id")
+    is_unlinked: bool = Field(default=False)
 
-    # test details
-    api_class: str = Field(default="API 15S")  # can change later
+    # Finished product length
+    total_length_m: float = Field(default=0.0)
+
+    # Sample
+    sample_start_m: float = Field(default=0.0)
+    sample_length_m: float = Field(default=0.0)
+
+    # Test Data (from your template)
+    api_class: str = Field(default="")
+    test_temp_c: float = Field(default=0.0)
     target_pressure_psi: float = Field(default=0.0)
     actual_burst_psi: float = Field(default=0.0)
     failure_mode: str = Field(default="")
-    test_temp_c: float = Field(default=0.0)
+    time_to_burst_sec: float = Field(default=0.0)
 
     notes: str = Field(default="")
 
     tested_at: datetime = Field(default_factory=datetime.utcnow)
-    created_by_user_id: Optional[int] = Field(default=None, index=True)
+    created_by_user_id: Optional[int] = Field(default=None)
     created_by_user_name: str = Field(default="")
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
