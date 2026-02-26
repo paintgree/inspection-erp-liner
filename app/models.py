@@ -355,6 +355,13 @@ class BurstTestReport(SQLModel, table=True):
     qa_qc_officer_name: str = Field(default="")
     testing_operator_name: str = Field(default="")
 
+
+    # Workflow
+    is_locked: bool = Field(default=False)
+    locked_at: Optional[datetime] = Field(default=None)
+    locked_by_user_id: Optional[int] = Field(default=None)
+    locked_by_user_name: str = Field(default="")
+    
     # Audit
     tested_at: datetime = Field(default_factory=datetime.utcnow)
     created_by_user_id: Optional[int] = Field(default=None)
@@ -378,6 +385,33 @@ class BurstAttachment(SQLModel, table=True):
     uploaded_by_user_name: str = Field(default="")
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
 
+class BurstSample(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    report_id: int = Field(foreign_key="bursttestreport.id", index=True)
+
+    sample_start_m: float = Field(default=0.0)
+    sample_length_m: float = Field(default=0.0)
+
+    # Optional per-sample results (useful when multiple specimens)
+    sample_serial_number: str = Field(default="")
+    actual_burst_psi: float = Field(default=0.0)
+    pressurization_time_s: str = Field(default="")
+    failure_mode: str = Field(default="")
+    test_result: str = Field(default="")  # PASS/FAIL
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class BurstAuditLog(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    report_id: int = Field(foreign_key="bursttestreport.id", index=True)
+
+    action: str = Field(default="")  # LOCK / REOPEN / EDIT
+    note: str = Field(default="")
+
+    user_id: Optional[int] = Field(default=None)
+    user_name: str = Field(default="")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 
