@@ -631,6 +631,20 @@ tr.length-row td{
   font-size:12px;
   opacity:0.8;
 }
+.upload-grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+}
+.upload-box{
+  border:1px solid #eee;
+  border-radius:12px;
+  padding:12px;
+  background:#fafafa;
+}
+.upload-box h4{
+  margin:0 0 10px 0;
+}
 
 
 
