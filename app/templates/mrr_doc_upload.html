@@ -39,6 +39,13 @@
                 <td>
                   <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/view">View</a>
                   <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/download">Download</a>
+                
+                  {% if not readonly %}
+                    <button class="btn btn-sm btn-warn" type="button"
+                            onclick="trashDoc({{ d.id }}, '{{ (d.doc_number or d.doc_name)|e }}')">
+                      Delete
+                    </button>
+                  {% endif %}
                 </td>
               </tr>
             {% endfor %}
@@ -50,6 +57,45 @@
     {% endif %}
   </div>
 
+  {% if deleted_docs and deleted_docs|length > 0 %}
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Deleted Documents (Trash)</div>
+      <div class="muted tiny">These are NOT removed. You can restore anytime.</div>
+  
+      <div class="tablewrap mt">
+        <table class="table wide">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>No.</th>
+              <th>Name</th>
+              <th>Deleted By</th>
+              <th>Deleted At</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in deleted_docs %}
+            <tr>
+              <td><b>{{ d.doc_type }}</b></td>
+              <td>{{ d.doc_number or "-" }}</td>
+              <td>{{ d.doc_name or "-" }}</td>
+              <td>{{ d.deleted_by_user_name or "-" }}</td>
+              <td>{{ d.deleted_at_utc or "-" }}</td>
+              <td>
+                {% if not readonly %}
+                  <form method="post" action="/mrr/docs/{{ d.id }}/restore" style="display:inline;">
+                    <button class="btn btn-sm" type="submit">Restore</button>
+                  </form>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
   <!-- Upload Form -->
   <div class="card inner mt">
     <div class="sectiontitle accent-blue">Upload Document</div>
@@ -191,6 +237,21 @@
         applyAttachRules();
       })();
       </script>
+      <script>
+      function trashDoc(docId, expectedText) {
+        const typed = prompt(`Type exactly to delete:\n${expectedText}`);
+        if (typed === null) return;
+      
+        const form = document.getElementById("trashForm");
+        form.action = `/mrr/docs/${docId}/trash`;
+        form.querySelector('input[name="confirm_doc_number"]').value = typed;
+        form.submit();
+      }
+      </script>
+      
+      <form id="trashForm" method="post" style="display:none;">
+        <input type="hidden" name="confirm_doc_number" value="">
+      </form>
 
     {% endif %}
   </div>
