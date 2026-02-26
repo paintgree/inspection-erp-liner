@@ -2212,7 +2212,9 @@ def burst_dashboard(request: Request, session: Session = Depends(get_session)):
     # attach run info quickly
     run_map = {}
     for r in reports:
-        run = session.get(ProductionRun, r.run_id)
+        run = None
+        if getattr(r, "linked_run_id", None):
+            run = session.get(ProductionRun, r.linked_run_id)
         run_map[r.id] = run
 
     return templates.TemplateResponse(
