@@ -2244,6 +2244,20 @@ async def burst_create(
             f"Wrong range: run produced length is {produced_len}m but your sample ends at {t}m"
         )
 
+    # --- Anti-duplicate guard: if same run + same range was created recently, reuse it ---
+    recent = session.exec(
+        select(BurstTestReport)
+        .where(BurstTestReport.run_id == run.id)
+        .order_by(BurstTestReport.created_at.desc())
+    ).first()
+    
+    if recent:
+        # match same sample + within 60 seconds
+        same_sample = (abs(recent.sample_from_m - f) < 0.0001) and (abs(recent.sample_to_m - t) < 0.0001)
+        is_recent = (datetime.utcnow() - recent.created_at).total_seconds() < 60
+        if same_sample and is_recent:
+            return RedirectResponse(f"/burst/{recent.id}", status_code=303)
+
     rep = BurstTestReport(
         run_id=run.id,
         sample_from_m=f,
