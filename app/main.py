@@ -2087,6 +2087,20 @@ def _resolve_template_type(lot, inspection) -> str:
         return lot_type
 
     return "RAW"
+
+
+def get_current_draft_shipment(session: Session, lot_id: int):
+    """
+    Returns the latest draft shipment for THIS ticket only.
+    Draft = not submitted AND not manager approved.
+    """
+    return session.exec(
+        select(MrrReceivingInspection)
+        .where(MrrReceivingInspection.ticket_id == lot_id)
+        .where(MrrReceivingInspection.inspector_confirmed == False)
+        .where(MrrReceivingInspection.manager_approved == False)
+        .order_by(MrrReceivingInspection.created_at.desc())
+    ).first()
 # ==========================================
 # EXPORT PER-INSPECTION (SEPARATE REPORTS)
 # ==========================================
@@ -2394,12 +2408,33 @@ def mrr_export_inspection_package(
         .order_by(MrrDocument.created_at.asc())
     ).all()
 
-    # Filter docs relevant to this shipment package:
-    # - inspection_id == this shipment OR inspection_id is None (ticket-level)
-    docs_for_package = [
-        d for d in all_docs
-        if (getattr(d, "inspection_id", None) in [None, inspection_id])
-    ]
+   # Filter docs relevant to this shipment package:
+    # 1) Always include shipment-attached docs for this inspection_id
+    # 2) Always include ticket-level PO
+    # 3) ALSO include ticket-level docs that match this shipment DN by doc_number
+    shipment_dn = (getattr(insp, "delivery_note_no", "") or "").strip()
+    
+    docs_for_package = []
+    for d in all_docs:
+        d_insp = getattr(d, "inspection_id", None)
+        dt = (getattr(d, "doc_type", "") or "").upper().strip()
+        dn = (getattr(d, "doc_number", "") or "").strip()
+    
+        # exact shipment link
+        if d_insp == inspection_id:
+            docs_for_package.append(d)
+            continue
+    
+        # ticket-level docs: include PO always
+        if d_insp is None:
+            if dt == "PO":
+                docs_for_package.append(d)
+                continue
+    
+            # include shipment-related docs if doc_number matches shipment DN
+            if shipment_dn and dn and dn == shipment_dn:
+                docs_for_package.append(d)
+                continue
 
     # Photos for this shipment
     photos = session.exec(
@@ -3862,9 +3897,14 @@ def mrr_docs_page(
 
     readonly = is_mrr_canceled(lot)
 
+    # Show ONLY submitted/approved shipments in the dropdown
     inspections = session.exec(
         select(MrrReceivingInspection)
         .where(MrrReceivingInspection.ticket_id == lot_id)
+        .where(
+            (MrrReceivingInspection.inspector_confirmed == True) |
+            (MrrReceivingInspection.manager_approved == True)
+        )
         .order_by(MrrReceivingInspection.created_at.asc())
     ).all()
 
@@ -3986,6 +4026,11 @@ async def mrr_doc_upload(
         insp = session.get(MrrReceivingInspection, chosen)
         if not insp or insp.ticket_id != lot_id:
             raise HTTPException(400, "Invalid shipment selected.")
+        
+        # Only allow attaching to SUBMITTED/APPROVED shipments
+        if not (insp.inspector_confirmed or insp.manager_approved):
+            raise HTTPException(400, "You can only attach to a submitted shipment.")
+        
         target_insp_id = chosen
 
     else:
@@ -4664,6 +4709,11 @@ async def create_shipment_inspection(
             f"/mrr/{lot_id}/inspection/new?error=Delivery%20Note%20is%20required",
             status_code=303,
         )
+
+    # ✅ If a DRAFT shipment already exists for this DN, reuse it (do NOT create duplicates)
+    existing_draft = get_draft_shipment_by_dn(session, lot_id, dn)
+    if existing_draft and getattr(existing_draft, "id", None) is not None:
+        return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{existing_draft.id}", status_code=303)
 
     # Must have DN document uploaded with matching doc_number
     dn_doc = session.exec(
