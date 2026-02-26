@@ -2209,8 +2209,9 @@ async def burst_create(
     request: Request,
     session: Session = Depends(get_session),
     run_id: int = Form(...),
-    sample_from_m: float = Form(...),
-    sample_to_m: float = Form(...),
+    f = float(sample_from_m or 0.0),
+    length = float(sample_length_m or 0.0),
+    t = f + length,
     api_class: str = Form("API 15S"),
     target_pressure_psi: float = Form(0.0),
     actual_burst_psi: float = Form(0.0),
@@ -2228,8 +2229,8 @@ async def burst_create(
     f = float(sample_from_m or 0.0)
     t = float(sample_to_m or 0.0)
 
-    if f < 0 or t <= 0 or t <= f:
-        raise HTTPException(400, "Invalid sample range. Example: 100 to 103")
+    if f < 0 or length <= 0:
+        raise HTTPException(400, "Invalid sample. Example: start 300, length 3")
 
     # Validation: within total planned length
     total_len = float(run.total_length_m or 0.0)
