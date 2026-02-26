@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-head">
+  <h2>New Burst Report</h2>
+  <a class="btn" href="/burst">Back</a>
+</div>
+
+<div class="card">
+  <form method="get" action="/burst/new" style="margin-bottom:12px;">
+    <label>Choose Production Run</label>
+    <select name="run_id" onchange="this.form.submit()">
+      <option value="">-- Select --</option>
+      {% for r in runs %}
+        <option value="{{r.id}}" {% if picked_run and picked_run.id == r.id %}selected{% endif %}>
+          #{{r.id}} - {{r.process}} - {{r.dhtp_batch_no}} (Total {{r.total_length_m}}m)
+        </option>
+      {% endfor %}
+    </select>
+  </form>
+
+  {% if picked_run %}
+    <div class="mini-info">
+      <div><b>Total Length:</b> {{ picked_run.total_length_m }} m</div>
+      <div><b>Produced Length (from in-process):</b> {{ produced_len }} m</div>
+    </div>
+
+    <form method="post" action="/burst/create">
+      <input type="hidden" name="run_id" value="{{picked_run.id}}"/>
+
+      <div class="grid-2">
+        <div>
+          <label>Sample From (m)</label>
+          <input name="sample_from_m" type="number" step="0.1" required placeholder="100">
+        </div>
+        <div>
+          <label>Sample To (m)</label>
+          <input name="sample_to_m" type="number" step="0.1" required placeholder="103">
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <label>API Class</label>
+          <input name="api_class" value="API 15S">
+        </div>
+        <div>
+          <label>Test Temp (°C)</label>
+          <input name="test_temp_c" type="number" step="0.1" value="23">
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div>
+          <label>Target Pressure (PSI)</label>
+          <input name="target_pressure_psi" type="number" step="1" value="3000">
+        </div>
+        <div>
+          <label>Actual Burst (PSI)</label>
+          <input name="actual_burst_psi" type="number" step="1" value="0">
+        </div>
+      </div>
+
+      <label>Failure Mode</label>
+      <input name="failure_mode" placeholder="Ductile Expansion / Weeping">
+
+      <label>Notes</label>
+      <textarea name="notes" rows="3" placeholder="Any extra details..."></textarea>
+
+      <button class="btn primary" type="submit">Create Report</button>
+    </form>
+  {% else %}
+    <p style="margin-top:10px;">Select a Production Run first.</p>
+  {% endif %}
+</div>
+
+{% endblock %}
