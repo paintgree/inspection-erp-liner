@@ -2200,52 +2200,69 @@ def upsert_burst_attachment(
 # BURST TESTING PAGES
 # =========================
 
+# =========================
+# BURST TESTING ROUTES
+# =========================
+
+def _find_related_runs_by_batch(session: Session, batch_no: str):
+    batch_no = (batch_no or "").strip()
+    if not batch_no:
+        return None, None, None
+
+    liner = session.exec(
+        select(ProductionRun).where(
+            (ProductionRun.dhtp_batch_no == batch_no) & (ProductionRun.process == "LINER")
+        )
+    ).first()
+
+    reinf = session.exec(
+        select(ProductionRun).where(
+            (ProductionRun.dhtp_batch_no == batch_no) & (ProductionRun.process == "REINFORCEMENT")
+        )
+    ).first()
+
+    cover = session.exec(
+        select(ProductionRun).where(
+            (ProductionRun.dhtp_batch_no == batch_no) & (ProductionRun.process == "COVER")
+        )
+    ).first()
+
+    return liner, reinf, cover
+
+
 @app.get("/burst")
 def burst_dashboard(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
-    # latest first
     reports = session.exec(
-        select(BurstTestReport).order_by(BurstTestReport.tested_at.desc())
+        select(BurstTestReport).order_by(BurstTestReport.id.desc())
     ).all()
 
-    # attach run info quickly
     run_map = {}
     for r in reports:
         run = None
-        if getattr(r, "linked_run_id", None):
+        if not r.is_unlinked and r.linked_run_id:
             run = session.get(ProductionRun, r.linked_run_id)
         run_map[r.id] = run
 
     return templates.TemplateResponse(
         "burst_dashboard.html",
-        {
-            "request": request,
-            "user": user,
-            "reports": reports,
-            "run_map": run_map,
-        },
+        {"request": request, "user": user, "reports": reports, "run_map": run_map},
     )
 
 
 @app.get("/burst/new")
-def burst_new(request: Request, session: Session = Depends(get_session), run_id: int = 0):
+def burst_new(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
-    runs = session.exec(select(ProductionRun).order_by(ProductionRun.id.desc())).all()
-
-    picked_run = session.get(ProductionRun, run_id) if run_id else None
-    produced_len = get_run_produced_length_m(session, run_id) if picked_run else 0.0
+    # Only cover runs selectable for linking
+    cover_runs = session.exec(
+        select(ProductionRun).where(ProductionRun.process == "COVER").order_by(ProductionRun.id.desc())
+    ).all()
 
     return templates.TemplateResponse(
         "burst_new.html",
-        {
-            "request": request,
-            "user": user,
-            "runs": runs,
-            "picked_run": picked_run,
-            "produced_len": produced_len,
-        },
+        {"request": request, "user": user, "cover_runs": cover_runs},
     )
 
 
@@ -2263,86 +2280,105 @@ async def burst_create(
     sample_start_m: float = Form(...),
     sample_length_m: float = Form(...),
 
-    api_class: str = Form(""),
-    test_temp_c: float = Form(0.0),
+    # minimal test inputs (others filled later on inspection page)
     target_pressure_psi: float = Form(0.0),
-    actual_burst_psi: float = Form(0.0),
-    failure_mode: str = Form(""),
+    test_temp_c: float = Form(0.0),
     notes: str = Form(""),
 ):
     user = get_current_user(request, session)
-    
+
     mode = (mode or "linked").strip().lower()
-    is_manual = mode == "manual"
-    
-    # compute sample end
+    is_manual = (mode == "manual")
+
     start = float(sample_start_m or 0.0)
     length = float(sample_length_m or 0.0)
     end = start + length
-    
+
     if start < 0 or length <= 0:
         raise HTTPException(400, detail="Invalid sample. Example: start 300m, length 3m")
-    
+
+    # Determine batch & total length + autofill details
     batch_no = ""
     total_len = 0.0
     linked_id = None
-    
+
+    # Fields we auto-fill when linked
+    client_name = ""
+    client_po = ""
+    pipe_spec = ""
+    liner_grade = ""
+    reinf_grade = ""
+    cover_grade = ""
+
     if is_manual:
         batch_no = (manual_batch_no or "").strip()
         total_len = float(manual_total_length_m or 0.0)
-    
+
         if not batch_no:
             raise HTTPException(400, detail="Manual mode: Batch No is required")
         if total_len <= 0:
             raise HTTPException(400, detail="Manual mode: Total length must be > 0")
-    
+
     else:
-        # linked mode
         if not linked_run_id:
-            raise HTTPException(400, detail="Linked mode: please select a cover production run")
-    
-        run = session.get(ProductionRun, int(linked_run_id))
-        if not run:
-            raise HTTPException(404, detail="Cover production run not found")
-    
-        batch_no = (run.dhtp_batch_no or "").strip()
-        total_len = float(run.total_length_m or 0.0)
-        linked_id = run.id
-    
+            raise HTTPException(400, detail="Linked mode: please select a COVER production run")
+
+        cover_run = session.get(ProductionRun, int(linked_run_id))
+        if not cover_run:
+            raise HTTPException(404, detail="Cover run not found")
+
+        batch_no = (cover_run.dhtp_batch_no or "").strip()
+        total_len = float(cover_run.total_length_m or 0.0)
+        linked_id = cover_run.id
+
         if total_len <= 0:
-            raise HTTPException(400, detail="This run has total length 0. Please update run length first.")
-    
-    # validate sample must be inside total length
+            raise HTTPException(400, detail="Selected cover run total length is 0. Please update it first.")
+
+        # autofill from cover run
+        client_name = (cover_run.client_name or "").strip()
+        client_po = (cover_run.po_number or "").strip()
+        pipe_spec = (cover_run.pipe_specification or "").strip()
+        cover_grade = (cover_run.raw_material_spec or "").strip()
+
+        # autofill from other runs with same batch (if exist)
+        liner_run, reinf_run, _ = _find_related_runs_by_batch(session, batch_no)
+        if liner_run:
+            liner_grade = (liner_run.raw_material_spec or "").strip()
+        if reinf_run:
+            reinf_grade = (reinf_run.raw_material_spec or "").strip()
+
     if end > total_len:
-        raise HTTPException(
-            400,
-            detail=f"Sample ends at {end}m but total finished length is {total_len}m"
-        )
-    
+        raise HTTPException(400, detail=f"Sample ends at {end}m but total finished length is {total_len}m")
+
     rep = BurstTestReport(
         batch_no=batch_no,
         linked_run_id=linked_id,
         is_unlinked=is_manual,
         total_length_m=total_len,
-    
+
         sample_start_m=start,
         sample_length_m=length,
-    
-        api_class=(api_class or "").strip(),
-        test_temp_c=float(test_temp_c or 0.0),
+
+        client_name=client_name,
+        client_po=client_po,
+        pipe_specification=pipe_spec,
+
+        liner_material_grade=liner_grade,
+        reinforcement_material_grade=reinf_grade,
+        cover_material_grade=cover_grade,
+
         target_pressure_psi=float(target_pressure_psi or 0.0),
-        actual_burst_psi=float(actual_burst_psi or 0.0),
-        failure_mode=(failure_mode or "").strip(),
+        test_temp_c=float(test_temp_c or 0.0),
         notes=(notes or "").strip(),
-    
+
         created_by_user_id=user.id,
         created_by_user_name=user.display_name,
     )
-    
+
     session.add(rep)
     session.commit()
     session.refresh(rep)
-    
+
     return RedirectResponse(f"/burst/{rep.id}", status_code=303)
 
 
@@ -2354,16 +2390,12 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
     if not rep:
         raise HTTPException(404, "Burst report not found")
 
-    # optional linked cover run
     run = None
     produced_len = 0.0
-
-    if getattr(rep, "linked_run_id", None):
+    if (not rep.is_unlinked) and rep.linked_run_id:
         run = session.get(ProductionRun, rep.linked_run_id)
         if run:
             produced_len = get_run_produced_length_m(session, run.id)
-
-    total_len = float(getattr(rep, "total_length_m", 0.0) or 0.0)
 
     attachments = session.exec(
         select(BurstAttachment)
@@ -2377,12 +2409,12 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             "request": request,
             "user": user,
             "rep": rep,
-            "run": run,                   # can be None
-            "produced_len": produced_len, # 0.0 if manual/unlinked
-            "total_len": total_len,
+            "run": run,  # can be None
+            "produced_len": produced_len,
             "attachments": attachments,
         },
     )
+
 
 @app.post("/burst/{report_id}/update")
 async def burst_update(
@@ -2390,8 +2422,7 @@ async def burst_update(
     request: Request,
     session: Session = Depends(get_session),
 
-    client_name_po: str = Form(""),
-    specimen_specification: str = Form(""),
+    # TEST DETAILS (manual fields only)
     reference_standard: str = Form(""),
     reference_dhtp_procedure: str = Form(""),
     system_max_pressure: str = Form(""),
@@ -2399,28 +2430,21 @@ async def burst_update(
     testing_medium: str = Form("Water"),
     total_no_of_specimens: int = Form(1),
 
-    specimen_ref_no: str = Form(""),
-    specimen_total_length: str = Form(""),
-    specimen_effective_length: str = Form(""),
-
-    liner_material: str = Form(""),
+    # SPECIMENS
+    effective_length_m: str = Form(""),
     liner_thickness: str = Form(""),
-    reinforcement_material: str = Form(""),
     reinforcement_thickness: str = Form(""),
-    cover_material: str = Form(""),
     cover_thickness: str = Form(""),
 
+    # RESULTS (template-like)
     sample_serial_number: str = Form(""),
+    actual_burst_psi: float = Form(0.0),
     pressurization_time_s: str = Form(""),
     test_result: str = Form(""),
-
-    api_class: str = Form(""),
-    test_temp_c: float = Form(0.0),
-    target_pressure_psi: float = Form(0.0),
-    actual_burst_psi: float = Form(0.0),
     failure_mode: str = Form(""),
     notes: str = Form(""),
 
+    # signatures
     qa_qc_officer_name: str = Form(""),
     testing_operator_name: str = Form(""),
 ):
@@ -2428,55 +2452,78 @@ async def burst_update(
 
     rep = session.get(BurstTestReport, report_id)
     if not rep:
-        raise HTTPException(404, "Burst report not found")
+        raise HTTPException(404, detail="Burst report not found")
 
-    # TEST DETAILS
-    rep.client_name_po = client_name_po
-    rep.specimen_specification = specimen_specification
-    rep.reference_standard = reference_standard
-    rep.reference_dhtp_procedure = reference_dhtp_procedure
-    rep.system_max_pressure = system_max_pressure
-    rep.laboratory_temperature = laboratory_temperature
-    rep.testing_medium = testing_medium
+    # TEST DETAILS (manual)
+    rep.reference_standard = (reference_standard or "").strip()
+    rep.reference_dhtp_procedure = (reference_dhtp_procedure or "").strip()
+    rep.system_max_pressure = (system_max_pressure or "").strip()
+    rep.laboratory_temperature = (laboratory_temperature or "").strip()
+    rep.testing_medium = (testing_medium or "").strip()
     rep.total_no_of_specimens = int(total_no_of_specimens or 1)
 
     # SPECIMENS
-    rep.specimen_ref_no = specimen_ref_no
-    rep.specimen_total_length = specimen_total_length
-    rep.specimen_effective_length = specimen_effective_length
-    rep.liner_material = liner_material
-    rep.liner_thickness = liner_thickness
-    rep.reinforcement_material = reinforcement_material
-    rep.reinforcement_thickness = reinforcement_thickness
-    rep.cover_material = cover_material
-    rep.cover_thickness = cover_thickness
+    rep.effective_length_m = (effective_length_m or "").strip()
+    rep.liner_thickness = (liner_thickness or "").strip()
+    rep.reinforcement_thickness = (reinforcement_thickness or "").strip()
+    rep.cover_thickness = (cover_thickness or "").strip()
 
     # RESULTS
-    rep.sample_serial_number = sample_serial_number
-    rep.pressurization_time_s = pressurization_time_s
-    rep.test_result = test_result
-    rep.api_class = api_class
-    rep.test_temp_c = float(test_temp_c or 0.0)
-    rep.target_pressure_psi = float(target_pressure_psi or 0.0)
+    rep.sample_serial_number = (sample_serial_number or "").strip()
     rep.actual_burst_psi = float(actual_burst_psi or 0.0)
-    rep.failure_mode = failure_mode
-    rep.notes = notes
+    rep.pressurization_time_s = (pressurization_time_s or "").strip()
+    rep.test_result = (test_result or "").strip()
+    rep.failure_mode = (failure_mode or "").strip()
+    rep.notes = (notes or "").strip()
 
-    # SIGNATURES
-    rep.qa_qc_officer_name = qa_qc_officer_name
-    rep.testing_operator_name = testing_operator_name
+    rep.qa_qc_officer_name = (qa_qc_officer_name or "").strip()
+    rep.testing_operator_name = (testing_operator_name or "").strip()
 
     session.add(rep)
     session.commit()
 
     return RedirectResponse(f"/burst/{report_id}", status_code=303)
-    
+
+
+def upsert_burst_attachment(session: Session, report_id: int, kind: str, file_rel_path: str, caption: str, user):
+    kind = (kind or "").strip().upper()
+
+    existing = session.exec(
+        select(BurstAttachment)
+        .where(BurstAttachment.report_id == report_id)
+        .where(BurstAttachment.kind == kind)
+    ).first()
+
+    if existing:
+        existing.file_path = file_rel_path
+        existing.caption = caption
+        existing.uploaded_by_user_id = user.id
+        existing.uploaded_by_user_name = user.display_name
+        existing.uploaded_at = datetime.utcnow()
+        session.add(existing)
+        session.commit()
+        return existing
+
+    att = BurstAttachment(
+        report_id=report_id,
+        kind=kind,
+        caption=caption,
+        file_path=file_rel_path,
+        uploaded_by_user_id=user.id,
+        uploaded_by_user_name=user.display_name,
+    )
+    session.add(att)
+    session.commit()
+    session.refresh(att)
+    return att
+
+
 @app.post("/burst/{report_id}/upload")
 async def burst_upload(
     report_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    kind: str = Form("PHOTO"),
+    kind: str = Form(...),
     caption: str = Form(""),
     file: UploadFile = File(...),
 ):
@@ -2484,16 +2531,17 @@ async def burst_upload(
 
     rep = session.get(BurstTestReport, report_id)
     if not rep:
-        raise HTTPException(404, "Burst report not found")
+        raise HTTPException(404, detail="Burst report not found")
 
-    safe_original = os.path.basename(file.filename or "upload.bin")
-    filename = f"burst_{report_id}_{int(datetime.utcnow().timestamp())}_{safe_original}"
-    abs_path = os.path.join(BURST_FILES_DIR, filename)
+    # Save file
+    os.makedirs("data/uploads/burst", exist_ok=True)
+    safe_name = f"{report_id}_{kind.upper()}_{int(time.time())}_{file.filename}"
+    abs_path = os.path.join("data/uploads/burst", safe_name)
 
     with open(abs_path, "wb") as f:
         f.write(await file.read())
 
-    rel_path = os.path.relpath(abs_path, BASE_DIR)
+    rel_path = abs_path  # project stores relative-like paths already
 
     upsert_burst_attachment(
         session=session,
@@ -2507,20 +2555,17 @@ async def burst_upload(
     return RedirectResponse(f"/burst/{report_id}", status_code=303)
 
 
-@app.get("/burst/files/{attachment_id}/view")
-def burst_file_view(attachment_id: int, request: Request, session: Session = Depends(get_session)):
+@app.get("/burst/files/{file_id}/view")
+def burst_file_view(file_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
-    att = session.get(BurstAttachment, attachment_id)
+    att = session.get(BurstAttachment, file_id)
     if not att:
-        raise HTTPException(404, "Attachment not found")
+        raise HTTPException(404, detail="File not found")
 
-    resolved = resolve_burst_file_path(att.file_path)
-    if not resolved or not os.path.exists(resolved):
-        raise HTTPException(404, "File missing")
-
-    mt, _ = mimetypes.guess_type(resolved)
-    return FileResponse(resolved, media_type=mt or "application/octet-stream")
+    # send file
+    return FileResponse(att.file_path)
+    
 # ==========================================
 # EXPORT PER-INSPECTION (SEPARATE REPORTS)
 # ==========================================
