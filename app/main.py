@@ -2379,6 +2379,15 @@ async def burst_create(
     session.commit()
     session.refresh(rep)
 
+    # create first sample row
+    s = BurstSample(
+        report_id=rep.id,
+        sample_start_m=start,
+        sample_length_m=length,
+    )
+    session.add(s)
+    session.commit()
+
     return RedirectResponse(f"/burst/{rep.id}", status_code=303)
 
 
@@ -2397,6 +2406,48 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
         if run:
             produced_len = get_run_produced_length_m(session, run.id)
 
+    live = {
+        "client_name": rep.client_name,
+        "client_po": rep.client_po,
+        "pipe_specification": rep.pipe_specification,
+        "liner_material_grade": rep.liner_material_grade,
+        "reinforcement_material_grade": rep.reinforcement_material_grade,
+        "cover_material_grade": rep.cover_material_grade,
+        "total_length_m": rep.total_length_m,
+    }
+    
+    # If linked + not locked => always show latest values from cover run / batch runs
+    if (not rep.is_unlinked) and (not rep.is_locked) and run:
+        # cover run values
+        live["client_name"] = (getattr(run, "client_name", "") or "").strip()
+        live["client_po"] = (getattr(run, "po_number", "") or "").strip()
+        live["pipe_specification"] = (getattr(run, "pipe_specification", "") or "").strip()
+        live["cover_material_grade"] = (getattr(run, "raw_material_spec", "") or "").strip()
+    
+        # also total length should follow the run while still draft
+        run_total = float(getattr(run, "total_length_m", 0.0) or 0.0)
+        if run_total > 0:
+            live["total_length_m"] = run_total
+    
+        # related runs by batch (if you have them)
+        batch_no = (getattr(run, "dhtp_batch_no", "") or "").strip()
+        if batch_no:
+            liner_run = session.exec(
+                select(ProductionRun).where(
+                    (ProductionRun.dhtp_batch_no == batch_no) & (ProductionRun.process == "LINER")
+                )
+            ).first()
+            reinf_run = session.exec(
+                select(ProductionRun).where(
+                    (ProductionRun.dhtp_batch_no == batch_no) & (ProductionRun.process == "REINFORCEMENT")
+                )
+            ).first()
+    
+            if liner_run:
+                live["liner_material_grade"] = (getattr(liner_run, "raw_material_spec", "") or "").strip()
+            if reinf_run:
+                live["reinforcement_material_grade"] = (getattr(reinf_run, "raw_material_spec", "") or "").strip()
+
     attachments = session.exec(
         select(BurstAttachment)
         .where(BurstAttachment.report_id == report_id)
@@ -2409,9 +2460,12 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             "request": request,
             "user": user,
             "rep": rep,
-            "run": run,  # can be None
+            "run": run,
             "produced_len": produced_len,
             "attachments": attachments,
+            "live": live,
+            "samples": samples,
+            "audit": audit,
         },
     )
 
