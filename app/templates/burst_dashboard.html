@@ -11,34 +11,36 @@
     <thead>
       <tr>
         <th>ID</th>
-        <th>Run</th>
+        <th>Batch</th>
+        <th>Linked</th>
         <th>Sample</th>
         <th>Result</th>
         <th>Date</th>
       </tr>
     </thead>
-
+    
     <tbody>
       {% for r in reports %}
         {% set run = run_map.get(r.id) %}
         <tr>
           <td><a href="/burst/{{ r.id }}">#{{ r.id }}</a></td>
-
+    
+          <td>{{ r.batch_no }}</td>
+    
           <td>
             {% if run %}
-              {{ run.process }} / {{ run.dhtp_batch_no }}
+              Yes (Cover Run #{{ run.id }})
             {% else %}
-              (missing run)
+              No (Manual)
             {% endif %}
           </td>
-
+    
           <td>
-            {{ "%.1f"|format((r.sample_to_m or 0) - (r.sample_from_m or 0)) }} m
-            <small style="opacity:0.7;">(start {{ "%.1f"|format(r.sample_from_m or 0) }}m)</small>
+            {{ "%.1f"|format(r.sample_length_m or 0) }} m
+            <small style="opacity:0.7;">(start {{ "%.1f"|format(r.sample_start_m or 0) }}m)</small>
           </td>
-
+    
           <td>{{ "%.0f"|format(r.actual_burst_psi or 0) }} PSI</td>
-
           <td>{{ r.tested_at }}</td>
         </tr>
       {% endfor %}
