@@ -19,9 +19,54 @@
   {% set to_pct = ((rep.sample_start_m + rep.sample_length_m) / total * 100) %}
   {% set sel_w = (to_pct - from_pct) %}
 
-  <div class="burst-bar">
-    <div class="burst-selected" style="left: {{'%.4f'|format(from_pct)}}%; width: {{'%.4f'|format(sel_w)}}%;"></div>
+  {% set total = live.total_length_m if live.total_length_m > 0 else 1 %}
+  
+  <div class="pipe-visual">
+    <div class="pipe-track">
+      <div class="pipe-fill"></div>
+  
+      {% for s in samples %}
+        {% set from_pct = (s.sample_start_m / total * 100) %}
+        {% set to_pct = ((s.sample_start_m + s.sample_length_m) / total * 100) %}
+        {% set w = (to_pct - from_pct) %}
+        <div class="pipe-sample" style="left: {{'%.4f'|format(from_pct)}}%; width: {{'%.4f'|format(w)}}%;"></div>
+      {% endfor %}
+    </div>
+  
+    <div class="pipe-scale">
+      <span>0m</span>
+      <span class="muted">Total {{ live.total_length_m }}m</span>
+      <span>{{ live.total_length_m }}m</span>
+    </div>
   </div>
+
+  {% if rep.is_locked %}
+    <div class="locked-banner">
+      ✅ Report is locked (saved). To edit, reopen with reason.
+    </div>
+  
+    <form method="post" action="/burst/{{rep.id}}/reopen" class="reopen-box">
+      <input name="reason" placeholder="Reason for reopening (required for audit)" required>
+      <button class="btn btn-primary" type="submit">Reopen for Edit</button>
+    </form>
+  {% else %}
+    <div class="card">
+      <h3>Add another sample</h3>
+      <form method="post" action="/burst/{{rep.id}}/samples/add" class="grid-2">
+        <div>
+          <label>Sample Start (m)</label>
+          <input name="sample_start_m" type="number" step="0.1" required>
+        </div>
+        <div>
+          <label>Sample Length (m)</label>
+          <input name="sample_length_m" type="number" step="0.1" required>
+        </div>
+        <div style="grid-column: 1 / -1; display:flex; justify-content:flex-end;">
+          <button class="btn btn-primary" type="submit">+ Add Sample</button>
+        </div>
+      </form>
+    </div>
+  {% endif %}
 
   <div class="burst-labels">
     <span>0m</span>
@@ -37,49 +82,49 @@
     <div class="grid-2">
       <div>
         <label>Client Name</label>
-        <input value="{{ rep.client_name }}" readonly>
+        <input value="{{ live.client_name }}" readonly>
       </div>
       <div>
         <label>Client PO#</label>
-        <input value="{{ rep.client_po }}" readonly>
+        <input value="{{ live.client_po }}" readonly>
       </div>
 
       <div>
         <label>Specimen Specification</label>
-        <input value="{{ rep.pipe_specification }}" readonly>
+        <input value="{{ live.pipe_specification }}" readonly>
       </div>
       <div>
         <label>DHTP Batch Number Ref</label>
-        <input value="{{ rep.batch_no }}" readonly>
+        <input value="{{ live.liner_material_grade }}" readonly>
       </div>
     </div>
 
     <div class="grid-2">
       <div>
         <label>Reference Standard</label>
-        <input name="reference_standard" value="{{ rep.reference_standard }}">
+        <input name="reference_standard" value="{{ rep.reference_standard }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
       <div>
         <label>Reference DHTP Procedure</label>
-        <input name="reference_dhtp_procedure" value="{{ rep.reference_dhtp_procedure }}">
+        <input name="reference_dhtp_procedure" value="{{ rep.reference_dhtp_procedure }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
 
       <div>
         <label>System Maximum Pressure</label>
-        <input name="system_max_pressure" value="{{ rep.system_max_pressure }}">
+        <input name="system_max_pressure" value="{{ rep.system_max_pressure }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
       <div>
         <label>Laboratory Temperature</label>
-        <input name="laboratory_temperature" value="{{ rep.laboratory_temperature }}">
+        <input name="laboratory_temperature" value="{{ rep.laboratory_temperature }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
 
       <div>
         <label>Testing Medium</label>
-        <input name="testing_medium" value="{{ rep.testing_medium }}">
+        <input name="testing_medium" value="{{ rep.testing_medium }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
       <div>
         <label>Total No. of Specimens</label>
-        <input name="total_no_of_specimens" type="number" value="{{ rep.total_no_of_specimens }}">
+        <input name="total_no_of_specimens" type="number" value="{{ live.total_length_m }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
     </div>
   </div>
@@ -99,7 +144,7 @@
 
       <div>
         <label>Effective Length of Specimen</label>
-        <input name="effective_length_m" value="{{ rep.effective_length_m }}" placeholder="Example: 700mm">
+        <input name="effective_length_m" value="{{ rep.effective_length_m }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
       <div></div>
     </div>
@@ -107,29 +152,29 @@
     <div class="grid-2">
       <div>
         <label>Liner Material (grade)</label>
-        <input value="{{ rep.liner_material_grade }}" readonly>
+        <input value="{{ rep.liner_material_grade }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
       <div>
         <label>Liner Wall Thickness</label>
-        <input name="liner_thickness" value="{{ rep.liner_thickness }}">
+        <input name="liner_thickness" value="{{ rep.liner_thickness }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
 
       <div>
         <label>Reinforcement Material (grade)</label>
-        <input value="{{ rep.reinforcement_material_grade }}" readonly>
+        <input value="{{ rep.reinforcement_material_grade }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
       <div>
         <label>Reinforcement Wall Thickness</label>
-        <input name="reinforcement_thickness" value="{{ rep.reinforcement_thickness }}">
+        <input name="reinforcement_thickness" value="{{ rep.reinforcement_thickness }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
 
       <div>
         <label>Cover Material (grade)</label>
-        <input value="{{ rep.cover_material_grade }}" readonly>
+        <input value="{{ rep.cover_material_grade }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
       <div>
         <label>Cover Wall Thickness</label>
-        <input name="cover_thickness" value="{{ rep.cover_thickness }}">
+        <input name="cover_thickness" value="{{ rep.cover_thickness }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
     </div>
   </div>
@@ -140,16 +185,16 @@
     <div class="grid-2">
       <div>
         <label>Sample Serial Number</label>
-        <input name="sample_serial_number" value="{{ rep.sample_serial_number }}">
+        <input name="sample_serial_number" value="{{ rep.sample_serial_number }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
       <div>
         <label>Actual Burst Pressure (PSI)</label>
-        <input name="actual_burst_psi" type="number" step="0.1" value="{{ rep.actual_burst_psi }}">
+        <input name="actual_burst_psi" type="number" step="0.1" value="{{ rep.actual_burst_psi }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
 
       <div>
         <label>Pressurization Time (Sec)</label>
-        <input name="pressurization_time_s" value="{{ rep.pressurization_time_s }}">
+        <input name="pressurization_time_s" value="{{ rep.pressurization_time_s }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
       <div>
         <label>Result</label>
@@ -162,7 +207,7 @@
 
       <div>
         <label>Failure Mode</label>
-        <input name="failure_mode" value="{{ rep.failure_mode }}">
+        <input name="failure_mode" value="{{ rep.failure_mode }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
       <div></div>
     </div>
@@ -173,6 +218,10 @@
     <div class="toolbar mt">
       <button class="btn btn-primary" type="submit">Save</button>
     </div>
+
+    {% if not rep.is_locked %}
+      <button class="btn btn-primary" type="submit">Save & Lock</button>
+    {% endif %}
   </div>
 
   <div class="card">
@@ -180,11 +229,11 @@
     <div class="grid-2">
       <div>
         <label>QA/QC Officer</label>
-        <input name="qa_qc_officer_name" value="{{ rep.qa_qc_officer_name }}">
+        <input name="qa_qc_officer_name" value="{{ rep.qa_qc_officer_name }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
       <div>
         <label>Testing Operator</label>
-        <input name="testing_operator_name" value="{{ rep.testing_operator_name }}">
+        <input name="testing_operator_name" value="{{ rep.testing_operator_name }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
     </div>
   </div>
@@ -197,8 +246,8 @@
     <div class="upload-box">
       <h4>Burst Chart (PDF/Image)</h4>
       <form method="post" action="/burst/{{rep.id}}/upload" enctype="multipart/form-data">
-        <input type="hidden" name="kind" value="CHART">
-        <input type="hidden" name="caption" value="Burst Chart">
+        <input type="hidden" name="kind" value="CHART" {% if rep.is_locked %}disabled{% endif %}>
+        <input type="hidden" name="caption" value="Burst Chart" {% if rep.is_locked %}disabled{% endif %}>
         <input type="file" name="file" required>
         <button class="btn btn-primary" type="submit">Upload / Replace</button>
       </form>
@@ -207,8 +256,8 @@
     <div class="upload-box">
       <h4>FULL LENGTH</h4>
       <form method="post" action="/burst/{{rep.id}}/upload" enctype="multipart/form-data">
-        <input type="hidden" name="kind" value="FULL">
-        <input type="hidden" name="caption" value="Full Length">
+        <input type="hidden" name="kind" value="FULL" {% if rep.is_locked %}disabled{% endif %}>
+        <input type="hidden" name="caption" value="Full Length" {% if rep.is_locked %}disabled{% endif %}>
         <input type="file" name="file" required>
         <button class="btn btn-primary" type="submit">Upload / Replace</button>
       </form>
@@ -217,8 +266,8 @@
     <div class="upload-box">
       <h4>SIDE A</h4>
       <form method="post" action="/burst/{{rep.id}}/upload" enctype="multipart/form-data">
-        <input type="hidden" name="kind" value="SIDE_A">
-        <input type="hidden" name="caption" value="Side A">
+        <input type="hidden" name="kind" value="SIDE_A" {% if rep.is_locked %}disabled{% endif %}>
+        <input type="hidden" name="caption" value="Side A" {% if rep.is_locked %}disabled{% endif %}>
         <input type="file" name="file" required>
         <button class="btn btn-primary" type="submit">Upload / Replace</button>
       </form>
@@ -227,8 +276,8 @@
     <div class="upload-box">
       <h4>SIDE B</h4>
       <form method="post" action="/burst/{{rep.id}}/upload" enctype="multipart/form-data">
-        <input type="hidden" name="kind" value="SIDE_B">
-        <input type="hidden" name="caption" value="Side B">
+        <input type="hidden" name="kind" value="SIDE_B" {% if rep.is_locked %}disabled{% endif %}>
+        <input type="hidden" name="caption" value="Side B" {% if rep.is_locked %}disabled{% endif %}>
         <input type="file" name="file" required>
         <button class="btn btn-primary" type="submit">Upload / Replace</button>
       </form>
