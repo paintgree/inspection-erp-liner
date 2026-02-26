@@ -2153,6 +2153,49 @@ def get_run_produced_length_m(session: Session, run_id: int) -> float:
 
     return max(vals) if vals else 0.0
 
+def upsert_burst_attachment(
+    session: Session,
+    report_id: int,
+    kind: str,
+    file_rel_path: str,
+    caption: str,
+    user,
+):
+    """
+    Ensures ONLY ONE attachment per kind per report.
+    If the kind already exists, update it (replace file).
+    """
+    kind = (kind or "").strip().upper()
+
+    existing = session.exec(
+        select(BurstAttachment)
+        .where(BurstAttachment.report_id == report_id)
+        .where(BurstAttachment.kind == kind)
+    ).first()
+
+    if existing:
+        existing.file_path = file_rel_path
+        existing.caption = caption
+        existing.uploaded_by_user_id = user.id
+        existing.uploaded_by_user_name = user.display_name
+        existing.uploaded_at = datetime.utcnow()
+        session.add(existing)
+        session.commit()
+        return existing
+
+    att = BurstAttachment(
+        report_id=report_id,
+        kind=kind,
+        caption=caption,
+        file_path=file_rel_path,
+        uploaded_by_user_id=user.id,
+        uploaded_by_user_name=user.display_name,
+    )
+    session.add(att)
+    session.commit()
+    session.refresh(att)
+    return att
+    
 # =========================
 # BURST TESTING PAGES
 # =========================
@@ -2209,7 +2252,7 @@ async def burst_create(
     request: Request,
     session: Session = Depends(get_session),
     run_id: int = Form(...),
-    f = float(sample_from_m or 0.0)
+    f = float(sample_from_m or 0.0),
     length = float(sample_length_m or 0.0)
     t = f + length,
     api_class: str = Form("API 15S"),
@@ -2337,16 +2380,14 @@ async def burst_upload(
 
     rel_path = os.path.relpath(abs_path, BASE_DIR)
 
-    att = BurstAttachment(
+    upsert_burst_attachment(
+        session=session,
         report_id=report_id,
-        kind=(kind or "PHOTO").strip().upper(),
+        kind=kind,
+        file_rel_path=rel_path,
         caption=(caption or "").strip(),
-        file_path=rel_path,
-        uploaded_by_user_id=user.id,
-        uploaded_by_user_name=user.display_name,
+        user=user,
     )
-    session.add(att)
-    session.commit()
 
     return RedirectResponse(f"/burst/{report_id}", status_code=303)
 
