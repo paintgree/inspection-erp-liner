@@ -5070,6 +5070,10 @@ def shipment_inspection_form(
             # Keep compatibility with any older fields in template(s)
             "data": data,
             "form_data": data,
+            
+            # ✅ provide both names (templates in your repo use both)
+            "lot": lot,
+            "ticket": lot,
 
             # ✅ show messages instead of “refresh only”
             "error": error,
