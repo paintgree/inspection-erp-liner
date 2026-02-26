@@ -5036,70 +5036,46 @@ def shipment_inspection_form(
 
     lot = session.get(MaterialLot, lot_id)
     if not lot:
-        raise HTTPException(404, "MRR Ticket not found")
+        raise HTTPException(404, "Ticket not found")
 
     inspection = session.get(MrrReceivingInspection, inspection_id)
     if not inspection or inspection.ticket_id != lot_id:
-        raise HTTPException(404, "Shipment inspection not found")
+        raise HTTPException(404, "Inspection not found")
 
-    # Header source of truth:
-    # - PO = ticket
-    # - Report/DN/Qty/Unit = shipment record
-    try:
-        data = json.loads(inspection.inspection_json or "{}")
-    except Exception:
+    # Load stored JSON safely
+    data = safe_json_loads(getattr(inspection, "inspection_json", None)) or {}
+    if not isinstance(data, dict):
         data = {}
 
-    # Ensure report_no exists even for older drafts
-    if not getattr(inspection, "report_no", None):
-        data["report_no"] = data.get("report_no") or generate_report_no(lot_id, 1)
-    else:
-        data["report_no"] = inspection.report_no
+    # ✅ IMPORTANT: read query messages so reviewer understands what happened
+    error = request.query_params.get("error", "")
+    success = request.query_params.get("success", "")
 
-    # Mirror shipment fields into json
-    data["delivery_note_no"] = inspection.delivery_note_no or ""
-    data["qty_arrived"] = inspection.qty_arrived if inspection.qty_arrived is not None else ""
-    data["qty_unit"] = inspection.qty_unit or "KG"
+    # Template selection (same as your current logic)
+    template_name = "mrr_inspection_outsourced.html" if (
+        (getattr(lot, "inspection_type", "") or "").upper() == "OUTSOURCED"
+    ) else "mrr_inspection.html"
 
-    # ✅ NEW: load photos for this inspection and group them
-    photos = session.exec(
-        select(MrrInspectionPhoto)
-        .where(
-            (MrrInspectionPhoto.ticket_id == lot_id) &
-            (MrrInspectionPhoto.inspection_id == inspection_id)
-        )
-        .order_by(MrrInspectionPhoto.created_at.asc())
-    ).all()
-
-    photo_groups: Dict[str, List[MrrInspectionPhoto]] = {}
-    for p in photos:
-        g = (p.group_name or "General").strip() or "General"
-        photo_groups.setdefault(g, []).append(p)
-    
-    # Resolve template type (RAW vs OUTSOURCED) — MUST be outside the loop
-    tpl = _resolve_template_type(lot, inspection)
-    
-    template_name = (
-        "mrr_inspection_outsourced.html"
-        if tpl == "OUTSOURCED"
-        else "mrr_inspection.html"
-    )
-    
     return templates.TemplateResponse(
         template_name,
         {
             "request": request,
             "user": user,
-            "lot": lot,
+            "ticket": lot,
             "inspection": inspection,
+
+            # ✅ IMPORTANT: give template the name it actually uses
+            "inspection_data": data,
+
+            # Keep compatibility with any older fields in template(s)
             "data": data,
-            "photo_groups": photo_groups,
-            "tpl": tpl,
-            "insp": inspection,
             "form_data": data,
+
+            # ✅ show messages instead of “refresh only”
+            "error": error,
+            "success": success,
         },
     )
-
 @app.get("/runs/{run_id}", response_class=HTMLResponse)
 def run_view(run_id: int, request: Request, session: Session = Depends(get_session)):
     try:
