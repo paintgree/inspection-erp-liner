@@ -2356,6 +2356,94 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
     )
 
 
+
+@app.post("/burst/{report_id}/update")
+async def burst_update(
+    report_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+
+    client_name_po: str = Form(""),
+    specimen_specification: str = Form(""),
+    reference_standard: str = Form(""),
+    reference_dhtp_procedure: str = Form(""),
+    system_max_pressure: str = Form(""),
+    laboratory_temperature: str = Form(""),
+    testing_medium: str = Form("Water"),
+    total_no_of_specimens: int = Form(1),
+
+    specimen_ref_no: str = Form(""),
+    specimen_total_length: str = Form(""),
+    specimen_effective_length: str = Form(""),
+
+    liner_material: str = Form(""),
+    liner_thickness: str = Form(""),
+    reinforcement_material: str = Form(""),
+    reinforcement_thickness: str = Form(""),
+    cover_material: str = Form(""),
+    cover_thickness: str = Form(""),
+
+    sample_serial_number: str = Form(""),
+    pressurization_time_s: str = Form(""),
+    test_result: str = Form(""),
+
+    api_class: str = Form(""),
+    test_temp_c: float = Form(0.0),
+    target_pressure_psi: float = Form(0.0),
+    actual_burst_psi: float = Form(0.0),
+    failure_mode: str = Form(""),
+    notes: str = Form(""),
+
+    qa_qc_officer_name: str = Form(""),
+    testing_operator_name: str = Form(""),
+):
+    user = get_current_user(request, session)
+
+    rep = session.get(BurstTestReport, report_id)
+    if not rep:
+        raise HTTPException(404, "Burst report not found")
+
+    # TEST DETAILS
+    rep.client_name_po = client_name_po
+    rep.specimen_specification = specimen_specification
+    rep.reference_standard = reference_standard
+    rep.reference_dhtp_procedure = reference_dhtp_procedure
+    rep.system_max_pressure = system_max_pressure
+    rep.laboratory_temperature = laboratory_temperature
+    rep.testing_medium = testing_medium
+    rep.total_no_of_specimens = int(total_no_of_specimens or 1)
+
+    # SPECIMENS
+    rep.specimen_ref_no = specimen_ref_no
+    rep.specimen_total_length = specimen_total_length
+    rep.specimen_effective_length = specimen_effective_length
+    rep.liner_material = liner_material
+    rep.liner_thickness = liner_thickness
+    rep.reinforcement_material = reinforcement_material
+    rep.reinforcement_thickness = reinforcement_thickness
+    rep.cover_material = cover_material
+    rep.cover_thickness = cover_thickness
+
+    # RESULTS
+    rep.sample_serial_number = sample_serial_number
+    rep.pressurization_time_s = pressurization_time_s
+    rep.test_result = test_result
+    rep.api_class = api_class
+    rep.test_temp_c = float(test_temp_c or 0.0)
+    rep.target_pressure_psi = float(target_pressure_psi or 0.0)
+    rep.actual_burst_psi = float(actual_burst_psi or 0.0)
+    rep.failure_mode = failure_mode
+    rep.notes = notes
+
+    # SIGNATURES
+    rep.qa_qc_officer_name = qa_qc_officer_name
+    rep.testing_operator_name = testing_operator_name
+
+    session.add(rep)
+    session.commit()
+
+    return RedirectResponse(f"/burst/{report_id}", status_code=303)
+    
 @app.post("/burst/{report_id}/upload")
 async def burst_upload(
     report_id: int,
