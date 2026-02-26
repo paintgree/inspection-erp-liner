@@ -2252,9 +2252,8 @@ async def burst_create(
     request: Request,
     session: Session = Depends(get_session),
     run_id: int = Form(...),
-    f = float(sample_from_m or 0.0),
-    length = float(sample_length_m or 0.0)
-    t = f + length,
+    sample_from_m: float = Form(...),
+    sample_length_m: float = Form(...),
     api_class: str = Form("API 15S"),
     target_pressure_psi: float = Form(0.0),
     actual_burst_psi: float = Form(0.0),
@@ -2268,10 +2267,11 @@ async def burst_create(
     if not run:
         raise HTTPException(404, "Production Run not found")
 
-    # Validation: basic
+    # Validation + compute "to"
     f = float(sample_from_m or 0.0)
-    t = float(sample_to_m or 0.0)
-
+    length = float(sample_length_m or 0.0)
+    t = f + length
+    
     if f < 0 or length <= 0:
         raise HTTPException(400, "Invalid sample. Example: start 300, length 3")
 
