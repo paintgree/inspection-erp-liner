@@ -3,7 +3,7 @@
 
 <div class="page-head">
   <h2>Burst Testing</h2>
-  <a class="btn" href="/burst/new">+ New Burst Report</a>
+  <a class="btn" href="/burst/new">+ New Burst Test</a>
 </div>
 
 <div class="card">
@@ -14,32 +14,24 @@
         <th>Batch</th>
         <th>Linked</th>
         <th>Sample</th>
-        <th>Result</th>
+        <th>Burst</th>
         <th>Date</th>
       </tr>
     </thead>
-    
+
     <tbody>
       {% for r in reports %}
         {% set run = run_map.get(r.id) %}
         <tr>
           <td><a href="/burst/{{ r.id }}">#{{ r.id }}</a></td>
-    
           <td>{{ r.batch_no }}</td>
-    
           <td>
-            {% if run %}
-              Yes (Cover Run #{{ run.id }})
-            {% else %}
-              No (Manual)
-            {% endif %}
+            {% if run %}Yes{% else %}No{% endif %}
           </td>
-    
           <td>
             {{ "%.1f"|format(r.sample_length_m or 0) }} m
-            <small style="opacity:0.7;">(start {{ "%.1f"|format(r.sample_start_m or 0) }}m)</small>
+            <small class="muted">(start {{ "%.1f"|format(r.sample_start_m or 0) }}m)</small>
           </td>
-    
           <td>{{ "%.0f"|format(r.actual_burst_psi or 0) }} PSI</td>
           <td>{{ r.tested_at }}</td>
         </tr>
