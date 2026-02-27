@@ -358,9 +358,9 @@ def fill_mrr_f01_xlsx_bytes(
 ) -> bytes:
     """
     Fills QAP0600-F01.xlsx using:
-    - ticket (lot)
-    - receiving (docs info / PO checks)
-    - inspection (shipment inspection values + inspection_json tables)
+    - lot
+    - receiving
+    - inspection (inspection_json tables + basic fields)
     - docs (uploaded docs list)
     """
     template_path = MRR_TEMPLATE_XLSX_MAP.get("RAW")
@@ -373,14 +373,9 @@ def fill_mrr_f01_xlsx_bytes(
     wb = openpyxl.load_workbook(template_path)
     ws = wb.active
 
-    # ---- HEADER MAP (F01) ----
-    _ws_set_value_safe(ws, "E1", inspection.report_no or "")
-    _ws_set_value_safe(ws, "E2", _as_date_str(getattr(inspection, "created_at", None) or datetime.utcnow()))
-
-    _ws_set_value_safe(ws, "B6", getattr(lot, "supplier_name", "") or "")
-    _ws_set_value_safe(ws, "F6", getattr(lot, "po_number", "") or "")
-
-    # Load inspection JSON early (needed for material family/grade)
+    # -------------------------
+    # Load inspection JSON
+    # -------------------------
     try:
         data = json.loads(getattr(inspection, "inspection_json", None) or "{}")
         if not isinstance(data, dict):
@@ -388,90 +383,80 @@ def fill_mrr_f01_xlsx_bytes(
     except Exception:
         data = {}
 
-    fam_code = (data.get("material_family") or data.get("material_fam") or data.get("material_type") or "").strip().upper()
-    
-    type_label = ""
-    if fam_code == "PE_RT":
-        type_label = "Polyethylene (PE-RT)"
-    elif fam_code == "PE100":
-        type_label = "Polyethylene (PE100)"
-    elif fam_code == "POLYESTER_FIBER":
-        type_label = "POLYESTER FIBER"
-    elif fam_code == "OTHER":
-        type_label = "Other"
-    
-    _ws_set_value_safe(ws, "B7", type_label)
-
-    _ws_set_value_safe(ws, "B9", getattr(lot, "batch_no", "") or "")
-
+    # Normalize family from UI into a small set your code understands
+    fam_ui = (data.get("material_family") or data.get("material_fam") or data.get("material_type") or "").strip().upper()
+    if fam_ui in ("PE_RT", "PE100", "PE"):
+        fam_ui = "PE"
+    elif fam_ui in ("POLYESTER_FIBER", "FIBER"):
+        fam_ui = "FIBER"
+    elif fam_ui == "OTHER":
+        fam_ui = "OTHER"
+    else:
+        fam_ui = fam_ui or ""
 
     grade = (data.get("material_grade") or data.get("grade") or "").strip()
-    fam = (data.get("material_fam") or data.get("material_type") or "").strip()
-    mat_name = (getattr(lot, "material_name", "") or "").strip()
 
+    # -------------------------
+    # HEADER MAP (F01)
+    # -------------------------
+    _ws_set_value_safe(ws, "E1", getattr(inspection, "report_no", "") or "")
+    _ws_set_value_safe(ws, "E2", _as_date_str(getattr(inspection, "created_at", None) or datetime.utcnow()))
+
+    _ws_set_value_safe(ws, "B6", getattr(lot, "supplier_name", "") or "")
+    _ws_set_value_safe(ws, "F6", getattr(lot, "po_number", "") or "")
+
+    # Material type label (for the small “Material Type” line)
+    type_label = ""
+    if fam_ui == "PE":
+        # If you want the exact labels, you can use grade to differentiate:
+        # PE-RT vs PE100 is typically in grade, so we just show PE with grade.
+        type_label = "Polyethylene" if not grade else f"Polyethylene ({grade})"
+    elif fam_ui == "FIBER":
+        type_label = "POLYESTER FIBER" if not grade else f"POLYESTER FIBER ({grade})"
+    elif fam_ui == "OTHER":
+        type_label = "Other"
+    _ws_set_value_safe(ws, "B7", type_label)
+
+    # Batch / grade / DN
     _ws_set_value_safe(ws, "B8", grade)
     _ws_set_value_safe(ws, "F8", getattr(inspection, "delivery_note_no", "") or "")
 
-    # --- COMMENTS / REMARKS into the report ---
-    # IMPORTANT: Change "B49" to the real cell address of your "Comments:" box in QAP0600-F01.xlsx
-    _ws_set_value_safe(ws, "A46", (data.get("remarks") or "").strip())
-    
-
-    # ---- Dynamic Template Titles ----
-    # Show only what user selected, remove hardcoded template names
-    title = ""
-    if fam and grade:
-        title = f"{fam} ({grade})"
-    elif fam:
-        title = fam
-    elif mat_name:
-        title = mat_name
-
-    # These cells in your template contain the hardcoded material headers
-    _ws_set_value_safe(ws, "A11", title)
-    _ws_set_value_safe(ws, "E11", "")
-    _ws_set_value_safe(ws, "A24", "")
-    _ws_set_value_safe(ws, "D24", "")
-
+    # Batch numbers might be a list or string
     bn = data.get("batch_numbers")
     if isinstance(bn, list):
         _ws_set_value_safe(ws, "B9", ", ".join([str(x).strip() for x in bn if str(x).strip()]))
     elif isinstance(bn, str):
         _ws_set_value_safe(ws, "B9", bn.strip())
     else:
-        _ws_set_value_safe(ws, "B9", "")
+        _ws_set_value_safe(ws, "B9", getattr(lot, "batch_no", "") or "")
 
+    # Quantity received
     qty_arrived = getattr(inspection, "qty_arrived", None)
     qty_unit = getattr(inspection, "qty_unit", None) or ""
     _ws_set_value_safe(ws, "F9", f"{_to_float(qty_arrived, 0)} {qty_unit}".strip())
 
+    # Comments / remarks
+    _ws_set_value_safe(ws, "A46", (data.get("remarks") or "").strip())
 
-        # ---- TABLE TITLES (Row 11 for PE, Row 24 for Fiber) ----
-    fam_ui = (data.get("material_family") or data.get("material_fam") or data.get("material_type") or "").strip().upper()
-    grade = (data.get("material_grade") or data.get("grade") or "").strip()
-
-    # Build display titles like your template
+    # -------------------------
+    # TABLE TITLES
+    # -------------------------
     pe_title = f"POLYETHYLENE ({grade})" if grade else "POLYETHYLENE"
     fb_title = f"POLYESTER FIBER ({grade})" if grade else "POLYESTER FIBER"
 
     if fam_ui == "PE":
         _ws_set_value_safe(ws, "A11", pe_title)
-        _ws_set_value_safe(ws, "A24", "")      # clear fiber title
+        _ws_set_value_safe(ws, "A24", "")   # clear fiber title
     elif fam_ui == "FIBER":
         _ws_set_value_safe(ws, "A24", fb_title)
-        _ws_set_value_safe(ws, "A11", "")      # clear PE title
+        _ws_set_value_safe(ws, "A11", "")   # clear PE title
     else:
-        # nothing selected
         _ws_set_value_safe(ws, "A11", "")
         _ws_set_value_safe(ws, "A24", "")
-    # ✅ VERY IMPORTANT: return the filled Excel as bytes
 
-     # ✅ Force all columns to fit within page width when exporting to PDF
-    _apply_excel_print_fit_settings_f01(wb)
-    return _xlsx_bytes_from_wb(wb)
-
-        # ---- PROPERTIES TABLE FILL (generic matcher) ----
-
+    # -------------------------
+    # PROPERTIES TABLE FILL
+    # -------------------------
     def _build_prop_map(items):
         m = {}
         if not isinstance(items, list):
@@ -486,9 +471,7 @@ def fill_mrr_f01_xlsx_bytes(
         return m
 
     def _write_cell_safe(sheet, row, col, value):
-        """
-        Works with merged cells: write to TOP-LEFT of the merged range.
-        """
+        """Works with merged cells: write to TOP-LEFT of the merged range."""
         cell = sheet.cell(row, col)
         if isinstance(cell, openpyxl.cell.cell.MergedCell):
             for mr in sheet.merged_cells.ranges:
@@ -498,10 +481,7 @@ def fill_mrr_f01_xlsx_bytes(
             return
         cell.value = value
 
-    # Which family user selected on the page
-    fam_ui = (data.get("material_family") or data.get("material_fam") or data.get("material_type") or "").strip().upper()
-
-    # Use "properties" list if present, else convert from form keys
+    # If UI didn’t send a ready "properties" list, we convert from form keys
     prop_items = data.get("properties")
     if not isinstance(prop_items, list) or len(prop_items) == 0:
         converted = []
@@ -521,8 +501,6 @@ def fill_mrr_f01_xlsx_bytes(
             ("melt", "Melting Point"),
         ]
 
-        # These keys MUST match your HTML input names:
-        # fb_linear_density_result, fb_breaking_strength_result, ...
         fb_rows = [
             ("linear_density", "Linear Density"),
             ("breaking_strength", "Breaking Strength"),
@@ -549,35 +527,33 @@ def fill_mrr_f01_xlsx_bytes(
 
     prop_map = _build_prop_map(prop_items)
 
-    # IMPORTANT (from your real Excel file):
-    # PE rows are 13..23
-    # Fiber rows are 26..30
+    # Allowed rows by family (based on your template)
     if fam_ui == "PE":
         allowed_row_min, allowed_row_max = 13, 23
     elif fam_ui == "FIBER":
         allowed_row_min, allowed_row_max = 26, 30
     else:
-        allowed_row_min, allowed_row_max = 1, ws.max_row
+        # If unknown, don’t write into table area
+        allowed_row_min, allowed_row_max = 0, -1
 
-    # IMPORTANT (from your real Excel file):
-    # PDS/COA Results header is at column G (merged G:H)
-    # Remarks header is at column I (merged I:J)
+    # Columns: results at G (7), remarks at I (9)
     RESULTS_COL = 7  # G
     REMARKS_COL = 9  # I
 
-    for r in range(allowed_row_min, allowed_row_max + 1):
-        label = ws.cell(r, 1).value  # column A
-        if not isinstance(label, str):
-            continue
+    if allowed_row_min <= allowed_row_max:
+        for r in range(allowed_row_min, allowed_row_max + 1):
+            label = ws.cell(r, 1).value  # Column A
+            if not isinstance(label, str):
+                continue
+            key = _normalize_key(label)
+            if key in prop_map:
+                it = prop_map[key]
+                _write_cell_safe(ws, r, RESULTS_COL, it.get("result") or it.get("value") or "")
+                _write_cell_safe(ws, r, REMARKS_COL, it.get("remarks") or "")
 
-        key = _normalize_key(label)
-        if key in prop_map:
-            it = prop_map[key]
-            _write_cell_safe(ws, r, RESULTS_COL, it.get("result") or it.get("value") or "")
-            _write_cell_safe(ws, r, REMARKS_COL, it.get("remarks") or "")
-
-    # ---- FOOTER (prints on every page) ----
-    # Left footer: Control number
+    # -------------------------
+    # FOOTER / PRINT SETTINGS
+    # -------------------------
     try:
         ws.oddFooter.left.text = "QAP0600-F01"
         ws.oddFooter.left.size = 9
@@ -585,6 +561,8 @@ def fill_mrr_f01_xlsx_bytes(
     except Exception:
         pass
 
+    _apply_excel_print_fit_settings_f01(wb)
+    return _xlsx_bytes_from_wb(wb)
 
 
     # ---- VISUAL + DOC REVIEW (use fixed row mapping; match Jinja keys exactly) ----
