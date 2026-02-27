@@ -661,6 +661,38 @@
 </form>
 
 <div class="card">
+
+  <div class="card">
+    <h3>Upload files for which sample?</h3>
+    <select id="uploadSampleId">
+      <option value="">Main / Default</option>
+      {% for s in samples %}
+        <option value="{{ s.id }}">{{ s.sample_serial_number or ("Sample #" ~ loop.index) }}</option>
+      {% endfor %}
+    </select>
+    <small class="muted">Choose sample, then upload chart/photos. (For multi-sample reports, pick each sample and upload its 4 files.)</small>
+  </div>
+  
+  <script>
+    // When you submit upload forms, inject selected sample_id
+    document.addEventListener("submit", function(e){
+      const form = e.target;
+      if (!form || !form.action || !form.action.includes("/burst/")) return;
+      if (form.querySelector('input[name="file"]')) {
+        const sel = document.getElementById("uploadSampleId");
+        if (sel) {
+          let hid = form.querySelector('input[name="sample_id"]');
+          if (!hid) {
+            hid = document.createElement("input");
+            hid.type = "hidden";
+            hid.name = "sample_id";
+            form.appendChild(hid);
+          }
+          hid.value = sel.value || "";
+        }
+      }
+    }, true);
+  </script>
   <h3>Test Curve & Photos (After Burst)</h3>
 
   <div class="upload-grid">
