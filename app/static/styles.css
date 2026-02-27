@@ -681,36 +681,6 @@ input:focus, select:focus, textarea:focus{
   border-color:#4f46e5;
 }
 
-.pipe-visual{
-  padding: 12px 0;
-}
-.pipe-track{
-  position: relative;
-  height: 18px;
-  border-radius: 999px;
-  background: #eef2f7;
-  overflow: hidden;
-  border: 1px solid #e5e7eb;
-}
-.pipe-fill{
-  position:absolute;
-  inset:0;
-  background: linear-gradient(90deg, rgba(17,24,39,0.08), rgba(17,24,39,0.02));
-}
-.pipe-sample{
-  position:absolute;
-  top: 2px;
-  bottom: 2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #ef4444, #f97316);
-  box-shadow: 0 0 0 2px rgba(255,255,255,0.7) inset;
-}
-.pipe-scale{
-  display:flex;
-  justify-content: space-between;
-  font-size: 12px;
-  margin-top: 8px;
-}
 .locked-banner{
   padding: 12px;
   border-radius: 12px;
@@ -729,3 +699,106 @@ input:focus, select:focus, textarea:focus{
   flex:1;
 }
 
+/* =========================
+   Engineering Pipe Viz (technical look)
+   ========================= */
+
+.eng-viz{ padding:16px; }
+.eng-viz-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  gap:12px;
+  margin-bottom:10px;
+}
+.eng-viz-title{
+  font-weight:900;
+  letter-spacing:.08em;
+  font-size:12px;
+  color:#0f172a;
+}
+.eng-viz-meta{ font-size:12px; display:flex; gap:10px; align-items:center; }
+.eng-viz-body{ width:100%; }
+
+.eng-svg, .eng-svg-inset{ display:block; }
+.eng-bg{
+  fill:#fbfbfd;
+}
+.eng-bg-inset{
+  fill:#fcfcff;
+}
+
+/* “Rail” appearance: modern technical, not cartoon */
+.eng-rail{
+  fill:#eef2f7;
+  stroke:#cbd5e1;
+  stroke-width:1;
+}
+.eng-rail-inset{
+  fill:#eef2f7;
+  stroke:#cbd5e1;
+  stroke-width:1;
+}
+
+/* Cut segment: single strong signal color */
+.eng-rail-cut{
+  fill:#ef4444;
+  opacity:0.92;
+}
+
+/* Ticks and labels */
+.eng-tick-major{ stroke:#0f172a; stroke-width:1.2; opacity:0.9; }
+.eng-tick-minor{ stroke:#64748b; stroke-width:1; opacity:0.35; }
+.eng-label{
+  font-size:10px;
+  fill:#0f172a;
+  opacity:0.8;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+.eng-end{
+  font-size:11px;
+  fill:#0f172a;
+  opacity:0.85;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Dimension brackets (engineering drawing style) */
+.eng-bracket{ stroke:#0f172a; stroke-width:1.2; opacity:0.95; }
+.eng-bracket-end{ stroke:#0f172a; stroke-width:1.2; opacity:0.95; }
+.eng-drop{ stroke:#0f172a; stroke-width:1; opacity:0.35; stroke-dasharray:3 3; }
+
+.eng-sample-label{
+  font-size:11px;
+  fill:#0f172a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  opacity:0.92;
+}
+
+/* Inset area */
+.eng-viz-insets{ margin-top:14px; }
+.eng-viz-insets-title{
+  font-weight:900;
+  letter-spacing:.08em;
+  font-size:11px;
+  color:#0f172a;
+  margin-bottom:8px;
+}
+.eng-inset-wrap{
+  padding:10px 12px;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  background:#ffffff;
+  margin-bottom:10px;
+}
+.eng-inset-title{
+  font-size:11px;
+  fill:#0f172a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  opacity:0.9;
+}
+.eng-inset-sample{
+  font-size:10px;
+  fill:#0f172a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  opacity:0.75;
+}
