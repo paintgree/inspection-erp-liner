@@ -404,7 +404,7 @@
       <div class="alert alert-error mt">{{ photo_error }}</div>
     {% endif %}
 
-    {% if not inspection.inspector_confirmed %}
+    {% if not inspection.manager_approved %}
       <form class="mt" action="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}/photos/upload" method="post" enctype="multipart/form-data">
         <div class="grid3">
           <div>
@@ -427,7 +427,7 @@
         </div>
       </form>
     {% else %}
-      <div class="muted tiny mt">Inspection is submitted — photos are locked (view only).</div>
+      <div class="muted tiny mt">Inspection is approved — photos are locked (view only).</div>
     {% endif %}
 
     <style>
@@ -450,7 +450,7 @@
                   {% if p.caption %}
                     <div class="muted tiny mt">{{ p.caption }}</div>
                   {% endif %}
-                  {% if not inspection.inspector_confirmed %}
+                  {% if not inspection.manager_approved %}
                     <form class="mt" action="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}/photos/{{ p.id }}/delete" method="post">
                       <button class="btn btn-ghost btn-small" type="submit">Delete</button>
                     </form>
