@@ -7,6 +7,7 @@ import traceback
 from datetime import datetime, date, time as dtime, timedelta
 from io import BytesIO
 from typing import Dict, List, Optional, Tuple
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
@@ -2398,6 +2399,44 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
     user = get_current_user(request, session)
 
     rep = session.get(BurstTestReport, report_id)
+    # ---------------------------
+    # Build samples list for UI
+    # ---------------------------
+    db_samples = session.exec(
+        select(BurstSample)
+        .where(BurstSample.report_id == report_id)
+        .order_by(BurstSample.id.asc())
+    ).all()
+    
+    samples = []
+    
+    # 1) Preferred: BurstSample table rows
+    if db_samples:
+        for s in db_samples:
+            samples.append(SimpleNamespace(
+                sample_start_m=float(s.sample_start_m or 0.0),
+                sample_length_m=float(s.sample_length_m or 0.0),
+                sample_serial_number=getattr(s, "sample_serial_number", "") or ""
+            ))
+    
+    # 2) Fallback: legacy fields stored on the report itself
+    else:
+        # If you have new fields: sample_start_m + sample_length_m
+        if getattr(rep, "sample_start_m", None) is not None and getattr(rep, "sample_length_m", None) is not None:
+            samples.append(SimpleNamespace(
+                sample_start_m=float(rep.sample_start_m or 0.0),
+                sample_length_m=float(rep.sample_length_m or 0.0),
+                sample_serial_number=""
+            ))
+        # If you still have old fields: sample_from_m + sample_to_m
+        elif getattr(rep, "sample_from_m", None) is not None and getattr(rep, "sample_to_m", None) is not None:
+            start = float(rep.sample_from_m or 0.0)
+            end = float(rep.sample_to_m or 0.0)
+            samples.append(SimpleNamespace(
+                sample_start_m=start,
+                sample_length_m=max(0.0, end - start),
+                sample_serial_number=""
+            ))
     if not rep:
         raise HTTPException(404, "Burst report not found")
 
