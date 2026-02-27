@@ -87,6 +87,60 @@ SLOTS = [
 ]
 
 # =========================
+# Default run parameters per process
+# =========================
+# Used when creating a new ProductionRun to seed RunParameter rows.
+PROCESS_PARAMS: Dict[str, List[Tuple[str, str, str]]] = {
+    "LINER": [
+        ("length_m", "Length", "m"),
+        ("od_mm", "OD", "mm"),
+        ("wall_thickness_mm", "Wall thickness", "mm"),
+        ("cooling_water_c", "Cooling water temp", "°C"),
+        ("line_speed_m_min", "Line speed", "m/min"),
+        ("tractor_pressure_mpa", "Tractor pressure", "MPa"),
+        ("body_temp_1", "Body temp 1", "°C"),
+        ("body_temp_2", "Body temp 2", "°C"),
+        ("body_temp_3", "Body temp 3", "°C"),
+        ("body_temp_4", "Body temp 4", "°C"),
+        ("body_temp_5", "Body temp 5", "°C"),
+        ("noising_temp_1", "Noising temp 1", "°C"),
+        ("noising_temp_2", "Noising temp 2", "°C"),
+        ("noising_temp_3", "Noising temp 3", "°C"),
+        ("noising_temp_4", "Noising temp 4", "°C"),
+        ("noising_temp_5", "Noising temp 5", "°C"),
+    ],
+    "COVER": [
+        ("length_m", "Length", "m"),
+        ("od_mm", "OD", "mm"),
+        ("wall_thickness_mm", "Wall thickness", "mm"),
+        ("cooling_water_c", "Cooling water temp", "°C"),
+        ("line_speed_m_min", "Line speed", "m/min"),
+        ("tractor_pressure_mpa", "Tractor pressure", "MPa"),
+        ("body_temp_1", "Body temp 1", "°C"),
+        ("body_temp_2", "Body temp 2", "°C"),
+        ("body_temp_3", "Body temp 3", "°C"),
+        ("body_temp_4", "Body temp 4", "°C"),
+        ("body_temp_5", "Body temp 5", "°C"),
+        ("noising_temp_1", "Noising temp 1", "°C"),
+        ("noising_temp_2", "Noising temp 2", "°C"),
+        ("noising_temp_3", "Noising temp 3", "°C"),
+        ("noising_temp_4", "Noising temp 4", "°C"),
+        ("noising_temp_5", "Noising temp 5", "°C"),
+    ],
+    "REINFORCEMENT": [
+        ("length_m", "Length", "m"),
+        ("annular_od_1_mm", "Annular OD 1", "mm"),
+        ("annular_od_2_mm", "Annular OD 2", "mm"),
+        ("internal_tensile_od_mm", "Internal tensile OD", "mm"),
+        ("external_tensile_od_mm", "External tensile OD", "mm"),
+        ("core_mould_dia_mm", "Core mould dia", "mm"),
+        ("annular_width_1_mm", "Annular width 1", "mm"),
+        ("annular_width_2_mm", "Annular width 2", "mm"),
+        ("screw_yarn_width_mm", "Screw yarn width", "mm"),
+    ],
+}
+
+# =========================
 # MRR helpers (units + report no)
 # =========================
 
