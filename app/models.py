@@ -375,6 +375,9 @@ class BurstAttachment(SQLModel, table=True):
 
     report_id: int = Field(foreign_key="bursttestreport.id", index=True)
 
+    # NEW: link attachment to a specific sample (nullable for "main report" files)
+    sample_id: Optional[int] = Field(default=None, foreign_key="burstsample.id", index=True)
+
     # CHART / FULL / SIDE_A / SIDE_B
     kind: str = Field(default="PHOTO", index=True)
     caption: str = Field(default="")
