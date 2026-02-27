@@ -252,41 +252,72 @@
         txt.textContent = `${seg.label}  ${fmt(seg.start)}–${fmt(seg.end)}  (${fmt(seg.len)}m)`;
         svg.appendChild(txt);
   
-                // ===== Visible locator on rail (always readable even for tiny samples) =====
-        // Segment highlight (give it a minimum visible width)
-        const block = svgEl("rect");
-        const minPx = 12; // <- was 2px; 12px is always visible
-        const w = Math.max(minPx, seg.xb - seg.xa);
-        const x = (seg.xb - seg.xa) < minPx ? (seg.xa + seg.xb)/2 - (minPx/2) : seg.xa;
-
-        block.setAttribute("x", x);
-        block.setAttribute("y", yBase - 1);       // slightly taller than rail
-        block.setAttribute("width", w);
-        block.setAttribute("height", 16);
-        block.setAttribute("rx", 8);
-        block.setAttribute("class","eng-rail-cut eng-rail-cut-strong");
-        svg.appendChild(block);
-
-        // Start/End pins (strong technical markers)
-        function pin(px, label){
-          const c = svgEl("circle");
-          c.setAttribute("cx", px);
-          c.setAttribute("cy", yBase + 7);
-          c.setAttribute("r", 6);
-          c.setAttribute("class","eng-pin");
-          svg.appendChild(c);
-
-          const t = svgEl("text");
-          t.setAttribute("x", px);
-          t.setAttribute("y", yBase + 30);
-          t.setAttribute("text-anchor","middle");
-          t.setAttribute("class","eng-pin-label");
-          t.textContent = label;
-          svg.appendChild(t);
-        }
-        pin(seg.xa, "START");
-        pin(seg.xb, "END");
-      });
+        // ===== Visible locator on rail (always readable even for tiny samples) =====
+        // IMPORTANT: set explicit fill/stroke so it is visible even if CSS is weak/missing.
+        {
+          const segLenPx = (seg.xb - seg.xa);
+        
+          // Minimum visible size on screen (px)
+          const MIN_PX = 18;
+        
+          // Keep the *position* accurate; if too small, expand around the center
+          const cx = (seg.xa + seg.xb) / 2;
+          const w = Math.max(MIN_PX, segLenPx);
+          const x = cx - w / 2;
+        
+          // Highlight block ON the rail (strong)
+          const block = svgEl("rect");
+          block.setAttribute("x", x);
+          block.setAttribute("y", yBase - 3);     // slightly taller than rail for visibility
+          block.setAttribute("width", w);
+          block.setAttribute("height", 20);
+          block.setAttribute("rx", 10);
+        
+          // Explicit styling (no CSS dependency)
+          block.setAttribute("fill", "#ffcc00");      // strong visible yellow
+          block.setAttribute("fill-opacity", "0.85");
+          block.setAttribute("stroke", "#b45309");    // brown/orange stroke
+          block.setAttribute("stroke-width", "2");
+          svg.appendChild(block);
+        
+          // Center marker line (always visible, even if block is small)
+          const mark = svgEl("line");
+          mark.setAttribute("x1", cx);
+          mark.setAttribute("x2", cx);
+          mark.setAttribute("y1", yBase - 10);
+          mark.setAttribute("y2", yBase + 24);
+          mark.setAttribute("stroke", "#b91c1c");     // red
+          mark.setAttribute("stroke-width", "3");
+          svg.appendChild(mark);
+        
+          // Start/End pins (strong markers)
+          function pin(px, label){
+            // dot
+            const c = svgEl("circle");
+            c.setAttribute("cx", px);
+            c.setAttribute("cy", yBase + 7);
+            c.setAttribute("r", 7);
+            c.setAttribute("fill", "#111827");        // near-black
+            c.setAttribute("stroke", "#ffffff");
+            c.setAttribute("stroke-width", "2");
+            svg.appendChild(c);
+        
+            // label
+            const t = svgEl("text");
+            t.setAttribute("x", px);
+            t.setAttribute("y", yBase + 34);
+            t.setAttribute("text-anchor","middle");
+            t.setAttribute("font-size","11");
+            t.setAttribute("font-weight","700");
+            t.setAttribute("fill","#111827");
+            t.textContent = label;
+            svg.appendChild(t);
+          }
+        
+          // Keep true start/end markers
+          pin(seg.xa, "START");
+          pin(seg.xb, "END");
+        });
   
       root.innerHTML = "";
       root.appendChild(svg);
