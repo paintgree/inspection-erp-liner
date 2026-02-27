@@ -201,7 +201,7 @@
       <div class="alert alert-error mt">{{ photo_error }}</div>
     {% endif %}
 
-    {% if not inspection.inspector_confirmed %}
+    {% if not inspection.manager_approved %}
       <form class="mt" action="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}/photos/upload" method="post" enctype="multipart/form-data">
         <div class="grid3">
           <div>
