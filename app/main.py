@@ -5730,7 +5730,7 @@ def run_new_post(
         session.add(RunParameter(run_id=run.id, param_key=key, label=label, unit=unit, display_order=idx))
     session.commit()
 
-    return RedirectResponse("/dashboard", status_code=302)
+    return RedirectResponse(f"/runs/{run.id}", status_code=303)
 
 @app.get("/mrr/{lot_id}/inspection/id/{inspection_id}", response_class=HTMLResponse)
 def shipment_inspection_form(
