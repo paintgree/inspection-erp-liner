@@ -405,16 +405,20 @@ def fill_mrr_f01_xlsx_bytes(
     _ws_set_value_safe(ws, "B6", getattr(lot, "supplier_name", "") or "")
     _ws_set_value_safe(ws, "F6", getattr(lot, "po_number", "") or "")
 
-    # Material type label (for the small “Material Type” line)
+    # Material type in header should match dropdown selection exactly (NOT grade)
+    raw_type = (data.get("material_family") or data.get("material_type") or "").strip().upper()
+    
     type_label = ""
-    if fam_ui == "PE":
-        # If you want the exact labels, you can use grade to differentiate:
-        # PE-RT vs PE100 is typically in grade, so we just show PE with grade.
-        type_label = "Polyethylene" if not grade else f"Polyethylene ({grade})"
-    elif fam_ui == "FIBER":
-        type_label = "POLYESTER FIBER" if not grade else f"POLYESTER FIBER ({grade})"
-    elif fam_ui == "OTHER":
-        type_label = "Other"
+    if raw_type in ("PE_RT", "POLYETHYLENE (PE-RT)", "POLYETHYLENE_PE_RT"):
+        type_label = "Polyethylene (PE-RT)"
+    elif raw_type in ("PE100", "POLYETHYLENE (PE100)", "POLYETHYLENE_PE100"):
+        type_label = "Polyethylene (PE100)"
+    elif raw_type in ("POLYESTER_FIBER", "POLYESTER FIBER", "FIBER"):
+        type_label = "POLYESTER FIBER"
+    else:
+        # fallback: show whatever was saved
+        type_label = data.get("material_family") or data.get("material_type") or ""
+    
     _ws_set_value_safe(ws, "B7", type_label)
 
     # Batch / grade / DN
