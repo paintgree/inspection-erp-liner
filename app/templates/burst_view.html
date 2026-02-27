@@ -21,24 +21,395 @@
 
   {% set total = live.total_length_m if live.total_length_m > 0 else 1 %}
   
-  <div class="pipe-visual">
-    <div class="pipe-track">
-      <div class="pipe-fill"></div>
+  <!-- =========================
+       ENGINEERING PIPE VISUAL (Option B: multi zoom insets)
+       ========================= -->
   
+  <div class="eng-viz card">
+    <div class="eng-viz-head">
+      <div class="eng-viz-title">PIPE LOCATION (Engineering Scale)</div>
+      <div class="eng-viz-meta">
+        <span><b>Total:</b> {{ "%.1f"|format(live.total_length_m or rep.total_length_m or 0) }} m</span>
+        <span class="muted">•</span>
+        <span class="muted">Samples shown as dimension brackets (stacked)</span>
+      </div>
+    </div>
+  
+    <!-- Hidden sample dataset for JS (no tojson dependency) -->
+    <div id="engSamples" style="display:none;">
       {% for s in samples %}
-        {% set from_pct = (s.sample_start_m / total * 100) %}
-        {% set to_pct = ((s.sample_start_m + s.sample_length_m) / total * 100) %}
-        {% set w = (to_pct - from_pct) %}
-        <div class="pipe-sample" style="left: {{'%.4f'|format(from_pct)}}%; width: {{'%.4f'|format(w)}}%;"></div>
+        <div class="srow"
+             data-start="{{ s.sample_start_m }}"
+             data-len="{{ s.sample_length_m }}"
+             data-serial="{{ s.sample_serial_number or '' }}">
+        </div>
       {% endfor %}
     </div>
   
-    <div class="pipe-scale">
-      <span>0m</span>
-      <span class="muted">Total {{ live.total_length_m }}m</span>
-      <span>{{ live.total_length_m }}m</span>
+    <div id="engPipeViz"
+         class="eng-viz-body"
+         data-total="{{ live.total_length_m or rep.total_length_m or 0 }}">
+      <!-- JS will render SVG here -->
+    </div>
+  
+    <div class="eng-viz-insets">
+      <div class="eng-viz-insets-title">AUTO ZOOM WINDOWS (Clusters)</div>
+      <div id="engPipeInsets"></div>
     </div>
   </div>
+  
+  <script>
+  (function(){
+    const root = document.getElementById("engPipeViz");
+    const insetRoot = document.getElementById("engPipeInsets");
+    const total = parseFloat(root.dataset.total || "0") || 1;
+  
+    // Read samples from hidden rows
+    const rows = Array.from(document.querySelectorAll("#engSamples .srow"));
+    const samples = rows.map((el, i) => {
+      const start = parseFloat(el.dataset.start || "0") || 0;
+      const len = parseFloat(el.dataset.len || "0") || 0;
+      const serial = (el.dataset.serial || "").trim();
+      return {
+        idx: i + 1,
+        label: serial ? serial : ("S" + (i+1)),
+        start,
+        end: start + len,
+        len
+      };
+    }).filter(s => s.len > 0);
+  
+    // ---------- helpers ----------
+    function niceStep(range, targetTicks){
+      // returns a nice step from 1,2,5 * 10^n
+      const rough = range / Math.max(1, targetTicks);
+      const pow = Math.pow(10, Math.floor(Math.log10(rough)));
+      const n = rough / pow;
+      let mult = 1;
+      if(n >= 5) mult = 5;
+      else if(n >= 2) mult = 2;
+      else mult = 1;
+      return mult * pow;
+    }
+  
+    function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+  
+    function svgEl(tag){
+      return document.createElementNS("http://www.w3.org/2000/svg", tag);
+    }
+  
+    function fmt(v){
+      // technical look: 1 decimal if needed
+      return (Math.round(v*10)/10).toFixed(1);
+    }
+  
+    function buildMainScale(){
+      const W = Math.max(920, root.clientWidth || 920);
+      const H = 180;
+  
+      const padL = 56, padR = 18;
+      const x0 = padL, x1 = W - padR;
+      const scaleW = x1 - x0;
+  
+      const yBase = 110;
+      const yTicksTop = 96;
+  
+      const svg = svgEl("svg");
+      svg.setAttribute("width", "100%");
+      svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+      svg.classList.add("eng-svg");
+  
+      // background grid (technical)
+      const bg = svgEl("rect");
+      bg.setAttribute("x","0"); bg.setAttribute("y","0");
+      bg.setAttribute("width", W); bg.setAttribute("height", H);
+      bg.setAttribute("class","eng-bg");
+      svg.appendChild(bg);
+  
+      // base rail
+      const rail = svgEl("rect");
+      rail.setAttribute("x", x0);
+      rail.setAttribute("y", yBase);
+      rail.setAttribute("width", scaleW);
+      rail.setAttribute("height", 14);
+      rail.setAttribute("rx", 7);
+      rail.setAttribute("class","eng-rail");
+      svg.appendChild(rail);
+  
+      // ticks
+      const major = niceStep(total, 10);
+      const minor = major / 5;
+  
+      for(let v = 0; v <= total + 1e-9; v += minor){
+        const isMajor = Math.abs((v/major) - Math.round(v/major)) < 1e-6;
+        const x = x0 + (v/total) * scaleW;
+  
+        const tick = svgEl("line");
+        tick.setAttribute("x1", x); tick.setAttribute("x2", x);
+        tick.setAttribute("y1", yBase);
+        tick.setAttribute("y2", isMajor ? (yTicksTop) : (yBase + 2));
+        tick.setAttribute("class", isMajor ? "eng-tick-major" : "eng-tick-minor");
+        svg.appendChild(tick);
+  
+        if(isMajor){
+          const t = svgEl("text");
+          t.setAttribute("x", x);
+          t.setAttribute("y", yTicksTop - 8);
+          t.setAttribute("text-anchor", "middle");
+          t.setAttribute("class", "eng-label");
+          t.textContent = (v === 0 || v === total) ? (Math.round(v) + "m") : (Math.round(v) + "m");
+          svg.appendChild(t);
+        }
+      }
+  
+      // endpoints labels (always)
+      const left = svgEl("text");
+      left.setAttribute("x", x0);
+      left.setAttribute("y", yBase + 40);
+      left.setAttribute("text-anchor","start");
+      left.setAttribute("class","eng-end");
+      left.textContent = "0m";
+      svg.appendChild(left);
+  
+      const right = svgEl("text");
+      right.setAttribute("x", x1);
+      right.setAttribute("y", yBase + 40);
+      right.setAttribute("text-anchor","end");
+      right.setAttribute("class","eng-end");
+      right.textContent = fmt(total) + "m";
+      svg.appendChild(right);
+  
+      // stacked dimension brackets (interval packing)
+      const intervals = samples
+        .map(s => {
+          const a = x0 + (s.start/total)*scaleW;
+          const b = x0 + (s.end/total)*scaleW;
+          return {...s, xa: a, xb: b};
+        })
+        .sort((a,b)=>a.xa-b.xa);
+  
+      const rows = []; // each row stores lastXb
+      function placeRow(seg){
+        for(let r=0;r<rows.length;r++){
+          if(seg.xa > rows[r] + 14){ // gap px
+            rows[r] = seg.xb;
+            return r;
+          }
+        }
+        rows.push(seg.xb);
+        return rows.length - 1;
+      }
+  
+      const yTop = 34;      // top area start
+      const rowH = 22;      // row height
+  
+      intervals.forEach(seg => {
+        const r = placeRow(seg);
+        const y = yTop + r * rowH;
+  
+        // bracket line
+        const line = svgEl("line");
+        line.setAttribute("x1", seg.xa);
+        line.setAttribute("x2", seg.xb);
+        line.setAttribute("y1", y);
+        line.setAttribute("y2", y);
+        line.setAttribute("class","eng-bracket");
+        svg.appendChild(line);
+  
+        // bracket ends
+        const l1 = svgEl("line");
+        l1.setAttribute("x1", seg.xa); l1.setAttribute("x2", seg.xa);
+        l1.setAttribute("y1", y-6); l1.setAttribute("y2", y+6);
+        l1.setAttribute("class","eng-bracket-end");
+        svg.appendChild(l1);
+  
+        const l2 = svgEl("line");
+        l2.setAttribute("x1", seg.xb); l2.setAttribute("x2", seg.xb);
+        l2.setAttribute("y1", y-6); l2.setAttribute("y2", y+6);
+        l2.setAttribute("class","eng-bracket-end");
+        svg.appendChild(l2);
+  
+        // drop lines to rail (technical markers)
+        const d1 = svgEl("line");
+        d1.setAttribute("x1", seg.xa); d1.setAttribute("x2", seg.xa);
+        d1.setAttribute("y1", y+6); d1.setAttribute("y2", yBase);
+        d1.setAttribute("class","eng-drop");
+        svg.appendChild(d1);
+  
+        const d2 = svgEl("line");
+        d2.setAttribute("x1", seg.xb); d2.setAttribute("x2", seg.xb);
+        d2.setAttribute("y1", y+6); d2.setAttribute("y2", yBase);
+        d2.setAttribute("class","eng-drop");
+        svg.appendChild(d2);
+  
+        // label centered (always visible)
+        const mid = (seg.xa + seg.xb)/2;
+        const txt = svgEl("text");
+        txt.setAttribute("x", mid);
+        txt.setAttribute("y", y - 10);
+        txt.setAttribute("text-anchor","middle");
+        txt.setAttribute("class","eng-sample-label");
+        txt.textContent = `${seg.label}  ${fmt(seg.start)}–${fmt(seg.end)}  (${fmt(seg.len)}m)`;
+        svg.appendChild(txt);
+  
+        // tiny highlight on rail (still technical)
+        const block = svgEl("rect");
+        block.setAttribute("x", seg.xa);
+        block.setAttribute("y", yBase);
+        block.setAttribute("width", Math.max(2, seg.xb - seg.xa));
+        block.setAttribute("height", 14);
+        block.setAttribute("rx", 7);
+        block.setAttribute("class","eng-rail-cut");
+        svg.appendChild(block);
+      });
+  
+      root.innerHTML = "";
+      root.appendChild(svg);
+    }
+  
+    function buildZoomInsets(){
+      insetRoot.innerHTML = "";
+  
+      if(samples.length === 0) return;
+  
+      // Create per-sample padded windows, then merge overlaps => clusters
+      const padMin = 20;             // minimum meters padding
+      const padPct = 0.01 * total;   // 1% padding
+      const windows = samples
+        .map(s => {
+          const pad = Math.max(padMin, padPct, s.len * 10);
+          return {
+            a: clamp(s.start - pad, 0, total),
+            b: clamp(s.end + pad, 0, total)
+          };
+        })
+        .sort((x,y)=>x.a-y.a);
+  
+      const merged = [];
+      for(const w of windows){
+        if(merged.length === 0){
+          merged.push({...w});
+        } else {
+          const last = merged[merged.length - 1];
+          if(w.a <= last.b){
+            last.b = Math.max(last.b, w.b);
+          } else {
+            merged.push({...w});
+          }
+        }
+      }
+  
+      // Render each merged window as its own "inset scale"
+      merged.forEach((win, idx) => {
+        const W = Math.max(920, root.clientWidth || 920);
+        const H = 96;
+  
+        const padL = 56, padR = 18;
+        const x0 = padL, x1 = W - padR;
+        const scaleW = x1 - x0;
+  
+        const range = Math.max(1e-9, win.b - win.a);
+  
+        const svg = svgEl("svg");
+        svg.setAttribute("width", "100%");
+        svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+        svg.classList.add("eng-svg-inset");
+  
+        const bg = svgEl("rect");
+        bg.setAttribute("x","0"); bg.setAttribute("y","0");
+        bg.setAttribute("width", W); bg.setAttribute("height", H);
+        bg.setAttribute("class","eng-bg-inset");
+        svg.appendChild(bg);
+  
+        const title = svgEl("text");
+        title.setAttribute("x", x0);
+        title.setAttribute("y", 18);
+        title.setAttribute("text-anchor","start");
+        title.setAttribute("class","eng-inset-title");
+        title.textContent = `Zoom ${idx+1}: ${fmt(win.a)}m → ${fmt(win.b)}m`;
+        svg.appendChild(title);
+  
+        const yBase = 52;
+  
+        // inset rail
+        const rail = svgEl("rect");
+        rail.setAttribute("x", x0);
+        rail.setAttribute("y", yBase);
+        rail.setAttribute("width", scaleW);
+        rail.setAttribute("height", 14);
+        rail.setAttribute("rx", 7);
+        rail.setAttribute("class","eng-rail-inset");
+        svg.appendChild(rail);
+  
+        // ticks for inset
+        const major = niceStep(range, 8);
+        const minor = major / 5;
+  
+        for(let v = Math.ceil(win.a/minor)*minor; v <= win.b + 1e-9; v += minor){
+          const isMajor = Math.abs((v/major) - Math.round(v/major)) < 1e-6;
+          const x = x0 + ((v - win.a)/range) * scaleW;
+  
+          const tick = svgEl("line");
+          tick.setAttribute("x1", x); tick.setAttribute("x2", x);
+          tick.setAttribute("y1", yBase);
+          tick.setAttribute("y2", isMajor ? (yBase - 12) : (yBase + 2));
+          tick.setAttribute("class", isMajor ? "eng-tick-major" : "eng-tick-minor");
+          svg.appendChild(tick);
+  
+          if(isMajor){
+            const t = svgEl("text");
+            t.setAttribute("x", x);
+            t.setAttribute("y", yBase - 18);
+            t.setAttribute("text-anchor", "middle");
+            t.setAttribute("class", "eng-label");
+            t.textContent = Math.round(v) + "m";
+            svg.appendChild(t);
+          }
+        }
+  
+        // render sample blocks inside this window
+        samples.forEach(s => {
+          if(s.end < win.a || s.start > win.b) return;
+  
+          const xa = x0 + ((clamp(s.start, win.a, win.b) - win.a)/range) * scaleW;
+          const xb = x0 + ((clamp(s.end, win.a, win.b) - win.a)/range) * scaleW;
+  
+          const block = svgEl("rect");
+          block.setAttribute("x", xa);
+          block.setAttribute("y", yBase);
+          block.setAttribute("width", Math.max(4, xb - xa));
+          block.setAttribute("height", 14);
+          block.setAttribute("rx", 7);
+          block.setAttribute("class","eng-rail-cut");
+          svg.appendChild(block);
+  
+          const lbl = svgEl("text");
+          lbl.setAttribute("x", (xa+xb)/2);
+          lbl.setAttribute("y", yBase + 34);
+          lbl.setAttribute("text-anchor","middle");
+          lbl.setAttribute("class","eng-inset-sample");
+          lbl.textContent = `${s.label} ${fmt(s.start)}–${fmt(s.end)} (${fmt(s.len)}m)`;
+          svg.appendChild(lbl);
+        });
+  
+        const wrap = document.createElement("div");
+        wrap.className = "eng-inset-wrap";
+        wrap.appendChild(svg);
+        insetRoot.appendChild(wrap);
+      });
+    }
+  
+    buildMainScale();
+    buildZoomInsets();
+  
+    // Re-render on resize (for responsive width)
+    let t = null;
+    window.addEventListener("resize", () => {
+      clearTimeout(t);
+      t = setTimeout(() => { buildMainScale(); buildZoomInsets(); }, 120);
+    });
+  })();
+  </script>
 
   {% if rep.is_locked %}
     <div class="locked-banner">
