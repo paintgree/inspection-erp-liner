@@ -7750,10 +7750,10 @@ async def mrr_photo_upload(
     if not insp or insp.ticket_id != lot_id:
         raise HTTPException(404, "Shipment inspection not found")
 
-    # Prevent edits after submit
-    if insp.inspector_confirmed:
+    # Prevent edits after approval (manager lock)
+    if insp.manager_approved:
         return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=Inspection%20already%20submitted.%20Photos%20cannot%20be%20changed.",
+            f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=Inspection%20is%20approved.%20Photos%20cannot%20be%20changed.",
             status_code=303,
         )
 
@@ -7819,8 +7819,8 @@ def mrr_photo_delete(
     if not insp or insp.ticket_id != lot_id:
         raise HTTPException(404, "Shipment inspection not found")
 
-    # Prevent edits after submit
-    if insp.inspector_confirmed:
+    # Prevent edits after approval (manager lock)
+    if insp.manager_approved:
         return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
 
     p = session.get(MrrInspectionPhoto, photo_id)
