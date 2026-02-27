@@ -742,8 +742,8 @@ input:focus, select:focus, textarea:focus{
 
 /* Cut segment: single strong signal color */
 .eng-rail-cut{
-  fill:#ef4444;
-  opacity:0.92;
+  fill:#f59e0b;   /* Amber - industrial attention color */
+  opacity:0.95;
 }
 
 /* Ticks and labels */
