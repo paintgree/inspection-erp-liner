@@ -5833,23 +5833,19 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
         user_map = {u.id: u for u in users}
 
         slot_inspectors: Dict[str, str] = {s: "" for s in SLOTS}
+        slot_actual_times: Dict[str, str] = {s: "" for s in SLOTS}
         grid: Dict[str, Dict[str, dict]] = {s: {} for s in SLOTS}
 
         for e in entries:
             if not e.slot_time or e.slot_time not in SLOTS:
                 continue
 
+            slot_actual_times[e.slot_time] = e.actual_time or ""
+
             if e.inspector_id and e.inspector_id in user_map:
                 slot_inspectors[e.slot_time] = user_map[e.inspector_id].display_name or ""
             else:
                 slot_inspectors[e.slot_time] = ""
-
-            # ✅ NEW: actual times per slot (for header display)
-            slot_actual_times: Dict[str, str] = {s: "" for s in SLOTS}
-            for e in entries:
-                if not e.slot_time or e.slot_time not in SLOTS:
-                    continue
-                slot_actual_times[e.slot_time] = e.actual_time or ""
 
 
             vals = session.exec(select(InspectionValue).where(InspectionValue.entry_id == e.id)).all()
