@@ -252,15 +252,40 @@
         txt.textContent = `${seg.label}  ${fmt(seg.start)}–${fmt(seg.end)}  (${fmt(seg.len)}m)`;
         svg.appendChild(txt);
   
-        // tiny highlight on rail (still technical)
+                // ===== Visible locator on rail (always readable even for tiny samples) =====
+        // Segment highlight (give it a minimum visible width)
         const block = svgEl("rect");
-        block.setAttribute("x", seg.xa);
-        block.setAttribute("y", yBase);
-        block.setAttribute("width", Math.max(2, seg.xb - seg.xa));
-        block.setAttribute("height", 14);
-        block.setAttribute("rx", 7);
-        block.setAttribute("class","eng-rail-cut");
+        const minPx = 12; // <- was 2px; 12px is always visible
+        const w = Math.max(minPx, seg.xb - seg.xa);
+        const x = (seg.xb - seg.xa) < minPx ? (seg.xa + seg.xb)/2 - (minPx/2) : seg.xa;
+
+        block.setAttribute("x", x);
+        block.setAttribute("y", yBase - 1);       // slightly taller than rail
+        block.setAttribute("width", w);
+        block.setAttribute("height", 16);
+        block.setAttribute("rx", 8);
+        block.setAttribute("class","eng-rail-cut eng-rail-cut-strong");
         svg.appendChild(block);
+
+        // Start/End pins (strong technical markers)
+        function pin(px, label){
+          const c = svgEl("circle");
+          c.setAttribute("cx", px);
+          c.setAttribute("cy", yBase + 7);
+          c.setAttribute("r", 6);
+          c.setAttribute("class","eng-pin");
+          svg.appendChild(c);
+
+          const t = svgEl("text");
+          t.setAttribute("x", px);
+          t.setAttribute("y", yBase + 30);
+          t.setAttribute("text-anchor","middle");
+          t.setAttribute("class","eng-pin-label");
+          t.textContent = label;
+          svg.appendChild(t);
+        }
+        pin(seg.xa, "START");
+        pin(seg.xb, "END");
       });
   
       root.innerHTML = "";
@@ -377,10 +402,10 @@
           const block = svgEl("rect");
           block.setAttribute("x", xa);
           block.setAttribute("y", yBase);
-          block.setAttribute("width", Math.max(4, xb - xa));
+          block.setAttribute("width", Math.max(14, xb - xa));
           block.setAttribute("height", 14);
           block.setAttribute("rx", 7);
-          block.setAttribute("class","eng-rail-cut");
+          block.setAttribute("class","eng-rail-cut eng-rail-cut-strong");
           svg.appendChild(block);
   
           const lbl = svgEl("text");
