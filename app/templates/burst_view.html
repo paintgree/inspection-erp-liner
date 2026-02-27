@@ -37,12 +37,24 @@
   
     <!-- Hidden sample dataset for JS (no tojson dependency) -->
     <div id="engSamples" style="display:none;">
-      {% for s in samples %}
+      {# Always include the main (USED) sample from the report itself #}
+      {% if rep.sample_length_m and rep.sample_length_m > 0 %}
         <div class="srow"
-             data-start="{{ s.sample_start_m }}"
-             data-len="{{ s.sample_length_m }}"
-             data-serial="{{ s.sample_serial_number or '' }}">
+             data-start="{{ rep.sample_start_m }}"
+             data-len="{{ rep.sample_length_m }}"
+             data-serial="{{ rep.sample_serial_number or 'USED' }}">
         </div>
+      {% endif %}
+    
+      {# Also include any extra samples stored in the samples table #}
+      {% for s in samples %}
+        {% if s.sample_length_m and s.sample_length_m > 0 %}
+          <div class="srow"
+               data-start="{{ s.sample_start_m }}"
+               data-len="{{ s.sample_length_m }}"
+               data-serial="{{ s.sample_serial_number or '' }}">
+          </div>
+        {% endif %}
       {% endfor %}
     </div>
   
