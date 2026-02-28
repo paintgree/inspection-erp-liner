@@ -277,6 +277,36 @@ MRR_TEMPLATE_DOCX_MAP = {
     "OUTSOURCED": os.path.join(MRR_TEMPLATE_DIR, "QAP0600-F02.docx"),
 }
 
+# =========================
+# BURST REPORT PDF TEMPLATES PATHS
+# =========================
+BURST_TEMPLATE_PDF_MAP = {
+    1: os.path.join(MRR_TEMPLATE_DIR, "QAW1401_burst_1_sample.pdf"),
+    2: os.path.join(MRR_TEMPLATE_DIR, "QAW1401_burst_2_samples.pdf"),
+    5: os.path.join(MRR_TEMPLATE_DIR, "QAW1401_burst_5_samples.pdf"),
+}
+
+def get_burst_template_pdf_path(total_samples: int) -> str:
+    """
+    Returns the correct Burst PDF template path based on total_samples.
+    Allowed: 1, 2, 5
+    """
+    try:
+        total_samples = int(total_samples or 1)
+    except Exception:
+        total_samples = 1
+
+    if total_samples not in BURST_TEMPLATE_PDF_MAP:
+        # fallback to 1 sample if something unexpected happens
+        total_samples = 1
+
+    path = BURST_TEMPLATE_PDF_MAP[total_samples]
+    if not os.path.exists(path):
+        raise HTTPException(
+            500,
+            f"Burst PDF template missing: {os.path.basename(path)}. Put it in {MRR_TEMPLATE_DIR}"
+        )
+    return path
 
 def _safe_upper(x: str | None) -> str:
     return (x or "").strip().upper()
@@ -2789,7 +2819,30 @@ async def burst_reopen(
     session.commit()
 
     return RedirectResponse(f"/burst/{report_id}", status_code=303)
-    
+
+
+@app.get("/burst/{report_id}/pdf")
+def burst_pdf_download(
+    report_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    report = session.get(BurstTestReport, report_id)
+    if not report:
+        raise HTTPException(404, "Burst report not found")
+
+    # IMPORTANT: your dropdown must be saved into report.total_samples (or whatever field you used)
+    total_samples = getattr(report, "total_samples", None) or 1
+
+    template_path = get_burst_template_pdf_path(total_samples)
+
+    filename = f"QAW1401_BURST_{report_id}_{int(total_samples)}S.pdf"
+    return FileResponse(
+        template_path,
+        media_type="application/pdf",
+        filename=filename,
+    )
+
 # ==========================================
 # EXPORT PER-INSPECTION (SEPARATE REPORTS)
 # ==========================================
