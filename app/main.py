@@ -2925,25 +2925,25 @@ def burst_pdf_download(
 
         # 2) Date (use tested_at if exists, else created_at)
         dt = getattr(report, "tested_at", None) or getattr(report, "created_at", None)
-        c.drawString(215, 694, _fmt_date(dt))
+        c.drawString(215, 700, _fmt_date(dt))
 
         # 3) Pipe spec
-        c.drawString(215, 662, _s(getattr(report, "pipe_specification", "")).strip())
+        c.drawString(215, 680, _s(getattr(report, "pipe_specification", "")).strip())
 
         # 4) DHTP batch number ref (your field is batch_no)
-        c.drawString(215, 642, _s(getattr(report, "batch_no", "")).strip())
+        c.drawString(215, 653, _s(getattr(report, "batch_no", "")).strip())
 
         # 5) System maximum pressure
         c.drawString(215, 622, _s(getattr(report, "system_max_pressure", "")).strip())
 
         # 6) Testing medium
-        c.drawString(215, 602, _s(getattr(report, "testing_medium", "")).strip())
+        c.drawString(215, 622, _s(getattr(report, "testing_medium", "")).strip())
 
         # 7) Laboratory temperature
         c.drawString(420, 622, _s(getattr(report, "laboratory_temperature", "")).strip())
 
         # 8) Total number of samples
-        c.drawString(420, 602, _s(getattr(report, "total_no_of_specimens", "")).strip())
+        c.drawString(450, 622, _s(getattr(report, "total_no_of_specimens", "")).strip())
 
     overlay_reader = _create_overlay(draw_main_page)
     pdf_bytes = _merge_overlay(template_path, overlay_reader)
