@@ -281,9 +281,9 @@ MRR_TEMPLATE_DOCX_MAP = {
 # BURST REPORT PDF TEMPLATES PATHS
 # =========================
 BURST_TEMPLATE_PDF_MAP = {
-    1: os.path.join(MRR_TEMPLATE_DIR, "QAW1401_burst_1_sample.pdf"),
-    2: os.path.join(MRR_TEMPLATE_DIR, "QAW1401_burst_2_samples.pdf"),
-    5: os.path.join(MRR_TEMPLATE_DIR, "QAW1401_burst_5_samples.pdf"),
+    1: os.path.join(MRR_TEMPLATE_DIR, "QAW1401_burst_1.pdf"),
+    2: os.path.join(MRR_TEMPLATE_DIR, "QAW1401_burst_2.pdf"),
+    5: os.path.join(MRR_TEMPLATE_DIR, "QAW1401_burst_5.pdf"),
 }
 
 def get_burst_template_pdf_path(total_samples: int) -> str:
