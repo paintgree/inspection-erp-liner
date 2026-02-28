@@ -2104,22 +2104,7 @@ def _overlay_grid_pdf() -> PdfReader:
     buf.seek(0)
     return PdfReader(buf)
 
-def _merge_overlay(template_path: str, overlay_reader: PdfReader, only_page_index: int = 0) -> bytes:
-    """
-    Merge a single overlay page onto ONE page of the template (default: first page).
-    All other pages remain unchanged.
-    """
-    template_pdf = PdfReader(template_path)
-    writer = PdfWriter()
-
-    for i, page in enumerate(template_pdf.pages):
-        if i == only_page_index:
-            page.merge_page(overlay_reader.pages[0])
-        writer.add_page(page)
-
-    out = io.BytesIO()
-    writer.write(out)
-    return out.getvalue()
+    
 # =========================
 # Upload storage (local FS)
 # =========================
@@ -2884,18 +2869,21 @@ def _create_overlay(draw_function):
     return PdfReader(packet)
 
 
-def _merge_overlay(template_path: str, overlay_reader: PdfReader) -> bytes:
+def _merge_overlay(template_path: str, overlay_reader: PdfReader, only_page_index: int = 0) -> bytes:
+    """
+    Merge overlay_reader.pages[0] onto only one page of the template (default first page).
+    """
     template_pdf = PdfReader(template_path)
     writer = PdfWriter()
 
     for i, page in enumerate(template_pdf.pages):
-        overlay_page = overlay_reader.pages[0]
-        page.merge_page(overlay_page)
+        if i == only_page_index:
+            page.merge_page(overlay_reader.pages[0])
         writer.add_page(page)
 
-    output_stream = io.BytesIO()
-    writer.write(output_stream)
-    return output_stream.getvalue()
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
 
 @app.get("/burst/{report_id}/pdf")
 def burst_pdf_download(
