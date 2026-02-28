@@ -58,7 +58,7 @@ from sqlmodel import Session, select
 # ======================
 # Local App Imports
 # ======================
-from .auth import hash_password, verify_password, require_user
+from .auth import hash_password, verify_password
 from .db import create_db_and_tables, get_session
 from .models import (
     User,
@@ -2023,6 +2023,14 @@ def stamp_signatures_on_pdf(
 app = FastAPI()
 
 BASE_DIR = os.path.dirname(__file__)
+
+from fastapi import Depends, HTTPException, Request
+
+def require_user(request: Request) -> User:
+    user = request.session.get("user")
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return user
 
 
 import io
