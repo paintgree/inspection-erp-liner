@@ -2668,6 +2668,44 @@ async def burst_update(
     rep.testing_medium = (testing_medium or "").strip()
     rep.total_no_of_specimens = int(total_no_of_specimens or 1)
 
+    # ---------------------------
+    # NEW: ensure we have N BurstSample rows + save per-sample fields
+    # ---------------------------
+    form = await request.form()
+    desired_n = int(form.get("total_no_of_specimens") or 1)
+
+    # Load current sample rows
+    db_samples = session.exec(
+        select(BurstSample)
+        .where(BurstSample.report_id == report_id)
+        .order_by(BurstSample.id.asc())
+    ).all()
+
+    # Make sure we have at least N rows (create empty ones if missing)
+    while len(db_samples) < desired_n:
+        ns = BurstSample(
+            report_id=report_id,
+            sample_start_m=0.0,
+            sample_length_m=0.0,
+        )
+        session.add(ns)
+        session.commit()
+        session.refresh(ns)
+        db_samples.append(ns)
+
+    # Save fields for the first N samples only
+    for s in db_samples[:desired_n]:
+        s.sample_start_m = float(form.get(f"sample_start_m_{s.id}") or 0.0)
+        s.sample_length_m = float(form.get(f"sample_length_m_{s.id}") or 0.0)
+
+        s.sample_serial_number = (form.get(f"sample_serial_number_{s.id}") or "").strip()
+        s.actual_burst_psi = float(form.get(f"actual_burst_psi_{s.id}") or 0.0)
+        s.pressurization_time_s = (form.get(f"pressurization_time_s_{s.id}") or "").strip()
+        s.test_result = (form.get(f"test_result_{s.id}") or "").strip()
+        s.failure_mode = (form.get(f"failure_mode_{s.id}") or "").strip()
+
+        session.add(s)
+
     # SPECIMENS
     rep.effective_length_m = (effective_length_m or "").strip()
     rep.liner_thickness = (liner_thickness or "").strip()
