@@ -2832,7 +2832,7 @@ def burst_pdf_download(
         raise HTTPException(404, "Burst report not found")
 
     # IMPORTANT: your dropdown must be saved into report.total_samples (or whatever field you used)
-    total_samples = getattr(report, "total_samples", None) or 1
+    total_samples = getattr(report, "total_no_of_specimens", None) or 1
 
     template_path = get_burst_template_pdf_path(total_samples)
 
