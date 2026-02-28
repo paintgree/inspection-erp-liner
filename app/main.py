@@ -2903,38 +2903,59 @@ def burst_pdf_download(
     total_samples = getattr(report, "total_no_of_specimens", None) or 1
     template_path = get_burst_template_pdf_path(total_samples)
 
-    # -------------------------
-    # DRAW MAIN PAGE CONTENT
-    # -------------------------
+    # Put this INSIDE burst_pdf_download(), before overlay_reader = _create_overlay(...)
+
+def _fmt_date(d):
+    # report.tested_at is datetime; if you later add a dedicated test_date, use that instead
+        try:
+            if not d:
+                return ""
+            return d.strftime("%Y-%m-%d")
+        except Exception:
+            return str(d) if d else ""
+    
     def draw_main_page(c):
+        """
+        Draw ONLY what exists in the BurstTestReport model:
+        1- client name & PO
+        2- date
+        3- pipe spec
+        4- DHTP batch number
+        5- system maximum pressure
+        6- testing medium
+        7- lab temperature
+        8- total no of samples
+        """
         c.setFont("Helvetica", 10)
     
-        # 1) Client Name & PO#  (combine two fields)
-        client_po = " / ".join([x for x in [report.client_name.strip(), report.client_po.strip()] if x])
-        c.drawString(215, 712, client_po)
+        # 1) Client Name & PO
+        client_line = f"{(report.client_name or '').strip()}  /  {(report.client_po or '').strip()}".strip(" /")
+        c.drawString(215, 712, client_line)
     
-        # 2) Test Date (your model doesn’t have test_date; use tested_at or created_at)
-        dt = getattr(report, "tested_at", None) or getattr(report, "created_at", None)
-        date_str = dt.strftime("%d-%b-%Y") if dt else ""
-        c.drawString(215, 694, date_str)
+        # 2) Test Date (using tested_at from model)
+        c.drawString(215, 696, _fmt_date(getattr(report, "tested_at", None)))
     
-        # 3) Pipe / Specimen Specification
-        c.drawString(215, 662, report.pipe_specification or "")
+        # 3) Pipe spec
+        c.drawString(215, 661, (report.pipe_specification or "").strip())
     
-        # 4) DHTP Batch Number Ref  (use batch_no)
-        c.drawString(215, 642, report.batch_no or "")
+        # 4) DHTP batch number ref (your model field is batch_no)
+        c.drawString(215, 643, (report.batch_no or "").strip())
     
-        # 5) System Maximum Pressure
-        c.drawString(215, 622, report.system_max_pressure or "")
+        # 5) System maximum pressure
+        c.drawString(215, 625, (report.system_max_pressure or "").strip())
     
-        # 6) Testing Medium
-        c.drawString(215, 602, report.testing_medium or "")
+        # 6) Testing medium
+        c.drawString(215, 607, (report.testing_medium or "").strip())
     
-        # 7) Laboratory Temperature
-        c.drawString(420, 622, report.laboratory_temperature or "")
+        # 7) Laboratory temperature
+        c.drawString(710, 625, (report.laboratory_temperature or "").strip())
     
-        # 8) Total No. of Samples
-        c.drawString(420, 602, str(report.total_no_of_specimens or ""))
+        # 8) Total number of specimens
+        c.drawString(710, 607, str(report.total_no_of_specimens or 1))
+    
+    
+    # Then keep your existing:
+    # overlay_reader = _create_overlay(draw_main_page)
     
         return Response(
             content=pdf_bytes,
