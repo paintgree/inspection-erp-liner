@@ -2905,14 +2905,14 @@ def burst_pdf_download(
 
     # Put this INSIDE burst_pdf_download(), before overlay_reader = _create_overlay(...)
 
-def _fmt_date(d):
-    # report.tested_at is datetime; if you later add a dedicated test_date, use that instead
-        try:
-            if not d:
-                return ""
-            return d.strftime("%Y-%m-%d")
-        except Exception:
-            return str(d) if d else ""
+    def _fmt_date(d):
+        # report.tested_at is datetime; if you later add a dedicated test_date, use that instead
+            try:
+                if not d:
+                    return ""
+                return d.strftime("%Y-%m-%d")
+            except Exception:
+                return str(d) if d else ""
     
     def draw_main_page(c):
         """
