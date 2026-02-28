@@ -2897,6 +2897,7 @@ def burst_pdf_download(
     session: Session = Depends(get_session),
 ):
     report = session.get(BurstTestReport, report_id)
+    overlay_reader = _create_overlay(draw_main_page)
     if not report:
         raise HTTPException(404, "Burst report not found")
 
@@ -2916,42 +2917,59 @@ def burst_pdf_download(
     
     def draw_main_page(c):
         """
-        Draw ONLY what exists in the BurstTestReport model:
-        1- client name & PO
-        2- date
-        3- pipe spec
-        4- DHTP batch number
-        5- system maximum pressure
-        6- testing medium
-        7- lab temperature
-        8- total no of samples
+        Draw header fields on the MAIN PAGE of the Burst PDF template.
+        NOTE: This function is defined INSIDE burst_pdf_download(), so it can use `report`.
         """
+        # ---- helpers ----
+        def s(x):
+            return "" if x is None else str(x)
+    
+        def date_str(dt):
+            try:
+                # tested_at is datetime in the model
+                return dt.strftime("%Y-%m-%d") if dt else ""
+            except Exception:
+                return s(dt)
+    
+        # Use ONLY fields that exist in BurstTestReport (models.py)
+        client_name_po = " / ".join([v for v in [s(getattr(report, "client_name", "")).strip(),
+                                                s(getattr(report, "client_po", "")).strip()] if v])
+    
+        the_date = date_str(getattr(report, "tested_at", None))
+        pipe_spec = s(getattr(report, "pipe_specification", "")).strip()
+        dhtp_batch = s(getattr(report, "batch_no", "")).strip()
+        max_pressure = s(getattr(report, "system_max_pressure", "")).strip()
+        medium = s(getattr(report, "testing_medium", "")).strip()
+        lab_temp = s(getattr(report, "laboratory_temperature", "")).strip()
+        total_samples = s(getattr(report, "total_no_of_specimens", "")).strip()
+    
+        # ---- draw ----
         c.setFont("Helvetica", 10)
     
-        # 1) Client Name & PO
-        client_line = f"{(report.client_name or '').strip()}  /  {(report.client_po or '').strip()}".strip(" /")
-        c.drawString(215, 712, client_line)
+        # ⚠️ Keep your coordinates (edit only these numbers to move the text)
+        # 1- Client Name & PO
+        c.drawString(215, 712, client_name_po)
     
-        # 2) Test Date (using tested_at from model)
-        c.drawString(215, 696, _fmt_date(getattr(report, "tested_at", None)))
+        # 2- Date
+        c.drawString(470, 712, the_date)
     
-        # 3) Pipe spec
-        c.drawString(215, 661, (report.pipe_specification or "").strip())
+        # 3- Pipe spec
+        c.drawString(215, 690, pipe_spec)
     
-        # 4) DHTP batch number ref (your model field is batch_no)
-        c.drawString(215, 643, (report.batch_no or "").strip())
+        # 4- DHTP batch number
+        c.drawString(215, 668, dhtp_batch)
     
-        # 5) System maximum pressure
-        c.drawString(215, 625, (report.system_max_pressure or "").strip())
+        # 5- System maximum pressure
+        c.drawString(215, 646, max_pressure)
     
-        # 6) Testing medium
-        c.drawString(215, 607, (report.testing_medium or "").strip())
+        # 6- Testing medium
+        c.drawString(215, 624, medium)
     
-        # 7) Laboratory temperature
-        c.drawString(710, 625, (report.laboratory_temperature or "").strip())
+        # 7- Laboratory temperature
+        c.drawString(215, 602, lab_temp)
     
-        # 8) Total number of specimens
-        c.drawString(710, 607, str(report.total_no_of_specimens or 1))
+        # 8- Total number of samples
+        c.drawString(215, 580, total_samples)
     
     
     # Then keep your existing:
