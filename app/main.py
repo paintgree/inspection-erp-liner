@@ -2897,89 +2897,62 @@ def burst_pdf_download(
     session: Session = Depends(get_session),
 ):
     report = session.get(BurstTestReport, report_id)
-    overlay_reader = _create_overlay(draw_main_page)
     if not report:
         raise HTTPException(404, "Burst report not found")
 
     total_samples = getattr(report, "total_no_of_specimens", None) or 1
     template_path = get_burst_template_pdf_path(total_samples)
 
-    # Put this INSIDE burst_pdf_download(), before overlay_reader = _create_overlay(...)
+    # ---- helper formatting ----
+    def _s(x):
+        return "" if x is None else str(x)
 
-    def _fmt_date(d):
-        # report.tested_at is datetime; if you later add a dedicated test_date, use that instead
-            try:
-                if not d:
-                    return ""
-                return d.strftime("%Y-%m-%d")
-            except Exception:
-                return str(d) if d else ""
-    
+    def _fmt_date(dt):
+        try:
+            return dt.strftime("%Y-%m-%d") if dt else ""
+        except Exception:
+            return _s(dt)
+
+    # ✅ IMPORTANT: draw_main_page is defined BEFORE we call _create_overlay(...)
     def draw_main_page(c):
-        """
-        Draw header fields on the MAIN PAGE of the Burst PDF template.
-        NOTE: This function is defined INSIDE burst_pdf_download(), so it can use `report`.
-        """
-        # ---- helpers ----
-        def s(x):
-            return "" if x is None else str(x)
-    
-        def date_str(dt):
-            try:
-                # tested_at is datetime in the model
-                return dt.strftime("%Y-%m-%d") if dt else ""
-            except Exception:
-                return s(dt)
-    
-        # Use ONLY fields that exist in BurstTestReport (models.py)
-        client_name_po = " / ".join([v for v in [s(getattr(report, "client_name", "")).strip(),
-                                                s(getattr(report, "client_po", "")).strip()] if v])
-    
-        the_date = date_str(getattr(report, "tested_at", None))
-        pipe_spec = s(getattr(report, "pipe_specification", "")).strip()
-        dhtp_batch = s(getattr(report, "batch_no", "")).strip()
-        max_pressure = s(getattr(report, "system_max_pressure", "")).strip()
-        medium = s(getattr(report, "testing_medium", "")).strip()
-        lab_temp = s(getattr(report, "laboratory_temperature", "")).strip()
-        total_samples = s(getattr(report, "total_no_of_specimens", "")).strip()
-    
-        # ---- draw ----
         c.setFont("Helvetica", 10)
-    
-        # ⚠️ Keep your coordinates (edit only these numbers to move the text)
-        # 1- Client Name & PO
-        c.drawString(215, 712, client_name_po)
-    
-        # 2- Date
-        c.drawString(470, 712, the_date)
-    
-        # 3- Pipe spec
-        c.drawString(215, 690, pipe_spec)
-    
-        # 4- DHTP batch number
-        c.drawString(215, 668, dhtp_batch)
-    
-        # 5- System maximum pressure
-        c.drawString(215, 646, max_pressure)
-    
-        # 6- Testing medium
-        c.drawString(215, 624, medium)
-    
-        # 7- Laboratory temperature
-        c.drawString(215, 602, lab_temp)
-    
-        # 8- Total number of samples
-        c.drawString(215, 580, total_samples)
-    
-    
-    # Then keep your existing:
-    # overlay_reader = _create_overlay(draw_main_page)
-    
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=burst_report_{report_id}.pdf"},
-        )
+
+        # 1) Client Name & PO#
+        client_name = _s(getattr(report, "client_name", "")).strip()
+        client_po = _s(getattr(report, "client_po", "")).strip()
+        client_line = " / ".join([v for v in [client_name, client_po] if v])
+        c.drawString(215, 712, client_line)
+
+        # 2) Date (use tested_at if exists, else created_at)
+        dt = getattr(report, "tested_at", None) or getattr(report, "created_at", None)
+        c.drawString(215, 694, _fmt_date(dt))
+
+        # 3) Pipe spec
+        c.drawString(215, 662, _s(getattr(report, "pipe_specification", "")).strip())
+
+        # 4) DHTP batch number ref (your field is batch_no)
+        c.drawString(215, 642, _s(getattr(report, "batch_no", "")).strip())
+
+        # 5) System maximum pressure
+        c.drawString(215, 622, _s(getattr(report, "system_max_pressure", "")).strip())
+
+        # 6) Testing medium
+        c.drawString(215, 602, _s(getattr(report, "testing_medium", "")).strip())
+
+        # 7) Laboratory temperature
+        c.drawString(420, 622, _s(getattr(report, "laboratory_temperature", "")).strip())
+
+        # 8) Total number of samples
+        c.drawString(420, 602, _s(getattr(report, "total_no_of_specimens", "")).strip())
+
+    overlay_reader = _create_overlay(draw_main_page)
+    pdf_bytes = _merge_overlay(template_path, overlay_reader)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=burst_report_{report_id}.pdf"},
+    )
 
 @app.get("/burst/{report_id}/pdf_debug")
 def burst_pdf_debug(
