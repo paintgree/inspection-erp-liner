@@ -2894,6 +2894,12 @@ def burst_pdf_download(
     if not report:
         raise HTTPException(404, "Burst report not found")
 
+    samples = session.exec(
+        select(BurstSample)
+        .where(BurstSample.report_id == report.id)
+        .order_by(BurstSample.id.asc())
+    ).all()
+
     total_samples = getattr(report, "total_no_of_specimens", None) or 1
     template_path = get_burst_template_pdf_path(total_samples)
 
@@ -2938,6 +2944,36 @@ def burst_pdf_download(
 
         # 8) Total number of samples
         c.drawString(450, 622, _s(getattr(report, "total_no_of_specimens", "")).strip())
+        
+        # -------------------------
+        # SAMPLE RESULTS TABLE (from BurstSample rows)
+        # -------------------------
+        def _sf(x):
+            return "" if x is None else str(x)
+        
+        # Row Y positions (you will tweak using /burst/{id}/pdf_debug)
+        if int(total_samples) == 1:
+            row_y = [300]  # adjust
+        elif int(total_samples) == 2:
+            row_y = [314, 284]  # adjust
+        else:  # 5 samples
+            row_y = [734, 704, 674, 644, 614]  # adjust (BUT this is on page 2 for 5-sample)
+        
+        # Column X positions (adjust once)
+        x_serial = 90
+        x_burst  = 260
+        x_time   = 380
+        x_result = 520
+        
+        c.setFont("Helvetica", 9)
+        for idx, y in enumerate(row_y):
+            if idx >= len(samples):
+                break
+            srow = samples[idx]
+            c.drawString(x_serial, y, _sf(srow.sample_serial_number))
+            c.drawString(x_burst,  y, _sf(srow.actual_burst_psi))
+            c.drawString(x_time,   y, _sf(srow.pressurization_time_s))
+            c.drawString(x_result, y, _sf(srow.test_result))
 
     overlay_reader = _create_overlay(draw_main_page)
     pdf_bytes = _merge_overlay(template_path, overlay_reader, only_page_index=0)
