@@ -547,8 +547,8 @@
         <input name="testing_medium" value="{{ rep.testing_medium }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
       <div>
-        <select name="total_no_of_specimens"
-                onchange="this.form.submit()"
+        <select id="specimenCount"
+                name="total_no_of_specimens"
                 {% if rep.is_locked %}disabled{% endif %}>
           <option value="1" {% if (rep.total_no_of_specimens or 1) == 1 %}selected{% endif %}>1</option>
           <option value="2" {% if rep.total_no_of_specimens == 2 %}selected{% endif %}>2</option>
@@ -561,10 +561,10 @@
   <div class="card">
     <h3>SPECIMENS DETAILS</h3>
   
-    {% set n = rep.total_no_of_specimens or 1 %}
-  
-    {% for s in samples[:n] %}
-      <div class="card" style="margin-top:12px;">
+    {% for s in samples[:5] %}
+      <div class="card specimen-block"
+           data-idx="{{ loop.index }}"
+           style="margin-top:12px;">
         <h4>Specimen {{ loop.index }}</h4>
   
         <div class="grid-2">
@@ -621,10 +621,10 @@
   <div class="card">
     <h3>TEST RESULTS</h3>
   
-    {% set n = rep.total_no_of_specimens or 1 %}
-  
-    {% for s in samples[:n] %}
-      <div class="card" style="margin-top:12px;">
+    {% for s in samples[:5] %}
+      <div class="card specimen-block"
+           data-idx="{{ loop.index }}"
+           style="margin-top:12px;">
         <h4>Result - Sample {{ loop.index }}</h4>
   
         <div class="grid-2">
@@ -700,24 +700,46 @@
   </div>
   
   <script>
-    // When you submit upload forms, inject selected sample_id
-    document.addEventListener("submit", function(e){
-      const form = e.target;
-      if (!form || !form.action || !form.action.includes("/burst/")) return;
-      if (form.querySelector('input[name="file"]')) {
-        const sel = document.getElementById("uploadSampleId");
-        if (sel) {
-          let hid = form.querySelector('input[name="sample_id"]');
-          if (!hid) {
-            hid = document.createElement("input");
-            hid.type = "hidden";
-            hid.name = "sample_id";
-            form.appendChild(hid);
-          }
-          hid.value = sel.value || "";
-        }
+  (function(){
+    const reportId = {{ rep.id }};
+    const sel = document.getElementById("specimenCount");
+    if (!sel) return;
+  
+    function updateBlocks() {
+      const n = parseInt(sel.value || "1", 10);
+  
+      document.querySelectorAll(".specimen-block").forEach(el => {
+        const idx = parseInt(el.dataset.idx || "0", 10);
+        el.style.display = (idx <= n) ? "block" : "none";
+      });
+  
+      document.querySelectorAll(".result-block").forEach(el => {
+        const idx = parseInt(el.dataset.idx || "0", 10);
+        el.style.display = (idx <= n) ? "block" : "none";
+      });
+    }
+  
+    async function saveCount() {
+      const formData = new FormData();
+      formData.append("total_no_of_specimens", sel.value);
+  
+      try {
+        await fetch(`/burst/${reportId}/set_specimen_count`, {
+          method: "POST",
+          body: formData
+        });
+      } catch (e) {
+        console.error("Failed to save specimen count:", e);
       }
-    }, true);
+    }
+  
+    sel.addEventListener("change", async () => {
+      updateBlocks();
+      await saveCount();
+    });
+  
+    updateBlocks(); // initial hide/show
+  })();
   </script>
   <h3>Test Curve & Photos (After Burst)</h3>
 
@@ -784,5 +806,41 @@
     {% endfor %}
   </ul>
 </div>
+<script>
+(function(){
+  const reportId = {{ rep.id }};
+  const sel = document.getElementById("specimenCount");
 
+  function updateBlocks() {
+    const n = parseInt(sel.value || "1", 10);
+
+    document.querySelectorAll(".specimen-block").forEach(el => {
+      const idx = parseInt(el.dataset.idx || "0", 10);
+      el.style.display = (idx <= n) ? "block" : "none";
+    });
+
+    document.querySelectorAll(".result-block").forEach(el => {
+      const idx = parseInt(el.dataset.idx || "0", 10);
+      el.style.display = (idx <= n) ? "block" : "none";
+    });
+  }
+
+  async function saveCount() {
+    const formData = new FormData();
+    formData.append("total_no_of_specimens", sel.value);
+
+    await fetch(`/burst/${reportId}/set_specimen_count`, {
+      method: "POST",
+      body: formData
+    });
+  }
+
+  sel.addEventListener("change", async () => {
+    updateBlocks();   // instant UI change (no refresh)
+    await saveCount(); // background save to DB
+  });
+
+  updateBlocks(); // run once on page load
+})();
+</script>
 {% endblock %}
