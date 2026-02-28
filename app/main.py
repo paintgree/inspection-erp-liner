@@ -2894,11 +2894,27 @@ def burst_pdf_download(
     if not report:
         raise HTTPException(404, "Burst report not found")
 
+    # =========================
+    # Load samples from DB (BurstSample)
+    # =========================
     samples = session.exec(
         select(BurstSample)
         .where(BurstSample.report_id == report.id)
         .order_by(BurstSample.id.asc())
     ).all()
+    
+    # IMPORTANT:
+    # If no BurstSample rows exist (common when UI saves only in BurstTestReport),
+    # we create a "fake" sample list from the report fields so PDF still shows data.
+    if not samples:
+        samples = [
+            SimpleNamespace(
+                sample_serial_number=report.sample_serial_number,
+                actual_burst_psi=report.actual_burst_psi,
+                pressurization_time_s=report.pressurization_time_s,
+                test_result=report.test_result,
+            )
+        ]
 
     total_samples = getattr(report, "total_no_of_specimens", None) or 1
     template_path = get_burst_template_pdf_path(total_samples)
@@ -2946,34 +2962,83 @@ def burst_pdf_download(
         c.drawString(450, 622, _s(getattr(report, "total_no_of_specimens", "")).strip())
         
         # -------------------------
-        # SAMPLE RESULTS TABLE (from BurstSample rows)
+        # SPECIMEN DETAILS (2 samples template)
         # -------------------------
+        c.setFont("Helvetica", 9)
+    
         def _sf(x):
             return "" if x is None else str(x)
-        
-        # Row Y positions (you will tweak using /burst/{id}/pdf_debug)
-        if int(total_samples) == 1:
-            row_y = [300]  # adjust
-        elif int(total_samples) == 2:
-            row_y = [314, 284]  # adjust
-        else:  # 5 samples
-            row_y = [734, 704, 674, 644, 614]  # adjust (BUT this is on page 2 for 5-sample)
-        
-        # Column X positions (adjust once)
-        x_serial = 90
-        x_burst  = 260
-        x_time   = 380
-        x_result = 520
-        
+    
+        def _m(val):
+            # meters formatting
+            return "" if val is None else f"{val}"
+    
+        # Report-level materials/thickness (these must exist in your form/model)
+        liner_mat = _sf(getattr(report, "liner_material", ""))
+        reinf_mat = _sf(getattr(report, "reinforcement_material", ""))
+        cover_mat = _sf(getattr(report, "cover_material", ""))
+    
+        liner_thk = _sf(getattr(report, "liner_thickness", ""))
+        reinf_thk = _sf(getattr(report, "reinforcement_thickness", ""))
+        cover_thk = _sf(getattr(report, "cover_thickness", ""))
+    
+        # X positions
+        x_left_val = 210
+        x_right_val = 455
+    
+        # Sample #1 block positions
+        if len(samples) >= 1:
+            sp1 = samples[0]
+            total_len_1 = _m(getattr(sp1, "sample_length_m", ""))
+            eff_len_1 = total_len_1  # same unless you create a separate field
+    
+            c.drawString(x_left_val, 536, total_len_1)   # total length
+            c.drawString(x_left_val, 512, liner_mat)
+            c.drawString(x_left_val, 488, reinf_mat)
+            c.drawString(x_left_val, 464, cover_mat)
+    
+            c.drawString(x_right_val, 536, eff_len_1)    # effective length
+            c.drawString(x_right_val, 512, liner_thk)
+            c.drawString(x_right_val, 488, reinf_thk)
+            c.drawString(x_right_val, 464, cover_thk)
+    
+        # Sample #2 block positions
+        if len(samples) >= 2:
+            sp2 = samples[1]
+            total_len_2 = _m(getattr(sp2, "sample_length_m", ""))
+            eff_len_2 = total_len_2
+    
+            c.drawString(x_left_val, 436, total_len_2)
+            c.drawString(x_left_val, 412, liner_mat)
+            c.drawString(x_left_val, 388, reinf_mat)
+            c.drawString(x_left_val, 364, cover_mat)
+    
+            c.drawString(x_right_val, 436, eff_len_2)
+            c.drawString(x_right_val, 412, liner_thk)
+            c.drawString(x_right_val, 388, reinf_thk)
+            c.drawString(x_right_val, 364, cover_thk)
+    
+        # -------------------------
+        # TEST RESULTS TABLE (2 samples template)
+        # Columns: Serial / Burst / Time / Result
+        # -------------------------
         c.setFont("Helvetica", 9)
-        for idx, y in enumerate(row_y):
-            if idx >= len(samples):
-                break
-            srow = samples[idx]
-            c.drawString(x_serial, y, _sf(srow.sample_serial_number))
-            c.drawString(x_burst,  y, _sf(srow.actual_burst_psi))
-            c.drawString(x_time,   y, _sf(srow.pressurization_time_s))
-            c.drawString(x_result, y, _sf(srow.test_result))
+    
+        x_serial = 70
+        x_burst = 220
+        x_time = 350
+        x_result = 505
+    
+        row_y = [292, 268]  # row1, row2
+    
+        for i in range(min(len(samples), 2)):
+            srow = samples[i]
+            y = row_y[i]
+    
+            c.drawString(x_serial, y, _sf(getattr(srow, "sample_serial_number", "")))
+            c.drawString(x_burst, y, _sf(getattr(srow, "actual_burst_psi", "")))
+            c.drawString(x_time, y, _sf(getattr(srow, "pressurization_time_s", "")))
+            c.drawString(x_result, y, _sf(getattr(srow, "test_result", "")))
 
     overlay_reader = _create_overlay(draw_main_page)
     pdf_bytes = _merge_overlay(template_path, overlay_reader, only_page_index=0)
