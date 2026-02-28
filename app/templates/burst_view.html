@@ -545,7 +545,11 @@
       </div>
       <div>
         <label>Total No. of Specimens</label>
-        <input name="total_no_of_specimens" type="number" value="{{ live.total_length_m }}" {% if rep.is_locked %}disabled{% endif %}>
+        <select name="total_no_of_specimens" {% if rep.is_locked %}disabled{% endif %}>
+          <option value="1" {% if (rep.total_no_of_specimens or 1) == 1 %}selected{% endif %}>1</option>
+          <option value="2" {% if rep.total_no_of_specimens == 2 %}selected{% endif %}>2</option>
+          <option value="5" {% if rep.total_no_of_specimens == 5 %}selected{% endif %}>5</option>
+        </select>
       </div>
     </div>
   </div>
