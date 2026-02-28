@@ -1,62 +1,8 @@
 from __future__ import annotations
 
-import os
-import mimetypes
-import traceback
-
-from datetime import datetime, date, time as dtime, timedelta
-from io import BytesIO
-from typing import Dict, List, Optional, Tuple
-from types import SimpleNamespace
-from zoneinfo import ZoneInfo
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.utils import ImageReader
-from reportlab.lib.units import inch
-from sqlalchemy import func
-
-
-from typing import Dict, List, Optional, Tuple
-from pathlib import Path
-import subprocess
-# --- collections helpers ---
-from collections import defaultdict
-# --- hashing helpers ---
-import hashlib
-import tempfile
-import json
-import os
-from datetime import datetime
-
-import openpyxl
-from openpyxl.drawing.image import Image as XLImage
-from pypdf import PdfWriter, PdfReader, Transformation
-
-
-from fastapi import (
-    FastAPI,
-    Depends,
-    Request,
-    Form,
-    HTTPException,
-    UploadFile,
-    File,
-)
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, StreamingResponse, JSONResponse
-    HTMLResponse,
-    RedirectResponse,
-    StreamingResponse,
-    Response,
-    FileResponse,
-)
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-
-from __future__ import annotations
-
-# =========================
-# Standard Library Imports
-# =========================
+# ======================
+# Standard Library
+# ======================
 import os
 import json
 import hashlib
@@ -73,9 +19,9 @@ from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 from collections import defaultdict
 
-# =========================
-# Third-Party Imports
-# =========================
+# ======================
+# Third Party
+# ======================
 import openpyxl
 from openpyxl.drawing.image import Image as XLImage
 from sqlalchemy import func
@@ -95,6 +41,7 @@ from fastapi import (
     UploadFile,
     File,
 )
+
 from fastapi.responses import (
     HTMLResponse,
     RedirectResponse,
@@ -102,14 +49,15 @@ from fastapi.responses import (
     StreamingResponse,
     JSONResponse,
 )
+
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from sqlmodel import Session, select
 
-# =========================
+# ======================
 # Local App Imports
-# =========================
+# ======================
 from .auth import hash_password, verify_password
 from .db import create_db_and_tables, get_session
 from .models import (
@@ -133,7 +81,6 @@ from .models import (
     BurstAuditLog,
 )
 
-)
 SLOTS = [
     "00:00", "02:00", "04:00", "06:00",
     "08:00", "10:00", "12:00", "14:00",
