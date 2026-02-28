@@ -2104,15 +2104,21 @@ def _overlay_grid_pdf() -> PdfReader:
     buf.seek(0)
     return PdfReader(buf)
 
-def _merge_overlay_on_template(template_path: str, overlay_reader: PdfReader) -> bytes:
-    tpl = PdfReader(template_path)
-    w = PdfWriter()
-    for i, page in enumerate(tpl.pages):
-        o = overlay_reader.pages[0]  # same overlay for every page
-        page.merge_page(o)
-        w.add_page(page)
+def _merge_overlay(template_path: str, overlay_reader: PdfReader, only_page_index: int = 0) -> bytes:
+    """
+    Merge a single overlay page onto ONE page of the template (default: first page).
+    All other pages remain unchanged.
+    """
+    template_pdf = PdfReader(template_path)
+    writer = PdfWriter()
+
+    for i, page in enumerate(template_pdf.pages):
+        if i == only_page_index:
+            page.merge_page(overlay_reader.pages[0])
+        writer.add_page(page)
+
     out = io.BytesIO()
-    w.write(out)
+    writer.write(out)
     return out.getvalue()
 # =========================
 # Upload storage (local FS)
@@ -2946,7 +2952,7 @@ def burst_pdf_download(
         c.drawString(450, 622, _s(getattr(report, "total_no_of_specimens", "")).strip())
 
     overlay_reader = _create_overlay(draw_main_page)
-    pdf_bytes = _merge_overlay(template_path, overlay_reader)
+    pdf_bytes = _merge_overlay(template_path, overlay_reader, only_page_index=0)
 
     return Response(
         content=pdf_bytes,
