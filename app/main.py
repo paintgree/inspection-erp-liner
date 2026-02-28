@@ -2068,6 +2068,52 @@ app = FastAPI()
 
 BASE_DIR = os.path.dirname(__file__)
 
+
+import io
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from pypdf import PdfReader, PdfWriter
+
+PAGE_W, PAGE_H = A4  # 595 x 842 points
+
+def _overlay_grid_pdf() -> PdfReader:
+    """
+    Creates a 1-page PDF overlay with a coordinate grid and labels.
+    Useful to map where to place text on the template.
+    """
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    c.setFont("Helvetica", 7)
+
+    step = 50
+    # vertical lines + x labels
+    x = 0
+    while x <= PAGE_W:
+        c.line(x, 0, x, PAGE_H)
+        c.drawString(x + 2, 2, f"x={int(x)}")
+        x += step
+
+    # horizontal lines + y labels
+    y = 0
+    while y <= PAGE_H:
+        c.line(0, y, PAGE_W, y)
+        c.drawString(2, y + 2, f"y={int(y)}")
+        y += step
+
+    c.save()
+    buf.seek(0)
+    return PdfReader(buf)
+
+def _merge_overlay_on_template(template_path: str, overlay_reader: PdfReader) -> bytes:
+    tpl = PdfReader(template_path)
+    w = PdfWriter()
+    for i, page in enumerate(tpl.pages):
+        o = overlay_reader.pages[0]  # same overlay for every page
+        page.merge_page(o)
+        w.add_page(page)
+    out = io.BytesIO()
+    w.write(out)
+    return out.getvalue()
 # =========================
 # Upload storage (local FS)
 # =========================
@@ -2843,6 +2889,29 @@ def burst_pdf_download(
         filename=filename,
     )
 
+
+from fastapi.responses import Response
+
+@app.get("/burst/{report_id}/pdf_debug")
+def burst_pdf_debug(
+    report_id: int,
+    session: Session = Depends(get_session),
+):
+    report = session.get(BurstTestReport, report_id)
+    if not report:
+        raise HTTPException(404, "Burst report not found")
+
+    total_samples = getattr(report, "total_no_of_specimens", None) or 1
+    template_path = get_burst_template_pdf_path(total_samples)
+
+    overlay = _overlay_grid_pdf()
+    pdf_bytes = _merge_overlay_on_template(template_path, overlay)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline; filename=burst_debug.pdf"},
+    )
 # ==========================================
 # EXPORT PER-INSPECTION (SEPARATE REPORTS)
 # ==========================================
