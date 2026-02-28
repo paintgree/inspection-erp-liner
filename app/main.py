@@ -52,11 +52,64 @@ from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, Stre
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from __future__ import annotations
+
+# =========================
+# Standard Library Imports
+# =========================
+import os
+import json
+import hashlib
+import mimetypes
+import tempfile
+import traceback
+import subprocess
+
+from datetime import datetime, date, time as dtime, timedelta
+from io import BytesIO
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple
+from types import SimpleNamespace
+from zoneinfo import ZoneInfo
+from collections import defaultdict
+
+# =========================
+# Third-Party Imports
+# =========================
+import openpyxl
+from openpyxl.drawing.image import Image as XLImage
+from sqlalchemy import func
+from pypdf import PdfWriter, PdfReader, Transformation
+
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
+from reportlab.lib.units import inch
+
+from fastapi import (
+    FastAPI,
+    Depends,
+    Request,
+    Form,
+    HTTPException,
+    UploadFile,
+    File,
+)
+from fastapi.responses import (
+    HTMLResponse,
+    RedirectResponse,
+    FileResponse,
+    StreamingResponse,
+    JSONResponse,
+)
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+
 from sqlmodel import Session, select
 
-
-
-
+# =========================
+# Local App Imports
+# =========================
 from .auth import hash_password, verify_password
 from .db import create_db_and_tables, get_session
 from .models import (
@@ -71,13 +124,14 @@ from .models import (
     MaterialUseEvent,
     MrrDocument,
     MrrReceiving,
-    MrrReceivingInspection,  # ✅ required because your code uses this name
-    MrrInspection,           # ✅ now works (alias in models.py)
-    MrrInspectionPhoto,      # ✅ NEW
+    MrrReceivingInspection,
+    MrrInspection,
+    MrrInspectionPhoto,
     BurstTestReport,
     BurstAttachment,
     BurstSample,
     BurstAuditLog,
+)
 
 )
 SLOTS = [
