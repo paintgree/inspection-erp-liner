@@ -2928,13 +2928,13 @@ def burst_pdf_download(
         c.drawString(215, 700, _fmt_date(dt))
 
         # 3) Pipe spec
-        c.drawString(215, 680, _s(getattr(report, "pipe_specification", "")).strip())
+        c.drawString(215, 670, _s(getattr(report, "pipe_specification", "")).strip())
 
         # 4) DHTP batch number ref (your field is batch_no)
         c.drawString(215, 653, _s(getattr(report, "batch_no", "")).strip())
 
         # 5) System maximum pressure
-        c.drawString(215, 622, _s(getattr(report, "system_max_pressure", "")).strip())
+        c.drawString(215, 642, _s(getattr(report, "system_max_pressure", "")).strip())
 
         # 6) Testing medium
         c.drawString(215, 622, _s(getattr(report, "testing_medium", "")).strip())
