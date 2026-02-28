@@ -42,7 +42,7 @@ from fastapi import (
     UploadFile,
     File,
 )
-from fastapi.responses import (
+from fastapi.responses import (, JSONResponse
     HTMLResponse,
     RedirectResponse,
     StreamingResponse,
@@ -1667,57 +1667,12 @@ def stamp_logo_on_pdf(pdf_bytes: bytes, logo_path: str) -> bytes:
     out.seek(0)
     return out.getvalue()
 
-def make_logo_stamp_pdf(page_w: float, page_h: float, logo_path: str) -> bytes:
-    """
-    Create a transparent 1-page PDF with a centered logo at top.
-    """
-    buf = BytesIO()
-    c = canvas.Canvas(buf, pagesize=(page_w, page_h))
-
-    img = ImageReader(logo_path)
-    iw, ih = img.getSize()
-
-    # Logo size: ~24% of page width (adjust if you want bigger/smaller)
-    target_w = page_w * 0.32
-    scale = target_w / float(iw)
-    target_h = float(ih) * scale
-
-    top_margin = 16
-    x = (page_w - target_w) / 2.0
-    y = page_h - top_margin - target_h
-
-    c.drawImage(img, x, y, width=target_w, height=target_h, mask="auto")
-    c.showPage()
-    c.save()
-
-    buf.seek(0)
-    return buf.getvalue()
 
 
-def stamp_logo_on_pdf(pdf_bytes: bytes, logo_path: str) -> bytes:
-    """
-    Overlay the logo stamp onto every page (top-center).
-    """
-    if not logo_path or not os.path.exists(logo_path):
-        return pdf_bytes
 
-    reader = PdfReader(BytesIO(pdf_bytes))
-    writer = PdfWriter()
 
-    for page in reader.pages:
-        w = float(page.mediabox.width)
-        h = float(page.mediabox.height)
 
-        stamp_pdf = make_logo_stamp_pdf(w, h, logo_path)
-        stamp_reader = PdfReader(BytesIO(stamp_pdf))
 
-        page.merge_page(stamp_reader.pages[0])
-        writer.add_page(page)
-
-    out = BytesIO()
-    writer.write(out)
-    out.seek(0)
-    return out.getvalue()
 
 def make_footer_stamp_pdf(page_w: float, page_h: float, left_text: str, right_text: str = "") -> bytes:
     """
@@ -2301,6 +2256,35 @@ def upsert_burst_attachment(
     session.commit()
     session.refresh(att)
     return att
+
+
+def ensure_burst_samples(session: Session, report_id: int, desired: int = 5) -> list[BurstSample]:
+    """
+    Ensure at least `desired` BurstSample rows exist for this report.
+    We default to 5 because your templates are 1/2/5 and the UI can show/hide instantly.
+    """
+    try:
+        desired = int(desired or 5)
+    except Exception:
+        desired = 5
+    if desired < 1:
+        desired = 1
+
+    rows = session.exec(
+        select(BurstSample)
+        .where(BurstSample.report_id == report_id)
+        .order_by(BurstSample.id.asc())
+    ).all()
+
+    while len(rows) < desired:
+        ns = BurstSample(report_id=report_id, sample_start_m=0.0, sample_length_m=0.0)
+        session.add(ns)
+        session.commit()
+        session.refresh(ns)
+        rows.append(ns)
+
+    return rows
+
     
 # =========================
 # BURST TESTING PAGES
@@ -2372,6 +2356,7 @@ def burst_new(request: Request, session: Session = Depends(get_session)):
     )
 
 
+
 @app.post("/burst/create")
 async def burst_create(
     request: Request,
@@ -2383,6 +2368,10 @@ async def burst_create(
     manual_batch_no: str = Form(""),
     manual_total_length_m: float = Form(0.0),
 
+    # NEW: choose template size at creation time (1 / 2 / 5)
+    total_no_of_specimens: int = Form(1),
+
+    # initial sample (Sample #1)
     sample_start_m: float = Form(...),
     sample_length_m: float = Form(...),
 
@@ -2391,10 +2380,24 @@ async def burst_create(
     test_temp_c: float = Form(0.0),
     notes: str = Form(""),
 ):
+    """
+    Create a new BurstTestReport.
+    - Saves report header fields
+    - Creates 5 BurstSample rows immediately (so UI can show/hide 1/2/5 without DB issues)
+    - Copies the initial sample (start/length) into Sample #1
+    """
     user = get_current_user(request, session)
 
     mode = (mode or "linked").strip().lower()
     is_manual = (mode == "manual")
+
+    # clamp to allowed template sizes
+    try:
+        n = int(total_no_of_specimens or 1)
+    except Exception:
+        n = 1
+    if n not in (1, 2, 5):
+        n = 1
 
     start = float(sample_start_m or 0.0)
     length = float(sample_length_m or 0.0)
@@ -2462,6 +2465,7 @@ async def burst_create(
         is_unlinked=is_manual,
         total_length_m=total_len,
 
+        # legacy single-sample fields (keep for backward compatibility)
         sample_start_m=start,
         sample_length_m=length,
 
@@ -2477,6 +2481,8 @@ async def burst_create(
         test_temp_c=float(test_temp_c or 0.0),
         notes=(notes or "").strip(),
 
+        total_no_of_specimens=n,
+
         created_by_user_id=user.id,
         created_by_user_name=user.display_name,
     )
@@ -2485,13 +2491,26 @@ async def burst_create(
     session.commit()
     session.refresh(rep)
 
-    # create first sample row
-    s = BurstSample(
+    # Create 5 BurstSample rows right away (templates are 1/2/5)
+    samples: list[BurstSample] = []
+    for i in range(5):
+        s = BurstSample(
+            report_id=rep.id,
+            sample_start_m=start if i == 0 else 0.0,
+            sample_length_m=length if i == 0 else 0.0,
+        )
+        session.add(s)
+        samples.append(s)
+
+    session.commit()
+
+    session.add(BurstAuditLog(
         report_id=rep.id,
-        sample_start_m=start,
-        sample_length_m=length,
-    )
-    session.add(s)
+        action="CREATE",
+        note=f"Created report (samples={n})",
+        user_id=user.id,
+        user_name=user.display_name,
+    ))
     session.commit()
 
     return RedirectResponse(f"/burst/{rep.id}", status_code=303)
@@ -2502,46 +2521,11 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
     user = get_current_user(request, session)
 
     rep = session.get(BurstTestReport, report_id)
-    # ---------------------------
-    # Build samples list for UI
-    # ---------------------------
-    db_samples = session.exec(
-        select(BurstSample)
-        .where(BurstSample.report_id == report_id)
-        .order_by(BurstSample.id.asc())
-    ).all()
-    
-    samples = []
-    
-    # 1) Preferred: BurstSample table rows
-    if db_samples:
-        for s in db_samples:
-            samples.append(SimpleNamespace(
-                sample_start_m=float(s.sample_start_m or 0.0),
-                sample_length_m=float(s.sample_length_m or 0.0),
-                sample_serial_number=getattr(s, "sample_serial_number", "") or ""
-            ))
-    
-    # 2) Fallback: legacy fields stored on the report itself
-    else:
-        # If you have new fields: sample_start_m + sample_length_m
-        if getattr(rep, "sample_start_m", None) is not None and getattr(rep, "sample_length_m", None) is not None:
-            samples.append(SimpleNamespace(
-                sample_start_m=float(rep.sample_start_m or 0.0),
-                sample_length_m=float(rep.sample_length_m or 0.0),
-                sample_serial_number=""
-            ))
-        # If you still have old fields: sample_from_m + sample_to_m
-        elif getattr(rep, "sample_from_m", None) is not None and getattr(rep, "sample_to_m", None) is not None:
-            start = float(rep.sample_from_m or 0.0)
-            end = float(rep.sample_to_m or 0.0)
-            samples.append(SimpleNamespace(
-                sample_start_m=start,
-                sample_length_m=max(0.0, end - start),
-                sample_serial_number=""
-            ))
     if not rep:
         raise HTTPException(404, "Burst report not found")
+
+    # Always keep 5 sample rows available (UI can show 1/2/5 without extra DB clicks)
+    ensure_burst_samples(session, report_id, desired=5)
 
     run = None
     produced_len = 0.0
@@ -2550,6 +2534,7 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
         if run:
             produced_len = get_run_produced_length_m(session, run.id)
 
+    # Base values shown on page
     live = {
         "client_name": rep.client_name,
         "client_po": rep.client_po,
@@ -2559,21 +2544,18 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
         "cover_material_grade": rep.cover_material_grade,
         "total_length_m": rep.total_length_m,
     }
-    
-    # If linked + not locked => always show latest values from cover run / batch runs
+
+    # If linked + not locked => show latest values from cover run / batch runs
     if (not rep.is_unlinked) and (not rep.is_locked) and run:
-        # cover run values
         live["client_name"] = (getattr(run, "client_name", "") or "").strip()
         live["client_po"] = (getattr(run, "po_number", "") or "").strip()
         live["pipe_specification"] = (getattr(run, "pipe_specification", "") or "").strip()
         live["cover_material_grade"] = (getattr(run, "raw_material_spec", "") or "").strip()
-    
-        # also total length should follow the run while still draft
+
         run_total = float(getattr(run, "total_length_m", 0.0) or 0.0)
         if run_total > 0:
             live["total_length_m"] = run_total
-    
-        # related runs by batch (if you have them)
+
         batch_no = (getattr(run, "dhtp_batch_no", "") or "").strip()
         if batch_no:
             liner_run = session.exec(
@@ -2586,7 +2568,7 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
                     (ProductionRun.dhtp_batch_no == batch_no) & (ProductionRun.process == "REINFORCEMENT")
                 )
             ).first()
-    
+
             if liner_run:
                 live["liner_material_grade"] = (getattr(liner_run, "raw_material_spec", "") or "").strip()
             if reinf_run:
@@ -2599,11 +2581,15 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
     ).all()
 
     samples = session.exec(
-        select(BurstSample).where(BurstSample.report_id == report_id).order_by(BurstSample.id.asc())
+        select(BurstSample)
+        .where(BurstSample.report_id == report_id)
+        .order_by(BurstSample.id.asc())
     ).all()
-    
+
     audit = session.exec(
-        select(BurstAuditLog).where(BurstAuditLog.report_id == report_id).order_by(BurstAuditLog.id.desc())
+        select(BurstAuditLog)
+        .where(BurstAuditLog.report_id == report_id)
+        .order_by(BurstAuditLog.id.desc())
     ).all()
 
     return templates.TemplateResponse(
@@ -2628,7 +2614,7 @@ async def burst_update(
     request: Request,
     session: Session = Depends(get_session),
 
-    # TEST DETAILS (manual fields only)
+    # TEST DETAILS
     reference_standard: str = Form(""),
     reference_dhtp_procedure: str = Form(""),
     system_max_pressure: str = Form(""),
@@ -2636,13 +2622,13 @@ async def burst_update(
     testing_medium: str = Form("Water"),
     total_no_of_specimens: int = Form(1),
 
-    # SPECIMENS
+    # SPECIMENS (report-level)
     effective_length_m: str = Form(""),
     liner_thickness: str = Form(""),
     reinforcement_thickness: str = Form(""),
     cover_thickness: str = Form(""),
 
-    # RESULTS (template-like)
+    # legacy single-sample fields (keep for backward compatibility)
     sample_serial_number: str = Form(""),
     actual_burst_psi: float = Form(0.0),
     pressurization_time_s: str = Form(""),
@@ -2653,48 +2639,68 @@ async def burst_update(
     # signatures
     qa_qc_officer_name: str = Form(""),
     testing_operator_name: str = Form(""),
+
+    # NEW: control behavior from UI buttons (default: save only)
+    action: str = Form("save"),  # "save" or "lock"
 ):
+    """
+    Saves burst report + per-sample fields.
+    - Ensures 5 BurstSample rows exist for stable UI (templates: 1/2/5)
+    - Saves per-sample values for the FIRST N samples (N = total_no_of_specimens)
+    - Locks only if action == "lock"
+    """
     user = get_current_user(request, session)
 
     rep = session.get(BurstTestReport, report_id)
     if not rep:
         raise HTTPException(404, detail="Burst report not found")
 
-    # TEST DETAILS (manual)
+    # If already locked and user tries to save, allow saving only if you want.
+    # Current behavior: locked reports can still be updated only via reopen endpoint.
+    if rep.is_locked and (action or "").lower() != "lock":
+        raise HTTPException(400, detail="Report is locked. Reopen it to edit.")
+
+    # Clamp to allowed sizes
+    try:
+        n = int(total_no_of_specimens or 1)
+    except Exception:
+        n = 1
+    if n not in (1, 2, 5):
+        n = 1
+
+    # TEST DETAILS
     rep.reference_standard = (reference_standard or "").strip()
     rep.reference_dhtp_procedure = (reference_dhtp_procedure or "").strip()
     rep.system_max_pressure = (system_max_pressure or "").strip()
     rep.laboratory_temperature = (laboratory_temperature or "").strip()
     rep.testing_medium = (testing_medium or "").strip()
-    rep.total_no_of_specimens = int(total_no_of_specimens or 1)
+    rep.total_no_of_specimens = n
+
+    # SPECIMENS (report-level)
+    rep.effective_length_m = (effective_length_m or "").strip()
+    rep.liner_thickness = (liner_thickness or "").strip()
+    rep.reinforcement_thickness = (reinforcement_thickness or "").strip()
+    rep.cover_thickness = (cover_thickness or "").strip()
+
+    # legacy single-sample fields
+    rep.sample_serial_number = (sample_serial_number or "").strip()
+    rep.actual_burst_psi = float(actual_burst_psi or 0.0)
+    rep.pressurization_time_s = (pressurization_time_s or "").strip()
+    rep.test_result = (test_result or "").strip()
+    rep.failure_mode = (failure_mode or "").strip()
+    rep.notes = (notes or "").strip()
+
+    rep.qa_qc_officer_name = (qa_qc_officer_name or "").strip()
+    rep.testing_operator_name = (testing_operator_name or "").strip()
 
     # ---------------------------
-    # NEW: ensure we have N BurstSample rows + save per-sample fields
+    # Per-sample save (BurstSample rows)
     # ---------------------------
     form = await request.form()
-    desired_n = int(form.get("total_no_of_specimens") or 1)
 
-    # Load current sample rows
-    db_samples = session.exec(
-        select(BurstSample)
-        .where(BurstSample.report_id == report_id)
-        .order_by(BurstSample.id.asc())
-    ).all()
+    db_samples = ensure_burst_samples(session, report_id, desired=5)
 
-    # Make sure we have at least N rows (create empty ones if missing)
-    while len(db_samples) < desired_n:
-        ns = BurstSample(
-            report_id=report_id,
-            sample_start_m=0.0,
-            sample_length_m=0.0,
-        )
-        session.add(ns)
-        session.commit()
-        session.refresh(ns)
-        db_samples.append(ns)
-
-    # Save fields for the first N samples only
-    for s in db_samples[:desired_n]:
+    for s in db_samples[:n]:
         s.sample_start_m = float(form.get(f"sample_start_m_{s.id}") or 0.0)
         s.sample_length_m = float(form.get(f"sample_length_m_{s.id}") or 0.0)
 
@@ -2706,35 +2712,31 @@ async def burst_update(
 
         session.add(s)
 
-    # SPECIMENS
-    rep.effective_length_m = (effective_length_m or "").strip()
-    rep.liner_thickness = (liner_thickness or "").strip()
-    rep.reinforcement_thickness = (reinforcement_thickness or "").strip()
-    rep.cover_thickness = (cover_thickness or "").strip()
+    # ---------------------------
+    # Locking
+    # ---------------------------
+    action = (action or "save").strip().lower()
+    if action == "lock":
+        rep.is_locked = True
+        rep.locked_at = datetime.utcnow()
+        rep.locked_by_user_id = user.id
+        rep.locked_by_user_name = user.display_name
 
-    # RESULTS
-    rep.sample_serial_number = (sample_serial_number or "").strip()
-    rep.actual_burst_psi = float(actual_burst_psi or 0.0)
-    rep.pressurization_time_s = (pressurization_time_s or "").strip()
-    rep.test_result = (test_result or "").strip()
-    rep.failure_mode = (failure_mode or "").strip()
-    rep.notes = (notes or "").strip()
-
-    rep.qa_qc_officer_name = (qa_qc_officer_name or "").strip()
-    rep.testing_operator_name = (testing_operator_name or "").strip()
-
-    rep.is_locked = True
-    rep.locked_at = datetime.utcnow()
-    rep.locked_by_user_id = user.id
-    rep.locked_by_user_name = user.display_name
-    
-    session.add(BurstAuditLog(
-        report_id=report_id,
-        action="LOCK",
-        note="Saved and locked report",
-        user_id=user.id,
-        user_name=user.display_name,
-    ))
+        session.add(BurstAuditLog(
+            report_id=report_id,
+            action="LOCK",
+            note="Saved and locked report",
+            user_id=user.id,
+            user_name=user.display_name,
+        ))
+    else:
+        session.add(BurstAuditLog(
+            report_id=report_id,
+            action="EDIT",
+            note="Saved report (not locked)",
+            user_id=user.id,
+            user_name=user.display_name,
+        ))
 
     session.add(rep)
     session.commit()
@@ -2742,38 +2744,44 @@ async def burst_update(
     return RedirectResponse(f"/burst/{report_id}", status_code=303)
 
 
-def upsert_burst_attachment(session: Session, report_id: int, kind: str, file_rel_path: str, caption: str, user):
-    kind = (kind or "").strip().upper()
+# ------------------------------------------------------------
+# Burst: AJAX endpoint to update specimen count without page refresh
+# ------------------------------------------------------------
+@app.post("/burst/{report_id}/set_specimen_count")
+async def burst_set_specimen_count(
+    report_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    """Update total_no_of_specimens and ensure BurstSample rows exist.
+    Call this from JS (fetch) when the dropdown changes, so the UI can
+    instantly show/hide blocks without refreshing the page.
+    """
+    form = await request.form()
+    try:
+        n = int(form.get("total_no_of_specimens") or 1)
+    except Exception:
+        n = 1
+    if n not in (1, 2, 5):
+        n = 1
 
-    existing = session.exec(
-        select(BurstAttachment)
-        .where(BurstAttachment.report_id == report_id)
-        .where(BurstAttachment.kind == kind)
-    ).first()
+    rep = session.get(BurstTestReport, report_id)
+    if not rep:
+        return JSONResponse({"ok": False, "error": "Report not found"}, status_code=404)
 
-    if existing:
-        existing.file_path = file_rel_path
-        existing.caption = caption
-        existing.uploaded_by_user_id = user.id
-        existing.uploaded_by_user_name = user.display_name
-        existing.uploaded_at = datetime.utcnow()
-        session.add(existing)
-        session.commit()
-        return existing
+    # Don't allow changes if locked
+    if getattr(rep, "is_locked", False):
+        return JSONResponse({"ok": False, "error": "Report is locked"}, status_code=400)
 
-    att = BurstAttachment(
-        report_id=report_id,
-        kind=kind,
-        caption=caption,
-        file_path=file_rel_path,
-        uploaded_by_user_id=user.id,
-        uploaded_by_user_name=user.display_name,
-    )
-    session.add(att)
+    rep.total_no_of_specimens = n
+    session.add(rep)
     session.commit()
-    session.refresh(att)
-    return att
 
+    # Keep DB ready: always ensure 5 rows exist for the 1/2/5 templates
+    ensure_burst_samples(session, report_id, 5)
+
+    return JSONResponse({"ok": True, "total_no_of_specimens": n})
 
 @app.post("/burst/{report_id}/upload")
 async def burst_upload(
@@ -2917,6 +2925,22 @@ def _merge_overlay(template_path: str, overlay_reader: PdfReader, only_page_inde
     for i, page in enumerate(template_pdf.pages):
         if i == only_page_index:
             page.merge_page(overlay_reader.pages[0])
+        writer.add_page(page)
+
+    out = io.BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+def _merge_overlay_on_template(template_path: str, overlay_reader: PdfReader) -> bytes:
+    """
+    Merge overlay_reader.pages[0] onto EVERY page of template_path.
+    Used for /pdf_debug (grid overlay).
+    """
+    template_pdf = PdfReader(template_path)
+    writer = PdfWriter()
+
+    for page in template_pdf.pages:
+        page.merge_page(overlay_reader.pages[0])
         writer.add_page(page)
 
     out = io.BytesIO()
@@ -8159,13 +8183,6 @@ def mrr_photo_delete(
     session.commit()
 
     return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
-
-
-
-
-
-
-
 
 
 
