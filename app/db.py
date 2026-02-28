@@ -155,9 +155,16 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE mrrdocument ADD COLUMN IF NOT EXISTS deleted_by_user_name TEXT DEFAULT ''",
         "ALTER TABLE mrrdocument ADD COLUMN deleted_by_user_name TEXT DEFAULT ''",
     )
-
-
-
+     
+    # =========================
+    # BURST: BurstAttachment.sample_id
+    # =========================
+    _add_column_if_missing(
+        "burstattachment",
+        "sample_id",
+        "ALTER TABLE burstattachment ADD COLUMN IF NOT EXISTS sample_id INTEGER",
+        "ALTER TABLE burstattachment ADD COLUMN sample_id INTEGER",
+    )
 
 
 
