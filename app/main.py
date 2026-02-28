@@ -2867,30 +2867,83 @@ async def burst_reopen(
     return RedirectResponse(f"/burst/{report_id}", status_code=303)
 
 
+PAGE_W, PAGE_H = A4  # 595 x 842
+
+def _create_overlay(draw_function):
+    packet = io.BytesIO()
+    c = canvas.Canvas(packet, pagesize=A4)
+    draw_function(c)
+    c.save()
+    packet.seek(0)
+    return PdfReader(packet)
+
+
+def _merge_overlay(template_path: str, overlay_reader: PdfReader) -> bytes:
+    template_pdf = PdfReader(template_path)
+    writer = PdfWriter()
+
+    for i, page in enumerate(template_pdf.pages):
+        overlay_page = overlay_reader.pages[0]
+        page.merge_page(overlay_page)
+        writer.add_page(page)
+
+    output_stream = io.BytesIO()
+    writer.write(output_stream)
+    return output_stream.getvalue()
+
 @app.get("/burst/{report_id}/pdf")
 def burst_pdf_download(
     report_id: int,
-    request: Request,
     session: Session = Depends(get_session),
 ):
     report = session.get(BurstTestReport, report_id)
     if not report:
         raise HTTPException(404, "Burst report not found")
 
-    # IMPORTANT: your dropdown must be saved into report.total_samples (or whatever field you used)
     total_samples = getattr(report, "total_no_of_specimens", None) or 1
-
     template_path = get_burst_template_pdf_path(total_samples)
 
-    filename = f"QAW1401_BURST_{report_id}_{int(total_samples)}S.pdf"
-    return FileResponse(
-        template_path,
+    # -------------------------
+    # DRAW MAIN PAGE CONTENT
+    # -------------------------
+    def draw_main_page(c):
+        c.setFont("Helvetica", 10)
+
+        # 1 - Client Name & PO
+        c.drawString(215, 712, report.client_name_po or "")
+
+        # 2 - Test Date
+        if report.test_date:
+            c.drawString(215, 694, report.test_date.strftime("%d-%b-%Y"))
+        else:
+            c.drawString(215, 694, "")
+
+        # 3 - Specimen Specification
+        c.drawString(215, 662, report.specimen_specification or "")
+
+        # 4 - DHTP Batch Number Ref
+        c.drawString(215, 642, report.dhtp_batch_number_ref or "")
+
+        # 5 - System Maximum Pressure
+        c.drawString(215, 622, report.system_max_pressure or "")
+
+        # 6 - Testing Medium
+        c.drawString(215, 602, report.testing_medium or "")
+
+        # 7 - Laboratory Temperature
+        c.drawString(420, 622, report.laboratory_temperature or "")
+
+        # 8 - Total No. of Samples
+        c.drawString(420, 602, str(total_samples))
+
+    overlay_reader = _create_overlay(draw_main_page)
+    pdf_bytes = _merge_overlay(template_path, overlay_reader)
+
+    return Response(
+        content=pdf_bytes,
         media_type="application/pdf",
-        filename=filename,
+        headers={"Content-Disposition": f"attachment; filename=burst_report_{report_id}.pdf"},
     )
-
-
-from fastapi.responses import Response
 
 @app.get("/burst/{report_id}/pdf_debug")
 def burst_pdf_debug(
