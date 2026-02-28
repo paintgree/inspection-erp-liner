@@ -2907,40 +2907,40 @@ def burst_pdf_download(
     # DRAW MAIN PAGE CONTENT
     # -------------------------
     def draw_main_page(c):
-    c.setFont("Helvetica", 10)
-
-    # 1) Client Name & PO#  (combine two fields)
-    client_po = " / ".join([x for x in [report.client_name.strip(), report.client_po.strip()] if x])
-    c.drawString(215, 712, client_po)
-
-    # 2) Test Date (your model doesn’t have test_date; use tested_at or created_at)
-    dt = getattr(report, "tested_at", None) or getattr(report, "created_at", None)
-    date_str = dt.strftime("%d-%b-%Y") if dt else ""
-    c.drawString(215, 694, date_str)
-
-    # 3) Pipe / Specimen Specification
-    c.drawString(215, 662, report.pipe_specification or "")
-
-    # 4) DHTP Batch Number Ref  (use batch_no)
-    c.drawString(215, 642, report.batch_no or "")
-
-    # 5) System Maximum Pressure
-    c.drawString(215, 622, report.system_max_pressure or "")
-
-    # 6) Testing Medium
-    c.drawString(215, 602, report.testing_medium or "")
-
-    # 7) Laboratory Temperature
-    c.drawString(420, 622, report.laboratory_temperature or "")
-
-    # 8) Total No. of Samples
-    c.drawString(420, 602, str(report.total_no_of_specimens or ""))
-
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=burst_report_{report_id}.pdf"},
-    )
+        c.setFont("Helvetica", 10)
+    
+        # 1) Client Name & PO#  (combine two fields)
+        client_po = " / ".join([x for x in [report.client_name.strip(), report.client_po.strip()] if x])
+        c.drawString(215, 712, client_po)
+    
+        # 2) Test Date (your model doesn’t have test_date; use tested_at or created_at)
+        dt = getattr(report, "tested_at", None) or getattr(report, "created_at", None)
+        date_str = dt.strftime("%d-%b-%Y") if dt else ""
+        c.drawString(215, 694, date_str)
+    
+        # 3) Pipe / Specimen Specification
+        c.drawString(215, 662, report.pipe_specification or "")
+    
+        # 4) DHTP Batch Number Ref  (use batch_no)
+        c.drawString(215, 642, report.batch_no or "")
+    
+        # 5) System Maximum Pressure
+        c.drawString(215, 622, report.system_max_pressure or "")
+    
+        # 6) Testing Medium
+        c.drawString(215, 602, report.testing_medium or "")
+    
+        # 7) Laboratory Temperature
+        c.drawString(420, 622, report.laboratory_temperature or "")
+    
+        # 8) Total No. of Samples
+        c.drawString(420, 602, str(report.total_no_of_specimens or ""))
+    
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=burst_report_{report_id}.pdf"},
+        )
 
 @app.get("/burst/{report_id}/pdf_debug")
 def burst_pdf_debug(
