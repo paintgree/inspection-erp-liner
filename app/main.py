@@ -2934,7 +2934,7 @@ def burst_pdf_download(
         c.drawString(215, 653, _s(getattr(report, "batch_no", "")).strip())
 
         # 5) System maximum pressure
-        c.drawString(215, 642, _s(getattr(report, "system_max_pressure", "")).strip())
+        c.drawString(215, 639, _s(getattr(report, "system_max_pressure", "")).strip())
 
         # 6) Testing medium
         c.drawString(215, 622, _s(getattr(report, "testing_medium", "")).strip())
