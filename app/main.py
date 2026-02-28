@@ -58,7 +58,7 @@ from sqlmodel import Session, select
 # ======================
 # Local App Imports
 # ======================
-from .auth import hash_password, verify_password
+from .auth import hash_password, verify_password, require_user
 from .db import create_db_and_tables, get_session
 from .models import (
     User,
