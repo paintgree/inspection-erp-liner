@@ -2385,22 +2385,12 @@ async def burst_create(
     session: Session = Depends(get_session),
 
     mode: str = Form("linked"),
-
     linked_run_id: Optional[int] = Form(None),
+
     manual_batch_no: str = Form(""),
     manual_total_length_m: float = Form(0.0),
 
-    # NEW: choose template size at creation time (1 / 2 / 5)
-    total_no_of_specimens: int = Form(1),
-
-    # initial sample (Sample #1)
-    sample_start_m: float = Form(0.0),
-    sample_length_m: float = Form(0.0),
-
-    # minimal test inputs (others filled later on inspection page)
-    target_pressure_psi: float = Form(0.0),
-    test_temp_c: float = Form(0.0),
-    notes: str = Form(""),
+    total_samples: int = Form(1),   # <-- NEW: 1 / 2 / 5
 ):
     """
     Create a new BurstTestReport.
@@ -2486,25 +2476,24 @@ async def burst_create(
         linked_run_id=linked_id,
         is_unlinked=is_manual,
         total_length_m=total_len,
-
-        # legacy single-sample fields (keep for backward compatibility)
-        sample_start_m=start,
-        sample_length_m=length,
-
+    
+        # these can be left 0 for now (filled later per sample in BurstSample rows)
+        sample_start_m=0.0,
+        sample_length_m=0.0,
+    
         client_name=client_name,
         client_po=client_po,
         pipe_specification=pipe_spec,
-
+    
         liner_material_grade=liner_grade,
         reinforcement_material_grade=reinf_grade,
         cover_material_grade=cover_grade,
-
-        target_pressure_psi=float(target_pressure_psi or 0.0),
-        test_temp_c=float(test_temp_c or 0.0),
-        notes=(notes or "").strip(),
-
-        total_no_of_specimens=n,
-
+    
+        target_pressure_psi=0.0,
+        test_temp_c=0.0,
+        notes="",
+    
+        total_samples=int(total_samples or 1),  # <-- add if your model has this column
         created_by_user_id=user.id,
         created_by_user_name=user.display_name,
     )
