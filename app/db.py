@@ -9,7 +9,7 @@ from sqlalchemy import inspect, text
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
-    engine = create_engine(DATABASE_URL, echo=False, pool_pre_ping=True)
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 else:
     DB_PATH = os.getenv("INSPECTION_DB", "inspection.db")
     engine = create_engine(
