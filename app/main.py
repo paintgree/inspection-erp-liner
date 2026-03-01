@@ -2026,8 +2026,7 @@ def stamp_signatures_on_pdf(
 app = FastAPI()
 
 # Session middleware (required for request.session in require_user)
-SESSION_SECRET = os.getenv("SESSION_SECRET", "dev-secret-change-me")
-app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
+#app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)#
 
 BASE_DIR = os.path.dirname(__file__)
 
@@ -2035,8 +2034,8 @@ from fastapi import Depends, HTTPException, Request
 
 def require_user(session: Session = Depends(get_session)) -> User:
     """
-    Temporary auth bypass (no sessions in this deployment).
-    Returns the first user in DB if exists, otherwise raises 401.
+    Temporary auth bypass: this environment has no SessionMiddleware (itsdangerous missing).
+    Returns the first user in DB if exists.
     """
     user = session.exec(select(User).order_by(User.id.asc())).first()
     if not user:
