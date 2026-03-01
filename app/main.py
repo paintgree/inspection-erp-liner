@@ -18,6 +18,7 @@ from typing import Dict, List, Optional, Tuple
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 from collections import defaultdict
+from starlette.middleware.sessions import SessionMiddleware
 
 # ======================
 # Third Party
@@ -2023,6 +2024,10 @@ def stamp_signatures_on_pdf(
 
 
 app = FastAPI()
+
+# Session middleware (required for request.session in require_user)
+SESSION_SECRET = os.getenv("SESSION_SECRET", "dev-secret-change-me")
+app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)
 
 BASE_DIR = os.path.dirname(__file__)
 
