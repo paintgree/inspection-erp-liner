@@ -468,29 +468,13 @@
     <div class="locked-banner">
       ✅ Report is locked (saved). To edit, reopen with reason.
     </div>
-  
+
     <form method="post" action="/burst/{{rep.id}}/reopen" class="reopen-box">
       <input name="reason" placeholder="Reason for reopening (required for audit)" required>
       <button class="btn btn-primary" type="submit">Reopen for Edit</button>
     </form>
-  {% else %}
-    <div class="card">
-      <h3>Add another sample</h3>
-      <form method="post" action="/burst/{{rep.id}}/samples/add" class="grid-2">
-        <div>
-          <label>Sample Start (m)</label>
-          <input name="sample_start_m" type="number" step="0.1" required>
-        </div>
-        <div>
-          <label>Sample Length (m)</label>
-          <input name="sample_length_m" type="number" step="0.1" required>
-        </div>
-        <div style="grid-column: 1 / -1; display:flex; justify-content:flex-end;">
-          <button class="btn btn-primary" type="submit">+ Add Sample</button>
-        </div>
-      </form>
-    </div>
   {% endif %}
+
 
   <div class="burst-labels">
     <span>0m</span>
@@ -547,8 +531,8 @@
         <input name="testing_medium" value="{{ rep.testing_medium }}" {% if rep.is_locked %}disabled{% endif %}>
       </div>
       <div>
-        <select id="specimenCount"
-                name="total_no_of_specimens"
+        <select name="total_no_of_specimens"
+                onchange="this.form.submit()"
                 {% if rep.is_locked %}disabled{% endif %}>
           <option value="1" {% if (rep.total_no_of_specimens or 1) == 1 %}selected{% endif %}>1</option>
           <option value="2" {% if rep.total_no_of_specimens == 2 %}selected{% endif %}>2</option>
@@ -561,10 +545,10 @@
   <div class="card">
     <h3>SPECIMENS DETAILS</h3>
   
-    {% for s in samples[:5] %}
-      <div class="card specimen-block"
-           data-idx="{{ loop.index }}"
-           style="margin-top:12px;">
+    {% set n = rep.total_no_of_specimens or 1 %}
+  
+    {% for s in samples[:n] %}
+      <div class="card" style="margin-top:12px;">
         <h4>Specimen {{ loop.index }}</h4>
   
         <div class="grid-2">
@@ -577,54 +561,52 @@
             <input name="sample_length_m_{{ s.id }}" value="{{ s.sample_length_m or 0 }}" {% if rep.is_locked %}disabled{% endif %}>
           </div>
         </div>
+        <div class="grid-2" style="margin-top:10px;">
+          <div>
+            <label>Effective Length of Specimen</label>
+            <input name="effective_length_m_{{ s.id }}" value="{{ (s.sample_length_m or 0) }}" {% if rep.is_locked %}disabled{% endif %}>
+          </div>
+          <div></div>
+
+          <div>
+            <label>Liner Material (grade)</label>
+            <input value="{{ rep.liner_material_grade }}" disabled>
+          </div>
+          <div>
+            <label>Liner Wall Thickness</label>
+            <input name="liner_thickness_{{ s.id }}" value="{{ rep.liner_thickness }}" {% if rep.is_locked %}disabled{% endif %}>
+          </div>
+
+          <div>
+            <label>Reinforcement Material (grade)</label>
+            <input value="{{ rep.reinforcement_material_grade }}" disabled>
+          </div>
+          <div>
+            <label>Reinforcement Wall Thickness</label>
+            <input name="reinforcement_thickness_{{ s.id }}" value="{{ rep.reinforcement_thickness }}" {% if rep.is_locked %}disabled{% endif %}>
+          </div>
+
+          <div>
+            <label>Cover Material (grade)</label>
+            <input value="{{ rep.cover_material_grade }}" disabled>
+          </div>
+          <div>
+            <label>Cover Wall Thickness</label>
+            <input name="cover_thickness_{{ s.id }}" value="{{ rep.cover_thickness }}" {% if rep.is_locked %}disabled{% endif %}>
+          </div>
+        </div>
+
       </div>
     {% endfor %}
-  
-    <div class="grid-2" style="margin-top:12px;">
-      <div>
-        <label>Effective Length of Specimen</label>
-        <input name="effective_length_m" value="{{ rep.effective_length_m }}" {% if rep.is_locked %}disabled{% endif %}>
-      </div>
-      <div></div>
-    </div>
-  
-    <div class="grid-2">
-      <div>
-        <label>Liner Material (grade)</label>
-        <input value="{{ rep.liner_material_grade }}" disabled>
-      </div>
-      <div>
-        <label>Liner Wall Thickness</label>
-        <input name="liner_thickness" value="{{ rep.liner_thickness }}" {% if rep.is_locked %}disabled{% endif %}>
-      </div>
-  
-      <div>
-        <label>Reinforcement Material (grade)</label>
-        <input value="{{ rep.reinforcement_material_grade }}" disabled>
-      </div>
-      <div>
-        <label>Reinforcement Wall Thickness</label>
-        <input name="reinforcement_thickness" value="{{ rep.reinforcement_thickness }}" {% if rep.is_locked %}disabled{% endif %}>
-      </div>
-  
-      <div>
-        <label>Cover Material (grade)</label>
-        <input value="{{ rep.cover_material_grade }}" disabled>
-      </div>
-      <div>
-        <label>Cover Wall Thickness</label>
-        <input name="cover_thickness" value="{{ rep.cover_thickness }}" {% if rep.is_locked %}disabled{% endif %}>
-      </div>
-    </div>
   </div>
 
   <div class="card">
     <h3>TEST RESULTS</h3>
   
-    {% for s in samples[:5] %}
-      <div class="card specimen-block"
-           data-idx="{{ loop.index }}"
-           style="margin-top:12px;">
+    {% set n = rep.total_no_of_specimens or 1 %}
+  
+    {% for s in samples[:n] %}
+      <div class="card" style="margin-top:12px;">
         <h4>Result - Sample {{ loop.index }}</h4>
   
         <div class="grid-2">
@@ -649,12 +631,6 @@
               <option value="FAIL" {% if s.test_result=="FAIL" %}selected{% endif %}>FAIL</option>
             </select>
           </div>
-  
-          <div>
-            <label>Failure Mode</label>
-            <input name="failure_mode_{{ s.id }}" value="{{ s.failure_mode }}" {% if rep.is_locked %}disabled{% endif %}>
-          </div>
-          <div></div>
         </div>
       </div>
     {% endfor %}
@@ -700,46 +676,24 @@
   </div>
   
   <script>
-  (function(){
-    const reportId = {{ rep.id }};
-    const sel = document.getElementById("specimenCount");
-    if (!sel) return;
-  
-    function updateBlocks() {
-      const n = parseInt(sel.value || "1", 10);
-  
-      document.querySelectorAll(".specimen-block").forEach(el => {
-        const idx = parseInt(el.dataset.idx || "0", 10);
-        el.style.display = (idx <= n) ? "block" : "none";
-      });
-  
-      document.querySelectorAll(".result-block").forEach(el => {
-        const idx = parseInt(el.dataset.idx || "0", 10);
-        el.style.display = (idx <= n) ? "block" : "none";
-      });
-    }
-  
-    async function saveCount() {
-      const formData = new FormData();
-      formData.append("total_no_of_specimens", sel.value);
-  
-      try {
-        await fetch(`/burst/${reportId}/set_specimen_count`, {
-          method: "POST",
-          body: formData
-        });
-      } catch (e) {
-        console.error("Failed to save specimen count:", e);
+    // When you submit upload forms, inject selected sample_id
+    document.addEventListener("submit", function(e){
+      const form = e.target;
+      if (!form || !form.action || !form.action.includes("/burst/")) return;
+      if (form.querySelector('input[name="file"]')) {
+        const sel = document.getElementById("uploadSampleId");
+        if (sel) {
+          let hid = form.querySelector('input[name="sample_id"]');
+          if (!hid) {
+            hid = document.createElement("input");
+            hid.type = "hidden";
+            hid.name = "sample_id";
+            form.appendChild(hid);
+          }
+          hid.value = sel.value || "";
+        }
       }
-    }
-  
-    sel.addEventListener("change", async () => {
-      updateBlocks();
-      await saveCount();
-    });
-  
-    updateBlocks(); // initial hide/show
-  })();
+    }, true);
   </script>
   <h3>Test Curve & Photos (After Burst)</h3>
 
@@ -810,6 +764,7 @@
 (function(){
   const reportId = {{ rep.id }};
   const sel = document.getElementById("specimenCount");
+  if (!sel) return;
 
   function updateBlocks() {
     const n = parseInt(sel.value || "1", 10);
@@ -829,18 +784,22 @@
     const formData = new FormData();
     formData.append("total_no_of_specimens", sel.value);
 
-    await fetch(`/burst/${reportId}/set_specimen_count`, {
-      method: "POST",
-      body: formData
-    });
+    try {
+      await fetch(`/burst/${reportId}/set_specimen_count`, {
+        method: "POST",
+        body: formData
+      });
+    } catch (e) {
+      console.error("Failed to save specimen count:", e);
+    }
   }
 
   sel.addEventListener("change", async () => {
-    updateBlocks();   // instant UI change (no refresh)
-    await saveCount(); // background save to DB
+    updateBlocks();
+    await saveCount();
   });
 
-  updateBlocks(); // run once on page load
+  updateBlocks();
 })();
 </script>
 {% endblock %}
