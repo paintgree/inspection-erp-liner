@@ -3166,38 +3166,38 @@ def burst_pdf_download(
     )
 
     def draw_results_table(c):
-    # -------------------------
-    # TEST RESULTS TABLE (BurstSample)
-    # -------------------------
-    def _sf(x):
-        return "" if x is None else str(x)
-
-    total_samples = int(report.total_no_of_specimens or 1)
-
-    # Row Y positions (you will adjust)
-    if total_samples == 1:
-        row_y = [420]
-    elif total_samples == 2:
-        row_y = [455, 420]
-    else:  # 5
-        row_y = [520, 495, 470, 445, 420]
-
-    # Column X positions (you will adjust once)
-    x_serial = 95
-    x_burst  = 245
-    x_time   = 390
-    x_result = 530
-
-    c.setFont("Helvetica", 9)
-
-    for idx, y in enumerate(row_y):
-        if idx >= len(samples):
-            break
-        srow = samples[idx]
-        c.drawString(x_serial, y, _sf(srow.sample_serial_number))
-        c.drawString(x_burst,  y, _sf(srow.actual_burst_psi))
-        c.drawString(x_time,   y, _sf(srow.pressurization_time_s))
-        c.drawString(x_result, y, _sf(srow.test_result))
+        # -------------------------
+        # TEST RESULTS TABLE (BurstSample)
+        # -------------------------
+        def _sf(x):
+            return "" if x is None else str(x)
+    
+        total_samples = int(report.total_no_of_specimens or 1)
+    
+        # Row Y positions (you will adjust)
+        if total_samples == 1:
+            row_y = [420]
+        elif total_samples == 2:
+            row_y = [455, 420]
+        else:  # 5
+            row_y = [520, 495, 470, 445, 420]
+    
+        # Column X positions (you will adjust once)
+        x_serial = 95
+        x_burst  = 245
+        x_time   = 390
+        x_result = 530
+    
+        c.setFont("Helvetica", 9)
+    
+        for idx, y in enumerate(row_y):
+            if idx >= len(samples):
+                break
+            srow = samples[idx]
+            c.drawString(x_serial, y, _sf(srow.sample_serial_number))
+            c.drawString(x_burst,  y, _sf(srow.actual_burst_psi))
+            c.drawString(x_time,   y, _sf(srow.pressurization_time_s))
+            c.drawString(x_result, y, _sf(srow.test_result))
 
 @app.get("/burst/{report_id}/pdf_debug")
 def burst_pdf_debug(
