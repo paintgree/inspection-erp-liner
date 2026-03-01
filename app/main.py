@@ -2367,7 +2367,9 @@ def burst_new(
     user: User = Depends(require_user),
 ):
     cover_runs = session.exec(
-        select(ProductionRun).order_by(ProductionRun.id.desc())
+        select(ProductionRun)
+        .where(ProductionRun.process == "COVER")
+        .order_by(ProductionRun.created_at.desc())
     ).all()
 
     return templates.TemplateResponse(
