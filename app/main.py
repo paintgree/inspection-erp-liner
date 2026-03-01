@@ -1424,21 +1424,23 @@ def _doc_path_to_pdf_bytes(path: str) -> bytes | None:
 
     return None
 
-def _merge_pdf_bytes_in_order(parts: list[bytes]) -> bytes:
+def _merge_overlay_bytes(base_pdf_bytes: bytes, overlay_pdf_bytes: bytes, only_page_index: int) -> bytes:
     """
-    Merge multiple PDFs (as bytes) into a single PDF (bytes).
+    Merge overlay_pdf onto exactly one page (only_page_index) of base_pdf.
+    Returns new PDF bytes.
     """
+    base_reader = PdfReader(BytesIO(base_pdf_bytes))
+    overlay_reader = PdfReader(BytesIO(overlay_pdf_bytes))
+
     writer = PdfWriter()
-    for b in parts:
-        r = PdfReader(BytesIO(b))
-        for p in r.pages:
-            writer.add_page(p)
+    for i, page in enumerate(base_reader.pages):
+        if i == only_page_index and len(overlay_reader.pages) > 0:
+            page.merge_page(overlay_reader.pages[0])
+        writer.add_page(page)
 
     out = BytesIO()
     writer.write(out)
-    out.seek(0)
     return out.getvalue()
-
 
 def _generate_shipment_report_pdf_bytes(*, lot, insp, receiving, docs) -> bytes:
     """
@@ -3090,35 +3092,112 @@ def burst_pdf_download(
             c.drawString(x_right_val, 364, cover_thk)
     
         # -------------------------
-        # TEST RESULTS TABLE (2 samples template)
-        # Columns: Serial / Burst / Time / Result
+        # TEST RESULTS TABLE (BurstSample)
         # -------------------------
+        def _sf(x):
+            return "" if x is None else str(x)
+        
+        # Column X positions (adjust once using /burst/<id>/pdf_debug)
+        x_serial = 95
+        x_burst  = 245
+        x_time   = 390
+        x_result = 530
+        
+        # Row Y positions (adjust with pdf_debug)
+        if int(report.total_no_of_specimens or 1) == 1:
+            row_y = [420]
+        elif int(report.total_no_of_specimens or 1) == 2:
+            row_y = [455, 420]
+        else:
+            row_y = [520, 495, 470, 445, 420]
+        
         c.setFont("Helvetica", 9)
-    
-        x_serial = 70
-        x_burst = 220
-        x_time = 350
-        x_result = 505
-    
-        row_y = [292, 268]  # row1, row2
-    
-        for i in range(min(len(samples), 2)):
-            srow = samples[i]
-            y = row_y[i]
-    
-            c.drawString(x_serial, y, _sf(getattr(srow, "sample_serial_number", "")))
-            c.drawString(x_burst, y, _sf(getattr(srow, "actual_burst_psi", "")))
-            c.drawString(x_time, y, _sf(getattr(srow, "pressurization_time_s", "")))
-            c.drawString(x_result, y, _sf(getattr(srow, "test_result", "")))
+        
+        for idx, y in enumerate(row_y):
+            if idx >= len(samples):
+                break
+            srow = samples[idx]
+            c.drawString(x_serial, y, _sf(srow.sample_serial_number))
+            c.drawString(x_burst,  y, _sf(srow.actual_burst_psi))
+            c.drawString(x_time,   y, _sf(srow.pressurization_time_s))
+            c.drawString(x_result, y, _sf(srow.test_result))
 
-    overlay_reader = _create_overlay(draw_main_page)
-    pdf_bytes = _merge_overlay(template_path, overlay_reader, only_page_index=0)
+    # ------------------------------------------------------------
+    # Build overlay PDFs (page1 header/specimen + results table)
+    # ------------------------------------------------------------
+    
+    # 1) Create overlay for PAGE 1 (index 0): header/specimen content
+    overlay_buf_p0 = BytesIO()
+    c0 = canvas.Canvas(overlay_buf_p0, pagesize=A4)
+    
+    draw_main_page(c0)  # <-- your existing function that draws header/specimen
+    c0.showPage()
+    c0.save()
+    overlay_pdf_p0 = overlay_buf_p0.getvalue()
+    
+    # 2) Start from template bytes
+    with open(template_path, "rb") as f:
+        pdf_bytes = f.read()
+    
+    # Merge overlay onto page 0
+    pdf_bytes = _merge_overlay_bytes(pdf_bytes, overlay_pdf_p0, only_page_index=0)
+    
+    # 3) Results table overlay:
+    # - For 1 & 2 samples -> table is on page 0
+    # - For 5 samples -> table is on page 1
+    total_samples = int(report.total_no_of_specimens or 1)
+    results_page_index = 0 if total_samples in (1, 2) else 1
+    
+    overlay_buf_table = BytesIO()
+    ct = canvas.Canvas(overlay_buf_table, pagesize=A4)
+    
+    draw_results_table(ct)  # <-- NEW function you add (below)
+    ct.showPage()
+    ct.save()
+    overlay_pdf_table = overlay_buf_table.getvalue()
+    
+    # Merge table overlay onto correct page
+    pdf_bytes = _merge_overlay_bytes(pdf_bytes, overlay_pdf_table, only_page_index=results_page_index)
 
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename=burst_report_{report_id}.pdf"},
     )
+
+    def draw_results_table(c):
+    # -------------------------
+    # TEST RESULTS TABLE (BurstSample)
+    # -------------------------
+    def _sf(x):
+        return "" if x is None else str(x)
+
+    total_samples = int(report.total_no_of_specimens or 1)
+
+    # Row Y positions (you will adjust)
+    if total_samples == 1:
+        row_y = [420]
+    elif total_samples == 2:
+        row_y = [455, 420]
+    else:  # 5
+        row_y = [520, 495, 470, 445, 420]
+
+    # Column X positions (you will adjust once)
+    x_serial = 95
+    x_burst  = 245
+    x_time   = 390
+    x_result = 530
+
+    c.setFont("Helvetica", 9)
+
+    for idx, y in enumerate(row_y):
+        if idx >= len(samples):
+            break
+        srow = samples[idx]
+        c.drawString(x_serial, y, _sf(srow.sample_serial_number))
+        c.drawString(x_burst,  y, _sf(srow.actual_burst_psi))
+        c.drawString(x_time,   y, _sf(srow.pressurization_time_s))
+        c.drawString(x_result, y, _sf(srow.test_result))
 
 @app.get("/burst/{report_id}/pdf_debug")
 def burst_pdf_debug(
