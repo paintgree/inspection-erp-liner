@@ -1,97 +1,71 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="page-head">
-  <h2>New Burst Test</h2>
+<div class="page-header">
+  <h1>New Burst Test</h1>
   <a class="btn" href="/burst">Back</a>
 </div>
 
 <div class="card">
 
-  <div class="mode-tabs">
-    <button type="button" id="tabLinked" class="mode-tab active" onclick="setMode('linked')">
-      Linked to Cover Production
-    </button>
-    <button type="button" id="tabManual" class="mode-tab" onclick="setMode('manual')">
-      Manual / Unlinked
-    </button>
+  <!-- Tabs -->
+  <div class="tabs">
+    <button type="button" class="tab-btn active" id="tab-linked">Linked to Cover Production</button>
+    <button type="button" class="tab-btn" id="tab-manual">Manual / Unlinked</button>
   </div>
 
-  <form method="post" action="/burst/create" style="margin-top:14px;">
-    <input type="hidden" name="mode" id="modeInput" value="linked">
+  <!-- Linked form -->
+  <form id="form-linked" method="post" action="/burst/create" style="margin-top:14px;">
+    <input type="hidden" name="mode" value="linked">
+    <label>Select Cover Production Run</label>
+    <select name="production_run_id" required>
+      {% for run in runs %}
+        <option value="{{ run.id }}">
+          {{ run.run_number }} — {{ run.client_name }} — Total {{ run.total_length_m }}m
+        </option>
+      {% endfor %}
+    </select>
 
-    <div id="linked_section">
-      <label>Select Cover Production Run</label>
-      <select name="linked_run_id" required>
-        {% for r in cover_runs %}
-          <option value="{{ r.id }}">{{ r.dhtp_batch_no }} — {{ r.client_name }} — Total {{ r.total_length_m }}m</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div id="manual_section" style="display:none;">
-      <div class="grid-2">
-        <div>
-          <label>Batch No</label>
-          <input name="manual_batch_no" placeholder="Example: A1001065-OLD">
-        </div>
-        <div>
-          <label>Total Length (m)</label>
-          <input name="manual_total_length_m" type="number" step="0.1" placeholder="1000">
-        </div>
-      </div>
-    </div>
-
-    <hr/>
-
-    <h3>Sample</h3>
-    <div class="grid-2">
-      <div>
-        <label>Sample Start (m)</label>
-        <input name="sample_start_m" type="number" step="0.1" required>
-      </div>
-      <div>
-        <label>Sample Length (m)</label>
-        <input name="sample_length_m" type="number" step="0.1" required>
-      </div>
-    </div>
-
-    <div class="grid-2">
-      <div>
-        <label>Target Pressure (PSI)</label>
-        <input name="target_pressure_psi" type="number" step="0.1" value="0">
-      </div>
-      <div>
-        <label>Test Temp (°C)</label>
-        <input name="test_temp_c" type="number" step="0.1" value="0">
-      </div>
-    </div>
-
-    <label>Notes</label>
-    <textarea name="notes" rows="3"></textarea>
-
-    <div class="toolbar mt">
+    <div style="margin-top:16px;">
       <button class="btn btn-primary" type="submit">Create Burst Test</button>
     </div>
   </form>
+
+  <!-- Manual form -->
+  <form id="form-manual" method="post" action="/burst/create" style="margin-top:14px; display:none;">
+    <input type="hidden" name="mode" value="manual">
+
+    <div style="margin-top:16px;">
+      <button class="btn btn-primary" type="submit">Create Burst Test</button>
+    </div>
+  </form>
+
 </div>
 
 <script>
-function setMode(mode){
-  document.getElementById('modeInput').value = mode;
-  const linked = mode === 'linked';
+(function(){
+  const tabLinked = document.getElementById("tab-linked");
+  const tabManual = document.getElementById("tab-manual");
+  const formLinked = document.getElementById("form-linked");
+  const formManual = document.getElementById("form-manual");
 
-  document.getElementById('linked_section').style.display = linked ? 'block' : 'none';
-  document.getElementById('manual_section').style.display = linked ? 'none' : 'block';
+  function setActive(which){
+    if(which === "linked"){
+      tabLinked.classList.add("active");
+      tabManual.classList.remove("active");
+      formLinked.style.display = "block";
+      formManual.style.display = "none";
+    } else {
+      tabManual.classList.add("active");
+      tabLinked.classList.remove("active");
+      formManual.style.display = "block";
+      formLinked.style.display = "none";
+    }
+  }
 
-  document.getElementById('tabLinked').classList.toggle('active', linked);
-  document.getElementById('tabManual').classList.toggle('active', !linked);
-
-  // make dropdown required only in linked mode
-  const sel = document.querySelector('select[name="linked_run_id"]');
-  if(sel) sel.required = linked;
-}
-setMode('linked');
+  tabLinked.addEventListener("click", () => setActive("linked"));
+  tabManual.addEventListener("click", () => setActive("manual"));
+})();
 </script>
 
 {% endblock %}
