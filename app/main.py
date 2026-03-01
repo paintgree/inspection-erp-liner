@@ -2408,8 +2408,8 @@ async def burst_create(
     if n not in (1, 2, 5):
         n = 1
 
-    start = float(sample_start_m or 0.0)
-    length = float(sample_length_m or 0.0)
+    start = 0.0
+    length = 0.0
     end = start + length
 
     if start < 0 or length <= 0:
