@@ -2357,8 +2357,8 @@ def burst_new(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
     # Only cover runs selectable for linking
-    cover_runs = session.exec(
-        select(ProductionRun).where(ProductionRun.process == "COVER").order_by(ProductionRun.id.desc())
+    runs = session.exec(
+        select(ProductionRun).order_by(ProductionRun.id.desc())
     ).all()
 
     return templates.TemplateResponse(
