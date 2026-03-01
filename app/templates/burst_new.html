@@ -29,10 +29,10 @@
         <label>Select Cover Production Run</label>
 
         {% if runs and runs|length > 0 %}
-          <select name="production_run_id" required>
+          <select name="linked_run_id" required>
             {% for run in runs %}
               <option value="{{ run.id }}">
-                {{ run.run_number }} — {{ run.client_name }} — Total {{ run.total_length_m }}m
+                {{ run.process }} | Batch: {{ run.dhtp_batch_no }} | {{ run.client_name }} | {{ run.total_length_m }}m
               </option>
             {% endfor %}
           </select>
