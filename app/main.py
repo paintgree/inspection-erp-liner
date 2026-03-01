@@ -2360,21 +2360,18 @@ def burst_dashboard(request: Request, session: Session = Depends(get_session)):
     )
 
 
-@app.get("/burst/new")
-def burst_new(
-    request: Request,
-    session: Session = Depends(get_session),
-    user: User = Depends(require_user),
-):
-    cover_runs = session.exec(
+@app.get("/burst/new", response_class=HTMLResponse)
+def burst_new(request: Request, session: Session = Depends(get_session), user: User = Depends(require_user)):
+    # Show ALL runs that have a batch number (recommended)
+    runs = session.exec(
         select(ProductionRun)
-        .where(ProductionRun.process == "COVER")
-        .order_by(ProductionRun.created_at.desc())
+        .where(ProductionRun.dhtp_batch_no != "")
+        .order_by(ProductionRun.id.desc())
     ).all()
 
     return templates.TemplateResponse(
         "burst_new.html",
-        {"request": request, "user": user, "cover_runs": cover_runs},
+        {"request": request, "user": user, "runs": runs},
     )
 
 
