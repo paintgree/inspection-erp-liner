@@ -2383,8 +2383,8 @@ async def burst_create(
     total_no_of_specimens: int = Form(1),
 
     # initial sample (Sample #1)
-    sample_start_m: float = Form(...),
-    sample_length_m: float = Form(...),
+    sample_start_m: float = Form(0.0),
+    sample_length_m: float = Form(0.0),
 
     # minimal test inputs (others filled later on inspection page)
     target_pressure_psi: float = Form(0.0),
@@ -2848,8 +2848,8 @@ async def burst_add_sample(
     report_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    sample_start_m: float = Form(...),
-    sample_length_m: float = Form(...),
+    sample_start_m: float = Form(0.0),
+    sample_length_m: float = Form(0.0),
 ):
     user = get_current_user(request, session)
 
