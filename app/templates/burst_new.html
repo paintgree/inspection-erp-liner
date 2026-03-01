@@ -2,40 +2,68 @@
 {% block content %}
 
 <div class="page-header">
-  <h1>New Burst Test</h1>
+  <div>
+    <h1 style="margin:0;">New Burst Test</h1>
+    <div style="color:#666; margin-top:4px;">
+      Choose how you want to create the report. You can fill all test details after creation.
+    </div>
+  </div>
+
   <a class="btn" href="/burst">Back</a>
 </div>
 
-<div class="card">
+<div class="card" style="max-width: 920px;">
 
   <!-- Tabs -->
-  <div class="tabs">
+  <div class="tabs" style="margin-bottom: 14px;">
     <button type="button" class="tab-btn active" id="tab-linked">Linked to Cover Production</button>
     <button type="button" class="tab-btn" id="tab-manual">Manual / Unlinked</button>
   </div>
 
-  <!-- Linked form -->
-  <form id="form-linked" method="post" action="/burst/create" style="margin-top:14px;">
+  <!-- LINKED -->
+  <form id="form-linked" method="post" action="/burst/create">
     <input type="hidden" name="mode" value="linked">
-    <label>Select Cover Production Run</label>
-    <select name="production_run_id" required>
-      {% for run in runs %}
-        <option value="{{ run.id }}">
-          {{ run.run_number }} — {{ run.client_name }} — Total {{ run.total_length_m }}m
-        </option>
-      {% endfor %}
-    </select>
 
-    <div style="margin-top:16px;">
-      <button class="btn btn-primary" type="submit">Create Burst Test</button>
+    <div class="grid-2" style="align-items:end;">
+      <div>
+        <label>Select Cover Production Run</label>
+
+        {% if runs and runs|length > 0 %}
+          <select name="production_run_id" required>
+            {% for run in runs %}
+              <option value="{{ run.id }}">
+                {{ run.run_number }} — {{ run.client_name }} — Total {{ run.total_length_m }}m
+              </option>
+            {% endfor %}
+          </select>
+        {% else %}
+          <div class="hint" style="padding:12px; border:1px solid #eee; border-radius:10px; background:#fafafa;">
+            No cover production runs found.
+            <div style="margin-top:6px; color:#666;">
+              Create a production run first, or use “Manual / Unlinked”.
+            </div>
+          </div>
+        {% endif %}
+      </div>
+
+      <div style="text-align:right;">
+        <button class="btn btn-primary" type="submit" {% if not runs or runs|length == 0 %}disabled{% endif %}>
+          Create Burst Test
+        </button>
+      </div>
     </div>
   </form>
 
-  <!-- Manual form -->
-  <form id="form-manual" method="post" action="/burst/create" style="margin-top:14px; display:none;">
+  <!-- MANUAL -->
+  <form id="form-manual" method="post" action="/burst/create" style="display:none;">
     <input type="hidden" name="mode" value="manual">
 
-    <div style="margin-top:16px;">
+    <div style="padding:12px; border:1px solid #eee; border-radius:10px; background:#fafafa;">
+      This will create a burst report not linked to any production run.
+      You can fill all details in the burst report page.
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; margin-top:14px;">
       <button class="btn btn-primary" type="submit">Create Burst Test</button>
     </div>
   </form>
