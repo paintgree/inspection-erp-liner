@@ -3675,8 +3675,13 @@ def health():
 
 @app.on_event("startup")
 def on_startup():
-    create_db_and_tables()
-    ensure_default_users()
+    try:
+        create_db_and_tables()
+        print("✅ DB ready")
+    except Exception as e:
+        # Do NOT kill the server if DB is temporarily unavailable
+        print("⚠️ DB startup failed (server will still run). Error:", repr(e))
+        ensure_default_users()
 
 
 def ensure_default_users():
