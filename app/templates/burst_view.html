@@ -15,14 +15,17 @@
     <input type="hidden" name="mode" id="modeField" value="linked">
 
     <!-- Linked -->
-    <div id="linkedSection">
-      <label>Select Cover Production Run</label>
+    {% if cover_runs and cover_runs|length > 0 %}
       <select name="linked_run_id" required>
-        {% for r in cover_runs %}
-          <option value="{{ r.id }}">{{ r.run_no }} — {{ r.batch_no }} — Total {{ r.total_length_m }}m</option>
+        {% for run in cover_runs %}
+          <option value="{{ run.id }}">
+            {{ run.process }} | Batch: {{ run.dhtp_batch_no }} | {{ run.client_name }} | {{ run.total_length_m }}m
+          </option>
         {% endfor %}
       </select>
-    </div>
+    {% else %}
+      <div class="hint">No cover production runs found.</div>
+    {% endif %}
 
     <!-- Manual -->
     <div id="manualSection" style="display:none;">
