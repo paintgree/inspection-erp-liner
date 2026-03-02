@@ -2304,6 +2304,30 @@ def ensure_burst_samples(session: Session, report_id: int, desired: int = 5) -> 
 
     return rows
 
+
+def get_finished_cover_runs(session: Session) -> list[ProductionRun]:
+    """
+    Finished product = COVER run that has:
+    - a batch number
+    - total_length_m > 0
+    - AND (liner + reinforcement exist with same batch)  [so it's a full pipe]
+    """
+    cover_runs = session.exec(
+        select(ProductionRun)
+        .where(ProductionRun.process == "COVER")
+        .where(ProductionRun.dhtp_batch_no != "")
+        .where(ProductionRun.total_length_m > 0)
+        .order_by(ProductionRun.id.desc())
+    ).all()
+
+    finished: list[ProductionRun] = []
+    for cr in cover_runs:
+        batch = (cr.dhtp_batch_no or "").strip()
+        liner, reinf, _cover = _find_related_runs_by_batch(session, batch)
+        if liner and reinf:
+            finished.append(cr)
+
+    return finished
     
 # =========================
 # BURST TESTING PAGES
@@ -2361,19 +2385,22 @@ def burst_dashboard(request: Request, session: Session = Depends(get_session)):
 
 
 @app.get("/burst/new", response_class=HTMLResponse)
-def burst_new(request: Request, session: Session = Depends(get_session), user: User = Depends(require_user)):
-    # Show ALL runs that have a batch number (recommended)
-    runs = session.exec(
-        select(ProductionRun)
-        .where(ProductionRun.dhtp_batch_no != "")
-        .order_by(ProductionRun.id.desc())
-    ).all()
+def burst_new(
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(require_user),
+):
+    # Only show finished product candidates (COVER + has LINER & REINFORCEMENT with same batch)
+    cover_runs = get_finished_cover_runs(session)
 
     return templates.TemplateResponse(
         "burst_new.html",
-        {"request": request, "user": user, "runs": runs},
+        {
+            "request": request,
+            "user": user,
+            "cover_runs": cover_runs,   # NOTE: template must use cover_runs now
+        },
     )
-
 
 
 @app.post("/burst/create")
@@ -2387,40 +2414,26 @@ async def burst_create(
     manual_batch_no: str = Form(""),
     manual_total_length_m: float = Form(0.0),
 
-    total_samples: int = Form(1),   # <-- NEW: 1 / 2 / 5
+    total_samples: int = Form(1),   # allowed 1 / 2 / 5 (controls template later)
 ):
-    """
-    Create a new BurstTestReport.
-    - Saves report header fields
-    - Creates 5 BurstSample rows immediately (so UI can show/hide 1/2/5 without DB issues)
-    - Copies the initial sample (start/length) into Sample #1
-    """
     user = get_current_user(request, session)
 
     mode = (mode or "linked").strip().lower()
     is_manual = (mode == "manual")
 
-    # clamp to allowed template sizes
+    # clamp to allowed template sizes (1/2/5)
     try:
-        n = int(total_no_of_specimens or 1)
+        n = int(total_samples or 1)
     except Exception:
         n = 1
     if n not in (1, 2, 5):
         n = 1
-
-    start = 0.0
-    length = 0.0
-    end = start + length
-
-    if start < 0 or length <= 0:
-        raise HTTPException(400, detail="Invalid sample. Example: start 300m, length 3m")
 
     # Determine batch & total length + autofill details
     batch_no = ""
     total_len = 0.0
     linked_id = None
 
-    # Fields we auto-fill when linked
     client_name = ""
     client_po = ""
     pipe_spec = ""
@@ -2439,18 +2452,31 @@ async def burst_create(
 
     else:
         if not linked_run_id:
-            raise HTTPException(400, detail="Linked mode: please select a COVER production run")
+            raise HTTPException(400, detail="Linked mode: please select a finished COVER run")
 
         cover_run = session.get(ProductionRun, int(linked_run_id))
         if not cover_run:
             raise HTTPException(404, detail="Cover run not found")
 
+        if (cover_run.process or "").strip().upper() != "COVER":
+            raise HTTPException(400, detail="Please select a COVER production run (finished product).")
+
         batch_no = (cover_run.dhtp_batch_no or "").strip()
         total_len = float(cover_run.total_length_m or 0.0)
         linked_id = cover_run.id
 
+        if not batch_no:
+            raise HTTPException(400, detail="Selected cover run has no batch number.")
         if total_len <= 0:
             raise HTTPException(400, detail="Selected cover run total length is 0. Please update it first.")
+
+        # Enforce "finished product": must have liner + reinforcement with same batch
+        liner_run, reinf_run, _ = _find_related_runs_by_batch(session, batch_no)
+        if not liner_run or not reinf_run:
+            raise HTTPException(
+                400,
+                detail="This batch is not a finished product (missing LINER or REINFORCEMENT run)."
+            )
 
         # autofill from cover run
         client_name = (cover_run.client_name or "").strip()
@@ -2458,39 +2484,35 @@ async def burst_create(
         pipe_spec = (cover_run.pipe_specification or "").strip()
         cover_grade = (cover_run.raw_material_spec or "").strip()
 
-        # autofill from other runs with same batch (if exist)
-        liner_run, reinf_run, _ = _find_related_runs_by_batch(session, batch_no)
-        if liner_run:
-            liner_grade = (liner_run.raw_material_spec or "").strip()
-        if reinf_run:
-            reinf_grade = (reinf_run.raw_material_spec or "").strip()
+        liner_grade = (liner_run.raw_material_spec or "").strip() if liner_run else ""
+        reinf_grade = (reinf_run.raw_material_spec or "").strip() if reinf_run else ""
 
-    if end > total_len:
-        raise HTTPException(400, detail=f"Sample ends at {end}m but total finished length is {total_len}m")
-
+    # Create report (NO sample validation here; you will fill samples inside /burst/{id})
     rep = BurstTestReport(
         batch_no=batch_no,
         linked_run_id=linked_id,
         is_unlinked=is_manual,
         total_length_m=total_len,
-    
-        # these can be left 0 for now (filled later per sample in BurstSample rows)
+
+        # legacy single-sample fields kept 0 for now
         sample_start_m=0.0,
         sample_length_m=0.0,
-    
+
         client_name=client_name,
         client_po=client_po,
         pipe_specification=pipe_spec,
-    
+
         liner_material_grade=liner_grade,
         reinforcement_material_grade=reinf_grade,
         cover_material_grade=cover_grade,
-    
+
         target_pressure_psi=0.0,
         test_temp_c=0.0,
         notes="",
-    
-        total_samples=int(total_samples or 1),  # <-- add if your model has this column
+
+        # IMPORTANT: your system already uses total_no_of_specimens elsewhere
+        total_no_of_specimens=n,
+
         created_by_user_id=user.id,
         created_by_user_name=user.display_name,
     )
@@ -2499,23 +2521,13 @@ async def burst_create(
     session.commit()
     session.refresh(rep)
 
-    # Create 5 BurstSample rows right away (templates are 1/2/5)
-    samples: list[BurstSample] = []
-    for i in range(5):
-        s = BurstSample(
-            report_id=rep.id,
-            sample_start_m=start if i == 0 else 0.0,
-            sample_length_m=length if i == 0 else 0.0,
-        )
-        session.add(s)
-        samples.append(s)
-
-    session.commit()
+    # Always create/ensure 5 BurstSample rows so UI can switch 1/2/5 later
+    ensure_burst_samples(session, rep.id, desired=5)
 
     session.add(BurstAuditLog(
         report_id=rep.id,
         action="CREATE",
-        note=f"Created report (samples={n})",
+        note=f"Created report (specimens={n}) mode={'manual' if is_manual else 'linked'}",
         user_id=user.id,
         user_name=user.display_name,
     ))
