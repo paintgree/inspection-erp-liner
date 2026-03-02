@@ -2384,22 +2384,24 @@ def burst_dashboard(request: Request, session: Session = Depends(get_session)):
     )
 
 
+from sqlalchemy import func  # make sure this import exists at top
+
 @app.get("/burst/new", response_class=HTMLResponse)
 def burst_new(
     request: Request,
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
-    # Only show finished product candidates (COVER + has LINER & REINFORCEMENT with same batch)
-    cover_runs = get_finished_cover_runs(session)
+    # IMPORTANT: do not over-filter now. Just show COVER runs.
+    cover_runs = session.exec(
+        select(ProductionRun)
+        .where(func.upper(ProductionRun.process) == "COVER")
+        .order_by(ProductionRun.id.desc())
+    ).all()
 
     return templates.TemplateResponse(
         "burst_new.html",
-        {
-            "request": request,
-            "user": user,
-            "cover_runs": cover_runs,   # NOTE: template must use cover_runs now
-        },
+        {"request": request, "user": user, "cover_runs": cover_runs},
     )
 
 
