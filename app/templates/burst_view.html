@@ -2,86 +2,122 @@
 {% block content %}
 
 <div class="card">
-  <h2>Create Burst Test</h2>
-
-  <!-- Tabs -->
-  <div class="tab-row" style="margin-bottom:12px;">
-    <button type="button" class="tab-btn active" id="tabLinked">Linked to Cover Production</button>
-    <button type="button" class="tab-btn" id="tabManual">Manual / Unlinked</button>
-  </div>
-
-  <form method="post" action="/burst/create" id="burstCreateForm">
-    <!-- Mode -->
-    <input type="hidden" name="mode" id="modeField" value="linked">
-
-    <!-- Linked -->
-    {% if cover_runs and cover_runs|length > 0 %}
-      <select name="linked_run_id" required>
-        {% for run in cover_runs %}
-          <option value="{{ run.id }}">
-            {{ run.process }} | Batch: {{ run.dhtp_batch_no }} | {{ run.client_name }} | {{ run.total_length_m }}m
-          </option>
-        {% endfor %}
-      </select>
-    {% else %}
-      <div class="hint">No cover production runs found.</div>
-    {% endif %}
-
-    <!-- Manual -->
-    <div id="manualSection" style="display:none;">
-      <label>Batch / Reference</label>
-      <input name="manual_batch_no" placeholder="Batch no / reference (optional)">
-
-      <label style="margin-top:10px;">Total Length (m)</label>
-      <input name="manual_total_length_m" type="number" step="0.01" value="0">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+    <div>
+      <h2>Burst Report #{{ rep.id }}</h2>
+      <div class="hint">
+        Batch: <b>{{ rep.batch_no }}</b>
+        {% if rep.is_unlinked %}
+          <span class="badge">Manual / Unlinked</span>
+        {% else %}
+          <span class="badge">Linked</span>
+        {% endif %}
+      </div>
     </div>
 
-    <!-- We create the report first; details are filled in the burst page -->
-    <input type="hidden" name="total_no_of_specimens" value="1">
-    <input type="hidden" name="sample_start_m" value="0">
-    <input type="hidden" name="sample_length_m" value="0">
-    <input type="hidden" name="target_pressure_psi" value="0">
-    <input type="hidden" name="test_temp_c" value="0">
-    <input type="hidden" name="notes" value="">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a class="btn" href="/burst">Back</a>
+      <a class="btn" href="/burst/{{ rep.id }}/pdf" target="_blank">Download PDF</a>
+    </div>
+  </div>
+
+  <hr/>
+
+  <!-- Specimen count (controls how many rows the UI shows) -->
+  <form method="post" action="/burst/{{ rep.id }}/set_specimen_count" style="margin-bottom:14px;">
+    <label>Total No. of Specimens (1 / 2 / 5)</label>
+    <select name="total_no_of_specimens">
+      <option value="1" {% if rep.total_no_of_specimens == 1 %}selected{% endif %}>1</option>
+      <option value="2" {% if rep.total_no_of_specimens == 2 %}selected{% endif %}>2</option>
+      <option value="5" {% if rep.total_no_of_specimens == 5 %}selected{% endif %}>5</option>
+    </select>
+    <button class="btn btn-primary" type="submit" style="margin-left:8px;">Apply</button>
+  </form>
+
+  <!-- Main update form -->
+  <form method="post" action="/burst/{{ rep.id }}/update">
+    <h3>Pipe / Client Details</h3>
+
+    <label>Client Name</label>
+    <input name="client_name" value="{{ live.client_name }}">
+
+    <label>Client PO</label>
+    <input name="client_po" value="{{ live.client_po }}">
+
+    <label>Pipe Specification</label>
+    <input name="pipe_specification" value="{{ live.pipe_specification }}">
+
+    <label>Total Length (m)</label>
+    <input name="total_length_m" type="number" step="0.01" value="{{ live.total_length_m }}">
+
+    <h3 style="margin-top:16px;">Test Details</h3>
+
+    <label>Reference Standard</label>
+    <input name="reference_standard" value="{{ rep.reference_standard }}">
+
+    <label>Reference DHTP Procedure</label>
+    <input name="reference_dhtp_procedure" value="{{ rep.reference_dhtp_procedure }}">
+
+    <label>System Max Pressure</label>
+    <input name="system_max_pressure" value="{{ rep.system_max_pressure }}">
+
+    <label>Laboratory Temperature</label>
+    <input name="laboratory_temperature" value="{{ rep.laboratory_temperature }}">
+
+    <label>Testing Medium</label>
+    <input name="testing_medium" value="{{ rep.testing_medium }}">
+
+    <h3 style="margin-top:16px;">Material Grades</h3>
+
+    <label>Liner Material Grade</label>
+    <input name="liner_material_grade" value="{{ live.liner_material_grade }}">
+
+    <label>Reinforcement Material Grade</label>
+    <input name="reinforcement_material_grade" value="{{ live.reinforcement_material_grade }}">
+
+    <label>Cover Material Grade</label>
+    <input name="cover_material_grade" value="{{ live.cover_material_grade }}">
+
+    <h3 style="margin-top:16px;">Results (Per Specimen)</h3>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Serial No</th>
+          <th>Actual Burst (PSI)</th>
+          <th>Pressurization Time (s)</th>
+          <th>Failure Mode</th>
+          <th>Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in samples[:rep.total_no_of_specimens] %}
+        <tr>
+          <td>{{ loop.index }}</td>
+          <td><input name="sample_serial_number_{{ s.id }}" value="{{ s.sample_serial_number }}"></td>
+          <td><input name="actual_burst_psi_{{ s.id }}" type="number" step="0.01" value="{{ s.actual_burst_psi }}"></td>
+          <td><input name="pressurization_time_s_{{ s.id }}" value="{{ s.pressurization_time_s }}"></td>
+          <td><input name="failure_mode_{{ s.id }}" value="{{ s.failure_mode }}"></td>
+          <td>
+            <select name="test_result_{{ s.id }}">
+              <option value="" {% if not s.test_result %}selected{% endif %}></option>
+              <option value="PASS" {% if s.test_result == "PASS" %}selected{% endif %}>PASS</option>
+              <option value="FAIL" {% if s.test_result == "FAIL" %}selected{% endif %}>FAIL</option>
+            </select>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <label>Notes</label>
+    <textarea name="notes" rows="3">{{ rep.notes }}</textarea>
 
     <div style="margin-top:16px;">
-      <button class="btn btn-primary" type="submit">Create Burst Test</button>
+      <button class="btn btn-primary" type="submit">Save</button>
     </div>
   </form>
 </div>
-
-<script>
-(function(){
-  const tabLinked = document.getElementById("tabLinked");
-  const tabManual = document.getElementById("tabManual");
-  const linked = document.getElementById("linkedSection");
-  const manual = document.getElementById("manualSection");
-  const modeField = document.getElementById("modeField");
-
-  function setMode(mode){
-    if(mode === "linked"){
-      tabLinked.classList.add("active");
-      tabManual.classList.remove("active");
-      linked.style.display = "block";
-      manual.style.display = "none";
-      modeField.value = "linked";
-      // required on linked dropdown
-      const sel = linked.querySelector("select");
-      if(sel) sel.required = true;
-    } else {
-      tabManual.classList.add("active");
-      tabLinked.classList.remove("active");
-      linked.style.display = "none";
-      manual.style.display = "block";
-      modeField.value = "manual";
-      const sel = linked.querySelector("select");
-      if(sel) sel.required = false;
-    }
-  }
-
-  tabLinked.addEventListener("click", ()=>setMode("linked"));
-  tabManual.addEventListener("click", ()=>setMode("manual"));
-})();
-</script>
 
 {% endblock %}
