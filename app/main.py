@@ -3058,61 +3058,64 @@ def burst_pdf_download(
         c.drawString(450, 622, _s(getattr(report, "total_no_of_specimens", "")).strip())
         
         # -------------------------
-        # SPECIMEN DETAILS (2 samples template)
+        # SPECIMEN DETAILS (Per specimen materials + thickness)
         # -------------------------
         c.setFont("Helvetica", 9)
-    
+        
         def _sf(x):
             return "" if x is None else str(x)
-    
-        def _m(val):
-            # meters formatting
-            return "" if val is None else f"{val}"
-    
-        # Report-level materials/thickness (these must exist in your form/model)
-        liner_mat = _sf(getattr(report, "liner_material", ""))
-        reinf_mat = _sf(getattr(report, "reinforcement_material", ""))
-        cover_mat = _sf(getattr(report, "cover_material", ""))
-    
-        liner_thk = _sf(getattr(report, "liner_thickness", ""))
-        reinf_thk = _sf(getattr(report, "reinforcement_thickness", ""))
-        cover_thk = _sf(getattr(report, "cover_thickness", ""))
-    
-        # X positions
+        
+        def _mm(x):
+            if x in (None, ""):
+                return ""
+            try:
+                return f"{float(x):g}"
+            except Exception:
+                return str(x)
+        
+        def _pick_sample_val(sample, sample_attr: str, report_attr: str = ""):
+            """Prefer per-sample value; fallback to report value if sample value empty."""
+            v = getattr(sample, sample_attr, None)
+            if v not in (None, "", 0, 0.0):
+                return v
+            if report_attr:
+                return getattr(report, report_attr, "") or ""
+            return ""
+        
+        # X positions (same as your template layout)
         x_left_val = 210
         x_right_val = 455
-    
-        # Sample #1 block positions
+        
+        def draw_specimen_block(sample, y_total_len, y_liner, y_reinf, y_cover):
+            total_len = _sf(getattr(sample, "sample_length_m", ""))
+        
+            liner_grade = _sf(_pick_sample_val(sample, "liner_material_grade", "liner_material_grade")).strip()
+            reinf_grade = _sf(_pick_sample_val(sample, "reinforcement_material_grade", "reinforcement_material_grade")).strip()
+            cover_grade = _sf(_pick_sample_val(sample, "cover_material_grade", "cover_material_grade")).strip()
+        
+            liner_thk = _mm(_pick_sample_val(sample, "liner_thickness_mm", ""))
+            reinf_thk = _mm(_pick_sample_val(sample, "reinforcement_thickness_mm", ""))
+            cover_thk = _mm(_pick_sample_val(sample, "cover_thickness_mm", ""))
+        
+            # left column: lengths + grades
+            c.drawString(x_left_val,  y_total_len, total_len)
+            c.drawString(x_left_val,  y_liner,     liner_grade)
+            c.drawString(x_left_val,  y_reinf,     reinf_grade)
+            c.drawString(x_left_val,  y_cover,     cover_grade)
+        
+            # right column: effective length + thickness
+            c.drawString(x_right_val, y_total_len, total_len)
+            c.drawString(x_right_val, y_liner,     liner_thk)
+            c.drawString(x_right_val, y_reinf,     reinf_thk)
+            c.drawString(x_right_val, y_cover,     cover_thk)
+        
+        # Sample #1 coordinates in your template
         if len(samples) >= 1:
-            sp1 = samples[0]
-            total_len_1 = _m(getattr(sp1, "sample_length_m", ""))
-            eff_len_1 = total_len_1  # same unless you create a separate field
-    
-            c.drawString(x_left_val, 536, total_len_1)   # total length
-            c.drawString(x_left_val, 512, liner_mat)
-            c.drawString(x_left_val, 488, reinf_mat)
-            c.drawString(x_left_val, 464, cover_mat)
-    
-            c.drawString(x_right_val, 536, eff_len_1)    # effective length
-            c.drawString(x_right_val, 512, liner_thk)
-            c.drawString(x_right_val, 488, reinf_thk)
-            c.drawString(x_right_val, 464, cover_thk)
-    
-        # Sample #2 block positions
+            draw_specimen_block(samples[0], y_total_len=536, y_liner=512, y_reinf=488, y_cover=464)
+        
+        # Sample #2 coordinates in your template
         if len(samples) >= 2:
-            sp2 = samples[1]
-            total_len_2 = _m(getattr(sp2, "sample_length_m", ""))
-            eff_len_2 = total_len_2
-    
-            c.drawString(x_left_val, 436, total_len_2)
-            c.drawString(x_left_val, 412, liner_mat)
-            c.drawString(x_left_val, 388, reinf_mat)
-            c.drawString(x_left_val, 364, cover_mat)
-    
-            c.drawString(x_right_val, 436, eff_len_2)
-            c.drawString(x_right_val, 412, liner_thk)
-            c.drawString(x_right_val, 388, reinf_thk)
-            c.drawString(x_right_val, 364, cover_thk)
+            draw_specimen_block(samples[1], y_total_len=436, y_liner=412, y_reinf=388, y_cover=364)
     
         # -------------------------
         # TEST RESULTS TABLE (BurstSample)
@@ -3189,6 +3192,27 @@ def burst_pdf_download(
     )
 
     def draw_results_table(c):
+
+        # -------------------------
+        # For 5 specimens: print material/thickness summary above the results table
+        # -------------------------
+        if total_samples == 5:
+            c.setFont("Helvetica", 8)
+            x = 60
+            y = 565
+            line_h = 11
+        
+            def g(sample, attr):
+                v = getattr(sample, attr, None)
+                if v in (None, "", 0, 0.0):
+                    return ""
+                return str(v)
+        
+            for i, srow in enumerate(samples[:5], start=1):
+                liner = f"L:{g(srow,'liner_material_grade')} {g(srow,'liner_thickness_mm')}mm"
+                reinf = f"R:{g(srow,'reinforcement_material_grade')} {g(srow,'reinforcement_thickness_mm')}mm"
+                cover = f"C:{g(srow,'cover_material_grade')} {g(srow,'cover_thickness_mm')}mm"
+                c.drawString(x, y - (i-1)*line_h, f"S{i}  {liner}  {reinf}  {cover}")
         # -------------------------
         # TEST RESULTS TABLE (BurstSample)
         # -------------------------
