@@ -155,6 +155,31 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE mrrdocument ADD COLUMN IF NOT EXISTS deleted_by_user_name TEXT DEFAULT ''",
         "ALTER TABLE mrrdocument ADD COLUMN deleted_by_user_name TEXT DEFAULT ''",
     )
+
+    _add_column_if_missing("burstsample","liner_material_grade",
+      "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS liner_material_grade TEXT DEFAULT ''",
+      "ALTER TABLE burstsample ADD COLUMN liner_material_grade TEXT DEFAULT ''",
+    )
+    _add_column_if_missing("burstsample","liner_thickness_mm",
+      "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS liner_thickness_mm DOUBLE PRECISION DEFAULT 0",
+      "ALTER TABLE burstsample ADD COLUMN liner_thickness_mm REAL DEFAULT 0",
+    )
+    _add_column_if_missing("burstsample","reinforcement_material_grade",
+      "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS reinforcement_material_grade TEXT DEFAULT ''",
+      "ALTER TABLE burstsample ADD COLUMN reinforcement_material_grade TEXT DEFAULT ''",
+    )
+    _add_column_if_missing("burstsample","reinforcement_thickness_mm",
+      "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS reinforcement_thickness_mm DOUBLE PRECISION DEFAULT 0",
+      "ALTER TABLE burstsample ADD COLUMN reinforcement_thickness_mm REAL DEFAULT 0",
+    )
+    _add_column_if_missing("burstsample","cover_material_grade",
+      "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS cover_material_grade TEXT DEFAULT ''",
+      "ALTER TABLE burstsample ADD COLUMN cover_material_grade TEXT DEFAULT ''",
+    )
+    _add_column_if_missing("burstsample","cover_thickness_mm",
+      "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS cover_thickness_mm DOUBLE PRECISION DEFAULT 0",
+      "ALTER TABLE burstsample ADD COLUMN cover_thickness_mm REAL DEFAULT 0",
+    )
      
     # =========================
     # BURST: BurstAttachment.sample_id
