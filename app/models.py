@@ -401,6 +401,12 @@ class BurstSample(SQLModel, table=True):
     pressurization_time_s: str = Field(default="")
     failure_mode: str = Field(default="")
     test_result: str = Field(default="")  # PASS/FAIL
+    liner_material_grade: str = Field(default="")
+    liner_thickness_mm: float = Field(default=0.0)
+    reinforcement_material_grade: str = Field(default="")
+    reinforcement_thickness_mm: float = Field(default=0.0)
+    cover_material_grade: str = Field(default="")
+    cover_thickness_mm: float = Field(default=0.0)
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
