@@ -2404,42 +2404,23 @@ def burst_new(
 
 
 @app.post("/burst/create")
-async def burst_create(
+def burst_create(
     request: Request,
     session: Session = Depends(get_session),
+    user: User = Depends(require_user),
 
     mode: str = Form("linked"),
     linked_run_id: Optional[int] = Form(None),
 
     manual_batch_no: str = Form(""),
     manual_total_length_m: float = Form(0.0),
-
-    total_samples: int = Form(1),   # allowed 1 / 2 / 5 (controls template later)
 ):
-    user = get_current_user(request, session)
-
     mode = (mode or "linked").strip().lower()
     is_manual = (mode == "manual")
 
-    # clamp to allowed template sizes (1/2/5)
-    try:
-        n = int(total_samples or 1)
-    except Exception:
-        n = 1
-    if n not in (1, 2, 5):
-        n = 1
-
-    # Determine batch & total length + autofill details
-    batch_no = ""
-    total_len = 0.0
-    linked_id = None
-
-    client_name = ""
-    client_po = ""
-    pipe_spec = ""
-    liner_grade = ""
-    reinf_grade = ""
-    cover_grade = ""
+    # defaults (we fill later in burst report page)
+    start = 0.0
+    length = 0.0
 
     if is_manual:
         batch_no = (manual_batch_no or "").strip()
@@ -2450,87 +2431,65 @@ async def burst_create(
         if total_len <= 0:
             raise HTTPException(400, detail="Manual mode: Total length must be > 0")
 
+        linked_id = None
+
+        rep = BurstTestReport(
+            is_unlinked=True,
+            linked_run_id=None,
+            batch_no=batch_no,
+            total_length_m=total_len,
+
+            # keep 0 now (filled later)
+            sample_start_m=start,
+            sample_length_m=length,
+
+            created_by_user_id=user.id,
+            created_by_user_name=getattr(user, "display_name", "") or getattr(user, "username", ""),
+        )
+
     else:
         if not linked_run_id:
-            raise HTTPException(400, detail="Linked mode: please select a finished COVER run")
+            raise HTTPException(400, detail="Linked mode: select a production run")
 
-        cover_run = session.get(ProductionRun, int(linked_run_id))
-        if not cover_run:
-            raise HTTPException(404, detail="Cover run not found")
+        run = session.get(ProductionRun, int(linked_run_id))
+        if not run:
+            raise HTTPException(404, detail="Production run not found")
 
-        if (cover_run.process or "").strip().upper() != "COVER":
-            raise HTTPException(400, detail="Please select a COVER production run (finished product).")
+        # burst must be linked to finished product (COVER)
+        if (run.process or "").strip().upper() != "COVER":
+            raise HTTPException(400, detail="Burst test must be linked to COVER (finished product) run only.")
 
-        batch_no = (cover_run.dhtp_batch_no or "").strip()
-        total_len = float(cover_run.total_length_m or 0.0)
-        linked_id = cover_run.id
-
+        batch_no = (run.dhtp_batch_no or "").strip()
+        total_len = float(run.total_length_m or 0.0)
         if not batch_no:
-            raise HTTPException(400, detail="Selected cover run has no batch number.")
+            raise HTTPException(400, detail="Selected run has no batch number")
         if total_len <= 0:
-            raise HTTPException(400, detail="Selected cover run total length is 0. Please update it first.")
+            raise HTTPException(400, detail="Selected run has 0 length. Update total length first.")
 
-        # Enforce "finished product": must have liner + reinforcement with same batch
-        liner_run, reinf_run, _ = _find_related_runs_by_batch(session, batch_no)
-        if not liner_run or not reinf_run:
-            raise HTTPException(
-                400,
-                detail="This batch is not a finished product (missing LINER or REINFORCEMENT run)."
-            )
+        rep = BurstTestReport(
+            is_unlinked=False,
+            linked_run_id=run.id,
+            batch_no=batch_no,
+            total_length_m=total_len,
 
-        # autofill from cover run
-        client_name = (cover_run.client_name or "").strip()
-        client_po = (cover_run.po_number or "").strip()
-        pipe_spec = (cover_run.pipe_specification or "").strip()
-        cover_grade = (cover_run.raw_material_spec or "").strip()
+            client_name=(run.client_name or "").strip(),
+            client_po=(run.po_number or "").strip(),
+            pipe_specification=(run.pipe_specification or "").strip(),
 
-        liner_grade = (liner_run.raw_material_spec or "").strip() if liner_run else ""
-        reinf_grade = (reinf_run.raw_material_spec or "").strip() if reinf_run else ""
+            # keep 0 now (filled later)
+            sample_start_m=start,
+            sample_length_m=length,
 
-    # Create report (NO sample validation here; you will fill samples inside /burst/{id})
-    rep = BurstTestReport(
-        batch_no=batch_no,
-        linked_run_id=linked_id,
-        is_unlinked=is_manual,
-        total_length_m=total_len,
-
-        # legacy single-sample fields kept 0 for now
-        sample_start_m=0.0,
-        sample_length_m=0.0,
-
-        client_name=client_name,
-        client_po=client_po,
-        pipe_specification=pipe_spec,
-
-        liner_material_grade=liner_grade,
-        reinforcement_material_grade=reinf_grade,
-        cover_material_grade=cover_grade,
-
-        target_pressure_psi=0.0,
-        test_temp_c=0.0,
-        notes="",
-
-        # IMPORTANT: your system already uses total_no_of_specimens elsewhere
-        total_no_of_specimens=n,
-
-        created_by_user_id=user.id,
-        created_by_user_name=user.display_name,
-    )
+            created_by_user_id=user.id,
+            created_by_user_name=getattr(user, "display_name", "") or getattr(user, "username", ""),
+        )
 
     session.add(rep)
     session.commit()
     session.refresh(rep)
 
-    # Always create/ensure 5 BurstSample rows so UI can switch 1/2/5 later
+    # Ensure you have 5 sample rows so UI can switch between 1/2/5 later
     ensure_burst_samples(session, rep.id, desired=5)
-
-    session.add(BurstAuditLog(
-        report_id=rep.id,
-        action="CREATE",
-        note=f"Created report (specimens={n}) mode={'manual' if is_manual else 'linked'}",
-        user_id=user.id,
-        user_name=user.display_name,
-    ))
     session.commit()
 
     return RedirectResponse(f"/burst/{rep.id}", status_code=303)
