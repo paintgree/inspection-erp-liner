@@ -2386,24 +2386,32 @@ def burst_dashboard(request: Request, session: Session = Depends(get_session)):
 
 from sqlalchemy import func  # make sure this import exists at top
 
+from sqlalchemy import func  # make sure this import exists near your imports
+
 @app.get("/burst/new", response_class=HTMLResponse)
 def burst_new(
     request: Request,
     session: Session = Depends(get_session),
     user: User = Depends(require_user),
 ):
-    # IMPORTANT: do not over-filter now. Just show COVER runs.
+    # Pull COVER runs (finished product stage)
     cover_runs = session.exec(
         select(ProductionRun)
         .where(func.upper(ProductionRun.process) == "COVER")
+        .where(ProductionRun.dhtp_batch_no != "")
         .order_by(ProductionRun.id.desc())
     ).all()
 
+    # IMPORTANT: pass BOTH names so template works no matter which variable it uses
     return templates.TemplateResponse(
         "burst_new.html",
-        {"request": request, "user": user, "cover_runs": cover_runs},
+        {
+            "request": request,
+            "user": user,
+            "cover_runs": cover_runs,  # for the new “professional” template
+            "runs": cover_runs,        # for older template versions
+        },
     )
-
 
 @app.post("/burst/create")
 def burst_create(
