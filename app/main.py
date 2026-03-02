@@ -2734,7 +2734,15 @@ async def burst_update(
         s.actual_burst_psi = float(form.get(f"actual_burst_psi_{s.id}") or 0.0)
         s.pressurization_time_s = (form.get(f"pressurization_time_s_{s.id}") or "").strip()
         s.test_result = (form.get(f"test_result_{s.id}") or "").strip()
-        s.failure_mode = (form.get(f"failure_mode_{s.id}") or "").strip()
+       
+        s.liner_material_grade = (form.get(f"liner_material_grade_{s.id}") or "").strip()
+        s.liner_thickness_mm = float(form.get(f"liner_thickness_mm_{s.id}") or 0.0)
+        
+        s.reinforcement_material_grade = (form.get(f"reinforcement_material_grade_{s.id}") or "").strip()
+        s.reinforcement_thickness_mm = float(form.get(f"reinforcement_thickness_mm_{s.id}") or 0.0)
+        
+        s.cover_material_grade = (form.get(f"cover_material_grade_{s.id}") or "").strip()
+        s.cover_thickness_mm = float(form.get(f"cover_thickness_mm_{s.id}") or 0.0)
 
         session.add(s)
 
