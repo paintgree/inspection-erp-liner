@@ -2396,6 +2396,7 @@ def burst_new(request: Request, session: Session = Depends(get_session)):
     # Show runs that have a batch number (works for your current data)
     runs = session.exec(
         select(ProductionRun)
+        .where(ProductionRun.process == "COVER")
         .where(ProductionRun.dhtp_batch_no != "")
         .order_by(ProductionRun.id.desc())
     ).all()
@@ -2487,25 +2488,32 @@ async def burst_create(
 
     # Create report
     rep = BurstTestReport(
-        created_at=datetime.utcnow(),
-        created_by_user_id=user.id,
-        created_by_user_name=user.display_name,
+    created_at=datetime.utcnow(),
+    created_by_user_id=user.id,
+    created_by_user_name=user.display_name,
 
-        is_manual=is_manual,
-        linked_run_id=linked_id,
+    # manual/unlinked vs linked
+    is_unlinked=is_manual,
+    linked_run_id=linked_id,
 
-        dhtp_batch_no=batch_no,
-        total_length_m=total_len,
-        total_samples=n,   # if your model uses a different field name tell me
+    # correct column name in model
+    batch_no=batch_no,
 
-        client_name=client_name,
-        client_po=client_po,
-        specimen_specification=pipe_spec,
+    total_length_m=total_len,
 
-        liner_material_grade=liner_grade,
-        reinforcement_material_grade=reinf_grade,
-        cover_material_grade=cover_grade,
-    )
+    # correct field name in model
+    total_no_of_specimens=n,
+
+    client_name=client_name,
+    client_po=client_po,
+
+    # correct field name in model
+    pipe_specification=pipe_spec,
+
+    liner_material_grade=liner_grade,
+    reinforcement_material_grade=reinf_grade,
+    cover_material_grade=cover_grade,
+)
 
     session.add(rep)
     session.commit()
