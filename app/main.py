@@ -2400,7 +2400,8 @@ async def burst_create(
     manual_batch_no: str = Form(""),
     manual_total_length_m: float = Form(0.0),
 
-    total_samples: int = Form(1),               # 1 / 2 / 5
+    purpose: str = Form("BATCH_RELEASE"),
+    total_samples: int = Form(0),
 ):
     """
     Create a new BurstTestReport.
@@ -2411,15 +2412,22 @@ async def burst_create(
     """
     user = get_current_user(request, session)
 
-    # clamp to allowed template sizes
+    purpose = (purpose or "BATCH_RELEASE").strip().upper()
+    if purpose not in ("BATCH_RELEASE","QUALIFICATION","INTERNAL"):
+        purpose = "BATCH_RELEASE"
+    
+    # Default N based on purpose (but allow override)
+    default_n = 2 if purpose == "BATCH_RELEASE" else (5 if purpose == "QUALIFICATION" else 1)
+    
     try:
-        n = int(total_samples or 1)
+        n = int(total_samples or 0)
     except Exception:
-        n = 1
-    if n not in (1, 2, 5):
-        n = 1
-
-    is_manual = (mode == "manual")
+        n = 0
+    
+    if n < 1:
+        n = default_n
+    if n > 50:
+        n = 50
 
     # Prepare linked fields
     batch_no = ""
@@ -2467,29 +2475,23 @@ async def burst_create(
     created_by_user_id=user.id,
     created_by_user_name=user.display_name,
 
-    # manual/unlinked vs linked
     is_unlinked=is_manual,
     linked_run_id=linked_id,
 
-    # correct column name in model
     batch_no=batch_no,
-
     total_length_m=total_len,
 
-    # correct field name in model
+    purpose=purpose,
     total_no_of_specimens=n,
 
     client_name=client_name,
     client_po=client_po,
-
-    # correct field name in model
     pipe_specification=pipe_spec,
 
     liner_material_grade=liner_grade,
     reinforcement_material_grade=reinf_grade,
     cover_material_grade=cover_grade,
 )
-
     session.add(rep)
     session.commit()
     session.refresh(rep)
