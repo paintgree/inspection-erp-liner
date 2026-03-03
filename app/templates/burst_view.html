@@ -114,7 +114,13 @@
     
         <label>Serial No</label>
         <input name="sample_serial_number_{{ s.id }}" value="{{ s.sample_serial_number }}">
-    
+        <label style="margin-top:10px;">Length (mm)</label>
+        <input
+          name="sample_length_m_{{ s.id }}"
+          type="number" step="0.01"
+          value="{{ s.sample_length_m }}"
+        >
+            
         <hr style="margin:12px 0;"/>
     
         <h5 style="margin:0 0 8px 0;">Construction</h5>
@@ -170,7 +176,7 @@
         <tr>
           <td>{{ loop.index }}</td>
           <td><input name="sample_serial_number_{{ s.id }}" value="{{ s.sample_serial_number }}"></td>
-          <td><input name="actual_burst_psi_{{ s.id }}" type="number" step="0.01" value="{{ s.actual_burst_psi }}"></td>
+          <td><input name="actual_burst_MPa_{{ s.id }}" type="number" step="0.01" value="{{ s.actual_burst_psi }}"></td>
           <td><input name="pressurization_time_s_{{ s.id }}" value="{{ s.pressurization_time_s }}"></td>
           <td><input name="failure_mode_{{ s.id }}" value="{{ s.failure_mode }}"></td>
           <td>
