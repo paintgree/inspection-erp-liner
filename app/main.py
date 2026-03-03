@@ -2709,8 +2709,6 @@ async def burst_update(
     db_samples = ensure_burst_samples(session, report_id, desired=n)
 
     for s in db_samples[:n]:
-        s.sample_start_m = float(form.get(f"sample_start_m_{s.id}") or 0.0)
-        s.sample_length_m = float(form.get(f"sample_length_m_{s.id}") or 0.0)
 
         s.sample_serial_number = (form.get(f"sample_serial_number_{s.id}") or "").strip()
         s.actual_burst_psi = float(form.get(f"actual_burst_psi_{s.id}") or 0.0)
