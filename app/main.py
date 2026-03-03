@@ -18,6 +18,9 @@ from typing import Dict, List, Optional, Tuple
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 from collections import defaultdict
+from reportlab.lib import colors
+from reportlab.lib.units import mm
+from reportlab.platypus import Table, TableStyle
 
 
 # ======================
