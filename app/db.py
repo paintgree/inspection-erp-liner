@@ -180,6 +180,42 @@ def _ensure_schema_patches() -> None:
       "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS cover_thickness_mm DOUBLE PRECISION DEFAULT 0",
       "ALTER TABLE burstsample ADD COLUMN cover_thickness_mm REAL DEFAULT 0",
     )
+
+    # --- bursttestreport ---
+    _add_column_if_missing(
+        "bursttestreport",
+        "purpose",
+        "ALTER TABLE bursttestreport ADD COLUMN IF NOT EXISTS purpose TEXT DEFAULT 'BATCH_RELEASE'",
+        "ALTER TABLE bursttestreport ADD COLUMN purpose TEXT DEFAULT 'BATCH_RELEASE'",
+    )
+    
+    # --- burstsample (per-sample material + thickness) ---
+    _add_column_if_missing("burstsample","liner_material_grade",
+      "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS liner_material_grade TEXT DEFAULT ''",
+      "ALTER TABLE burstsample ADD COLUMN liner_material_grade TEXT DEFAULT ''",
+    )
+    _add_column_if_missing("burstsample","liner_thickness_mm",
+      "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS liner_thickness_mm DOUBLE PRECISION DEFAULT 0",
+      "ALTER TABLE burstsample ADD COLUMN liner_thickness_mm REAL DEFAULT 0",
+    )
+    
+    _add_column_if_missing("burstsample","reinforcement_material_grade",
+      "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS reinforcement_material_grade TEXT DEFAULT ''",
+      "ALTER TABLE burstsample ADD COLUMN reinforcement_material_grade TEXT DEFAULT ''",
+    )
+    _add_column_if_missing("burstsample","reinforcement_thickness_mm",
+      "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS reinforcement_thickness_mm DOUBLE PRECISION DEFAULT 0",
+      "ALTER TABLE burstsample ADD COLUMN reinforcement_thickness_mm REAL DEFAULT 0",
+    )
+    
+    _add_column_if_missing("burstsample","cover_material_grade",
+      "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS cover_material_grade TEXT DEFAULT ''",
+      "ALTER TABLE burstsample ADD COLUMN cover_material_grade TEXT DEFAULT ''",
+    )
+    _add_column_if_missing("burstsample","cover_thickness_mm",
+      "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS cover_thickness_mm DOUBLE PRECISION DEFAULT 0",
+      "ALTER TABLE burstsample ADD COLUMN cover_thickness_mm REAL DEFAULT 0",
+    )
      
     # =========================
     # BURST: BurstAttachment.sample_id
