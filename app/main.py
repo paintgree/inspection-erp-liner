@@ -280,35 +280,7 @@ MRR_TEMPLATE_DOCX_MAP = {
 }
 
 # =========================
-# BURST REPORT PDF TEMPLATES PATHS
 # =========================
-BURST_TEMPLATE_PDF_MAP = {
-    1: os.path.join(MRR_TEMPLATE_DIR, "QAW1401_burst_1.pdf"),
-    2: os.path.join(MRR_TEMPLATE_DIR, "QAW1401_burst_2.pdf"),
-    5: os.path.join(MRR_TEMPLATE_DIR, "QAW1401_burst_5.pdf"),
-}
-
-def get_burst_template_pdf_path(total_samples: int) -> str:
-    """
-    Returns the correct Burst PDF template path based on total_samples.
-    Allowed: 1, 2, 5
-    """
-    try:
-        total_samples = int(total_samples or 1)
-    except Exception:
-        total_samples = 1
-
-    if total_samples not in BURST_TEMPLATE_PDF_MAP:
-        # fallback to 1 sample if something unexpected happens
-        total_samples = 1
-
-    path = BURST_TEMPLATE_PDF_MAP[total_samples]
-    if not os.path.exists(path):
-        raise HTTPException(
-            500,
-            f"Burst PDF template missing: {os.path.basename(path)}. Put it in {MRR_TEMPLATE_DIR}"
-        )
-    return path
 
 def _safe_upper(x: str | None) -> str:
     return (x or "").strip().upper()
@@ -2940,213 +2912,382 @@ async def burst_reopen(
 
 PAGE_W, PAGE_H = A4  # 595 x 842
 
-def _create_overlay(draw_function):
-    packet = io.BytesIO()
-    c = canvas.Canvas(packet, pagesize=A4)
-    draw_function(c)
-    c.save()
-    packet.seek(0)
-    return PdfReader(packet)
 
+def _txt(x) -> str:
+    return "" if x is None else str(x)
 
-def _merge_overlay(template_path: str, overlay_reader: PdfReader, only_page_index: int = 0) -> bytes:
+def _float(x):
+    try:
+        if x in ("", None):
+            return None
+        return float(x)
+    except Exception:
+        return None
+
+def _logo_path() -> str:
+    base_dir = os.path.dirname(__file__)
+    # Put your logo here: app/static/images/logo.png
+    return os.path.join(base_dir, "static", "images", "logo.png")
+
+def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, page_total: int):
+    w, h = A4
+
+    # ---- Header: Logo + Title ----
+    logo = _logo_path()
+    y_top = h - 15 * mm
+
+    if os.path.exists(logo):
+        try:
+            img = ImageReader(logo)
+            iw, ih = img.getSize()
+            target_w = 35 * mm
+            scale = target_w / float(iw)
+            target_h = float(ih) * scale
+            c.drawImage(img, 20 * mm, y_top - target_h, width=target_w, height=target_h, mask="auto")
+        except Exception:
+            pass
+
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(60 * mm, h - 20 * mm, title)
+
+    c.setStrokeColor(colors.black)
+    c.line(20 * mm, h - 24 * mm, w - 20 * mm, h - 24 * mm)
+
+    # ---- Footer: Doc Control + Page x/y ----
+    c.setFont("Helvetica", 9)
+    c.setFillColor(colors.grey)
+    c.drawString(20 * mm, 12 * mm, doc_control_no or "")
+    c.drawRightString(w - 20 * mm, 12 * mm, f"Page {page_num}/{page_total}")
+    c.setFillColor(colors.black)
+
+def _draw_kv_block(c, x, y, items, col_gap=90*mm, row_gap=6*mm):
     """
-    Merge overlay_reader.pages[0] onto only one page of the template (default first page).
+    items: list of tuples (label, value)
+    Draws 2 columns of key/values if long list.
     """
-    template_pdf = PdfReader(template_path)
-    writer = PdfWriter()
+    c.setFont("Helvetica", 9)
+    left_x = x
+    right_x = x + col_gap
 
-    for i, page in enumerate(template_pdf.pages):
-        if i == only_page_index:
-            page.merge_page(overlay_reader.pages[0])
-        writer.add_page(page)
+    for i, (k, v) in enumerate(items):
+        col = 0 if i % 2 == 0 else 1
+        row = i // 2
+        xx = left_x if col == 0 else right_x
+        yy = y - row * row_gap
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(xx, yy, f"{k}:")
+        c.setFont("Helvetica", 9)
+        c.drawString(xx + 35*mm, yy, _txt(v))
 
-    out = io.BytesIO()
-    writer.write(out)
-    return out.getvalue()
-
-def _merge_overlay_on_template(template_path: str, overlay_reader: PdfReader) -> bytes:
+def _draw_specimen_blocks(c, report, samples, start_y):
     """
-    Merge overlay_reader.pages[0] onto EVERY page of template_path.
-    Used for /pdf_debug (grid overlay).
+    Draw repeating specimen blocks. Adds pages automatically.
+    Returns last y.
     """
-    template_pdf = PdfReader(template_path)
-    writer = PdfWriter()
+    w, h = A4
+    y = start_y
 
-    for page in template_pdf.pages:
-        page.merge_page(overlay_reader.pages[0])
-        writer.add_page(page)
+    def page_break_if_needed(next_block_h=50*mm):
+        nonlocal y
+        if y - next_block_h < 25 * mm:
+            c.showPage()
+            y = h - 30 * mm
+            return True
+        return False
 
-    out = io.BytesIO()
-    writer.write(out)
-    return out.getvalue()
+    for idx, s in enumerate(samples, start=1):
+        page_break_if_needed(52*mm)
+
+        # block outline
+        x0 = 20 * mm
+        block_h = 48 * mm
+        c.rect(x0, y - block_h, w - 40*mm, block_h, stroke=1, fill=0)
+
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(x0 + 3*mm, y - 6*mm, f"Specimen #{idx}")
+
+        c.setFont("Helvetica", 9)
+
+        # specimen top line
+        c.drawString(x0 + 3*mm,  y - 14*mm, f"Serial No: {_txt(getattr(s,'sample_serial_number',''))}")
+        c.drawString(x0 + 70*mm, y - 14*mm, f"Start (m): {_txt(getattr(s,'sample_start_m',''))}")
+        c.drawString(x0 + 105*mm,y - 14*mm, f"Length (m): {_txt(getattr(s,'sample_length_m',''))}")
+
+        # materials + thickness (per sample)
+        c.drawString(x0 + 3*mm, y - 24*mm,
+                     f"Liner: {_txt(getattr(s,'liner_material_grade',''))}  | Thk(mm): {_txt(getattr(s,'liner_thickness_mm',''))}")
+        c.drawString(x0 + 3*mm, y - 32*mm,
+                     f"Reinf: {_txt(getattr(s,'reinforcement_material_grade',''))} | Thk(mm): {_txt(getattr(s,'reinforcement_thickness_mm',''))}")
+        c.drawString(x0 + 3*mm, y - 40*mm,
+                     f"Cover: {_txt(getattr(s,'cover_material_grade',''))}  | Thk(mm): {_txt(getattr(s,'cover_thickness_mm',''))}")
+
+        y = y - block_h - 6*mm
+
+    return y
+
+def _draw_results_table(c, samples, y):
+    w, h = A4
+
+    data = [["#", "Serial No", "Actual Burst (PSI)", "Pressurization Time (s)", "Result"]]
+    for i, s in enumerate(samples, start=1):
+        data.append([
+            str(i),
+            _txt(getattr(s, "sample_serial_number", "")),
+            _txt(getattr(s, "actual_burst_psi", "")),
+            _txt(getattr(s, "pressurization_time_s", "")),
+            _txt(getattr(s, "test_result", "")),
+        ])
+
+    tbl = Table(data, colWidths=[10*mm, 45*mm, 40*mm, 50*mm, 25*mm])
+    tbl.setStyle(TableStyle([
+        ("GRID", (0,0), (-1,-1), 0.5, colors.black),
+        ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
+        ("FONT", (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONT", (0,1), (-1,-1), "Helvetica"),
+        ("FONTSIZE", (0,0), (-1,-1), 8),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+    ]))
+
+    # page break if needed
+    approx_h = (len(data) + 1) * 8 * mm
+    if y - approx_h < 25 * mm:
+        c.showPage()
+        y = h - 30 * mm
+
+    tbl.wrapOn(c, w, h)
+    tbl.drawOn(c, 20*mm, y - approx_h)
+    return y - approx_h - 6*mm
+
+def _make_burst_chart_png(samples) -> bytes | None:
+    """
+    Returns PNG bytes for chart, or None if no valid burst values.
+    """
+    try:
+        xs = []
+        ys = []
+        for i, s in enumerate(samples, start=1):
+            v = _float(getattr(s, "actual_burst_psi", None))
+            if v is not None:
+                xs.append(i)
+                ys.append(v)
+        if not ys:
+            return None
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(xs, ys, marker="o")
+        ax.set_title("Burst Pressure by Specimen")
+        ax.set_xlabel("Specimen #")
+        ax.set_ylabel("Actual Burst (PSI)")
+        ax.grid(True)
+
+        buf = BytesIO()
+        fig.savefig(buf, format="png", dpi=160, bbox_inches="tight")
+        plt.close(fig)
+        buf.seek(0)
+        return buf.getvalue()
+    except Exception:
+        return None
 
 @app.get("/burst/{report_id}/pdf")
-def burst_pdf_download(
-    report_id: int,
-    session: Session = Depends(get_session),
-):
+def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     report = session.get(BurstTestReport, report_id)
     if not report:
         raise HTTPException(404, "Burst report not found")
 
-    # =========================
-    # Load samples from DB (BurstSample)
-    # =========================
+    # Load all samples (dynamic)
     samples = session.exec(
         select(BurstSample)
         .where(BurstSample.report_id == report.id)
         .order_by(BurstSample.id.asc())
     ).all()
-    
-    # IMPORTANT:
-    # If no BurstSample rows exist (common when UI saves only in BurstTestReport),
-    # we create a "fake" sample list from the report fields so PDF still shows data.
-    if not samples:
-        samples = [
-            SimpleNamespace(
-                sample_serial_number=report.sample_serial_number,
-                actual_burst_psi=report.actual_burst_psi,
-                pressurization_time_s=report.pressurization_time_s,
-                test_result=report.test_result,
-            )
-        ]
 
-    total_samples = getattr(report, "total_no_of_specimens", None) or 1
-    template_path = get_burst_template_pdf_path(total_samples)
+    # If report.total_no_of_specimens exists, respect it; else use all samples found
+    n = int(getattr(report, "total_no_of_specimens", None) or len(samples) or 1)
+    if n < 1:
+        n = 1
+    samples = samples[:n] if samples else []
 
-    # ---- helper formatting ----
-    def _s(x):
-        return "" if x is None else str(x)
+    # Attachments (photos)
+    atts = session.exec(
+        select(BurstAttachment)
+        .where(BurstAttachment.report_id == report.id)
+        .order_by(BurstAttachment.uploaded_at.asc())
+    ).all()
 
-    def _fmt_date(dt):
+    # doc control number in footer (safe fallback if field not present)
+    doc_no = _txt(getattr(report, "doc_control_no", "")) or "DOC CONTROL NO: __________"
+
+    # We'll build all pages first, then stamp correct page numbers.
+    pages = []  # list[bytes] each = single-page pdf bytes
+
+    def new_page(title="Burst Test Report"):
+        buf = BytesIO()
+        c = canvas.Canvas(buf, pagesize=A4)
+        return buf, c, title
+
+    # ---------- PAGE 1: REPORT INFO + SPECIMENS ----------
+    buf, c, title = new_page()
+
+    # Temporary page numbers (we'll rewrite later by stamping on each page)
+    # For now, draw header/footer with placeholders
+    _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
+
+    w, h = A4
+    y = h - 32 * mm
+
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(20*mm, y, "Report Information")
+    y -= 7*mm
+
+    _draw_kv_block(
+        c,
+        20*mm,
+        y,
+        [
+            ("Batch No", getattr(report, "batch_no", "")),
+            ("Client", getattr(report, "client_name", "")),
+            ("Client PO", getattr(report, "client_po", "")),
+            ("Pipe Spec", getattr(report, "pipe_specification", "")),
+            ("Test Medium", getattr(report, "testing_medium", "")),
+            ("Lab Temp", getattr(report, "laboratory_temperature", "")),
+            ("Standard", getattr(report, "reference_standard", "")),
+            ("Procedure", getattr(report, "reference_dhtp_procedure", "")),
+            ("System Max", getattr(report, "system_max_pressure", "")),
+            ("Specimens", n),
+            ("Test Date", getattr(report, "tested_at", None) or getattr(report, "created_at", None)),
+        ],
+    )
+
+    # Move down based on kv rows
+    y -= 40*mm
+
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(20*mm, y, "Specimens")
+    y -= 7*mm
+
+    y = _draw_specimen_blocks(c, report, samples, y)
+
+    # ---------- Results table on same page if space, otherwise next ----------
+    if y < 80*mm:
+        c.showPage()
+        _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
+        y = h - 32*mm
+
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(20*mm, y, "Results")
+    y -= 7*mm
+    y = _draw_results_table(c, samples, y)
+
+    c.showPage()
+    c.save()
+    pages.append(buf.getvalue())
+
+    # ---------- CHART PAGE (optional) ----------
+    chart_png = _make_burst_chart_png(samples)
+    if chart_png:
+        buf, c, title = new_page()
+        _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
+
+        y = h - 35*mm
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(20*mm, y, "Burst Chart")
+        y -= 10*mm
+
         try:
-            return dt.strftime("%Y-%m-%d") if dt else ""
+            img = ImageReader(BytesIO(chart_png))
+            iw, ih = img.getSize()
+            max_w = w - 40*mm
+            max_h = h - 70*mm
+            scale = min(max_w/iw, max_h/ih)
+            dw, dh = iw*scale, ih*scale
+            c.drawImage(img, 20*mm, 25*mm, width=dw, height=dh, mask="auto")
         except Exception:
-            return _s(dt)
+            pass
 
-    # ✅ IMPORTANT: draw_main_page is defined BEFORE we call _create_overlay(...)
-    def draw_main_page(c):
-        c.setFont("Helvetica", 10)
+        c.showPage()
+        c.save()
+        pages.append(buf.getvalue())
 
-        # 1) Client Name & PO#
-        client_name = _s(getattr(report, "client_name", "")).strip()
-        client_po = _s(getattr(report, "client_po", "")).strip()
-        client_line = " / ".join([v for v in [client_name, client_po] if v])
-        c.drawString(215, 712, client_line)
+    # ---------- PHOTOS PAGES (optional) ----------
+    # include only image attachments
+    for att in atts:
+        p = resolve_burst_file_path(getattr(att, "file_path", "") or "")
+        if not p or not os.path.exists(p):
+            continue
+        ext = os.path.splitext(p)[1].lower()
+        if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
+            continue
 
-        # 2) Date (use tested_at if exists, else created_at)
-        dt = getattr(report, "tested_at", None) or getattr(report, "created_at", None)
-        c.drawString(215, 700, _fmt_date(dt))
+        buf, c, title = new_page()
+        _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
 
-        # 3) Pipe spec
-        c.drawString(215, 670, _s(getattr(report, "pipe_specification", "")).strip())
+        y = h - 35*mm
+        c.setFont("Helvetica-Bold", 12)
+        cap = _txt(getattr(att, "caption", "")) or _txt(getattr(att, "kind", "PHOTO"))
+        c.drawString(20*mm, y, f"Photo: {cap}")
+        y -= 10*mm
 
-        # 4) DHTP batch number ref (your field is batch_no)
-        c.drawString(215, 653, _s(getattr(report, "batch_no", "")).strip())
+        try:
+            img = ImageReader(p)
+            iw, ih = img.getSize()
+            max_w = w - 40*mm
+            max_h = h - 70*mm
+            scale = min(max_w/iw, max_h/ih)
+            dw, dh = iw*scale, ih*scale
+            c.drawImage(img, (w-dw)/2, 25*mm, width=dw, height=dh, mask="auto")
+        except Exception:
+            pass
 
-        # 5) System maximum pressure
-        c.drawString(215, 639, _s(getattr(report, "system_max_pressure", "")).strip())
+        c.showPage()
+        c.save()
+        pages.append(buf.getvalue())
 
-        # 6) Testing medium
-        c.drawString(215, 622, _s(getattr(report, "testing_medium", "")).strip())
+    # ---------- MERGE PAGES + FIX PAGE NUMBERS ----------
+    # We will merge all single-page PDFs into one, then stamp correct page numbers.
+    merged_writer = PdfWriter()
+    for pb in pages:
+        r = PdfReader(BytesIO(pb))
+        merged_writer.add_page(r.pages[0])
 
-        # 7) Laboratory temperature
-        c.drawString(420, 622, _s(getattr(report, "laboratory_temperature", "")).strip())
+    out = BytesIO()
+    merged_writer.write(out)
+    pdf_bytes = out.getvalue()
 
-        # 8) Total number of samples
-        c.drawString(450, 622, _s(getattr(report, "total_no_of_specimens", "")).strip())
-        
-        # -------------------------
-        # SPECIMEN DETAILS (Per specimen materials + thickness)
-        # -------------------------
-        c.setFont("Helvetica", 9)
-        
-        def _sf(x):
-            return "" if x is None else str(x)
-        
-        def _mm(x):
-            if x in (None, ""):
-                return ""
-            try:
-                return f"{float(x):g}"
-            except Exception:
-                return str(x)
-        
-        def _pick_sample_val(sample, sample_attr: str, report_attr: str = ""):
-            """Prefer per-sample value; fallback to report value if sample value empty."""
-            v = getattr(sample, sample_attr, None)
-            if v not in (None, "", 0, 0.0):
-                return v
-            if report_attr:
-                return getattr(report, report_attr, "") or ""
-            return ""
-        
-        # X positions (same as your template layout)
-        x_left_val = 210
-        x_right_val = 455
-        
-        def draw_specimen_block(sample, y_total_len, y_liner, y_reinf, y_cover):
-            total_len = _sf(getattr(sample, "sample_length_m", ""))
-        
-            liner_grade = _sf(_pick_sample_val(sample, "liner_material_grade", "liner_material_grade")).strip()
-            reinf_grade = _sf(_pick_sample_val(sample, "reinforcement_material_grade", "reinforcement_material_grade")).strip()
-            cover_grade = _sf(_pick_sample_val(sample, "cover_material_grade", "cover_material_grade")).strip()
-        
-            liner_thk = _mm(_pick_sample_val(sample, "liner_thickness_mm", ""))
-            reinf_thk = _mm(_pick_sample_val(sample, "reinforcement_thickness_mm", ""))
-            cover_thk = _mm(_pick_sample_val(sample, "cover_thickness_mm", ""))
-        
-            # left column: lengths + grades
-            c.drawString(x_left_val,  y_total_len, total_len)
-            c.drawString(x_left_val,  y_liner,     liner_grade)
-            c.drawString(x_left_val,  y_reinf,     reinf_grade)
-            c.drawString(x_left_val,  y_cover,     cover_grade)
-        
-            # right column: effective length + thickness
-            c.drawString(x_right_val, y_total_len, total_len)
-            c.drawString(x_right_val, y_liner,     liner_thk)
-            c.drawString(x_right_val, y_reinf,     reinf_thk)
-            c.drawString(x_right_val, y_cover,     cover_thk)
-        
-        # Sample #1 coordinates in your template
-        if len(samples) >= 1:
-            draw_specimen_block(samples[0], y_total_len=536, y_liner=512, y_reinf=488, y_cover=464)
-        
-        # Sample #2 coordinates in your template
-        if len(samples) >= 2:
-            draw_specimen_block(samples[1], y_total_len=436, y_liner=412, y_reinf=388, y_cover=364)
-    
-        # -------------------------
-        # TEST RESULTS TABLE (BurstSample)
-        # -------------------------
-        def _sf(x):
-            return "" if x is None else str(x)
-        
-        # Column X positions (adjust once using /burst/<id>/pdf_debug)
-        x_serial = 95
-        x_burst  = 245
-        x_time   = 390
-        x_result = 530
-        
-        # Row Y positions (adjust with pdf_debug)
-        if int(report.total_no_of_specimens or 1) == 1:
-            row_y = [420]
-        elif int(report.total_no_of_specimens or 1) == 2:
-            row_y = [455, 420]
-        else:
-            row_y = [520, 495, 470, 445, 420]
-        
-        c.setFont("Helvetica", 9)
-        
-        for idx, y in enumerate(row_y):
-            if idx >= len(samples):
-                break
-            srow = samples[idx]
-            c.drawString(x_serial, y, _sf(srow.sample_serial_number))
-            c.drawString(x_burst,  y, _sf(srow.actual_burst_psi))
-            c.drawString(x_time,   y, _sf(srow.pressurization_time_s))
-            c.drawString(x_result, y, _sf(srow.test_result))
+    # Stamp header/footer again with correct total pages
+    # (simple approach: overlay footer with correct page x/y; header already drawn)
+    total_pages = len(PdfReader(BytesIO(pdf_bytes)).pages)
+    reader = PdfReader(BytesIO(pdf_bytes))
+    writer = PdfWriter()
+
+    for i, page in enumerate(reader.pages, start=1):
+        w0 = float(page.mediabox.width)
+        h0 = float(page.mediabox.height)
+
+        stamp_buf = BytesIO()
+        sc = canvas.Canvas(stamp_buf, pagesize=(w0, h0))
+        # only footer stamp (and page number)
+        sc.setFont("Helvetica", 9)
+        sc.setFillColor(colors.grey)
+        sc.drawString(20*mm, 12*mm, doc_no)
+        sc.drawRightString(w0 - 20*mm, 12*mm, f"Page {i}/{total_pages}")
+        sc.showPage()
+        sc.save()
+        stamp_buf.seek(0)
+
+        stamp_reader = PdfReader(stamp_buf)
+        page.merge_page(stamp_reader.pages[0])
+        writer.add_page(page)
+
+    final = BytesIO()
+    writer.write(final)
+    final_bytes = final.getvalue()
+
+    return Response(
+        content=final_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="burst_report_{report_id}.pdf"'},
+    )
 
     # ------------------------------------------------------------
     # Build overlay PDFs (page1 header/specimen + results table)
@@ -3246,26 +3387,7 @@ def burst_pdf_download(
             c.drawString(x_time,   y, _sf(srow.pressurization_time_s))
             c.drawString(x_result, y, _sf(srow.test_result))
 
-@app.get("/burst/{report_id}/pdf_debug")
-def burst_pdf_debug(
-    report_id: int,
-    session: Session = Depends(get_session),
-):
-    report = session.get(BurstTestReport, report_id)
-    if not report:
-        raise HTTPException(404, "Burst report not found")
 
-    total_samples = getattr(report, "total_no_of_specimens", None) or 1
-    template_path = get_burst_template_pdf_path(total_samples)
-
-    overlay = _overlay_grid_pdf()
-    pdf_bytes = _merge_overlay_on_template(template_path, overlay)
-
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "inline; filename=burst_debug.pdf"},
-    )
 # ==========================================
 # EXPORT PER-INSPECTION (SEPARATE REPORTS)
 # ==========================================
