@@ -2253,10 +2253,7 @@ def upsert_burst_attachment(
 
 
 def ensure_burst_samples(session: Session, report_id: int, desired: int = 5) -> list[BurstSample]:
-    """
-    Ensure at least `desired` BurstSample rows exist for this report.
-    We default to 5 because your templates are 1/2/5 and the UI can show/hide instantly.
-    """
+ 
     try:
         desired = int(desired or 5)
     except Exception:
@@ -2270,13 +2267,18 @@ def ensure_burst_samples(session: Session, report_id: int, desired: int = 5) -> 
         .order_by(BurstSample.id.asc())
     ).all()
 
-    while len(rows) < desired:
-        ns = BurstSample(report_id=report_id, sample_start_m=0.0, sample_length_m=0.0)
-        session.add(ns)
+    missing = desired - len(rows)
+    if missing > 0:
+        for _ in range(missing):
+            session.add(BurstSample(report_id=report_id, sample_start_m=0.0, sample_length_m=0.0))
         session.commit()
-        session.refresh(ns)
-        rows.append(ns)
-
+    
+    rows = session.exec(
+        select(BurstSample)
+        .where(BurstSample.report_id == report_id)
+        .order_by(BurstSample.id.asc())
+    ).all()
+    
     return rows
 
 
