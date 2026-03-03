@@ -2405,6 +2405,7 @@ async def burst_create(
     purpose: str = Form("BATCH_RELEASE"),
     total_samples: int = Form(0),
 ):
+    
     """
     Create a new BurstTestReport.
     NEW RULE:
@@ -2444,7 +2445,7 @@ async def burst_create(
     reinf_grade = ""
     cover_grade = ""
 
-    if is_manual:
+    if mode == "manual":
         # You said: "create now, fill details later"
         # So we allow empty manual fields for now.
         batch_no = (manual_batch_no or "").strip()
