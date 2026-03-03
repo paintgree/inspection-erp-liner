@@ -2770,10 +2770,11 @@ async def burst_update(
 # ------------------------------------------------------------
 # Burst: AJAX endpoint to update specimen count without page refresh
 # ------------------------------------------------------------
+from fastapi import Request, HTTPException
 from starlette.responses import RedirectResponse, JSONResponse
 
 @app.post("/burst/{report_id}/set_specimen_count")
-def set_specimen_count(report_id: int, request: Request, session: Session = Depends(get_session)):
+async def set_specimen_count(report_id: int, request: Request, session: Session = Depends(get_session)):
     form = dict(await request.form())
 
     try:
@@ -2795,51 +2796,11 @@ def set_specimen_count(report_id: int, request: Request, session: Session = Depe
 
     ensure_burst_samples(session, report_id, desired=n)
 
-    # If someone calls this via fetch/ajax and expects JSON, keep JSON support
     accept = (request.headers.get("accept") or "").lower()
     if "application/json" in accept:
         return JSONResponse({"ok": True, "total_no_of_specimens": n})
 
-    # Normal browser form submit: go back to the view page
     return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
-
-
-@app.post("/burst/{report_id}/upload")
-async def burst_upload(
-    report_id: int,
-    request: Request,
-    session: Session = Depends(get_session),
-    kind: str = Form(...),
-    caption: str = Form(""),
-    file: UploadFile = File(...),
-):
-    user = get_current_user(request, session)
-
-    rep = session.get(BurstTestReport, report_id)
-    if not rep:
-        raise HTTPException(404, detail="Burst report not found")
-
-    # Save file
-    os.makedirs("data/uploads/burst", exist_ok=True)
-    safe_name = f"{report_id}_{kind.upper()}_{int(time.time())}_{file.filename}"
-    abs_path = os.path.join("data/uploads/burst", safe_name)
-
-    with open(abs_path, "wb") as f:
-        f.write(await file.read())
-
-    rel_path = abs_path  # project stores relative-like paths already
-
-    upsert_burst_attachment(
-        session=session,
-        report_id=report_id,
-        kind=kind,
-        file_rel_path=rel_path,
-        caption=(caption or "").strip(),
-        user=user,
-    )
-
-    return RedirectResponse(f"/burst/{report_id}", status_code=303)
-
 
 @app.get("/burst/files/{file_id}/view")
 def burst_file_view(file_id: int, request: Request, session: Session = Depends(get_session)):
