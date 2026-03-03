@@ -24,12 +24,50 @@
   <hr/>
 
   <!-- Specimen count -->
-  <form method="post" action="/burst/{{ rep.id }}/set_specimen_count" style="margin-bottom:14px;">
+  <form method="post" action="/burst/{{ rep.id }}/set_specimen_count" id="specCountForm" style="margin-bottom:14px;">
     <label>Total No. of Specimens</label>
-    <input name="total_no_of_specimens" type="number" min="1" max="20" step="1"
-           value="{{ rep.total_no_of_specimens }}">
-    <button class="btn btn-primary" type="submit" style="margin-left:8px;">Apply</button>
+  
+    <div style="display:flex; gap:8px; align-items:center;">
+      <button type="button" class="btn" id="btnMinus">–</button>
+  
+      <input name="total_no_of_specimens" id="specCountInput"
+             type="number" min="1" max="50" step="1"
+             value="{{ rep.total_no_of_specimens }}"
+             style="width:110px;">
+  
+      <button type="button" class="btn" id="btnPlus">+</button>
+  
+      <button class="btn btn-primary" type="submit">Apply</button>
+    </div>
+  
+    <div class="hint">Use + / – to add or remove samples (override anytime).</div>
   </form>
+  
+  <script>
+  (function(){
+    const inp = document.getElementById("specCountInput");
+    const form = document.getElementById("specCountForm");
+    const plus = document.getElementById("btnPlus");
+    const minus = document.getElementById("btnMinus");
+  
+    function clamp(v){
+      v = parseInt(v || "1", 10);
+      if (isNaN(v) || v < 1) v = 1;
+      if (v > 50) v = 50;
+      return v;
+    }
+  
+    plus?.addEventListener("click", () => {
+      inp.value = clamp(parseInt(inp.value || "1",10) + 1);
+      form.submit();
+    });
+  
+    minus?.addEventListener("click", () => {
+      inp.value = clamp(parseInt(inp.value || "1",10) - 1);
+      form.submit();
+    });
+  })();
+  </script>
 
   <!-- Main update form -->
   <form method="post" action="/burst/{{ rep.id }}/update">
@@ -52,14 +90,7 @@
     <label>Reference Standard</label>
     <input name="reference_standard" value="{{ rep.reference_standard }}">
 
-    <label>Purpose</label>
-    <select name="purpose">
-      <option value="BATCH_RELEASE" {% if rep.purpose=="BATCH_RELEASE" %}selected{% endif %}>Batch Release</option>
-      <option value="QUALIFICATION" {% if rep.purpose=="QUALIFICATION" %}selected{% endif %}>Qualification</option>
-      <option value="INTERNAL" {% if rep.purpose=="INTERNAL" %}selected{% endif %}>Internal Validation</option>
-    </select>
-    <p class="hint">Defaults: Batch Release=2 specimens, Qualification=5, Internal=1 (you can override).</p>
-
+    
     <label>Reference DHTP Procedure</label>
     <input name="reference_dhtp_procedure" value="{{ rep.reference_dhtp_procedure }}">
 
@@ -72,16 +103,6 @@
     <label>Testing Medium</label>
     <input name="testing_medium" value="{{ rep.testing_medium }}">
 
-    <h3 style="margin-top:16px;">Material Grades</h3>
-
-    <label>Liner Material Grade</label>
-    <input name="liner_material_grade" value="{{ live.liner_material_grade }}">
-
-    <label>Reinforcement Material Grade</label>
-    <input name="reinforcement_material_grade" value="{{ live.reinforcement_material_grade }}">
-
-    <label>Cover Material Grade</label>
-    <input name="cover_material_grade" value="{{ live.cover_material_grade }}">
 
     <h3 style="margin-top:16px;">Results (Per Specimen)</h3>
 
@@ -93,17 +114,6 @@
     
         <label>Serial No</label>
         <input name="sample_serial_number_{{ s.id }}" value="{{ s.sample_serial_number }}">
-    
-        <div style="display:flex; gap:12px;">
-          <div style="flex:1;">
-            <label>Start (m)</label>
-            <input name="sample_start_m_{{ s.id }}" type="number" step="0.01" value="{{ s.sample_start_m }}">
-          </div>
-          <div style="flex:1;">
-            <label>Length (m)</label>
-            <input name="sample_length_m_{{ s.id }}" type="number" step="0.01" value="{{ s.sample_length_m }}">
-          </div>
-        </div>
     
         <hr style="margin:12px 0;"/>
     
