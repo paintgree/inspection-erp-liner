@@ -2770,41 +2770,39 @@ async def burst_update(
 # ------------------------------------------------------------
 # Burst: AJAX endpoint to update specimen count without page refresh
 # ------------------------------------------------------------
+from starlette.responses import RedirectResponse, JSONResponse
+
 @app.post("/burst/{report_id}/set_specimen_count")
-async def burst_set_specimen_count(
-    report_id: int,
-    request: Request,
-    session: Session = Depends(get_session),
-    user: User = Depends(require_user),
-):
-    """Update total_no_of_specimens and ensure BurstSample rows exist.
-    Call this from JS (fetch) when the dropdown changes, so the UI can
-    instantly show/hide blocks without refreshing the page.
-    """
-    form = await request.form()
+def set_specimen_count(report_id: int, request: Request, session: Session = Depends(get_session)):
+    form = dict(await request.form())
+
     try:
         n = int(form.get("total_no_of_specimens") or 1)
     except Exception:
         n = 1
-    if n < 1: n = 1
-    if n > 50: n = 50
+    if n < 1:
+        n = 1
+    if n > 50:
+        n = 50
 
     rep = session.get(BurstTestReport, report_id)
     if not rep:
-        return JSONResponse({"ok": False, "error": "Report not found"}, status_code=404)
-
-    # Don't allow changes if locked
-    if getattr(rep, "is_locked", False):
-        return JSONResponse({"ok": False, "error": "Report is locked"}, status_code=400)
+        raise HTTPException(404, "Burst report not found")
 
     rep.total_no_of_specimens = n
     session.add(rep)
     session.commit()
 
-    # Keep DB ready: always ensure 5 rows exist for the 1/2/5 templates
-    ensure_burst_samples(session, report_id, n)
+    ensure_burst_samples(session, report_id, desired=n)
 
-    return JSONResponse({"ok": True, "total_no_of_specimens": n})
+    # If someone calls this via fetch/ajax and expects JSON, keep JSON support
+    accept = (request.headers.get("accept") or "").lower()
+    if "application/json" in accept:
+        return JSONResponse({"ok": True, "total_no_of_specimens": n})
+
+    # Normal browser form submit: go back to the view page
+    return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
+
 
 @app.post("/burst/{report_id}/upload")
 async def burst_upload(
