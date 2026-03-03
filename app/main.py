@@ -2445,6 +2445,9 @@ async def burst_create(
     reinf_grade = ""
     cover_grade = ""
 
+    mode = (mode or "linked").strip().lower()
+    is_manual = (mode == "manual")
+
     if mode == "manual":
         # You said: "create now, fill details later"
         # So we allow empty manual fields for now.
