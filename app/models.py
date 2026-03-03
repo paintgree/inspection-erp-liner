@@ -303,6 +303,8 @@ class BurstTestReport(SQLModel, table=True):
     # Finished pipe length
     total_length_m: float = Field(default=0.0)
 
+    
+
     # Sample: start & length
     sample_start_m: float = Field(default=0.0)
     sample_length_m: float = Field(default=0.0)
@@ -313,6 +315,7 @@ class BurstTestReport(SQLModel, table=True):
     client_name: str = Field(default="")
     client_po: str = Field(default="")
     pipe_specification: str = Field(default="")  # "Specimen Specification"
+    purpose: str = Field(default="BATCH_RELEASE")  # BATCH_RELEASE / QUALIFICATION / INTERNAL
 
     reference_standard: str = Field(default="")       # manual
     reference_dhtp_procedure: str = Field(default="") # manual
@@ -405,6 +408,16 @@ class BurstSample(SQLModel, table=True):
     liner_thickness_mm: float = Field(default=0.0)
     reinforcement_material_grade: str = Field(default="")
     reinforcement_thickness_mm: float = Field(default=0.0)
+    cover_material_grade: str = Field(default="")
+    cover_thickness_mm: float = Field(default=0.0)
+
+    # Per-sample construction (what you need for burst report)
+    liner_material_grade: str = Field(default="")
+    liner_thickness_mm: float = Field(default=0.0)
+    
+    reinforcement_material_grade: str = Field(default="")
+    reinforcement_thickness_mm: float = Field(default=0.0)
+    
     cover_material_grade: str = Field(default="")
     cover_thickness_mm: float = Field(default=0.0)
 
