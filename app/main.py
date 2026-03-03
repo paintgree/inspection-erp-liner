@@ -2663,13 +2663,12 @@ async def burst_update(
     if rep.is_locked and (action or "").lower() != "lock":
         raise HTTPException(400, detail="Report is locked. Reopen it to edit.")
 
-    # Clamp to allowed sizes
     try:
         n = int(total_no_of_specimens or 1)
     except Exception:
         n = 1
-    if n not in (1, 2, 5):
-        n = 1
+    if n < 1: n = 1
+    if n > 50: n = 50
 
     # TEST DETAILS
     rep.reference_standard = (reference_standard or "").strip()
@@ -2701,7 +2700,7 @@ async def burst_update(
     # ---------------------------
     form = await request.form()
 
-    db_samples = ensure_burst_samples(session, report_id, desired=5)
+    db_samples = ensure_burst_samples(session, report_id, desired=n)
 
     for s in db_samples[:n]:
         s.sample_start_m = float(form.get(f"sample_start_m_{s.id}") or 0.0)
@@ -2712,6 +2711,15 @@ async def burst_update(
         s.pressurization_time_s = (form.get(f"pressurization_time_s_{s.id}") or "").strip()
         s.test_result = (form.get(f"test_result_{s.id}") or "").strip()
        
+        s.liner_material_grade = (form.get(f"liner_material_grade_{s.id}") or "").strip()
+        s.liner_thickness_mm = float(form.get(f"liner_thickness_mm_{s.id}") or 0.0)
+        
+        s.reinforcement_material_grade = (form.get(f"reinforcement_material_grade_{s.id}") or "").strip()
+        s.reinforcement_thickness_mm = float(form.get(f"reinforcement_thickness_mm_{s.id}") or 0.0)
+        
+        s.cover_material_grade = (form.get(f"cover_material_grade_{s.id}") or "").strip()
+        s.cover_thickness_mm = float(form.get(f"cover_thickness_mm_{s.id}") or 0.0)
+
         s.liner_material_grade = (form.get(f"liner_material_grade_{s.id}") or "").strip()
         s.liner_thickness_mm = float(form.get(f"liner_thickness_mm_{s.id}") or 0.0)
         
@@ -2774,8 +2782,8 @@ async def burst_set_specimen_count(
         n = int(form.get("total_no_of_specimens") or 1)
     except Exception:
         n = 1
-    if n not in (1, 2, 5):
-        n = 1
+    if n < 1: n = 1
+    if n > 50: n = 50
 
     rep = session.get(BurstTestReport, report_id)
     if not rep:
@@ -2790,7 +2798,7 @@ async def burst_set_specimen_count(
     session.commit()
 
     # Keep DB ready: always ensure 5 rows exist for the 1/2/5 templates
-    ensure_burst_samples(session, report_id, 5)
+    ensure_burst_samples(session, report_id, n)
 
     return JSONResponse({"ok": True, "total_no_of_specimens": n})
 
