@@ -2305,7 +2305,40 @@ def get_finished_cover_runs(session: Session) -> list[ProductionRun]:
             finished.append(cr)
 
     return finished
-    
+
+
+def _draw_signatures(c, report, y):
+    w, h = A4
+    if y < 40*mm:
+        c.showPage()
+        y = h - 35*mm
+
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(20*mm, y, "Signatures")
+    y -= 10*mm
+
+    tech_name = _txt(getattr(report, "created_by_user_name", ""))  # automatic
+    insp_name = _txt(getattr(report, "inspected_by_name", ""))     # if you add later; else blank
+
+    # Technician
+    c.setFont("Helvetica", 9)
+    c.drawString(20*mm, y, "Technician:")
+    c.line(45*mm, y-1*mm, 110*mm, y-1*mm)
+    c.drawString(45*mm, y+1*mm, tech_name)
+
+    # Inspector
+    c.drawString(125*mm, y, "Inspector:")
+    c.line(145*mm, y-1*mm, 190*mm, y-1*mm)
+    c.drawString(145*mm, y+1*mm, insp_name)
+
+    y -= 12*mm
+    c.drawString(20*mm, y, "Date:")
+    c.line(30*mm, y-1*mm, 80*mm, y-1*mm)
+    c.drawString(30*mm, y+1*mm, _txt(getattr(report, "tested_at", "") or getattr(report, "created_at", "")))
+
+    return y
+
+
 # =========================
 # BURST TESTING PAGES
 # =========================
@@ -2339,6 +2372,30 @@ def _find_related_runs_by_batch(session: Session, batch_no: str):
 
     return liner, reinf, cover
 
+def _draw_report_info_table(c, report, n, x, y):
+    data = [
+        ["Batch No", _txt(getattr(report, "batch_no", "")), "Client", _txt(getattr(report, "client_name", ""))],
+        ["Client PO", _txt(getattr(report, "client_po", "")), "Pipe Spec", _txt(getattr(report, "pipe_specification", ""))],
+        ["Test Medium", _txt(getattr(report, "testing_medium", "")), "Lab Temp", _txt(getattr(report, "laboratory_temperature", ""))],
+        ["Standard", _txt(getattr(report, "reference_standard", "")), "Procedure", _txt(getattr(report, "reference_dhtp_procedure", ""))],
+        ["System Max", _txt(getattr(report, "system_max_pressure", "")), "Specimens", _txt(n)],
+        ["Test Date", _txt(getattr(report, "tested_at", "") or getattr(report, "created_at", "")), "", ""],
+    ]
+
+    tbl = Table(data, colWidths=[28*mm, 62*mm, 28*mm, 62*mm])
+    tbl.setStyle(TableStyle([
+        ("FONT", (0,0), (-1,-1), "Helvetica", 9),
+        ("FONT", (0,0), (0,-1), "Helvetica-Bold", 9),
+        ("FONT", (2,0), (2,-1), "Helvetica-Bold", 9),
+        ("TOPPADDING", (0,0), (-1,-1), 2),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 2),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+    ]))
+
+    tbl.wrapOn(c, 0, 0)
+    tbl_h = len(data) * 7 * mm
+    tbl.drawOn(c, x, y - tbl_h)
+    return y - tbl_h
 
 @app.get("/burst")
 def burst_dashboard(request: Request, session: Session = Depends(get_session)):
@@ -2906,28 +2963,36 @@ def _logo_path() -> str:
     return os.path.join(base_dir, "static", "images", "logo.png")
 
 def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, page_total: int):
-    w, h = A4
+   w, h = A4
 
-    # ---- Header: Logo + Title ----
-    logo = _logo_path()
-    y_top = h - 15 * mm
+# ---- Header: Center Logo + Title ----
+logo = _logo_path()
+y_top = h - 14 * mm
 
-    if os.path.exists(logo):
-        try:
-            img = ImageReader(logo)
-            iw, ih = img.getSize()
-            target_w = 35 * mm
-            scale = target_w / float(iw)
-            target_h = float(ih) * scale
-            c.drawImage(img, 20 * mm, y_top - target_h, width=target_w, height=target_h, mask="auto")
-        except Exception:
-            pass
+# logo centered
+if os.path.exists(logo):
+    try:
+        img = ImageReader(logo)
+        iw, ih = img.getSize()
 
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(60 * mm, h - 20 * mm, title)
+        target_w = 55 * mm   # bigger than before
+        scale = target_w / float(iw)
+        target_h = float(ih) * scale
 
-    c.setStrokeColor(colors.black)
-    c.line(20 * mm, h - 24 * mm, w - 20 * mm, h - 24 * mm)
+        x = (w - target_w) / 2
+        c.drawImage(img, x, y_top - target_h, width=target_w, height=target_h, mask="auto")
+        y_title = y_top - target_h - 6 * mm
+    except Exception:
+        y_title = h - 22 * mm
+else:
+    y_title = h - 22 * mm
+
+c.setFont("Helvetica-Bold", 16)
+c.drawCentredString(w / 2, y_title, title)
+
+# separator line
+c.setStrokeColor(colors.black)
+c.line(20 * mm, y_title - 4 * mm, w - 20 * mm, y_title - 4 * mm)
 
     # ---- Footer: Doc Control + Page x/y ----
     c.setFont("Helvetica", 9)
@@ -2936,47 +3001,52 @@ def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, pa
     c.drawRightString(w - 20 * mm, 12 * mm, f"Page {page_num}/{page_total}")
     c.setFillColor(colors.black)
 
-def _draw_kv_block(c, x, y, items, col_gap=90*mm, row_gap=6*mm):
-    """
-    items: list of tuples (label, value)
-    Draws 2 columns of key/values if long list.
-    """
-    c.setFont("Helvetica", 9)
-    left_x = x
-    right_x = x + col_gap
+def _draw_report_info_table(c, report, x, y):
+    # 2-column compact table
+    data = [
+        ["Batch No", _txt(getattr(report, "batch_no", "")), "Client", _txt(getattr(report, "client_name", ""))],
+        ["Client PO", _txt(getattr(report, "client_po", "")), "Pipe Spec", _txt(getattr(report, "pipe_specification", ""))],
+        ["Test Medium", _txt(getattr(report, "testing_medium", "")), "Lab Temp", _txt(getattr(report, "laboratory_temperature", ""))],
+        ["Standard", _txt(getattr(report, "reference_standard", "")), "Procedure", _txt(getattr(report, "reference_dhtp_procedure", ""))],
+        ["System Max", _txt(getattr(report, "system_max_pressure", "")), "Specimens", _txt(getattr(report, "total_no_of_specimens", ""))],
+        ["Test Date", _txt(getattr(report, "tested_at", "") or getattr(report, "created_at", "")), "", ""],
+    ]
 
-    for i, (k, v) in enumerate(items):
-        col = 0 if i % 2 == 0 else 1
-        row = i // 2
-        xx = left_x if col == 0 else right_x
-        yy = y - row * row_gap
-        c.setFont("Helvetica-Bold", 9)
-        c.drawString(xx, yy, f"{k}:")
-        c.setFont("Helvetica", 9)
-        c.drawString(xx + 35*mm, yy, _txt(v))
+    tbl = Table(
+        data,
+        colWidths=[26*mm, 64*mm, 26*mm, 64*mm],  # tighter
+    )
+    tbl.setStyle(TableStyle([
+        ("FONT", (0,0), (-1,-1), "Helvetica", 9),
+        ("FONT", (0,0), (0,-1), "Helvetica-Bold", 9),
+        ("FONT", (2,0), (2,-1), "Helvetica-Bold", 9),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 2),
+        ("TOPPADDING", (0,0), (-1,-1), 2),
+    ]))
 
+    tbl.wrapOn(c, 0, 0)
+    tbl_h = 6 * len(data) * mm  # approx height
+    tbl.drawOn(c, x, y - tbl_h)
+    return y - tbl_h
 def _draw_specimen_blocks(c, report, samples, start_y):
-    """
-    Draw repeating specimen blocks. Adds pages automatically.
-    Returns last y.
-    """
     w, h = A4
     y = start_y
 
-    def page_break_if_needed(next_block_h=50*mm):
+    def page_break_if_needed(next_block_h):
         nonlocal y
-        if y - next_block_h < 25 * mm:
+        if y - next_block_h < 35 * mm:
             c.showPage()
-            y = h - 30 * mm
+            y = h - 35 * mm
             return True
         return False
 
     for idx, s in enumerate(samples, start=1):
-        page_break_if_needed(52*mm)
+        block_h = 34 * mm  # smaller than before
+        page_break_if_needed(block_h + 6*mm)
 
-        # block outline
         x0 = 20 * mm
-        block_h = 48 * mm
+        c.setStrokeColor(colors.black)
         c.rect(x0, y - block_h, w - 40*mm, block_h, stroke=1, fill=0)
 
         c.setFont("Helvetica-Bold", 10)
@@ -2984,27 +3054,26 @@ def _draw_specimen_blocks(c, report, samples, start_y):
 
         c.setFont("Helvetica", 9)
 
-        # specimen top line
+        # Only Serial + Length (mm)
         c.drawString(x0 + 3*mm,  y - 14*mm, f"Serial No: {_txt(getattr(s,'sample_serial_number',''))}")
-        c.drawString(x0 + 70*mm, y - 14*mm, f"Start (m): {_txt(getattr(s,'sample_start_m',''))}")
-        c.drawString(x0 + 105*mm,y - 14*mm, f"Length (m): {_txt(getattr(s,'sample_length_m',''))}")
+        c.drawString(x0 + 95*mm, y - 14*mm, f"Length (mm): {_txt(getattr(s,'sample_length_m',''))}")
 
-        # materials + thickness (per sample)
-        c.drawString(x0 + 3*mm, y - 24*mm,
-                     f"Liner: {_txt(getattr(s,'liner_material_grade',''))}  | Thk(mm): {_txt(getattr(s,'liner_thickness_mm',''))}")
-        c.drawString(x0 + 3*mm, y - 32*mm,
+        # Construction lines (keep font size, tighter spacing)
+        c.drawString(x0 + 3*mm, y - 22*mm,
+                     f"Liner: {_txt(getattr(s,'liner_material_grade',''))} | Thk(mm): {_txt(getattr(s,'liner_thickness_mm',''))}")
+        c.drawString(x0 + 3*mm, y - 28*mm,
                      f"Reinf: {_txt(getattr(s,'reinforcement_material_grade',''))} | Thk(mm): {_txt(getattr(s,'reinforcement_thickness_mm',''))}")
-        c.drawString(x0 + 3*mm, y - 40*mm,
-                     f"Cover: {_txt(getattr(s,'cover_material_grade',''))}  | Thk(mm): {_txt(getattr(s,'cover_thickness_mm',''))}")
+        c.drawString(x0 + 3*mm, y - 34*mm,
+                     f"Cover: {_txt(getattr(s,'cover_material_grade',''))} | Thk(mm): {_txt(getattr(s,'cover_thickness_mm',''))}")
 
         y = y - block_h - 6*mm
 
     return y
-
+    
 def _draw_results_table(c, samples, y):
     w, h = A4
 
-    data = [["#", "Serial No", "Actual Burst (PSI)", "Pressurization Time (s)", "Result"]]
+    data = [["#", "Serial No", "Actual Burst (MPa)", "Pressurization Time (s)", "Result"]]
     for i, s in enumerate(samples, start=1):
         data.append([
             str(i),
@@ -3102,47 +3171,12 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         c = canvas.Canvas(buf, pagesize=A4)
         return buf, c, title
 
-    # ---------- PAGE 1: REPORT INFO + SPECIMENS ----------
-    buf, c, title = new_page()
-
-    # Temporary page numbers (we'll rewrite later by stamping on each page)
-    # For now, draw header/footer with placeholders
-    _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
-
-    w, h = A4
-    y = h - 32 * mm
-
     c.setFont("Helvetica-Bold", 11)
     c.drawString(20*mm, y, "Report Information")
-    y -= 7*mm
-
-    _draw_kv_block(
-        c,
-        20*mm,
-        y,
-        [
-            ("Batch No", getattr(report, "batch_no", "")),
-            ("Client", getattr(report, "client_name", "")),
-            ("Client PO", getattr(report, "client_po", "")),
-            ("Pipe Spec", getattr(report, "pipe_specification", "")),
-            ("Test Medium", getattr(report, "testing_medium", "")),
-            ("Lab Temp", getattr(report, "laboratory_temperature", "")),
-            ("Standard", getattr(report, "reference_standard", "")),
-            ("Procedure", getattr(report, "reference_dhtp_procedure", "")),
-            ("System Max", getattr(report, "system_max_pressure", "")),
-            ("Specimens", n),
-            ("Test Date", getattr(report, "tested_at", None) or getattr(report, "created_at", None)),
-        ],
-    )
-
-    # Move down based on kv rows
-    y -= 40*mm
-
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(20*mm, y, "Specimens")
-    y -= 7*mm
-
-    y = _draw_specimen_blocks(c, report, samples, y)
+    y -= 6*mm
+    
+    y = _draw_report_info_table(c, report, n, 20*mm, y)
+    y -= 8*mm
 
     # ---------- Results table on same page if space, otherwise next ----------
     if y < 80*mm:
@@ -3362,6 +3396,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
             c.drawString(x_burst,  y, _sf(srow.actual_burst_psi))
             c.drawString(x_time,   y, _sf(srow.pressurization_time_s))
             c.drawString(x_result, y, _sf(srow.test_result))
+
 
 
 # ==========================================
