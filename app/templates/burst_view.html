@@ -23,14 +23,11 @@
 
   <hr/>
 
-  <!-- Specimen count (controls how many rows the UI shows) -->
+  <!-- Specimen count -->
   <form method="post" action="/burst/{{ rep.id }}/set_specimen_count" style="margin-bottom:14px;">
-    <label>Total No. of Specimens (1 / 2 / 5)</label>
-    <select name="total_no_of_specimens">
-      <option value="1" {% if rep.total_no_of_specimens == 1 %}selected{% endif %}>1</option>
-      <option value="2" {% if rep.total_no_of_specimens == 2 %}selected{% endif %}>2</option>
-      <option value="5" {% if rep.total_no_of_specimens == 5 %}selected{% endif %}>5</option>
-    </select>
+    <label>Total No. of Specimens</label>
+    <input name="total_no_of_specimens" type="number" min="1" max="20" step="1"
+           value="{{ rep.total_no_of_specimens }}">
     <button class="btn btn-primary" type="submit" style="margin-left:8px;">Apply</button>
   </form>
 
@@ -54,6 +51,14 @@
 
     <label>Reference Standard</label>
     <input name="reference_standard" value="{{ rep.reference_standard }}">
+
+    <label>Purpose</label>
+    <select name="purpose">
+      <option value="BATCH_RELEASE" {% if rep.purpose=="BATCH_RELEASE" %}selected{% endif %}>Batch Release</option>
+      <option value="QUALIFICATION" {% if rep.purpose=="QUALIFICATION" %}selected{% endif %}>Qualification</option>
+      <option value="INTERNAL" {% if rep.purpose=="INTERNAL" %}selected{% endif %}>Internal Validation</option>
+    </select>
+    <p class="hint">Defaults: Batch Release=2 specimens, Qualification=5, Internal=1 (you can override).</p>
 
     <label>Reference DHTP Procedure</label>
     <input name="reference_dhtp_procedure" value="{{ rep.reference_dhtp_procedure }}">
@@ -79,6 +84,65 @@
     <input name="cover_material_grade" value="{{ live.cover_material_grade }}">
 
     <h3 style="margin-top:16px;">Results (Per Specimen)</h3>
+
+    <h3 style="margin-top:16px;">Specimens Details</h3>
+
+    {% for s in samples[:rep.total_no_of_specimens] %}
+      <div class="card" style="margin:12px 0; padding:12px; border:1px solid #ddd;">
+        <h4 style="margin:0 0 10px 0;">Specimen #{{ loop.index }}</h4>
+    
+        <label>Serial No</label>
+        <input name="sample_serial_number_{{ s.id }}" value="{{ s.sample_serial_number }}">
+    
+        <div style="display:flex; gap:12px;">
+          <div style="flex:1;">
+            <label>Start (m)</label>
+            <input name="sample_start_m_{{ s.id }}" type="number" step="0.01" value="{{ s.sample_start_m }}">
+          </div>
+          <div style="flex:1;">
+            <label>Length (m)</label>
+            <input name="sample_length_m_{{ s.id }}" type="number" step="0.01" value="{{ s.sample_length_m }}">
+          </div>
+        </div>
+    
+        <hr style="margin:12px 0;"/>
+    
+        <h5 style="margin:0 0 8px 0;">Construction</h5>
+    
+        <div style="display:flex; gap:12px;">
+          <div style="flex:2;">
+            <label>Liner Material</label>
+            <input name="liner_material_grade_{{ s.id }}" value="{{ s.liner_material_grade }}">
+          </div>
+          <div style="flex:1;">
+            <label>Liner Thickness (mm)</label>
+            <input name="liner_thickness_mm_{{ s.id }}" type="number" step="0.01" value="{{ s.liner_thickness_mm }}">
+          </div>
+        </div>
+    
+        <div style="display:flex; gap:12px;">
+          <div style="flex:2;">
+            <label>Reinforcement Material</label>
+            <input name="reinforcement_material_grade_{{ s.id }}" value="{{ s.reinforcement_material_grade }}">
+          </div>
+          <div style="flex:1;">
+            <label>Reinforcement Thickness (mm)</label>
+            <input name="reinforcement_thickness_mm_{{ s.id }}" type="number" step="0.01" value="{{ s.reinforcement_thickness_mm }}">
+          </div>
+        </div>
+    
+        <div style="display:flex; gap:12px;">
+          <div style="flex:2;">
+            <label>Cover Material</label>
+            <input name="cover_material_grade_{{ s.id }}" value="{{ s.cover_material_grade }}">
+          </div>
+          <div style="flex:1;">
+            <label>Cover Thickness (mm)</label>
+            <input name="cover_thickness_mm_{{ s.id }}" type="number" step="0.01" value="{{ s.cover_thickness_mm }}">
+          </div>
+        </div>
+      </div>
+    {% endfor %}
 
     <table class="table">
       <thead>
