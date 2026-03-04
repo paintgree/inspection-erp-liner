@@ -2963,36 +2963,32 @@ def _logo_path() -> str:
     return os.path.join(base_dir, "static", "images", "logo.png")
 
 def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, page_total: int):
-   w, h = A4
+    w, h = A4
 
-# ---- Header: Center Logo + Title ----
-logo = _logo_path()
-y_top = h - 14 * mm
+    # ---- Header: Center Logo + Title ----
+    logo = _logo_path()
+    y_top = h - 14 * mm
 
-# logo centered
-if os.path.exists(logo):
-    try:
-        img = ImageReader(logo)
-        iw, ih = img.getSize()
-
-        target_w = 55 * mm   # bigger than before
-        scale = target_w / float(iw)
-        target_h = float(ih) * scale
-
-        x = (w - target_w) / 2
-        c.drawImage(img, x, y_top - target_h, width=target_w, height=target_h, mask="auto")
-        y_title = y_top - target_h - 6 * mm
-    except Exception:
+    if os.path.exists(logo):
+        try:
+            img = ImageReader(logo)
+            iw, ih = img.getSize()
+            target_w = 55 * mm
+            scale = target_w / float(iw)
+            target_h = float(ih) * scale
+            x = (w - target_w) / 2
+            c.drawImage(img, x, y_top - target_h, width=target_w, height=target_h, mask="auto")
+            y_title = y_top - target_h - 6 * mm
+        except Exception:
+            y_title = h - 22 * mm
+    else:
         y_title = h - 22 * mm
-else:
-    y_title = h - 22 * mm
 
-c.setFont("Helvetica-Bold", 16)
-c.drawCentredString(w / 2, y_title, title)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(w / 2, y_title, title)
 
-# separator line
-c.setStrokeColor(colors.black)
-c.line(20 * mm, y_title - 4 * mm, w - 20 * mm, y_title - 4 * mm)
+    c.setStrokeColor(colors.black)
+    c.line(20 * mm, y_title - 4 * mm, w - 20 * mm, y_title - 4 * mm)
 
     # ---- Footer: Doc Control + Page x/y ----
     c.setFont("Helvetica", 9)
@@ -3140,17 +3136,18 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     if not report:
         raise HTTPException(404, "Burst report not found")
 
-    # Load all samples (dynamic)
+    # Load samples
     samples = session.exec(
         select(BurstSample)
         .where(BurstSample.report_id == report.id)
         .order_by(BurstSample.id.asc())
     ).all()
 
-    # If report.total_no_of_specimens exists, respect it; else use all samples found
     n = int(getattr(report, "total_no_of_specimens", None) or len(samples) or 1)
     if n < 1:
         n = 1
+    if n > 50:
+        n = 50
     samples = samples[:n] if samples else []
 
     # Attachments (photos)
@@ -3160,58 +3157,76 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         .order_by(BurstAttachment.uploaded_at.asc())
     ).all()
 
-    # doc control number in footer (safe fallback if field not present)
     doc_no = _txt(getattr(report, "doc_control_no", "")) or "DOC CONTROL NO: __________"
 
-    # We'll build all pages first, then stamp correct page numbers.
-    pages = []  # list[bytes] each = single-page pdf bytes
+    pages: list[bytes] = []
 
     def new_page(title="Burst Test Report"):
         buf = BytesIO()
         c = canvas.Canvas(buf, pagesize=A4)
         return buf, c, title
 
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(20*mm, y, "Report Information")
-    y -= 6*mm
-    
-    y = _draw_report_info_table(c, report, n, 20*mm, y)
-    y -= 8*mm
+    # ---------------- PAGE 1 ----------------
+    buf, c, title = new_page()
+    w, h = A4
+    y = h - 32 * mm
 
-    # ---------- Results table on same page if space, otherwise next ----------
-    if y < 80*mm:
+    # Header/Footer (temporary page numbers; fixed later by stamping)
+    _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
+
+    # Report Info
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(20 * mm, y, "Report Information")
+    y -= 6 * mm
+
+    y = _draw_report_info_table(c, report, n, 20 * mm, y)
+    y -= 8 * mm
+
+    # Specimens
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(20 * mm, y, "Specimens")
+    y -= 7 * mm
+
+    y = _draw_specimen_blocks(c, report, samples, y)
+
+    # Results (move to next page if needed)
+    if y < 85 * mm:
         c.showPage()
         _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
-        y = h - 32*mm
+        y = h - 32 * mm
 
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(20*mm, y, "Results")
-    y -= 7*mm
-    y = _draw_results_table(c, samples, y)
+    c.drawString(20 * mm, y, "Results")
+    y -= 7 * mm
+    y = _draw_results_table(c, samples, y)  # make sure this says MPa
+
+    # Signatures at bottom
+    y = _draw_signatures(c, report, y)
 
     c.showPage()
     c.save()
     pages.append(buf.getvalue())
 
-    # ---------- CHART PAGE (optional) ----------
+    # ---------------- CHART PAGE (optional) ----------------
     chart_png = _make_burst_chart_png(samples)
     if chart_png:
         buf, c, title = new_page()
+        w, h = A4
         _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
 
-        y = h - 35*mm
+        y = h - 35 * mm
         c.setFont("Helvetica-Bold", 12)
-        c.drawString(20*mm, y, "Burst Chart")
-        y -= 10*mm
+        c.drawString(20 * mm, y, "Burst Chart")
+        y -= 10 * mm
 
         try:
             img = ImageReader(BytesIO(chart_png))
             iw, ih = img.getSize()
-            max_w = w - 40*mm
-            max_h = h - 70*mm
-            scale = min(max_w/iw, max_h/ih)
-            dw, dh = iw*scale, ih*scale
-            c.drawImage(img, 20*mm, 25*mm, width=dw, height=dh, mask="auto")
+            max_w = w - 40 * mm
+            max_h = h - 70 * mm
+            scale = min(max_w / iw, max_h / ih)
+            dw, dh = iw * scale, ih * scale
+            c.drawImage(img, 20 * mm, 25 * mm, width=dw, height=dh, mask="auto")
         except Exception:
             pass
 
@@ -3219,8 +3234,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         c.save()
         pages.append(buf.getvalue())
 
-    # ---------- PHOTOS PAGES (optional) ----------
-    # include only image attachments
+    # ---------------- PHOTOS PAGES (optional) ----------------
     for att in atts:
         p = resolve_burst_file_path(getattr(att, "file_path", "") or "")
         if not p or not os.path.exists(p):
@@ -3230,22 +3244,23 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
             continue
 
         buf, c, title = new_page()
+        w, h = A4
         _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
 
-        y = h - 35*mm
+        y = h - 35 * mm
         c.setFont("Helvetica-Bold", 12)
         cap = _txt(getattr(att, "caption", "")) or _txt(getattr(att, "kind", "PHOTO"))
-        c.drawString(20*mm, y, f"Photo: {cap}")
-        y -= 10*mm
+        c.drawString(20 * mm, y, f"Photo: {cap}")
+        y -= 10 * mm
 
         try:
             img = ImageReader(p)
             iw, ih = img.getSize()
-            max_w = w - 40*mm
-            max_h = h - 70*mm
-            scale = min(max_w/iw, max_h/ih)
-            dw, dh = iw*scale, ih*scale
-            c.drawImage(img, (w-dw)/2, 25*mm, width=dw, height=dh, mask="auto")
+            max_w = w - 40 * mm
+            max_h = h - 70 * mm
+            scale = min(max_w / iw, max_h / ih)
+            dw, dh = iw * scale, ih * scale
+            c.drawImage(img, (w - dw) / 2, 25 * mm, width=dw, height=dh, mask="auto")
         except Exception:
             pass
 
@@ -3253,8 +3268,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         c.save()
         pages.append(buf.getvalue())
 
-    # ---------- MERGE PAGES + FIX PAGE NUMBERS ----------
-    # We will merge all single-page PDFs into one, then stamp correct page numbers.
+    # ---------------- MERGE + PAGE NUMBER STAMP ----------------
     merged_writer = PdfWriter()
     for pb in pages:
         r = PdfReader(BytesIO(pb))
@@ -3264,8 +3278,6 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     merged_writer.write(out)
     pdf_bytes = out.getvalue()
 
-    # Stamp header/footer again with correct total pages
-    # (simple approach: overlay footer with correct page x/y; header already drawn)
     total_pages = len(PdfReader(BytesIO(pdf_bytes)).pages)
     reader = PdfReader(BytesIO(pdf_bytes))
     writer = PdfWriter()
@@ -3276,11 +3288,10 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
         stamp_buf = BytesIO()
         sc = canvas.Canvas(stamp_buf, pagesize=(w0, h0))
-        # only footer stamp (and page number)
         sc.setFont("Helvetica", 9)
         sc.setFillColor(colors.grey)
-        sc.drawString(20*mm, 12*mm, doc_no)
-        sc.drawRightString(w0 - 20*mm, 12*mm, f"Page {i}/{total_pages}")
+        sc.drawString(20 * mm, 12 * mm, doc_no)
+        sc.drawRightString(w0 - 20 * mm, 12 * mm, f"Page {i}/{total_pages}")
         sc.showPage()
         sc.save()
         stamp_buf.seek(0)
@@ -3291,14 +3302,12 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
     final = BytesIO()
     writer.write(final)
-    final_bytes = final.getvalue()
 
     return Response(
-        content=final_bytes,
+        content=final.getvalue(),
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="burst_report_{report_id}.pdf"'},
     )
-
     # ------------------------------------------------------------
     # Build overlay PDFs (page1 header/specimen + results table)
     # ------------------------------------------------------------
