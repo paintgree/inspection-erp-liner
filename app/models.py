@@ -356,7 +356,7 @@ class BurstTestReport(SQLModel, table=True):
     # TEMPLATE: SIGNATURES
     # -------------------------
     qa_qc_officer_name: str = Field(default="")
-    testing_operator_name: str = Field(default="")
+    technician_name: str = Field(default="")
 
 
     # Workflow
