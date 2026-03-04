@@ -2317,7 +2317,8 @@ def _draw_signatures(c, report, y):
     c.drawString(20*mm, y, "Signatures")
     y -= 12*mm
 
-    tech_name = _txt(getattr(report, "created_by_user_name", ""))
+    tech_name = _txt(getattr(report, "technician_name", ""))  # typed
+    insp_name = _txt(getattr(report, "created_by_user_name", ""))  # inspector = who filled
 
     c.setFont("Helvetica", 9)
 
@@ -2325,10 +2326,11 @@ def _draw_signatures(c, report, y):
     c.drawString(20*mm, y, "Technician:")
     c.line(45*mm, y-1*mm, 110*mm, y-1*mm)
     c.drawString(45*mm, y+1*mm, tech_name)
-
-    # Inspector (blank now; fill later if you store it)
+    
+    # Inspector
     c.drawString(125*mm, y, "Inspector:")
     c.line(145*mm, y-1*mm, 190*mm, y-1*mm)
+    c.drawString(145*mm, y+1*mm, insp_name)
 
     y -= 14*mm
     c.drawString(20*mm, y, "Date:")
@@ -2371,7 +2373,9 @@ def _find_related_runs_by_batch(session: Session, batch_no: str):
 
     return liner, reinf, cover
 
-def _draw_report_info_table(c, report, x, y, n=None):
+def _draw_report_info_table(c, report, x, y):
+    n = int(getattr(report, "total_no_of_specimens", 0) or 0)
+
     data = [
         ["Batch No", _txt(getattr(report, "batch_no", "")), "Client", _txt(getattr(report, "client_name", ""))],
         ["Client PO", _txt(getattr(report, "client_po", "")), "Pipe Spec", _txt(getattr(report, "pipe_specification", ""))],
@@ -2381,14 +2385,17 @@ def _draw_report_info_table(c, report, x, y, n=None):
         ["Test Date", _txt(getattr(report, "tested_at", "") or getattr(report, "created_at", "")), "", ""],
     ]
 
-    tbl = Table(data, colWidths=[28*mm, 62*mm, 28*mm, 62*mm])
+    tbl = Table(data, colWidths=[34*mm, 60*mm, 34*mm, 60*mm])
     tbl.setStyle(TableStyle([
         ("FONT", (0,0), (-1,-1), "Helvetica", 9),
         ("FONT", (0,0), (0,-1), "Helvetica-Bold", 9),
         ("FONT", (2,0), (2,-1), "Helvetica-Bold", 9),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
         ("TOPPADDING", (0,0), (-1,-1), 2),
         ("BOTTOMPADDING", (0,0), (-1,-1), 2),
-        ("VALIGN", (0,0), (-1,-1), "TOP"),
+
+        # optional: light row separators for neatness
+        ("LINEBELOW", (0,0), (-1,-1), 0.25, colors.lightgrey),
     ]))
 
     tbl.wrapOn(c, 0, 0)
@@ -2756,6 +2763,7 @@ async def burst_update(
 
     rep.qa_qc_officer_name = (qa_qc_officer_name or "").strip()
     rep.testing_operator_name = (testing_operator_name or "").strip()
+    rep.technician_name = (form.get("technician_name") or "").strip()
 
     # ---------------------------
     # Per-sample save (BurstSample rows)
@@ -3024,34 +3032,38 @@ def _draw_specimen_blocks(c, report, samples, start_y):
     w, h = A4
     y = start_y
 
-    def page_break_if_needed(next_block_h):
-        nonlocal y
-        if y - next_block_h < 35 * mm:
-            c.showPage()
-            _draw_header_footer(c, title="Burst Test Report", doc_control_no="DOC CONTROL NO: __________", page_num=1, page_total=1)
-            y = h - 32 * mm
-            return True
-        return False
-
     for idx, s in enumerate(samples, start=1):
-        block_h = 34 * mm
-        page_break_if_needed(block_h + 6*mm)
-
+        block_h = 38 * mm  # slightly taller to avoid overflow
         x0 = 20 * mm
-        c.rect(x0, y - block_h, w - 40*mm, block_h, stroke=1, fill=0)
+        box_w = w - 40 * mm
+
+        # Page break if needed
+        if y - block_h < 55 * mm:
+            c.showPage()
+            y = h - 32 * mm
+
+        c.setStrokeColor(colors.black)
+        c.rect(x0, y - block_h, box_w, block_h, stroke=1, fill=0)
 
         c.setFont("Helvetica-Bold", 10)
         c.drawString(x0 + 3*mm, y - 6*mm, f"Specimen #{idx}")
 
         c.setFont("Helvetica", 9)
-        c.drawString(x0 + 3*mm,  y - 14*mm, f"Serial No: {_txt(getattr(s,'sample_serial_number',''))}")
-        c.drawString(x0 + 95*mm, y - 14*mm, f"Length (mm): {_txt(getattr(s,'sample_length_m',''))}")
 
-        c.drawString(x0 + 3*mm, y - 22*mm,
+        # keep everything INSIDE box
+        line1 = y - 14*mm
+        line2 = y - 22*mm
+        line3 = y - 28*mm
+        line4 = y - 34*mm  # last line still inside now (because block_h increased)
+
+        c.drawString(x0 + 3*mm,  line1, f"Serial No: {_txt(getattr(s,'sample_serial_number',''))}")
+        c.drawString(x0 + 95*mm, line1, f"Length (mm): {_txt(getattr(s,'sample_length_m',''))}")
+
+        c.drawString(x0 + 3*mm, line2,
                      f"Liner: {_txt(getattr(s,'liner_material_grade',''))} | Thk(mm): {_txt(getattr(s,'liner_thickness_mm',''))}")
-        c.drawString(x0 + 3*mm, y - 28*mm,
+        c.drawString(x0 + 3*mm, line3,
                      f"Reinf: {_txt(getattr(s,'reinforcement_material_grade',''))} | Thk(mm): {_txt(getattr(s,'reinforcement_thickness_mm',''))}")
-        c.drawString(x0 + 3*mm, y - 34*mm,
+        c.drawString(x0 + 3*mm, line4,
                      f"Cover: {_txt(getattr(s,'cover_material_grade',''))} | Thk(mm): {_txt(getattr(s,'cover_thickness_mm',''))}")
 
         y = y - block_h - 6*mm
