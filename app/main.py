@@ -2372,7 +2372,7 @@ def _find_related_runs_by_batch(session: Session, batch_no: str):
 
     return liner, reinf, cover
 
-def _draw_report_info_table(c, report, n, x, y):
+def _draw_report_info_table(c, report, x, y, n=None):
     data = [
         ["Batch No", _txt(getattr(report, "batch_no", "")), "Client", _txt(getattr(report, "client_name", ""))],
         ["Client PO", _txt(getattr(report, "client_po", "")), "Pipe Spec", _txt(getattr(report, "pipe_specification", ""))],
@@ -3179,7 +3179,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     c.drawString(20 * mm, y, "Report Information")
     y -= 6 * mm
 
-    y = _draw_report_info_table(c, report, n, 20 * mm, y)
+    y = _draw_report_info_table(c, report, 20 * mm, y, n)
     y -= 8 * mm
 
     # Specimens
