@@ -3199,6 +3199,8 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     c.save()
     pages.append(buf.getvalue())
 
+    y = _draw_signatures(c, report, y)
+
     # ---------------- CHART PAGE (optional) ----------------
     chart_png = _make_burst_chart_png(samples)
     if chart_png:
