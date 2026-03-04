@@ -2993,7 +2993,7 @@ def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, pa
     c.setFillColor(colors.grey)
     c.drawString(20 * mm, 12 * mm, doc_control_no or "")
     c.drawRightString(w - 20 * mm, 12 * mm, f"Page {page_num}/{page_total}")
-    c.setFillColor(colors.black)black)
+    c.setFillColor(colors.black)
 
 def _draw_report_info_table(c, report, x, y):
     n = int(getattr(report, "total_no_of_specimens", 0) or 0)
