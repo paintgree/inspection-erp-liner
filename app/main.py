@@ -2309,29 +2309,28 @@ def get_finished_cover_runs(session: Session) -> list[ProductionRun]:
 
 def _draw_signatures(c, report, y):
     w, h = A4
-    if y < 40*mm:
+    if y < 45*mm:
         c.showPage()
-        y = h - 35*mm
+        y = h - 32*mm
 
     c.setFont("Helvetica-Bold", 10)
     c.drawString(20*mm, y, "Signatures")
-    y -= 10*mm
+    y -= 12*mm
 
-    tech_name = _txt(getattr(report, "created_by_user_name", ""))  # automatic
-    insp_name = _txt(getattr(report, "inspected_by_name", ""))     # if you add later; else blank
+    tech_name = _txt(getattr(report, "created_by_user_name", ""))
+
+    c.setFont("Helvetica", 9)
 
     # Technician
-    c.setFont("Helvetica", 9)
     c.drawString(20*mm, y, "Technician:")
     c.line(45*mm, y-1*mm, 110*mm, y-1*mm)
     c.drawString(45*mm, y+1*mm, tech_name)
 
-    # Inspector
+    # Inspector (blank now; fill later if you store it)
     c.drawString(125*mm, y, "Inspector:")
     c.line(145*mm, y-1*mm, 190*mm, y-1*mm)
-    c.drawString(145*mm, y+1*mm, insp_name)
 
-    y -= 12*mm
+    y -= 14*mm
     c.drawString(20*mm, y, "Date:")
     c.line(30*mm, y-1*mm, 80*mm, y-1*mm)
     c.drawString(30*mm, y+1*mm, _txt(getattr(report, "tested_at", "") or getattr(report, "created_at", "")))
@@ -2965,24 +2964,23 @@ def _logo_path() -> str:
 def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, page_total: int):
     w, h = A4
 
-    # ---- Header: Center Logo + Title ----
+    # Header: centered logo + centered title
     logo = _logo_path()
-    y_top = h - 14 * mm
+    y_top = h - 12 * mm
+    y_title = h - 26 * mm
 
     if os.path.exists(logo):
         try:
             img = ImageReader(logo)
             iw, ih = img.getSize()
-            target_w = 55 * mm
+            target_w = 55 * mm  # slightly bigger
             scale = target_w / float(iw)
             target_h = float(ih) * scale
             x = (w - target_w) / 2
             c.drawImage(img, x, y_top - target_h, width=target_w, height=target_h, mask="auto")
-            y_title = y_top - target_h - 6 * mm
+            y_title = (y_top - target_h) - 7 * mm
         except Exception:
-            y_title = h - 22 * mm
-    else:
-        y_title = h - 22 * mm
+            pass
 
     c.setFont("Helvetica-Bold", 16)
     c.drawCentredString(w / 2, y_title, title)
@@ -2990,39 +2988,36 @@ def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, pa
     c.setStrokeColor(colors.black)
     c.line(20 * mm, y_title - 4 * mm, w - 20 * mm, y_title - 4 * mm)
 
-    # ---- Footer: Doc Control + Page x/y ----
+    # Footer
     c.setFont("Helvetica", 9)
     c.setFillColor(colors.grey)
     c.drawString(20 * mm, 12 * mm, doc_control_no or "")
     c.drawRightString(w - 20 * mm, 12 * mm, f"Page {page_num}/{page_total}")
-    c.setFillColor(colors.black)
+    c.setFillColor(colors.black)black)
 
 def _draw_report_info_table(c, report, x, y):
-    # 2-column compact table
+    n = int(getattr(report, "total_no_of_specimens", 0) or 0)
     data = [
         ["Batch No", _txt(getattr(report, "batch_no", "")), "Client", _txt(getattr(report, "client_name", ""))],
         ["Client PO", _txt(getattr(report, "client_po", "")), "Pipe Spec", _txt(getattr(report, "pipe_specification", ""))],
         ["Test Medium", _txt(getattr(report, "testing_medium", "")), "Lab Temp", _txt(getattr(report, "laboratory_temperature", ""))],
         ["Standard", _txt(getattr(report, "reference_standard", "")), "Procedure", _txt(getattr(report, "reference_dhtp_procedure", ""))],
-        ["System Max", _txt(getattr(report, "system_max_pressure", "")), "Specimens", _txt(getattr(report, "total_no_of_specimens", ""))],
+        ["System Max (MPa)", _txt(getattr(report, "system_max_pressure", "")), "Specimens", _txt(n)],
         ["Test Date", _txt(getattr(report, "tested_at", "") or getattr(report, "created_at", "")), "", ""],
     ]
 
-    tbl = Table(
-        data,
-        colWidths=[26*mm, 64*mm, 26*mm, 64*mm],  # tighter
-    )
+    tbl = Table(data, colWidths=[28*mm, 62*mm, 28*mm, 62*mm])
     tbl.setStyle(TableStyle([
         ("FONT", (0,0), (-1,-1), "Helvetica", 9),
         ("FONT", (0,0), (0,-1), "Helvetica-Bold", 9),
         ("FONT", (2,0), (2,-1), "Helvetica-Bold", 9),
-        ("VALIGN", (0,0), (-1,-1), "TOP"),
-        ("BOTTOMPADDING", (0,0), (-1,-1), 2),
         ("TOPPADDING", (0,0), (-1,-1), 2),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 2),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
     ]))
 
     tbl.wrapOn(c, 0, 0)
-    tbl_h = 6 * len(data) * mm  # approx height
+    tbl_h = len(data) * 7 * mm
     tbl.drawOn(c, x, y - tbl_h)
     return y - tbl_h
 def _draw_specimen_blocks(c, report, samples, start_y):
@@ -3033,28 +3028,25 @@ def _draw_specimen_blocks(c, report, samples, start_y):
         nonlocal y
         if y - next_block_h < 35 * mm:
             c.showPage()
-            y = h - 35 * mm
+            _draw_header_footer(c, title="Burst Test Report", doc_control_no="DOC CONTROL NO: __________", page_num=1, page_total=1)
+            y = h - 32 * mm
             return True
         return False
 
     for idx, s in enumerate(samples, start=1):
-        block_h = 34 * mm  # smaller than before
+        block_h = 34 * mm
         page_break_if_needed(block_h + 6*mm)
 
         x0 = 20 * mm
-        c.setStrokeColor(colors.black)
         c.rect(x0, y - block_h, w - 40*mm, block_h, stroke=1, fill=0)
 
         c.setFont("Helvetica-Bold", 10)
         c.drawString(x0 + 3*mm, y - 6*mm, f"Specimen #{idx}")
 
         c.setFont("Helvetica", 9)
-
-        # Only Serial + Length (mm)
         c.drawString(x0 + 3*mm,  y - 14*mm, f"Serial No: {_txt(getattr(s,'sample_serial_number',''))}")
         c.drawString(x0 + 95*mm, y - 14*mm, f"Length (mm): {_txt(getattr(s,'sample_length_m',''))}")
 
-        # Construction lines (keep font size, tighter spacing)
         c.drawString(x0 + 3*mm, y - 22*mm,
                      f"Liner: {_txt(getattr(s,'liner_material_grade',''))} | Thk(mm): {_txt(getattr(s,'liner_thickness_mm',''))}")
         c.drawString(x0 + 3*mm, y - 28*mm,
