@@ -3171,7 +3171,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     c.drawString(20 * mm, y, "Report Information")
     y -= 6 * mm
 
-    y = _draw_report_info_table(c, report, 20 * mm, y, n)
+    y = _draw_report_info_table(c, report, 20 * mm, y)
     y -= 8 * mm
 
     # Specimens
