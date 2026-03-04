@@ -216,7 +216,14 @@ def _ensure_schema_patches() -> None:
       "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS cover_thickness_mm DOUBLE PRECISION DEFAULT 0",
       "ALTER TABLE burstsample ADD COLUMN cover_thickness_mm REAL DEFAULT 0",
     )
-     
+
+    _add_column_if_missing(
+        "bursttestreport",
+        "technician_name",
+        "ALTER TABLE bursttestreport ADD COLUMN IF NOT EXISTS technician_name TEXT DEFAULT ''",
+        "ALTER TABLE bursttestreport ADD COLUMN technician_name TEXT DEFAULT ''",
+    )
+         
     # =========================
     # BURST: BurstAttachment.sample_id
     # =========================
