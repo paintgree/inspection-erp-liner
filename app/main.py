@@ -2378,7 +2378,7 @@ def _draw_report_info_table(c, report, n, x, y):
         ["Client PO", _txt(getattr(report, "client_po", "")), "Pipe Spec", _txt(getattr(report, "pipe_specification", ""))],
         ["Test Medium", _txt(getattr(report, "testing_medium", "")), "Lab Temp", _txt(getattr(report, "laboratory_temperature", ""))],
         ["Standard", _txt(getattr(report, "reference_standard", "")), "Procedure", _txt(getattr(report, "reference_dhtp_procedure", ""))],
-        ["System Max", _txt(getattr(report, "system_max_pressure", "")), "Specimens", _txt(n)],
+        ["System Max (MPa)", _txt(getattr(report, "system_max_pressure", "")), "Specimens", _txt(n)],
         ["Test Date", _txt(getattr(report, "tested_at", "") or getattr(report, "created_at", "")), "", ""],
     ]
 
