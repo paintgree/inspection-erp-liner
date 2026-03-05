@@ -2762,7 +2762,6 @@ async def burst_update(
     rep.notes = (notes or "").strip()
 
     rep.qa_qc_officer_name = (qa_qc_officer_name or "").strip()
-    rep.testing_operator_name = (testing_operator_name or "").strip()
     rep.technician_name = (form.get("technician_name") or "").strip()
 
     # ---------------------------
