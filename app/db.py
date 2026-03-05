@@ -61,6 +61,19 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE mrrreceiving ADD COLUMN IF NOT EXISTS qty_mismatch_reason TEXT DEFAULT ''",
         "ALTER TABLE mrrreceiving ADD COLUMN qty_mismatch_reason TEXT DEFAULT ''",
     )
+    _add_column_if_missing(
+        "burstattachment",
+        "sample_id",
+        "ALTER TABLE burstattachment ADD COLUMN IF NOT EXISTS sample_id INTEGER",
+        "ALTER TABLE burstattachment ADD COLUMN sample_id INTEGER",
+    )
+    
+    _add_column_if_missing(
+        "burstattachment",
+        "kind",
+        "ALTER TABLE burstattachment ADD COLUMN IF NOT EXISTS kind TEXT DEFAULT ''",
+        "ALTER TABLE burstattachment ADD COLUMN kind TEXT DEFAULT ''",
+    )
 
     # ✅ materiallot new fields
     _add_column_if_missing(
@@ -233,6 +246,9 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE burstattachment ADD COLUMN IF NOT EXISTS sample_id INTEGER",
         "ALTER TABLE burstattachment ADD COLUMN sample_id INTEGER",
     )
+    
+    sample_id: int | None = Field(default=None, foreign_key="burstsamples.id")
+    kind: str = Field(default="")  # "A", "B", "CHART"
 
 
 
