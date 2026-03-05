@@ -2865,16 +2865,17 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
         .order_by(BurstAuditLog.id.desc())
     ).all()
 
-    atts = session.exec(
+    att_status = {}  # (sample_id, kind) -> True
+    
+    att_rows = session.exec(
         select(BurstAttachment).where(BurstAttachment.report_id == rep.id)
     ).all()
     
-    att_status = {}
-    for a in atts:
-        k = (getattr(a, "kind", "") or "").upper()
+    for a in att_rows:
         sid = getattr(a, "sample_id", None)
-        if sid is not None and k:
-            att_status[(sid, k)] = True
+        kind = (getattr(a, "kind", "") or "").upper()
+        if sid is not None and kind:
+            att_status[(sid, kind)] = True
 
 
     # Attachments flags per sample (for UI "Uploaded ✅")
@@ -2886,11 +2887,6 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
     for a in att_rows:
         att_map[a.sample_id][a.kind] = a.file_path
     
-    for s in samples:
-        s.attach_full = bool(att_map.get(s.id, {}).get("PHOTO_FULL"))
-        s.attach_a = bool(att_map.get(s.id, {}).get("PHOTO_A"))
-        s.attach_b = bool(att_map.get(s.id, {}).get("PHOTO_B"))
-        s.attach_chart = bool(att_map.get(s.id, {}).get("CHART"))
 
     return templates.TemplateResponse(
         "burst_view.html",
@@ -2904,6 +2900,7 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             "live": live,
             "samples": samples,
             "audit": audit,
+            "att_status": att_status,
         },
     )
 
