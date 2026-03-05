@@ -199,7 +199,7 @@
                 <div>
                   <label>Full Pipe (Photo)</label>
                   <input type="file" name="photo_full" accept="image/*">
-                  {% if att_status and att_status.get((s.id, "FULL")) %}
+                  {% if att_status.get((s.id, "PHOTO_FULL")) %}
                     <div class="hint">Uploaded ✅</div>
                   {% endif %}
                 </div>
@@ -207,7 +207,7 @@
                 <div>
                   <label>Side A (Photo)</label>
                   <input type="file" name="photo_a" accept="image/*">
-                  {% if att_status and att_status.get((s.id, "A")) %}
+                  {% if att_status.get((s.id, "PHOTO_A")) %}
                     <div class="hint">Uploaded ✅</div>
                   {% endif %}
                 </div>
@@ -215,7 +215,7 @@
                 <div>
                   <label>Side B (Photo)</label>
                   <input type="file" name="photo_b" accept="image/*">
-                  {% if att_status and att_status.get((s.id, "B")) %}
+                  {% if att_status.get((s.id, "PHOTO_B")) %}
                     <div class="hint">Uploaded ✅</div>
                   {% endif %}
                 </div>
@@ -223,7 +223,7 @@
                 <div>
                   <label>Chart (Image)</label>
                   <input type="file" name="chart" accept="image/*">
-                  {% if att_status and att_status.get((s.id, "CHART")) %}
+                  {% if att_status.get((s.id, "CHART")) %}
                     <div class="hint">Uploaded ✅</div>
                   {% endif %}
                 </div>
