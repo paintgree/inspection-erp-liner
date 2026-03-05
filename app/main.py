@@ -3288,6 +3288,16 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
 
     # ---------------- CHART PAGE (optional) ----------------
+    atts = session.exec(
+        select(BurstAttachment)
+        .where(BurstAttachment.report_id == report.id)
+    ).all()
+    
+    # map: (sample_id, kind) -> path
+    att_map = {}
+    for a in atts:
+        att_map[(a.sample_id, (a.kind or "").upper())] = a.file_path
+    
     chart_png = _make_burst_chart_png(samples)
     if chart_png:
         buf, c, title = new_page()
@@ -3486,6 +3496,42 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
             c.drawString(x_time,   y, _sf(srow.pressurization_time_s))
             c.drawString(x_result, y, _sf(srow.test_result))
 
+
+def _draw_sample_images(c, x, y, w, paths):
+    # paths: dict {"A": path, "B": path, "CHART": path}
+    # returns updated y
+
+    def draw_img(path, x0, y0, max_w, max_h):
+        if not path or not os.path.exists(path):
+            return 0
+        img = ImageReader(path)
+        iw, ih = img.getSize()
+        scale = min(max_w / iw, max_h / ih)
+        dw, dh = iw * scale, ih * scale
+        c.drawImage(img, x0, y0 - dh, width=dw, height=dh, mask="auto")
+        return dh
+
+    gap = 6 * mm
+    max_w = w - 40 * mm
+    col_w = (max_w - gap) / 2
+
+    # A + B side-by-side
+    top_h = 45 * mm
+    used_h = 0
+    hA = draw_img(paths.get("A"), x, y, col_w, top_h)
+    hB = draw_img(paths.get("B"), x + col_w + gap, y, col_w, top_h)
+    used_h = max(hA, hB)
+
+    if used_h > 0:
+        y = y - used_h - 6*mm
+
+    # chart full width
+    chart_h = 60 * mm
+    hC = draw_img(paths.get("CHART"), x, y, max_w, chart_h)
+    if hC > 0:
+        y = y - hC - 6*mm
+
+    return y
 
 
 # ==========================================
