@@ -2762,6 +2762,11 @@ async def burst_update(
     rep.notes = (notes or "").strip()
 
     rep.qa_qc_officer_name = (qa_qc_officer_name or "").strip()
+
+    # ✅ get the full form FIRST (so we can read technician_name and per-sample fields)
+    form = await request.form()
+    
+    # ✅ now this works
     rep.technician_name = (form.get("technician_name") or "").strip()
 
     # ---------------------------
@@ -3210,7 +3215,6 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     c.save()
     pages.append(buf.getvalue())
 
-    y = _draw_signatures(c, report, y)
 
     # ---------------- CHART PAGE (optional) ----------------
     chart_png = _make_burst_chart_png(samples)
