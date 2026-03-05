@@ -162,10 +162,7 @@
       </div>
     {% endfor %}
   </div>
-    <div>
-      <label>Technician Name</label>
-      <input name="technician_name" value="{{ rep.technician_name }}">
-    </div>
+    
   <div class="section">
     <h3>Results (Per Specimen)</h3>
     <table class="table">
@@ -196,6 +193,10 @@
         {% endfor %}
       </tbody>
     </table>
+    <div>
+      <label>Technician Name</label>
+      <input name="technician_name" value="{{ rep.technician_name }}">
+    </div>
 
     <div class="hint">Serial No mirrors what you type in the specimen section.</div>
   </div>
