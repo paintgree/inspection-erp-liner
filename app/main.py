@@ -2614,7 +2614,7 @@ async def burst_sample_upload(
         raise HTTPException(404, "Sample not found")
 
     kind = (kind or "").strip().upper()
-    if kind not in {"A", "B", "CHART"}:
+    if kind not in {"FULL", "A", "B", "CHART"}:
         raise HTTPException(400, "Invalid kind")
 
     ext = os.path.splitext(file.filename or "")[1].lower()
@@ -2664,6 +2664,7 @@ async def burst_sample_upload_multi(
     report_id: int,
     sample_id: int,
     request: Request,
+    photo_full: UploadFile | None = File(None),
     photo_a: UploadFile | None = File(None),
     photo_b: UploadFile | None = File(None),
     chart: UploadFile | None = File(None),
@@ -2715,6 +2716,9 @@ async def burst_sample_upload_multi(
                 file_path=path,
             ))
 
+    if photo_full:
+        await save_one(photo_full, "FULL")
+    
     if photo_a:
         await save_one(photo_a, "A")
     if photo_b:
