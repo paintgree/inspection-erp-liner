@@ -2806,6 +2806,17 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
         .order_by(BurstAuditLog.id.desc())
     ).all()
 
+    atts = session.exec(
+        select(BurstAttachment).where(BurstAttachment.report_id == rep.id)
+    ).all()
+    
+    att_status = {}
+    for a in atts:
+        k = (getattr(a, "kind", "") or "").upper()
+        sid = getattr(a, "sample_id", None)
+        if sid is not None and k:
+            att_status[(sid, k)] = True
+
     return templates.TemplateResponse(
         "burst_view.html",
         {
