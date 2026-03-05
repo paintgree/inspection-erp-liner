@@ -2728,7 +2728,66 @@ async def burst_sample_upload_multi(
 
     session.commit()
     return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
-    
+
+
+@app.post("/burst/{report_id}/sample/{sample_id}/upload_attachments")
+async def burst_upload_attachments(
+    report_id: int,
+    sample_id: int,
+    request: Request,
+    photo_full: UploadFile = File(None),
+    photo_a: UploadFile = File(None),
+    photo_b: UploadFile = File(None),
+    chart: UploadFile = File(None),
+    session: Session = Depends(get_session),
+):
+    rep = session.get(BurstTestReport, report_id)
+    if not rep:
+        raise HTTPException(404, "Burst report not found")
+
+    sample = session.get(BurstSample, sample_id)
+    if not sample or sample.report_id != report_id:
+        raise HTTPException(404, "Burst sample not found")
+
+    upload_dir = Path("uploads") / "burst" / str(report_id) / str(sample_id)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    def _save_one(file: UploadFile, kind: str):
+        if not file:
+            return None
+
+        # keep extension if possible
+        ext = (Path(file.filename).suffix or ".jpg").lower()
+        safe_name = f"{kind}{ext}"
+        path = upload_dir / safe_name
+
+        data = file.file.read()
+        path.write_bytes(data)
+
+        # upsert DB record
+        att = session.exec(
+            select(BurstAttachment).where(
+                (BurstAttachment.sample_id == sample_id) &
+                (BurstAttachment.kind == kind)
+            )
+        ).first()
+
+        if not att:
+            att = BurstAttachment(sample_id=sample_id, kind=kind, file_path=str(path))
+            session.add(att)
+        else:
+            att.file_path = str(path)
+
+        session.commit()
+        return str(path)
+
+    _save_one(photo_full, "PHOTO_FULL")
+    _save_one(photo_a, "PHOTO_A")
+    _save_one(photo_b, "PHOTO_B")
+    _save_one(chart, "CHART")
+
+    # redirect back to burst view (file inputs will clear - normal)
+    return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
 
 @app.get("/burst/{report_id}")
 def burst_view(report_id: int, request: Request, session: Session = Depends(get_session)):
@@ -2816,6 +2875,22 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
         sid = getattr(a, "sample_id", None)
         if sid is not None and k:
             att_status[(sid, k)] = True
+
+
+    # Attachments flags per sample (for UI "Uploaded ✅")
+    att_rows = session.exec(
+        select(BurstAttachment).where(BurstAttachment.sample_id.in_([x.id for x in samples]))
+    ).all()
+    
+    att_map = defaultdict(dict)
+    for a in att_rows:
+        att_map[a.sample_id][a.kind] = a.file_path
+    
+    for s in samples:
+        s.attach_full = bool(att_map.get(s.id, {}).get("PHOTO_FULL"))
+        s.attach_a = bool(att_map.get(s.id, {}).get("PHOTO_A"))
+        s.attach_b = bool(att_map.get(s.id, {}).get("PHOTO_B"))
+        s.attach_chart = bool(att_map.get(s.id, {}).get("CHART"))
 
     return templates.TemplateResponse(
         "burst_view.html",
