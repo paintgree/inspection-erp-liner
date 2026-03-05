@@ -317,9 +317,9 @@ class BurstTestReport(SQLModel, table=True):
     pipe_specification: str = Field(default="")  # "Specimen Specification"
     purpose: str = Field(default="BATCH_RELEASE")  # BATCH_RELEASE / QUALIFICATION / INTERNAL
 
-    reference_standard: str = Field(default="")       # manual
-    reference_dhtp_procedure: str = Field(default="") # manual
-    system_max_pressure: str = Field(default="")      # manual (string to allow "100 MPa")
+    reference_standard: str = Field(default="API 15S / ASTM-D1599")       # manual
+    reference_dhtp_procedure: str = Field(default="QAW1401") # manual
+    system_max_pressure: str = Field(default="100")      # manual (string to allow "100 MPa")
     laboratory_temperature: str = Field(default="")   # manual
     testing_medium: str = Field(default="Water")
     total_no_of_specimens: int = Field(default=1)
