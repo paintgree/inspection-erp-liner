@@ -2657,6 +2657,73 @@ async def burst_sample_upload(
 
     session.commit()
     return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
+
+
+@app.post("/burst/{report_id}/sample/{sample_id}/upload_multi")
+async def burst_sample_upload_multi(
+    report_id: int,
+    sample_id: int,
+    request: Request,
+    photo_a: UploadFile | None = File(None),
+    photo_b: UploadFile | None = File(None),
+    chart: UploadFile | None = File(None),
+    session: Session = Depends(get_session),
+):
+    rep = session.get(BurstTestReport, report_id)
+    if not rep:
+        raise HTTPException(404, "Burst report not found")
+
+    sample = session.get(BurstSample, sample_id)
+    if not sample or sample.report_id != report_id:
+        raise HTTPException(404, "Sample not found")
+
+    async def save_one(up: UploadFile, kind: str):
+        ext = os.path.splitext(up.filename or "")[1].lower()
+        if ext not in {".png", ".jpg", ".jpeg", ".webp"}:
+            return
+
+        os.makedirs(BURST_UPLOAD_DIR, exist_ok=True)
+        safe_name = f"{report_id}_{sample_id}_{kind}_{uuid.uuid4().hex}{ext}"
+        path = os.path.join(BURST_UPLOAD_DIR, safe_name)
+
+        with open(path, "wb") as f:
+            shutil.copyfileobj(up.file, f)
+
+        # upsert
+        old = session.exec(
+            select(BurstAttachment)
+            .where(BurstAttachment.report_id == report_id)
+            .where(BurstAttachment.sample_id == sample_id)
+            .where(BurstAttachment.kind == kind)
+        ).first()
+
+        if old:
+            try:
+                if old.file_path and os.path.exists(old.file_path):
+                    os.remove(old.file_path)
+            except Exception:
+                pass
+            old.file_path = path
+            old.caption = kind
+            session.add(old)
+        else:
+            session.add(BurstAttachment(
+                report_id=report_id,
+                sample_id=sample_id,
+                kind=kind,
+                caption=kind,
+                file_path=path,
+            ))
+
+    if photo_a:
+        await save_one(photo_a, "A")
+    if photo_b:
+        await save_one(photo_b, "B")
+    if chart:
+        await save_one(chart, "CHART")
+
+    session.commit()
+    return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
     
 
 @app.get("/burst/{report_id}")
