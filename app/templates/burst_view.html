@@ -189,7 +189,7 @@
               <option value="FAIL" {% if s.test_result=="FAIL" %}selected{% endif %}>FAIL</option>
             </select>
             <div style="margin-top:12px; font-weight:700;">Attachments</div>
-            
+
             <form method="post"
                   action="/burst/{{ rep.id }}/sample/{{ s.id }}/upload_multi"
                   enctype="multipart/form-data"
@@ -197,26 +197,43 @@
             
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
                 <div>
-                  <label>Photo A</label>
-                  <input type="file" name="photo_a" accept="image/*">
+                  <label>Full Pipe (Photo)</label>
+                  <input type="file" name="photo_full" accept="image/*">
+                  {% if att_status and att_status.get((s.id, "FULL")) %}
+                    <div class="hint">Uploaded ✅</div>
+                  {% endif %}
                 </div>
             
                 <div>
-                  <label>Photo B</label>
-                  <input type="file" name="photo_b" accept="image/*">
+                  <label>Side A (Photo)</label>
+                  <input type="file" name="photo_a" accept="image/*">
+                  {% if att_status and att_status.get((s.id, "A")) %}
+                    <div class="hint">Uploaded ✅</div>
+                  {% endif %}
                 </div>
-              </div>
             
-              <div style="margin-top:10px;">
-                <label>Chart</label>
-                <input type="file" name="chart" accept="image/*">
+                <div>
+                  <label>Side B (Photo)</label>
+                  <input type="file" name="photo_b" accept="image/*">
+                  {% if att_status and att_status.get((s.id, "B")) %}
+                    <div class="hint">Uploaded ✅</div>
+                  {% endif %}
+                </div>
+            
+                <div>
+                  <label>Chart (Image)</label>
+                  <input type="file" name="chart" accept="image/*">
+                  {% if att_status and att_status.get((s.id, "CHART")) %}
+                    <div class="hint">Uploaded ✅</div>
+                  {% endif %}
+                </div>
               </div>
             
               <div style="margin-top:10px; display:flex; justify-content:flex-end;">
                 <button class="btn btn-primary" type="submit">Upload Attachments</button>
               </div>
             
-              <div class="hint">Upload any or all (A, B, Chart). Uploading again will replace the old file.</div>
+              <div class="hint">After upload the boxes clear automatically (browser behavior). Uploaded ✅ confirms it saved.</div>
             </form>
             </div>
           </td>
