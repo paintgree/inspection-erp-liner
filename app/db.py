@@ -247,8 +247,6 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE burstattachment ADD COLUMN sample_id INTEGER",
     )
     
-    sample_id: int | None = Field(default=None, foreign_key="burstsamples.id")
-    kind: str = Field(default="")  # "A", "B", "CHART"
 
 
 
