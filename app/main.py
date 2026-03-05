@@ -2588,6 +2588,77 @@ async def burst_create(
     return RedirectResponse(f"/burst/{rep.id}", status_code=303)
 
 
+from fastapi import UploadFile, File, Form
+from starlette.responses import RedirectResponse
+import uuid, os, shutil
+
+BURST_UPLOAD_DIR = "/app/uploads/burst"  # create if not exist
+
+def _ensure_dir(p: str):
+    os.makedirs(p, exist_ok=True)
+
+@app.post("/burst/{report_id}/sample/{sample_id}/upload")
+async def burst_sample_upload(
+    report_id: int,
+    sample_id: int,
+    kind: str = Form(...),  # "A" / "B" / "CHART"
+    file: UploadFile = File(...),
+    session: Session = Depends(get_session),
+):
+    rep = session.get(BurstTestReport, report_id)
+    if not rep:
+        raise HTTPException(404, "Burst report not found")
+
+    sample = session.get(BurstSample, sample_id)
+    if not sample or sample.report_id != report_id:
+        raise HTTPException(404, "Sample not found")
+
+    kind = (kind or "").strip().upper()
+    if kind not in {"A", "B", "CHART"}:
+        raise HTTPException(400, "Invalid kind")
+
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in {".png", ".jpg", ".jpeg", ".webp"}:
+        raise HTTPException(400, "Only png/jpg/jpeg/webp allowed")
+
+    _ensure_dir(BURST_UPLOAD_DIR)
+    safe_name = f"{report_id}_{sample_id}_{kind}_{uuid.uuid4().hex}{ext}"
+    path = os.path.join(BURST_UPLOAD_DIR, safe_name)
+
+    with open(path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    # Upsert: keep only ONE attachment per kind per sample
+    old = session.exec(
+        select(BurstAttachment)
+        .where(BurstAttachment.report_id == report_id)
+        .where(BurstAttachment.sample_id == sample_id)
+        .where(BurstAttachment.kind == kind)
+    ).first()
+
+    if old:
+        try:
+            if old.file_path and os.path.exists(old.file_path):
+                os.remove(old.file_path)
+        except Exception:
+            pass
+        old.file_path = path
+        old.caption = kind
+        session.add(old)
+    else:
+        att = BurstAttachment(
+            report_id=report_id,
+            sample_id=sample_id,
+            kind=kind,
+            caption=kind,
+            file_path=path,
+        )
+        session.add(att)
+
+    session.commit()
+    return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
+    
+
 @app.get("/burst/{report_id}")
 def burst_view(report_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
