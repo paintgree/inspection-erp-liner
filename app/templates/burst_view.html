@@ -29,18 +29,68 @@
   table.table th, table.table td { border-bottom:1px solid #eee; padding:10px; text-align:left; vertical-align:top; }
   table.table th { font-size:13px; color:#374151; background:#fafafa; }
   input, select, textarea { width:100%; }
-  .attach-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+    .attach-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
   .attach-card {
     border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#fff;
   }
+  .crop-frame {
+    position: relative;
+    width: 100%;
+    height: 220px;
+    overflow: hidden;
+    border: 1px dashed #9ca3af;
+    border-radius: 8px;
+    background: #f8fafc;
+    margin: 10px 0;
+  }
+  .crop-frame::before,
+  .crop-frame::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    pointer-events: none;
+    opacity: 0.5;
+  }
+  .crop-frame::before {
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    border-left: 1px dashed #94a3b8;
+  }
+  .crop-frame::after {
+    top: 50%;
+    left: 0;
+    right: 0;
+    border-top: 1px dashed #94a3b8;
+  }
   .attach-preview {
-    width:100%;
-    max-height:220px;
-    object-fit:contain;
-    border:1px solid #ddd;
-    border-radius:8px;
-    background:#fafafa;
-    display:block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transform: translate(var(--move-x, 0px), var(--move-y, 0px)) scale(var(--zoom, 1));
+    transform-origin: center center;
+  }
+  .crop-empty {
+    height: 100%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#6b7280;
+    font-size:12px;
+    text-align:center;
+    padding:12px;
+  }
+  .crop-controls {
+    display:grid;
+    gap:8px;
+    margin-top:8px;
+  }
+  .crop-controls label {
+    display:grid;
+    gap:4px;
+    font-size:12px;
+    color:#374151;
   }
   .save-row {
     margin-top:12px; display:flex; justify-content:flex-end;
@@ -245,69 +295,132 @@
         <div class="attach-grid">
           <div class="attach-card">
             <label><b>Full Pipe Photo</b></label>
-            {% if att_map.get(s.id, {}).get("PHOTO_FULL") %}
-              <div style="margin:10px 0;">
+            {% set meta = crop_meta.get(s.id, {}).get("PHOTO_FULL", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0}) %}
+            <div class="crop-frame">
+              {% if att_map.get(s.id, {}).get("PHOTO_FULL") %}
                 <img
                   src="/burst/files/{{ att_map[s.id]['PHOTO_FULL'].id }}/view"
                   alt="Full Pipe"
-                  class="attach-preview">
-              </div>
-              <div style="margin-bottom:6px; font-size:12px; color:green;">Uploaded ✅</div>
-            {% else %}
-              <div style="margin:10px 0; font-size:12px; color:#6b7280;">Not uploaded yet</div>
-            {% endif %}
+                  class="attach-preview js-crop-image"
+                  style="--zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 60 }}px; --move-y:{{ -meta.offset_y * 60 }}px;">
+              {% else %}
+                <div class="crop-empty">Not uploaded yet</div>
+              {% endif %}
+            </div>
+            <div style="margin-bottom:6px; font-size:12px; color:green;">
+              {% if att_map.get(s.id, {}).get("PHOTO_FULL") %}Uploaded ✅{% else %}Choose a file and adjust framing{% endif %}
+            </div>
             <input type="file" name="photo_full" accept="image/*">
+            <input type="hidden" name="crop_photo_full" class="js-crop-hidden" value='{{ meta|tojson|safe }}'>
+            <div class="crop-controls">
+              <label>Zoom
+                <input type="range" min="1" max="3" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
+              </label>
+              <label>Left / Right
+                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_x }}" class="js-crop-x">
+              </label>
+              <label>Up / Down
+                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_y }}" class="js-crop-y">
+              </label>
+            </div>
           </div>
 
           <div class="attach-card">
             <label><b>Side A Photo</b></label>
-            {% if att_map.get(s.id, {}).get("PHOTO_A") %}
-              <div style="margin:10px 0;">
+            {% set meta = crop_meta.get(s.id, {}).get("PHOTO_A", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0}) %}
+            <div class="crop-frame">
+              {% if att_map.get(s.id, {}).get("PHOTO_A") %}
                 <img
                   src="/burst/files/{{ att_map[s.id]['PHOTO_A'].id }}/view"
                   alt="Side A"
-                  class="attach-preview">
-              </div>
-              <div style="margin-bottom:6px; font-size:12px; color:green;">Uploaded ✅</div>
-            {% else %}
-              <div style="margin:10px 0; font-size:12px; color:#6b7280;">Not uploaded yet</div>
-            {% endif %}
+                  class="attach-preview js-crop-image"
+                  style="--zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 60 }}px; --move-y:{{ -meta.offset_y * 60 }}px;">
+              {% else %}
+                <div class="crop-empty">Not uploaded yet</div>
+              {% endif %}
+            </div>
+            <div style="margin-bottom:6px; font-size:12px; color:green;">
+              {% if att_map.get(s.id, {}).get("PHOTO_A") %}Uploaded ✅{% else %}Choose a file and adjust framing{% endif %}
+            </div>
             <input type="file" name="photo_a" accept="image/*">
+            <input type="hidden" name="crop_photo_a" class="js-crop-hidden" value='{{ meta|tojson|safe }}'>
+            <div class="crop-controls">
+              <label>Zoom
+                <input type="range" min="1" max="3" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
+              </label>
+              <label>Left / Right
+                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_x }}" class="js-crop-x">
+              </label>
+              <label>Up / Down
+                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_y }}" class="js-crop-y">
+              </label>
+            </div>
           </div>
 
           <div class="attach-card">
             <label><b>Side B Photo</b></label>
-            {% if att_map.get(s.id, {}).get("PHOTO_B") %}
-              <div style="margin:10px 0;">
+            {% set meta = crop_meta.get(s.id, {}).get("PHOTO_B", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0}) %}
+            <div class="crop-frame">
+              {% if att_map.get(s.id, {}).get("PHOTO_B") %}
                 <img
                   src="/burst/files/{{ att_map[s.id]['PHOTO_B'].id }}/view"
                   alt="Side B"
-                  class="attach-preview">
-              </div>
-              <div style="margin-bottom:6px; font-size:12px; color:green;">Uploaded ✅</div>
-            {% else %}
-              <div style="margin:10px 0; font-size:12px; color:#6b7280;">Not uploaded yet</div>
-            {% endif %}
+                  class="attach-preview js-crop-image"
+                  style="--zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 60 }}px; --move-y:{{ -meta.offset_y * 60 }}px;">
+              {% else %}
+                <div class="crop-empty">Not uploaded yet</div>
+              {% endif %}
+            </div>
+            <div style="margin-bottom:6px; font-size:12px; color:green;">
+              {% if att_map.get(s.id, {}).get("PHOTO_B") %}Uploaded ✅{% else %}Choose a file and adjust framing{% endif %}
+            </div>
             <input type="file" name="photo_b" accept="image/*">
+            <input type="hidden" name="crop_photo_b" class="js-crop-hidden" value='{{ meta|tojson|safe }}'>
+            <div class="crop-controls">
+              <label>Zoom
+                <input type="range" min="1" max="3" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
+              </label>
+              <label>Left / Right
+                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_x }}" class="js-crop-x">
+              </label>
+              <label>Up / Down
+                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_y }}" class="js-crop-y">
+              </label>
+            </div>
           </div>
 
           <div class="attach-card">
             <label><b>Chart</b></label>
-            {% if att_map.get(s.id, {}).get("CHART") %}
-              <div style="margin:10px 0;">
+            {% set meta = crop_meta.get(s.id, {}).get("CHART", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0}) %}
+            <div class="crop-frame">
+              {% if att_map.get(s.id, {}).get("CHART") %}
                 <img
                   src="/burst/files/{{ att_map[s.id]['CHART'].id }}/view"
                   alt="Chart"
-                  class="attach-preview">
-              </div>
-              <div style="margin-bottom:6px; font-size:12px; color:green;">Uploaded ✅</div>
-            {% else %}
-              <div style="margin:10px 0; font-size:12px; color:#6b7280;">Not uploaded yet</div>
-            {% endif %}
+                  class="attach-preview js-crop-image"
+                  style="object-fit:contain; --zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 60 }}px; --move-y:{{ -meta.offset_y * 60 }}px;">
+              {% else %}
+                <div class="crop-empty">Not uploaded yet</div>
+              {% endif %}
+            </div>
+            <div style="margin-bottom:6px; font-size:12px; color:green;">
+              {% if att_map.get(s.id, {}).get("CHART") %}Uploaded ✅{% else %}Choose a file and adjust framing{% endif %}
+            </div>
             <input type="file" name="chart" accept="image/*">
+            <input type="hidden" name="crop_chart" class="js-crop-hidden" value='{{ meta|tojson|safe }}'>
+            <div class="crop-controls">
+              <label>Zoom
+                <input type="range" min="1" max="3" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
+              </label>
+              <label>Left / Right
+                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_x }}" class="js-crop-x">
+              </label>
+              <label>Up / Down
+                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_y }}" class="js-crop-y">
+              </label>
+            </div>
           </div>
         </div>
-
         <div class="save-row">
           <button class="btn btn-primary" type="submit">Upload Attachments</button>
         </div>
@@ -351,6 +464,67 @@
       const r = document.getElementById("result_serial_" + id);
       if (r) r.value = inp.value;
     });
+  });
+
+  document.querySelectorAll(".attach-card").forEach(card => {
+    const img = card.querySelector(".js-crop-image");
+    const zoom = card.querySelector(".js-crop-zoom");
+    const x = card.querySelector(".js-crop-x");
+    const y = card.querySelector(".js-crop-y");
+    const hidden = card.querySelector(".js-crop-hidden");
+    const file = card.querySelector('input[type="file"]');
+
+    function apply(){
+      if (!hidden) return;
+
+      const zoomVal = parseFloat(zoom?.value || "1");
+      const xVal = parseFloat(x?.value || "0");
+      const yVal = parseFloat(y?.value || "0");
+
+      hidden.value = JSON.stringify({
+        zoom: zoomVal,
+        offset_x: xVal,
+        offset_y: yVal
+      });
+
+      if (img) {
+        img.style.setProperty("--zoom", zoomVal);
+        img.style.setProperty("--move-x", (xVal * 60) + "px");
+        img.style.setProperty("--move-y", (-yVal * 60) + "px");
+      }
+    }
+
+    [zoom, x, y].forEach(el => {
+      el && el.addEventListener("input", apply);
+    });
+
+    file && file.addEventListener("change", function(){
+      const selected = this.files && this.files[0];
+      if (!selected) return;
+
+      const frame = card.querySelector(".crop-frame");
+      let targetImg = card.querySelector(".js-crop-image");
+
+      if (!targetImg) {
+        frame.innerHTML = "";
+        targetImg = document.createElement("img");
+        targetImg.className = "attach-preview js-crop-image";
+        targetImg.alt = "Preview";
+        frame.appendChild(targetImg);
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e){
+        targetImg.src = e.target.result;
+        zoom.value = "1";
+        x.value = "0";
+        y.value = "0";
+        apply();
+      };
+      reader.readAsDataURL(selected);
+    });
+
+    apply();
   });
 })();
 </script>
