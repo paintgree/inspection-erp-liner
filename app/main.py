@@ -2638,8 +2638,11 @@ async def burst_upload_attachments(
             )
             session.add(att)
         else:
-            att.file_path = rel_path
+            att.report_id = report_id
+            att.sample_id = sample_id
+            att.kind = kind
             att.caption = kind
+            att.file_path = rel_path
             session.add(att)
 
         return rel_path
@@ -2712,19 +2715,23 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
 
 
     # -----------------------------
-    # Attachment status for template
+    # Attachments for template
     # -----------------------------
-    att_status = {}
-    
     att_rows = session.exec(
         select(BurstAttachment).where(BurstAttachment.report_id == rep.id)
     ).all()
-    
+
+    att_status = {}
+    att_map = defaultdict(dict)
+
     for a in att_rows:
         sid = getattr(a, "sample_id", None)
-        kind = (getattr(a, "kind", "") or "").upper()
-        if sid is not None and kind:
-            att_status[(sid, kind)] = True
+        kind = (getattr(a, "kind", "") or "").strip().upper()
+        if sid is None or not kind:
+            continue
+
+        att_status[(sid, kind)] = True
+        att_map[sid][kind] = a
 
         
 
