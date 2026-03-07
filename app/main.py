@@ -2847,20 +2847,23 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             if reinf_run:
                 live["reinforcement_material_grade"] = (getattr(reinf_run, "raw_material_spec", "") or "").strip()
 
-        # -----------------------------
-        # Attachment status for template
-        # -----------------------------
-        att_status = {}
+
+    # -----------------------------
+    # Attachment status for template
+    # -----------------------------
+    att_status = {}
     
-        att_rows = session.exec(
-            select(BurstAttachment).where(BurstAttachment.report_id == rep.id)
-        ).all()
+    att_rows = session.exec(
+        select(BurstAttachment).where(BurstAttachment.report_id == rep.id)
+    ).all()
     
-        for a in att_rows:
-            sid = getattr(a, "sample_id", None)
-            kind = (getattr(a, "kind", "") or "").upper()
-            if sid is not None and kind:
-                att_status[(sid, kind)] = True
+    for a in att_rows:
+        sid = getattr(a, "sample_id", None)
+        kind = (getattr(a, "kind", "") or "").upper()
+        if sid is not None and kind:
+            att_status[(sid, kind)] = True
+
+        
 
     samples = session.exec(
         select(BurstSample)
