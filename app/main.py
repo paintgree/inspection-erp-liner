@@ -2580,6 +2580,119 @@ BURST_UPLOAD_DIR = "/app/uploads/burst"  # create if not exist
 def _ensure_dir(p: str):
     os.makedirs(p, exist_ok=True)
 
+def _burst_meta_path(abs_path: str) -> str:
+    return f"{abs_path}.json"
+
+
+def _save_burst_image_meta(abs_path: str, meta_json: str | None):
+    if not abs_path:
+        return
+
+    meta = {
+        "zoom": 1.0,
+        "offset_x": 0.0,
+        "offset_y": 0.0,
+    }
+
+    try:
+        raw = json.loads(meta_json or "{}")
+        if isinstance(raw, dict):
+            meta["zoom"] = max(1.0, min(3.0, float(raw.get("zoom", 1.0) or 1.0)))
+            meta["offset_x"] = max(-1.0, min(1.0, float(raw.get("offset_x", 0.0) or 0.0)))
+            meta["offset_y"] = max(-1.0, min(1.0, float(raw.get("offset_y", 0.0) or 0.0)))
+    except Exception:
+        pass
+
+    with open(_burst_meta_path(abs_path), "w", encoding="utf-8") as f:
+        json.dump(meta, f)
+
+
+def _load_burst_image_meta(abs_path: str) -> dict:
+    meta_path = _burst_meta_path(abs_path)
+    if not abs_path or not os.path.exists(meta_path):
+        return {"zoom": 1.0, "offset_x": 0.0, "offset_y": 0.0}
+
+    try:
+        with open(meta_path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        return {
+            "zoom": max(1.0, min(3.0, float(raw.get("zoom", 1.0) or 1.0))),
+            "offset_x": max(-1.0, min(1.0, float(raw.get("offset_x", 0.0) or 0.0))),
+            "offset_y": max(-1.0, min(1.0, float(raw.get("offset_y", 0.0) or 0.0))),
+        }
+    except Exception:
+        return {"zoom": 1.0, "offset_x": 0.0, "offset_y": 0.0}
+
+
+def _render_burst_image_to_box(real_path: str, box_w: float, box_h: float, allow_rotate: bool = False, fill_box: bool = False):
+    from PIL import Image, ImageOps
+
+    img = Image.open(real_path)
+    img = ImageOps.exif_transpose(img)
+
+    if allow_rotate and img.height > img.width:
+        img = img.rotate(90, expand=True)
+
+    if img.mode not in ("RGB", "L"):
+        img = img.convert("RGB")
+
+    iw, ih = img.size
+    target_ratio = float(box_w) / float(box_h)
+    resample = getattr(Image, "Resampling", Image).LANCZOS
+
+    target_px_w = max(400, int(box_w * 4))
+    target_px_h = max(300, int(box_h * 4))
+
+    if not fill_box:
+        canvas_img = Image.new("RGB", (target_px_w, target_px_h), "white")
+        scale = min(target_px_w / float(iw), target_px_h / float(ih))
+        dw, dh = int(iw * scale), int(ih * scale)
+        resized = img.resize((dw, dh), resample)
+        px = (target_px_w - dw) // 2
+        py = (target_px_h - dh) // 2
+        canvas_img.paste(resized, (px, py))
+
+        out = BytesIO()
+        canvas_img.save(out, format="JPEG", quality=92)
+        out.seek(0)
+        return out
+
+    meta = _load_burst_image_meta(real_path)
+    zoom = float(meta.get("zoom", 1.0) or 1.0)
+    offset_x = float(meta.get("offset_x", 0.0) or 0.0)
+    offset_y = float(meta.get("offset_y", 0.0) or 0.0)
+
+    img_ratio = float(iw) / float(ih)
+
+    if img_ratio >= target_ratio:
+        base_h = float(ih)
+        base_w = base_h * target_ratio
+    else:
+        base_w = float(iw)
+        base_h = base_w / target_ratio
+
+    crop_w = max(1.0, min(float(iw), base_w / zoom))
+    crop_h = max(1.0, min(float(ih), base_h / zoom))
+
+    max_shift_x = max(0.0, (float(iw) - crop_w) / 2.0)
+    max_shift_y = max(0.0, (float(ih) - crop_h) / 2.0)
+
+    center_x = (float(iw) / 2.0) + (offset_x * max_shift_x)
+    center_y = (float(ih) / 2.0) - (offset_y * max_shift_y)
+
+    left = max(0.0, min(float(iw) - crop_w, center_x - (crop_w / 2.0)))
+    top = max(0.0, min(float(ih) - crop_h, center_y - (crop_h / 2.0)))
+    right = left + crop_w
+    bottom = top + crop_h
+
+    cropped = img.crop((int(round(left)), int(round(top)), int(round(right)), int(round(bottom))))
+    cropped = cropped.resize((target_px_w, target_px_h), resample)
+
+    out = BytesIO()
+    cropped.save(out, format="JPEG", quality=92)
+    out.seek(0)
+    return out
+
 
 @app.post("/burst/{report_id}/sample/{sample_id}/upload_attachments")
 async def burst_upload_attachments(
@@ -2590,6 +2703,10 @@ async def burst_upload_attachments(
     photo_a: UploadFile = File(None),
     photo_b: UploadFile = File(None),
     chart: UploadFile = File(None),
+    crop_photo_full: str = Form(""),
+    crop_photo_a: str = Form(""),
+    crop_photo_b: str = Form(""),
+    crop_chart: str = Form(""),
     session: Session = Depends(get_session),
 ):
     rep = session.get(BurstTestReport, report_id)
@@ -2603,23 +2720,7 @@ async def burst_upload_attachments(
     upload_dir = os.path.join(BURST_FILES_DIR, str(report_id), str(sample_id))
     os.makedirs(upload_dir, exist_ok=True)
 
-    def _save_one(file: UploadFile, kind: str):
-        if not file or not getattr(file, "filename", ""):
-            return None
-
-        ext = (os.path.splitext(file.filename)[1] or ".jpg").lower()
-        if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
-            return None
-
-        safe_name = f"{kind}{ext}"
-        abs_path = os.path.join(upload_dir, safe_name)
-
-        data = file.file.read()
-        with open(abs_path, "wb") as f:
-            f.write(data)
-
-        rel_path = os.path.relpath(abs_path, BASE_DIR)
-
+    def _save_one(file: UploadFile, kind: str, crop_json: str = ""):
         att = session.exec(
             select(BurstAttachment).where(
                 (BurstAttachment.report_id == report_id) &
@@ -2628,29 +2729,51 @@ async def burst_upload_attachments(
             )
         ).first()
 
-        if not att:
-            att = BurstAttachment(
-                report_id=report_id,
-                sample_id=sample_id,
-                kind=kind,
-                caption=kind,
-                file_path=rel_path,
-            )
-            session.add(att)
-        else:
-            att.report_id = report_id
-            att.sample_id = sample_id
-            att.kind = kind
-            att.caption = kind
-            att.file_path = rel_path
+        abs_path = ""
+
+        if file and getattr(file, "filename", ""):
+            ext = (os.path.splitext(file.filename)[1] or ".jpg").lower()
+            if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
+                return None
+
+            safe_name = f"{kind}{ext}"
+            abs_path = os.path.join(upload_dir, safe_name)
+
+            data = file.file.read()
+            with open(abs_path, "wb") as f:
+                f.write(data)
+
+            rel_path = os.path.relpath(abs_path, BASE_DIR)
+
+            if not att:
+                att = BurstAttachment(
+                    report_id=report_id,
+                    sample_id=sample_id,
+                    kind=kind,
+                    caption=kind,
+                    file_path=rel_path,
+                )
+            else:
+                att.report_id = report_id
+                att.sample_id = sample_id
+                att.kind = kind
+                att.caption = kind
+                att.file_path = rel_path
+
             session.add(att)
 
-        return rel_path
+        elif att and getattr(att, "file_path", ""):
+            abs_path = resolve_burst_file_path(att.file_path or "")
 
-    _save_one(photo_full, "PHOTO_FULL")
-    _save_one(photo_a, "PHOTO_A")
-    _save_one(photo_b, "PHOTO_B")
-    _save_one(chart, "CHART")
+        if abs_path and os.path.exists(abs_path):
+            _save_burst_image_meta(abs_path, crop_json)
+
+        return abs_path
+
+    _save_one(photo_full, "PHOTO_FULL", crop_photo_full)
+    _save_one(photo_a, "PHOTO_A", crop_photo_a)
+    _save_one(photo_b, "PHOTO_B", crop_photo_b)
+    _save_one(chart, "CHART", crop_chart)
 
     session.commit()
     return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
@@ -2768,6 +2891,14 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
     att_map = defaultdict(dict)
     for a in att_rows:
         att_map[a.sample_id][a.kind] = a
+
+    crop_meta = defaultdict(dict)
+    for a in att_rows:
+        sid = getattr(a, "sample_id", None)
+        kind = (getattr(a, "kind", "") or "").strip().upper()
+        real_path = resolve_burst_file_path(getattr(a, "file_path", "") or "")
+        if sid is not None and kind and real_path:
+            crop_meta[sid][kind] = _load_burst_image_meta(real_path)
     
 
     return templates.TemplateResponse(
@@ -2783,6 +2914,7 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             "audit": audit,
             "att_status": att_status,
             "att_map": att_map,
+            "crop_meta": crop_meta,
         },
     )
 
@@ -3467,36 +3599,8 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         b_path = _get_att_path(sid, "PHOTO_B")
         chart_path = _get_att_path(sid, "CHART")
 
-        # ----------------------------
-        # Content below line
-        # ----------------------------
-        content_top = line_y - 8 * mm
-
-        length_txt = _txt(getattr(s, "sample_length_m", "")) or "-"
-        burst_txt = _txt(getattr(s, "actual_burst_psi", "")) or "-"
-        result_txt = _txt(getattr(s, "test_result", "")) or "-"
-
-        c2.setFont("Helvetica", 9)
-        c2.drawString(
-            margin_x,
-            content_top,
-            f"Length: {length_txt}   Actual Burst: {burst_txt}   Result: {result_txt}"
-        )
-
-        gap = 4 * mm
-        usable_w = w2 - (2 * margin_x)
-
-        chart_y_top = info_y - 8 * mm
-        chart_h = 70 * mm
-
-        full_y_top = chart_y_top - chart_h - 10 * mm
-        full_h = 48 * mm
-
-        bottom_y_top = full_y_top - full_h - 10 * mm
-        bottom_h = 42 * mm
-        half_w = (usable_w - gap) / 2
-
-        def draw_labeled_image(path, x, y_top, box_w, box_h, label, allow_rotate=False, fill_box=False):
+        
+            def draw_labeled_image(path, x, y_top, box_w, box_h, label, allow_rotate=False, fill_box=False):
             c2.setFont("Helvetica", 9)
             c2.drawString(x, y_top, label)
 
@@ -3513,34 +3617,21 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
                 return
 
             try:
-                from PIL import Image
-
-                img = Image.open(real_path)
-
-                # auto-rotate tall photos to landscape if requested
-                if allow_rotate and img.height > img.width:
-                    img = img.rotate(90, expand=True)
-
-                iw, ih = img.size
-
-                if fill_box:
-                    scale = max(box_w / float(iw), box_h / float(ih))
-                else:
-                    scale = min(box_w / float(iw), box_h / float(ih))
-
-                dw, dh = float(iw) * scale, float(ih) * scale
-                dx = x + (box_w - dw) / 2
-                dy = img_top - dh - (box_h - dh) / 2
-
-                # save temp image into memory for reportlab
-                temp_buf = BytesIO()
-                if img.mode not in ("RGB", "L"):
-                    img = img.convert("RGB")
-                img.save(temp_buf, format="JPEG")
-                temp_buf.seek(0)
-
-                c2.drawImage(ImageReader(temp_buf), dx, dy, width=dw, height=dh, mask="auto")
-
+                temp_buf = _render_burst_image_to_box(
+                    real_path,
+                    box_w,
+                    box_h,
+                    allow_rotate=allow_rotate,
+                    fill_box=fill_box,
+                )
+                c2.drawImage(
+                    ImageReader(temp_buf),
+                    x,
+                    img_top - box_h,
+                    width=box_w,
+                    height=box_h,
+                    mask="auto",
+                )
             except Exception:
                 c2.drawString(x + 4 * mm, img_top - 10 * mm, "Could not load image")
 
