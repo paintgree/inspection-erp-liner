@@ -359,7 +359,7 @@
 
           <div class="attach-card">
             <label><b>Side A Photo</b></label>
-            {% set meta = crop_meta.get(s.id, {}).get("PHOTO_A", {{"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
+            {% set meta = crop_meta.get(s.id, {}).get("PHOTO_A", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
             <div class="crop-frame">
               {% if att_map.get(s.id, {}).get("PHOTO_A") %}
                 <img
