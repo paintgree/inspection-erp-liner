@@ -2598,7 +2598,7 @@ def _save_burst_image_meta(abs_path: str, meta_json: str | None):
     try:
         raw = json.loads(meta_json or "{}")
         if isinstance(raw, dict):
-            meta["zoom"] = max(1.0, min(3.0, float(raw.get("zoom", 1.0) or 1.0)))
+            meta["zoom"] = max(0.2, min(4.0, float(raw.get("zoom", 1.0) or 1.0)))
             meta["offset_x"] = max(-1.0, min(1.0, float(raw.get("offset_x", 0.0) or 0.0)))
             meta["offset_y"] = max(-1.0, min(1.0, float(raw.get("offset_y", 0.0) or 0.0)))
 
@@ -2628,7 +2628,7 @@ def _load_burst_image_meta(abs_path: str) -> dict:
             rotation = 0
 
         return {
-            "zoom": max(1.0, min(3.0, float(raw.get("zoom", 1.0) or 1.0))),
+            "zoom": max(0.2, min(4.0, float(raw.get("zoom", 1.0) or 1.0))),
             "offset_x": max(-1.0, min(1.0, float(raw.get("offset_x", 0.0) or 0.0))),
             "offset_y": max(-1.0, min(1.0, float(raw.get("offset_y", 0.0) or 0.0))),
             "rotation": rotation,
@@ -2645,10 +2645,12 @@ def _render_burst_image_to_box(real_path: str, box_w: float, box_h: float, allow
 
     meta = _load_burst_image_meta(real_path)
     rotation = int(meta.get("rotation", 0) or 0)
+    zoom = float(meta.get("zoom", 1.0) or 1.0)
+    offset_x = float(meta.get("offset_x", 0.0) or 0.0)
+    offset_y = float(meta.get("offset_y", 0.0) or 0.0)
 
     if rotation in (90, 180, 270):
         img = img.rotate(-rotation, expand=True)
-
     elif allow_rotate and img.height > img.width:
         img = img.rotate(90, expand=True)
 
@@ -2656,26 +2658,38 @@ def _render_burst_image_to_box(real_path: str, box_w: float, box_h: float, allow
         img = img.convert("RGB")
 
     iw, ih = img.size
-    target_ratio = float(box_w) / float(box_h)
     resample = getattr(Image, "Resampling", Image).LANCZOS
 
     target_px_w = max(400, int(box_w * 4))
     target_px_h = max(300, int(box_h * 4))
 
-    if not fill_box:
-        canvas_img = Image.new("RGB", (target_px_w, target_px_h), "white")
-        scale = min(target_px_w / float(iw), target_px_h / float(ih))
-        dw, dh = int(iw * scale), int(ih * scale)
-        resized = img.resize((dw, dh), resample)
-        px = (target_px_w - dw) // 2
-        py = (target_px_h - dh) // 2
-        canvas_img.paste(resized, (px, py))
+    canvas_img = Image.new("RGB", (target_px_w, target_px_h), "white")
 
-        out = BytesIO()
-        canvas_img.save(out, format="JPEG", quality=92)
-        out.seek(0)
-        return out
+    base_scale = min(target_px_w / float(iw), target_px_h / float(ih))
+    final_scale = base_scale * zoom
 
+    draw_w = max(1, int(iw * final_scale))
+    draw_h = max(1, int(ih * final_scale))
+
+    resized = img.resize((draw_w, draw_h), resample)
+
+    max_shift_x = max(0, (draw_w - target_px_w) // 2)
+    max_shift_y = max(0, (draw_h - target_px_h) // 2)
+
+    shift_x = int(offset_x * max_shift_x)
+    shift_y = int(-offset_y * max_shift_y)
+
+    px = (target_px_w - draw_w) // 2 + shift_x
+    py = (target_px_h - draw_h) // 2 + shift_y
+
+    canvas_img.paste(resized, (px, py))
+
+    out = BytesIO()
+    canvas_img.save(out, format="JPEG", quality=92)
+    out.seek(0)
+    return out
+
+    
     zoom = float(meta.get("zoom", 1.0) or 1.0)
     offset_x = float(meta.get("offset_x", 0.0) or 0.0)
     offset_y = float(meta.get("offset_y", 0.0) or 0.0)
