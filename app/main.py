@@ -3389,7 +3389,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         w2, h2 = A4
 
         margin_x = 12 * mm
-        top_y = h2 - 15 * mm
+        top_y = h2 - 18 * mm
         line_y = h2 - 34 * mm
 
         # ----------------------------
@@ -3412,8 +3412,8 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
         serial = _txt(getattr(s, "sample_serial_number", "")) or f"{idx}"
 
-        c2.setFont("Helvetica-Bold", 14)
-        c2.drawCentredString(w2 / 2, top_y, f"{serial} Burst Test Report")
+        c2.setFont("Helvetica-Bold", 16)
+        c2.drawCentredString(w2 / 2, top_y, "Short-Time Hydrostatic Burst Pressure Test Report")
 
         c2.setLineWidth(0.8)
         c2.line(margin_x, line_y, w2 - margin_x, line_y)
