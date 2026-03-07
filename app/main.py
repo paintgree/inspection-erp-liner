@@ -3425,60 +3425,126 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     if not report:
         raise HTTPException(404, "Burst report not found")
 
-    # Load samples
     samples = session.exec(
         select(BurstSample)
         .where(BurstSample.report_id == report.id)
         .order_by(BurstSample.id.asc())
     ).all()
 
-    n = int(getattr(report, "total_no_of_specimens", None) or len(samples) or 1)
-    if n < 1:
-        n = 1
-    if n > 50:
-        n = 50
-    samples = samples[:n] if samples else []
+    specimen_count = int(getattr(report, "total_no_of_specimens", None) or len(samples) or 1)
+    specimen_count = max(1, min(specimen_count, 50))
+    samples = samples[:specimen_count] if samples else []
 
-    # Attachments (photos)
     atts = session.exec(
         select(BurstAttachment)
         .where(BurstAttachment.report_id == report.id)
-        .order_by(BurstAttachment.uploaded_at.asc())
+        .order_by(BurstAttachment.sample_id.asc(), BurstAttachment.uploaded_at.asc())
     ).all()
 
     doc_no = _txt(getattr(report, "doc_control_no", "")) or "DOC CONTROL NO: __________"
-
     pages: list[bytes] = []
 
-    def new_page(title="Burst Test Report"):
+    def new_page(title: str = "Burst Test Report"):
         buf = BytesIO()
         c = canvas.Canvas(buf, pagesize=A4)
         return buf, c, title
 
-    # ---------------- PAGE 1 ----------------
+    def _draw_boxed_image(c, path: str, x: float, y_top: float, box_w: float, box_h: float, label: str):
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(x, y_top, label)
+
+        img_top = y_top - 4 * mm
+        c.rect(x, img_top - box_h, box_w, box_h, stroke=1, fill=0)
+
+        if not path or not os.path.exists(path):
+            c.setFont("Helvetica", 9)
+            c.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
+            return
+
+        try:
+            img = ImageReader(path)
+            iw, ih = img.getSize()
+            scale = min(box_w / float(iw), box_h / float(ih))
+            dw, dh = float(iw) * scale, float(ih) * scale
+            dx = x + (box_w - dw) / 2
+            dy = img_top - dh - (box_h - dh) / 2
+            c.drawImage(img, dx, dy, width=dw, height=dh, mask="auto")
+        except Exception:
+            c.setFont("Helvetica", 9)
+            c.drawString(x + 4 * mm, img_top - 10 * mm, "Could not load image")
+
+    def _stamp_page_numbers(pdf_bytes: bytes) -> bytes:
+        reader = PdfReader(BytesIO(pdf_bytes))
+        writer = PdfWriter()
+        total_pages = len(reader.pages)
+
+        for i, page in enumerate(reader.pages, start=1):
+            w0 = float(page.mediabox.width)
+            h0 = float(page.mediabox.height)
+
+            stamp_buf = BytesIO()
+            sc = canvas.Canvas(stamp_buf, pagesize=(w0, h0))
+
+            sc.setFillColor(colors.white)
+            sc.rect(0, 0, w0, 20 * mm, stroke=0, fill=1)
+
+            sc.setFont("Helvetica", 9)
+            sc.setFillColor(colors.grey)
+            sc.drawString(20 * mm, 12 * mm, doc_no)
+            sc.drawRightString(w0 - 20 * mm, 12 * mm, f"Page {i}/{total_pages}")
+            sc.showPage()
+            sc.save()
+            stamp_buf.seek(0)
+
+            stamp_reader = PdfReader(stamp_buf)
+            page.merge_page(stamp_reader.pages[0])
+            writer.add_page(page)
+
+        out = BytesIO()
+        writer.write(out)
+        return out.getvalue()
+
+    att_map = {}
+    for a in atts:
+        sample_id = getattr(a, "sample_id", None)
+        kind = (getattr(a, "kind", "") or "").strip().upper()
+        if sample_id is None or not kind:
+            continue
+        att_map[(sample_id, kind)] = a
+
+    def _get_att_path(sample_id: int | None, *kinds: str) -> str:
+        if sample_id is None:
+            return ""
+        for kind in kinds:
+            att = att_map.get((sample_id, kind))
+            if not att:
+                continue
+            raw_path = getattr(att, "file_path", "") or ""
+            p = resolve_burst_file_path(raw_path)
+            if p and os.path.exists(p):
+                return p
+        return ""
+
+    # ------------------------------------------------------------
+    # PAGE 1: report contents
+    # ------------------------------------------------------------
     buf, c, title = new_page()
     w, h = A4
     y = h - 32 * mm
 
-    # Header/Footer (temporary page numbers; fixed later by stamping)
     _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
 
-    # Report Info
     c.setFont("Helvetica-Bold", 11)
     c.drawString(20 * mm, y, "Report Information")
     y -= 6 * mm
-
     y = _draw_report_info_table(c, report, 20 * mm, y)
     y -= 8 * mm
 
-    # Specimens
     c.setFont("Helvetica-Bold", 11)
     c.drawString(20 * mm, y, "Specimens")
     y -= 7 * mm
-
     y = _draw_specimen_blocks(c, report, samples, y)
 
-    # Results (move to next page if needed)
     if y < 85 * mm:
         c.showPage()
         _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
@@ -3487,352 +3553,73 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     c.setFont("Helvetica-Bold", 11)
     c.drawString(20 * mm, y, "Results")
     y -= 7 * mm
-    y = _draw_results_table(c, samples, y)  # make sure this says MPa
-
-    # Signatures at bottom
-    y = _draw_signatures(c, report, y)
+    y = _draw_results_table(c, samples, y)
+    _draw_signatures(c, report, y)
 
     c.showPage()
     c.save()
     pages.append(buf.getvalue())
 
+    # ------------------------------------------------------------
+    # NEXT PAGES: one attachment page per specimen
+    # ------------------------------------------------------------
+    for idx, s in enumerate(samples, start=1):
+        buf2, c2, title2 = new_page()
+        w2, h2 = A4
+        y2 = h2 - 32 * mm
 
-    # ---------------- CHART PAGE (optional) ----------------
-    atts = session.exec(
-        select(BurstAttachment)
-        .where(BurstAttachment.report_id == report.id)
-    ).all()
-    
-    # map: (sample_id, kind) -> path
-    att_map = {}
-    for a in atts:
-        att_map[(a.sample_id, (a.kind or "").upper())] = a.file_path
-    
-    chart_png = _make_burst_chart_png(samples)
-    if chart_png:
-        buf, c, title = new_page()
-        w, h = A4
-        _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
+        _draw_header_footer(c2, title=title2, doc_control_no=doc_no, page_num=1, page_total=1)
 
-        y = h - 35 * mm
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(20 * mm, y, "Burst Chart")
-        y -= 10 * mm
+        serial = _txt(getattr(s, "sample_serial_number", "")) or f"Specimen #{idx}"
+        c2.setFont("Helvetica-Bold", 12)
+        c2.drawString(20 * mm, y2, f"Specimen Attachments - {serial}")
+        y2 -= 8 * mm
 
-        try:
-            img = ImageReader(BytesIO(chart_png))
-            iw, ih = img.getSize()
-            max_w = w - 40 * mm
-            max_h = h - 70 * mm
-            scale = min(max_w / iw, max_h / ih)
-            dw, dh = iw * scale, ih * scale
-            c.drawImage(img, 20 * mm, 25 * mm, width=dw, height=dh, mask="auto")
-        except Exception:
-            pass
-
-        c.showPage()
-        c.save()
-        pages.append(buf.getvalue())
-
-    # ---------------- PHOTOS PAGES (optional) ----------------
-    for att in atts:
-        p = resolve_burst_file_path(getattr(att, "file_path", "") or "")
-        if not p or not os.path.exists(p):
-            continue
-        ext = os.path.splitext(p)[1].lower()
-        if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
-            continue
-
-        buf, c, title = new_page()
-        w, h = A4
-        _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
-
-        y = h - 35 * mm
-        c.setFont("Helvetica-Bold", 12)
-        cap = _txt(getattr(att, "caption", "")) or _txt(getattr(att, "kind", "PHOTO"))
-        c.drawString(20 * mm, y, f"Photo: {cap}")
-        y -= 10 * mm
-
-        try:
-            img = ImageReader(p)
-            iw, ih = img.getSize()
-            max_w = w - 40 * mm
-            max_h = h - 70 * mm
-            scale = min(max_w / iw, max_h / ih)
-            dw, dh = iw * scale, ih * scale
-            c.drawImage(img, (w - dw) / 2, 25 * mm, width=dw, height=dh, mask="auto")
-        except Exception:
-            pass
-
-        c.showPage()
-        c.save()
-        pages.append(buf.getvalue())
-
-        # -----------------------------
-        # FINALIZE MAIN REPORT PAGE
-        # -----------------------------
-        c.showPage()
-        c.save()
-        pages.append(buf.getvalue())
-    
-        # -----------------------------
-        # ATTACHMENT PAGES PER SAMPLE
-        # -----------------------------
-        att_rows = session.exec(
-            select(BurstAttachment)
-            .where(BurstAttachment.report_id == report.id)
-            .order_by(BurstAttachment.sample_id.asc(), BurstAttachment.kind.asc())
-        ).all()
-    
-        att_map = {}
-        for a in att_rows:
-            sid = getattr(a, "sample_id", None)
-            kind = (getattr(a, "kind", "") or "").upper()
-            if sid is not None and kind:
-                att_map[(sid, kind)] = getattr(a, "file_path", "")
-    
-        def _draw_image_on_page(c2, path, x, y_top, max_w, max_h, title):
-            c2.setFont("Helvetica-Bold", 11)
-            c2.drawString(x, y_top, title)
-            y_img = y_top - 6 * mm
-    
-            c2.rect(x, y_img - max_h, max_w, max_h, stroke=1, fill=0)
-    
-            if path and os.path.exists(path):
-                try:
-                    img = ImageReader(path)
-                    iw, ih = img.getSize()
-                    scale = min(max_w / iw, max_h / ih)
-                    dw, dh = iw * scale, ih * scale
-                    dx = x + (max_w - dw) / 2
-                    dy = y_img - dh - (max_h - dh) / 2
-                    c2.drawImage(img, dx, dy, width=dw, height=dh, mask="auto")
-                except Exception:
-                    c2.setFont("Helvetica", 9)
-                    c2.drawString(x + 4 * mm, y_img - 10 * mm, "Could not load image")
-            else:
-                c2.setFont("Helvetica", 9)
-                c2.drawString(x + 4 * mm, y_img - 10 * mm, "Not uploaded")
-    
-        for s in samples:
-            full_path = att_map.get((s.id, "PHOTO_FULL"))
-            a_path = att_map.get((s.id, "PHOTO_A"))
-            b_path = att_map.get((s.id, "PHOTO_B"))
-            chart_path = att_map.get((s.id, "CHART"))
-    
-            # skip if nothing uploaded
-            if not any([full_path, a_path, b_path, chart_path]):
-                continue
-    
-            buf2 = BytesIO()
-            c2 = canvas.Canvas(buf2, pagesize=A4)
-            w2, h2 = A4
-    
-            _draw_header_footer(
-                c2,
-                title="Burst Test Report",
-                doc_control_no=doc_no,
-                page_num=1,
-                page_total=1,
-            )
-    
-            y2 = h2 - 32 * mm
-            c2.setFont("Helvetica-Bold", 12)
-            c2.drawString(20 * mm, y2, f"Specimen Attachments — {getattr(s, 'sample_serial_number', '')}")
-            y2 -= 10 * mm
-    
-            # top row: full + side A
-            box_w = (w2 - 50 * mm) / 2
-            box_h = 55 * mm
-            _draw_image_on_page(c2, full_path, 20 * mm, y2, box_w, box_h, "Full Pipe")
-            _draw_image_on_page(c2, a_path, 30 * mm + box_w, y2, box_w, box_h, "Side A")
-    
-            # second row: side B
-            y3 = y2 - box_h - 18 * mm
-            _draw_image_on_page(c2, b_path, 20 * mm, y3, box_w, box_h, "Side B")
-    
-            # chart full width
-            chart_y = y3 - box_h - 18 * mm
-            _draw_image_on_page(c2, chart_path, 20 * mm, chart_y, w2 - 40 * mm, 90 * mm, "Chart")
-    
-            c2.showPage()
-            c2.save()
-            pages.append(buf2.getvalue())
-    
-        # -----------------------------
-        # MERGE ALL GENERATED PAGES
-        # -----------------------------
-        merged_writer = PdfWriter()
-        for pb in pages:
-            reader = PdfReader(BytesIO(pb))
-            for p in reader.pages:
-                merged_writer.add_page(p)
-    
-        out = BytesIO()
-        merged_writer.write(out)
-        pdf_bytes = out.getvalue()
-    
-        # -----------------------------
-        # STAMP CORRECT PAGE NUMBERS
-        # -----------------------------
-        total_pages = len(PdfReader(BytesIO(pdf_bytes)).pages)
-        reader = PdfReader(BytesIO(pdf_bytes))
-        writer = PdfWriter()
-    
-        for i, page in enumerate(reader.pages, start=1):
-            w0 = float(page.mediabox.width)
-            h0 = float(page.mediabox.height)
-    
-            stamp_buf = BytesIO()
-            sc = canvas.Canvas(stamp_buf, pagesize=(w0, h0))
-            sc.setFont("Helvetica", 9)
-            sc.setFillColor(colors.grey)
-            sc.drawString(20 * mm, 12 * mm, doc_no)
-            sc.drawRightString(w0 - 20 * mm, 12 * mm, f"Page {i}/{total_pages}")
-            sc.showPage()
-            sc.save()
-            stamp_buf.seek(0)
-    
-            stamp_reader = PdfReader(stamp_buf)
-            page.merge_page(stamp_reader.pages[0])
-            writer.add_page(page)
-    
-        final = BytesIO()
-        writer.write(final)
-    
-        return Response(
-            content=final.getvalue(),
-            media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="burst_report_{report_id}.pdf"'},
+        c2.setFont("Helvetica", 9)
+        summary = (
+            f"Length: {_txt(getattr(s, 'sample_length_m', ''))}   "
+            f"Actual Burst: {_txt(getattr(s, 'actual_burst_psi', ''))}   "
+            f"Result: {_txt(getattr(s, 'test_result', ''))}"
         )
-    # ------------------------------------------------------------
-    # Build overlay PDFs (page1 header/specimen + results table)
-    # ------------------------------------------------------------
-    
-    # 1) Create overlay for PAGE 1 (index 0): header/specimen content
-    overlay_buf_p0 = BytesIO()
-    c0 = canvas.Canvas(overlay_buf_p0, pagesize=A4)
-    
-    # ---------------- PAGE 1 ----------------
-    w0, h0 = A4
-    y0 = h0 - 32 * mm
-    
-    _draw_header_footer(c0, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
-    
-    # Report Information
-    c0.setFont("Helvetica-Bold", 11)
-    c0.drawString(20 * mm, y0, "Report Information")
-    y0 -= 6 * mm
-    
-    y0 = _draw_report_info_table(c0, report, 20 * mm, y0)
-    y0 -= 8 * mm
-    
-    # Specimens
-    c0.setFont("Helvetica-Bold", 11)
-    c0.drawString(20 * mm, y0, "Specimens")
-    y0 -= 7 * mm
-    
-    y0 = _draw_specimen_blocks(c0, report, samples, y0)
-    
-    # Results
-    if y0 < 85 * mm:
-        c0.showPage()
-        _draw_header_footer(c0, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
-        y0 = h0 - 32 * mm
-    
-    c0.setFont("Helvetica-Bold", 11)
-    c0.drawString(20 * mm, y0, "Results")
-    y0 -= 7 * mm
-    y0 = _draw_results_table(c0, samples, y0)
-    
-    # Signatures
-    y0 = _draw_signatures(c0, report, y0)
-    c0.showPage()
-    c0.save()
-    overlay_pdf_p0 = overlay_buf_p0.getvalue()
-    
-   
-    
-    # Merge overlay onto page 0
-    pdf_bytes = _merge_overlay_bytes(pdf_bytes, overlay_pdf_p0, only_page_index=0)
-    
-    # 3) Results table overlay:
-    # - For 1 & 2 samples -> table is on page 0
-    # - For 5 samples -> table is on page 1
-    total_samples = int(report.total_no_of_specimens or 1)
-    results_page_index = 0 if total_samples in (1, 2) else 1
-    
-    overlay_buf_table = BytesIO()
-    ct = canvas.Canvas(overlay_buf_table, pagesize=A4)
-    
-    draw_results_table(ct)  # <-- NEW function you add (below)
-    ct.showPage()
-    ct.save()
-    overlay_pdf_table = overlay_buf_table.getvalue()
-    
-    # Merge table overlay onto correct page
-    pdf_bytes = _merge_overlay_bytes(pdf_bytes, overlay_pdf_table, only_page_index=results_page_index)
+        c2.drawString(20 * mm, y2, summary)
+        y2 -= 10 * mm
+
+        gap = 8 * mm
+        box_w = (w2 - 40 * mm - gap) / 2
+        box_h = 55 * mm
+
+        full_path = _get_att_path(getattr(s, "id", None), "PHOTO_FULL", "FULL")
+        a_path = _get_att_path(getattr(s, "id", None), "PHOTO_A", "A")
+        b_path = _get_att_path(getattr(s, "id", None), "PHOTO_B", "B")
+        chart_path = _get_att_path(getattr(s, "id", None), "CHART")
+
+        _draw_boxed_image(c2, full_path, 20 * mm, y2, box_w, box_h, "Full Pipe")
+        _draw_boxed_image(c2, a_path, 20 * mm + box_w + gap, y2, box_w, box_h, "Side A")
+
+        y3 = y2 - box_h - 18 * mm
+        _draw_boxed_image(c2, b_path, 20 * mm, y3, box_w, box_h, "Side B")
+        _draw_boxed_image(c2, chart_path, 20 * mm + box_w + gap, y3, box_w, box_h, "Chart")
+
+        c2.showPage()
+        c2.save()
+        pages.append(buf2.getvalue())
+
+    merged_writer = PdfWriter()
+    for pb in pages:
+        reader = PdfReader(BytesIO(pb))
+        for page in reader.pages:
+            merged_writer.add_page(page)
+
+    out = BytesIO()
+    merged_writer.write(out)
+    pdf_bytes = out.getvalue()
+    pdf_bytes = _stamp_page_numbers(pdf_bytes)
 
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename=burst_report_{report_id}.pdf"},
+        headers={"Content-Disposition": f'attachment; filename="burst_report_{report_id}.pdf"'},
     )
-
-    def draw_results_table(c):
-
-        # -------------------------
-        # For 5 specimens: print material/thickness summary above the results table
-        # -------------------------
-        if total_samples == 5:
-            c.setFont("Helvetica", 8)
-            x = 60
-            y = 565
-            line_h = 11
-        
-            def g(sample, attr):
-                v = getattr(sample, attr, None)
-                if v in (None, "", 0, 0.0):
-                    return ""
-                return str(v)
-        
-            for i, srow in enumerate(samples[:5], start=1):
-                liner = f"L:{g(srow,'liner_material_grade')} {g(srow,'liner_thickness_mm')}mm"
-                reinf = f"R:{g(srow,'reinforcement_material_grade')} {g(srow,'reinforcement_thickness_mm')}mm"
-                cover = f"C:{g(srow,'cover_material_grade')} {g(srow,'cover_thickness_mm')}mm"
-                c.drawString(x, y - (i-1)*line_h, f"S{i}  {liner}  {reinf}  {cover}")
-        # -------------------------
-        # TEST RESULTS TABLE (BurstSample)
-        # -------------------------
-        def _sf(x):
-            return "" if x is None else str(x)
-    
-        total_samples = int(report.total_no_of_specimens or 1)
-    
-        # Row Y positions (you will adjust)
-        if total_samples == 1:
-            row_y = [420]
-        elif total_samples == 2:
-            row_y = [455, 420]
-        else:  # 5
-            row_y = [520, 495, 470, 445, 420]
-    
-        # Column X positions (you will adjust once)
-        x_serial = 95
-        x_burst  = 245
-        x_time   = 390
-        x_result = 530
-    
-        c.setFont("Helvetica", 9)
-    
-        for idx, y in enumerate(row_y):
-            if idx >= len(samples):
-                break
-            srow = samples[idx]
-            c.drawString(x_serial, y, _sf(srow.sample_serial_number))
-            c.drawString(x_burst,  y, _sf(srow.actual_burst_psi))
-            c.drawString(x_time,   y, _sf(srow.pressurization_time_s))
-            c.drawString(x_result, y, _sf(srow.test_result))
 
 
 def _draw_sample_images(c, x, y, w, paths):
