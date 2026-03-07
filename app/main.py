@@ -3419,7 +3419,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         except Exception:
             pass
 
-                content_top = line_y - 8 * mm
+        content_top = line_y - 8 * mm
 
         serial = _txt(getattr(s, "sample_serial_number", "")) or f"Specimen #{idx}"
 
