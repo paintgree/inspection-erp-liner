@@ -2978,16 +2978,17 @@ async def set_specimen_count(report_id: int, request: Request, session: Session 
 
     return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
 
-@app.get("/burst/files/{file_id}/view")
-def burst_file_view(file_id: int, request: Request, session: Session = Depends(get_session)):
-    user = get_current_user(request, session)
-
-    att = session.get(BurstAttachment, file_id)
+@app.get("/burst/files/{attachment_id}/view")
+def burst_file_view(attachment_id: int, session: Session = Depends(get_session)):
+    att = session.get(BurstAttachment, attachment_id)
     if not att:
-        raise HTTPException(404, detail="File not found")
+        raise HTTPException(404, "Attachment not found")
 
-    # send file
-    return FileResponse(att.file_path)
+    real_path = resolve_burst_file_path(att.file_path or "")
+    if not real_path or not os.path.exists(real_path):
+        raise HTTPException(404, f"Attachment file not found: {att.file_path}")
+
+    return FileResponse(real_path)
 
 
 @app.post("/burst/{report_id}/samples/add")
