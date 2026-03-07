@@ -2908,7 +2908,6 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             "rep": rep,
             "run": run,
             "produced_len": produced_len,
-            "attachments": attachments,
             "live": live,
             "samples": samples,
             "audit": audit,
