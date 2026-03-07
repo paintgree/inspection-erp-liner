@@ -69,12 +69,12 @@
     height: 100%;
     overflow: hidden;
   }
-  .attach-preview {
+    .attach-preview {
     position: absolute;
     left: 50%;
     top: 50%;
-    max-width: none;
-    max-height: none;
+    max-width: 100%;
+    max-height: 100%;
     width: auto;
     height: auto;
     display: block;
@@ -330,7 +330,7 @@
                   src="/burst/files/{{ att_map[s.id]['PHOTO_FULL'].id }}/view"
                   alt="Full Pipe"
                   class="attach-preview js-crop-image"
-                  style="--zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 60 }}px; --move-y:{{ -meta.offset_y * 60 }}px;">
+                  style="--zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 120 }}px; --move-y:{{ -meta.offset_y * 120 }}px;">
               {% else %}
                 <div class="crop-empty">Not uploaded yet</div>
               {% endif %}
@@ -346,7 +346,7 @@
                 <button type="button" class="rotate-btn js-rotate-right">Rotate Right</button>
               </div>
               <label>Zoom
-                <input type="range" min="1" max="3" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
+                <input type="range" min="0.2" max="4" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
               </label>
               <label>Left / Right
                 <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_x }}" class="js-crop-x">
@@ -366,7 +366,7 @@
                   src="/burst/files/{{ att_map[s.id]['PHOTO_A'].id }}/view"
                   alt="Side A"
                   class="attach-preview js-crop-image"
-                  style="--zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 60 }}px; --move-y:{{ -meta.offset_y * 60 }}px;">
+                  style="--zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 120 }}px; --move-y:{{ -meta.offset_y * 120 }}px;">
               {% else %}
                 <div class="crop-empty">Not uploaded yet</div>
               {% endif %}
@@ -382,7 +382,7 @@
                 <button type="button" class="rotate-btn js-rotate-right">Rotate Right</button>
               </div>
               <label>Zoom
-                <input type="range" min="1" max="3" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
+                <input type="range" min="0.2" max="4" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
               </label>
               <label>Left / Right
                 <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_x }}" class="js-crop-x">
@@ -402,7 +402,7 @@
                   src="/burst/files/{{ att_map[s.id]['PHOTO_B'].id }}/view"
                   alt="Side B"
                   class="attach-preview js-crop-image"
-                  style="--zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 60 }}px; --move-y:{{ -meta.offset_y * 60 }}px;">
+                  style="--zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 120 }}px; --move-y:{{ -meta.offset_y * 120 }}px;">
               {% else %}
                 <div class="crop-empty">Not uploaded yet</div>
               {% endif %}
@@ -418,7 +418,7 @@
                 <button type="button" class="rotate-btn js-rotate-right">Rotate Right</button>
               </div>
               <label>Zoom
-                <input type="range" min="1" max="3" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
+                <input type="range" min="0.2" max="4" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
               </label>
               <label>Left / Right
                 <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_x }}" class="js-crop-x">
@@ -438,7 +438,7 @@
                   src="/burst/files/{{ att_map[s.id]['CHART'].id }}/view"
                   alt="Chart"
                   class="attach-preview js-crop-image"
-                  style="object-fit:contain; --zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 60 }}px; --move-y:{{ -meta.offset_y * 60 }}px;">
+                  style="object-fit:contain; --zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 120 }}px; --move-y:{{ -meta.offset_y * 120 }}px;">
               {% else %}
                 <div class="crop-empty">Not uploaded yet</div>
               {% endif %}
@@ -454,7 +454,7 @@
                 <button type="button" class="rotate-btn js-rotate-right">Rotate Right</button>
               </div>
               <label>Zoom
-                <input type="range" min="1" max="3" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
+                <input type="range" min="0.2" max="4" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
               </label>
               <label>Left / Right
                 <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_x }}" class="js-crop-x">
@@ -547,8 +547,8 @@
 
       if (img) {
         img.style.setProperty("--zoom", zoomVal);
-        img.style.setProperty("--move-x", (xVal * 60) + "px");
-        img.style.setProperty("--move-y", (-yVal * 60) + "px");
+        img.style.setProperty("--move-x", (xVal * 120) + "px");
+        img.style.setProperty("--move-y", (-yVal * 120) + "px");
         img.style.setProperty("--rotation", rotation + "deg");
       }
     }
@@ -586,7 +586,7 @@
       reader.onload = function(e){
         targetImg.src = e.target.result;
         rotation = 0;
-        if (zoom) zoom.value = "1";
+        if (zoom) zoom.value = "0.8";
         if (x) x.value = "0";
         if (y) y.value = "0";
         apply();
