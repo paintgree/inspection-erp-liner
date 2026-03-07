@@ -3561,44 +3561,99 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     pages.append(buf.getvalue())
 
     # ------------------------------------------------------------
+    # ------------------------------------------------------------
     # NEXT PAGES: one attachment page per specimen
+    # Layout matches old report style:
+    # header area = logo + title only
+    # below line   = specimen info + big chart + full photo + side A/B
     # ------------------------------------------------------------
     for idx, s in enumerate(samples, start=1):
-        buf2, c2, title2 = new_page()
+        buf2, c2, _ = new_page()
         w2, h2 = A4
-        y2 = h2 - 32 * mm
 
-        _draw_header_footer(c2, title=title2, doc_control_no=doc_no, page_num=1, page_total=1)
+        margin_x = 12 * mm
+        top_y = h2 - 15 * mm
+        line_y = h2 - 34 * mm
 
-        serial = _txt(getattr(s, "sample_serial_number", "")) or f"Specimen #{idx}"
+        # ----------------------------
+        # Header: logo + title only
+        # ----------------------------
+        try:
+            brand = os.path.join(STATIC_DIR, "logo.png")
+            if os.path.exists(brand):
+                c2.drawImage(
+                    brand,
+                    margin_x,
+                    h2 - 24 * mm,
+                    width=24 * mm,
+                    height=12 * mm,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                )
+        except Exception:
+            pass
+
+        c2.setFont("Helvetica-Bold", 14)
+        c2.drawCentredString(w2 / 2, top_y, "Short-Time Hydrostatic Burst Pressure Test Report")
+
+        c2.setLineWidth(0.8)
+        c2.line(margin_x, line_y, w2 - margin_x, line_y)
+
+        # ----------------------------
+        # Everything else below line
+        # ----------------------------
+        content_top = line_y - 8 * mm
+
+        serial = _txt(getattr(s, "sample_serial_number", "")) or f"{idx}"
+        length_txt = _txt(getattr(s, "sample_length_m", "")) or "-"
+        burst_txt = _txt(getattr(s, "actual_burst_psi", "")) or "-"
+        result_txt = _txt(getattr(s, "test_result", "")) or "-"
+
         c2.setFont("Helvetica-Bold", 12)
-        c2.drawString(20 * mm, y2, f"Specimen Attachments - {serial}")
-        y2 -= 8 * mm
+        c2.drawString(margin_x, content_top, f"Specimen Attachments - {serial}")
 
+        info_y = content_top - 7 * mm
         c2.setFont("Helvetica", 9)
-        summary = (
-            f"Length: {_txt(getattr(s, 'sample_length_m', ''))}   "
-            f"Actual Burst: {_txt(getattr(s, 'actual_burst_psi', ''))}   "
-            f"Result: {_txt(getattr(s, 'test_result', ''))}"
+        c2.drawString(
+            margin_x,
+            info_y,
+            f"Length: {length_txt}   Actual Burst: {burst_txt}   Result: {result_txt}"
         )
-        c2.drawString(20 * mm, y2, summary)
-        y2 -= 10 * mm
-
-        gap = 8 * mm
-        box_w = (w2 - 40 * mm - gap) / 2
-        box_h = 55 * mm
 
         full_path = _get_att_path(getattr(s, "id", None), "PHOTO_FULL", "FULL")
         a_path = _get_att_path(getattr(s, "id", None), "PHOTO_A", "A")
         b_path = _get_att_path(getattr(s, "id", None), "PHOTO_B", "B")
         chart_path = _get_att_path(getattr(s, "id", None), "CHART")
 
-        _draw_boxed_image(c2, full_path, 20 * mm, y2, box_w, box_h, "Full Pipe")
-        _draw_boxed_image(c2, a_path, 20 * mm + box_w + gap, y2, box_w, box_h, "Side A")
+        gap = 4 * mm
+        left_x = margin_x
+        usable_w = w2 - (2 * margin_x)
 
-        y3 = y2 - box_h - 18 * mm
-        _draw_boxed_image(c2, b_path, 20 * mm, y3, box_w, box_h, "Side B")
-        _draw_boxed_image(c2, chart_path, 20 * mm + box_w + gap, y3, box_w, box_h, "Chart")
+        chart_y_top = info_y - 8 * mm
+        chart_h = 70 * mm
+
+        full_y_top = chart_y_top - chart_h - 7 * mm
+        full_h = 48 * mm
+
+        bottom_y_top = full_y_top - full_h - 7 * mm
+        bottom_h = 42 * mm
+        half_w = (usable_w - gap) / 2
+
+        _draw_boxed_image(c2, chart_path, left_x, chart_y_top, usable_w, chart_h, "")
+        c2.setFont("Helvetica", 9)
+        c2.drawString(left_x, chart_y_top + 2 * mm, "CHART")
+
+        _draw_boxed_image(c2, full_path, left_x, full_y_top, usable_w, full_h, "")
+        c2.setFont("Helvetica", 9)
+        c2.drawString(left_x, full_y_top + 2 * mm, "FULL LENGTH:")
+
+        _draw_boxed_image(c2, a_path, left_x, bottom_y_top, half_w, bottom_h, "")
+        c2.setFont("Helvetica", 9)
+        c2.drawString(left_x, bottom_y_top + 2 * mm, "SIDE A:")
+
+        _draw_boxed_image(c2, b_path, left_x + half_w + gap, bottom_y_top, half_w, bottom_h, "")
+        c2.setFont("Helvetica", 9)
+        c2.drawString(left_x + half_w + gap, bottom_y_top + 2 * mm, "SIDE B:")
 
         c2.showPage()
         c2.save()
