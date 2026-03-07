@@ -26,9 +26,25 @@
   .hint { color:#6b7280; font-size:12px; margin-top:6px; }
   .btn-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
   table.table { width:100%; border-collapse:collapse; }
-  table.table th, table.table td { border-bottom:1px solid #eee; padding:10px; text-align:left; }
+  table.table th, table.table td { border-bottom:1px solid #eee; padding:10px; text-align:left; vertical-align:top; }
   table.table th { font-size:13px; color:#374151; background:#fafafa; }
   input, select, textarea { width:100%; }
+  .attach-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+  .attach-card {
+    border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#fff;
+  }
+  .attach-preview {
+    width:100%;
+    max-height:220px;
+    object-fit:contain;
+    border:1px solid #ddd;
+    border-radius:8px;
+    background:#fafafa;
+    display:block;
+  }
+  .save-row {
+    margin-top:12px; display:flex; justify-content:flex-end;
+  }
 </style>
 
 <div class="burst-header">
@@ -162,7 +178,7 @@
       </div>
     {% endfor %}
   </div>
-    
+
   <div class="section">
     <h3>Results (Per Specimen)</h3>
     <table class="table">
@@ -188,108 +204,13 @@
               <option value="PASS" {% if s.test_result=="PASS" %}selected{% endif %}>PASS</option>
               <option value="FAIL" {% if s.test_result=="FAIL" %}selected{% endif %}>FAIL</option>
             </select>
-            <div class="card" style="margin-top:14px; padding:14px; border:1px solid #e5e7eb; border-radius:12px; background:#fff;">
-              <h3 style="margin:0 0 10px 0;">Attachments</h3>
-            
-              <form method="POST"
-                    action="/burst/{{ rep.id }}/sample/{{ s.id }}/upload_attachments"
-                    enctype="multipart/form-data">
-            
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-            
-                  <!-- FULL PIPE -->
-                  <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
-                    <label><b>Full Pipe Photo</b></label>
-            
-                    {% if att_map.get(s.id, {}).get("PHOTO_FULL") %}
-                      <div style="margin:10px 0;">
-                        <img
-                          src="/burst/files/{{ att_map[s.id]['PHOTO_FULL'].id }}/view"
-                          alt="Full Pipe"
-                          style="width:100%; max-height:220px; object-fit:contain; border:1px solid #ddd; border-radius:8px; background:#fafafa;">
-                      </div>
-                      <div style="margin-bottom:6px; font-size:12px; color:green;">Uploaded ✅ (choose another file below to replace)</div>
-                    {% else %}
-                      <div style="margin:10px 0; font-size:12px; color:#6b7280;">Not uploaded yet</div>
-                    {% endif %}
-            
-                    <input type="file" name="photo_full" accept="image/*">
-                  </div>
-            
-                  <!-- SIDE A -->
-                  <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
-                    <label><b>Side A Photo</b></label>
-            
-                    {% if att_map.get(s.id, {}).get("PHOTO_A") %}
-                      <div style="margin:10px 0;">
-                        <img
-                          src="/burst/files/{{ att_map[s.id]['PHOTO_A'].id }}/view"
-                          alt="Side A"
-                          style="width:100%; max-height:220px; object-fit:contain; border:1px solid #ddd; border-radius:8px; background:#fafafa;">
-                      </div>
-                      <div style="margin-bottom:6px; font-size:12px; color:green;">Uploaded ✅ (choose another file below to replace)</div>
-                    {% else %}
-                      <div style="margin:10px 0; font-size:12px; color:#6b7280;">Not uploaded yet</div>
-                    {% endif %}
-            
-                    <input type="file" name="photo_a" accept="image/*">
-                  </div>
-            
-                  <!-- SIDE B -->
-                  <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
-                    <label><b>Side B Photo</b></label>
-            
-                    {% if att_map.get(s.id, {}).get("PHOTO_B") %}
-                      <div style="margin:10px 0;">
-                        <img
-                          src="/burst/files/{{ att_map[s.id]['PHOTO_B'].id }}/view"
-                          alt="Side B"
-                          style="width:100%; max-height:220px; object-fit:contain; border:1px solid #ddd; border-radius:8px; background:#fafafa;">
-                      </div>
-                      <div style="margin-bottom:6px; font-size:12px; color:green;">Uploaded ✅ (choose another file below to replace)</div>
-                    {% else %}
-                      <div style="margin:10px 0; font-size:12px; color:#6b7280;">Not uploaded yet</div>
-                    {% endif %}
-            
-                    <input type="file" name="photo_b" accept="image/*">
-                  </div>
-            
-                  <!-- CHART -->
-                  <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
-                    <label><b>Chart</b></label>
-            
-                    {% if att_map.get(s.id, {}).get("CHART") %}
-                      <div style="margin:10px 0;">
-                        <img
-                          src="/burst/files/{{ att_map[s.id]['CHART'].id }}/view"
-                          alt="Chart"
-                          style="width:100%; max-height:220px; object-fit:contain; border:1px solid #ddd; border-radius:8px; background:#fafafa;">
-                      </div>
-                      <div style="margin-bottom:6px; font-size:12px; color:green;">Uploaded ✅ (choose another file below to replace)</div>
-                    {% else %}
-                      <div style="margin:10px 0; font-size:12px; color:#6b7280;">Not uploaded yet</div>
-                    {% endif %}
-            
-                    <input type="file" name="chart" accept="image/*">
-                  </div>
-            
-                </div>
-            
-                <div style="margin-top:12px; display:flex; justify-content:flex-end;">
-                  <button class="btn btn-primary" type="submit">Upload Attachments</button>
-                </div>
-            
-                <div class="hint" style="margin-top:8px;">
-                  After upload, the file chooser clears automatically, but the uploaded image will stay visible here.
-                </div>
-              </form>
-            </div>
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-    <div>
+
+    <div style="margin-top:12px;">
       <label>Technician Name</label>
       <input name="technician_name" value="{{ rep.technician_name }}">
     </div>
@@ -301,29 +222,128 @@
     <h3>Notes</h3>
     <textarea name="notes" rows="3">{{ rep.notes }}</textarea>
 
-    <div style="margin-top:12px; display:flex; justify-content:flex-end;">
-      <button class="btn btn-primary" type="submit">Save</button>
+    <div class="save-row">
+      <button class="btn btn-primary" type="submit">Save Report Data</button>
     </div>
   </div>
 </form>
 
+<div class="section">
+  <h3>Attachments</h3>
+
+  {% for s in samples[:rep.total_no_of_specimens] %}
+    <div class="spec-card">
+      <div class="spec-head">
+        <div class="tag">Specimen #{{ loop.index }}{% if s.sample_serial_number %} - {{ s.sample_serial_number }}{% endif %}</div>
+        <div class="hint">Upload or replace images for this specimen</div>
+      </div>
+
+      <form method="POST"
+            action="/burst/{{ rep.id }}/sample/{{ s.id }}/upload_attachments"
+            enctype="multipart/form-data">
+
+        <div class="attach-grid">
+          <div class="attach-card">
+            <label><b>Full Pipe Photo</b></label>
+            {% if att_map.get(s.id, {}).get("PHOTO_FULL") %}
+              <div style="margin:10px 0;">
+                <img
+                  src="/burst/files/{{ att_map[s.id]['PHOTO_FULL'].id }}/view"
+                  alt="Full Pipe"
+                  class="attach-preview">
+              </div>
+              <div style="margin-bottom:6px; font-size:12px; color:green;">Uploaded ✅</div>
+            {% else %}
+              <div style="margin:10px 0; font-size:12px; color:#6b7280;">Not uploaded yet</div>
+            {% endif %}
+            <input type="file" name="photo_full" accept="image/*">
+          </div>
+
+          <div class="attach-card">
+            <label><b>Side A Photo</b></label>
+            {% if att_map.get(s.id, {}).get("PHOTO_A") %}
+              <div style="margin:10px 0;">
+                <img
+                  src="/burst/files/{{ att_map[s.id]['PHOTO_A'].id }}/view"
+                  alt="Side A"
+                  class="attach-preview">
+              </div>
+              <div style="margin-bottom:6px; font-size:12px; color:green;">Uploaded ✅</div>
+            {% else %}
+              <div style="margin:10px 0; font-size:12px; color:#6b7280;">Not uploaded yet</div>
+            {% endif %}
+            <input type="file" name="photo_a" accept="image/*">
+          </div>
+
+          <div class="attach-card">
+            <label><b>Side B Photo</b></label>
+            {% if att_map.get(s.id, {}).get("PHOTO_B") %}
+              <div style="margin:10px 0;">
+                <img
+                  src="/burst/files/{{ att_map[s.id]['PHOTO_B'].id }}/view"
+                  alt="Side B"
+                  class="attach-preview">
+              </div>
+              <div style="margin-bottom:6px; font-size:12px; color:green;">Uploaded ✅</div>
+            {% else %}
+              <div style="margin:10px 0; font-size:12px; color:#6b7280;">Not uploaded yet</div>
+            {% endif %}
+            <input type="file" name="photo_b" accept="image/*">
+          </div>
+
+          <div class="attach-card">
+            <label><b>Chart</b></label>
+            {% if att_map.get(s.id, {}).get("CHART") %}
+              <div style="margin:10px 0;">
+                <img
+                  src="/burst/files/{{ att_map[s.id]['CHART'].id }}/view"
+                  alt="Chart"
+                  class="attach-preview">
+              </div>
+              <div style="margin-bottom:6px; font-size:12px; color:green;">Uploaded ✅</div>
+            {% else %}
+              <div style="margin:10px 0; font-size:12px; color:#6b7280;">Not uploaded yet</div>
+            {% endif %}
+            <input type="file" name="chart" accept="image/*">
+          </div>
+        </div>
+
+        <div class="save-row">
+          <button class="btn btn-primary" type="submit">Upload Attachments</button>
+        </div>
+
+        <div class="hint">
+          After upload, the file chooser clears automatically, but the uploaded image should stay visible here.
+        </div>
+      </form>
+    </div>
+  {% endfor %}
+</div>
+
 <script>
 (function(){
-  // +/- quick submit
   const inp = document.getElementById("specCountInput");
   const form = document.getElementById("specCountForm");
   const plus = document.getElementById("btnPlus");
   const minus = document.getElementById("btnMinus");
+
   function clamp(v){
     v = parseInt(v || "1", 10);
     if (isNaN(v) || v < 1) v = 1;
     if (v > 50) v = 50;
     return v;
   }
-  plus && plus.addEventListener("click", () => { inp.value = clamp(parseInt(inp.value||"1",10)+1); form.submit(); });
-  minus && minus.addEventListener("click", () => { inp.value = clamp(parseInt(inp.value||"1",10)-1); form.submit(); });
 
-  // mirror specimen serial -> results serial
+  plus && plus.addEventListener("click", () => {
+    inp.value = clamp(parseInt(inp.value || "1", 10) + 1);
+    form.submit();
+  });
+
+  minus && minus.addEventListener("click", () => {
+    inp.value = clamp(parseInt(inp.value || "1", 10) - 1);
+    form.submit();
+  });
+
   const specInputs = document.querySelectorAll('input[id^="spec_serial_"]');
   specInputs.forEach(inp => {
     inp.addEventListener("input", () => {
