@@ -2760,7 +2760,7 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
     
     att_map = defaultdict(dict)
     for a in att_rows:
-        att_map[a.sample_id][a.kind] = a.file_path
+        att_map[a.sample_id][a.kind] = a
     
 
     return templates.TemplateResponse(
@@ -2775,6 +2775,7 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             "samples": samples,
             "audit": audit,
             "att_status": att_status,
+            "att_map": att_map,
         },
     )
 
