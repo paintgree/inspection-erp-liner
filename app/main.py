@@ -3054,67 +3054,6 @@ async def burst_update(
     return RedirectResponse(f"/burst/{report_id}", status_code=303)
 
 
-@app.post("/burst/{report_id}/sample/{sample_id}/upload_attachments")
-async def burst_upload_attachments(
-    report_id: int,
-    sample_id: int,
-    request: Request,
-    photo_full: UploadFile = File(None),
-    photo_a: UploadFile = File(None),
-    photo_b: UploadFile = File(None),
-    chart: UploadFile = File(None),
-    session: Session = Depends(get_session),
-):
-    rep = session.get(BurstTestReport, report_id)
-    if not rep:
-        raise HTTPException(404, "Burst report not found")
-
-    sample = session.get(BurstSample, sample_id)
-    if not sample or sample.report_id != report_id:
-        raise HTTPException(404, "Burst sample not found")
-
-    upload_dir = Path("uploads") / "burst" / str(report_id) / str(sample_id)
-    upload_dir.mkdir(parents=True, exist_ok=True)
-
-    def _save_one(file: UploadFile, kind: str):
-        if not file or not file.filename:
-            return
-
-        ext = (Path(file.filename).suffix or ".jpg").lower()
-        safe_name = f"{kind}{ext}"
-        path = upload_dir / safe_name
-
-        data = file.file.read()
-        path.write_bytes(data)
-
-        att = session.exec(
-            select(BurstAttachment).where(
-                (BurstAttachment.report_id == report_id) &
-                (BurstAttachment.sample_id == sample_id) &
-                (BurstAttachment.kind == kind)
-            )
-        ).first()
-
-        if not att:
-            att = BurstAttachment(
-                report_id=report_id,
-                sample_id=sample_id,
-                kind=kind,
-                file_path=str(path),
-            )
-            session.add(att)
-        else:
-            att.file_path = str(path)
-
-    _save_one(photo_full, "PHOTO_FULL")
-    _save_one(photo_a, "PHOTO_A")
-    _save_one(photo_b, "PHOTO_B")
-    _save_one(chart, "CHART")
-
-    session.commit()
-
-    return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
-
 
 # ------------------------------------------------------------
 # Burst: AJAX endpoint to update specimen count without page refresh
@@ -3563,9 +3502,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     # ------------------------------------------------------------
     # ------------------------------------------------------------
     # NEXT PAGES: one attachment page per specimen
-    # Layout matches old report style:
-    # header area = logo + title only
-    # below line   = specimen info + big chart + full photo + side A/B
+    # old-style layout
     # ------------------------------------------------------------
     for idx, s in enumerate(samples, start=1):
         buf2, c2, _ = new_page()
@@ -3579,7 +3516,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         # Header: logo + title only
         # ----------------------------
         try:
-            brand = os.path.join(STATIC_DIR, "logo.png")
+            brand = os.path.join(STATIC_DIR, "images", "logo.png")
             if os.path.exists(brand):
                 c2.drawImage(
                     brand,
@@ -3593,67 +3530,85 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         except Exception:
             pass
 
+        serial = _txt(getattr(s, "sample_serial_number", "")) or f"{idx}"
+
         c2.setFont("Helvetica-Bold", 14)
-        c2.drawCentredString(w2 / 2, top_y, "Short-Time Hydrostatic Burst Pressure Test Report")
+        c2.drawCentredString(w2 / 2, top_y, f"{serial} Burst Test Report")
 
         c2.setLineWidth(0.8)
         c2.line(margin_x, line_y, w2 - margin_x, line_y)
 
         # ----------------------------
-        # Everything else below line
+        # Attachment lookup
+        # ----------------------------
+        sid = getattr(s, "id", None)
+
+        full_path = _get_att_path(sid, "PHOTO_FULL", "FULL")
+        a_path = _get_att_path(sid, "PHOTO_A", "A")
+        b_path = _get_att_path(sid, "PHOTO_B", "B")
+        chart_path = _get_att_path(sid, "CHART")
+
+        # ----------------------------
+        # Content below line
         # ----------------------------
         content_top = line_y - 8 * mm
 
-        serial = _txt(getattr(s, "sample_serial_number", "")) or f"{idx}"
         length_txt = _txt(getattr(s, "sample_length_m", "")) or "-"
         burst_txt = _txt(getattr(s, "actual_burst_psi", "")) or "-"
         result_txt = _txt(getattr(s, "test_result", "")) or "-"
 
-        c2.setFont("Helvetica-Bold", 12)
-        c2.drawString(margin_x, content_top, f"Specimen Attachments - {serial}")
-
-        info_y = content_top - 7 * mm
         c2.setFont("Helvetica", 9)
         c2.drawString(
             margin_x,
-            info_y,
+            content_top,
             f"Length: {length_txt}   Actual Burst: {burst_txt}   Result: {result_txt}"
         )
 
-        full_path = _get_att_path(getattr(s, "id", None), "PHOTO_FULL", "FULL")
-        a_path = _get_att_path(getattr(s, "id", None), "PHOTO_A", "A")
-        b_path = _get_att_path(getattr(s, "id", None), "PHOTO_B", "B")
-        chart_path = _get_att_path(getattr(s, "id", None), "CHART")
-
         gap = 4 * mm
-        left_x = margin_x
         usable_w = w2 - (2 * margin_x)
 
-        chart_y_top = info_y - 8 * mm
+        chart_y_top = content_top - 8 * mm
         chart_h = 70 * mm
 
-        full_y_top = chart_y_top - chart_h - 7 * mm
+        full_y_top = chart_y_top - chart_h - 10 * mm
         full_h = 48 * mm
 
-        bottom_y_top = full_y_top - full_h - 7 * mm
+        bottom_y_top = full_y_top - full_h - 10 * mm
         bottom_h = 42 * mm
         half_w = (usable_w - gap) / 2
 
-        _draw_boxed_image(c2, chart_path, left_x, chart_y_top, usable_w, chart_h, "")
-        c2.setFont("Helvetica", 9)
-        c2.drawString(left_x, chart_y_top + 2 * mm, "CHART")
+        def draw_labeled_image(path, x, y_top, box_w, box_h, label):
+            c2.setFont("Helvetica", 9)
+            c2.drawString(x, y_top, label)
 
-        _draw_boxed_image(c2, full_path, left_x, full_y_top, usable_w, full_h, "")
-        c2.setFont("Helvetica", 9)
-        c2.drawString(left_x, full_y_top + 2 * mm, "FULL LENGTH:")
+            img_top = y_top - 5 * mm
+            c2.rect(x, img_top - box_h, box_w, box_h, stroke=1, fill=0)
 
-        _draw_boxed_image(c2, a_path, left_x, bottom_y_top, half_w, bottom_h, "")
-        c2.setFont("Helvetica", 9)
-        c2.drawString(left_x, bottom_y_top + 2 * mm, "SIDE A:")
+            if not path:
+                c2.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
+                return
 
-        _draw_boxed_image(c2, b_path, left_x + half_w + gap, bottom_y_top, half_w, bottom_h, "")
-        c2.setFont("Helvetica", 9)
-        c2.drawString(left_x + half_w + gap, bottom_y_top + 2 * mm, "SIDE B:")
+            real_path = resolve_burst_file_path(path)
+            if not real_path or not os.path.exists(real_path):
+                c2.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
+                return
+
+            try:
+                img = ImageReader(real_path)
+                iw, ih = img.getSize()
+                scale = min(box_w / float(iw), box_h / float(ih))
+                dw, dh = float(iw) * scale, float(ih) * scale
+                dx = x + (box_w - dw) / 2
+                dy = img_top - dh - (box_h - dh) / 2
+                c2.drawImage(real_path, dx, dy, width=dw, height=dh, mask="auto")
+            except Exception:
+                c2.setFont("Helvetica", 9)
+                c2.drawString(x + 4 * mm, img_top - 10 * mm, "Could not load image")
+
+        draw_labeled_image(chart_path, margin_x, chart_y_top, usable_w, chart_h, "CHART")
+        draw_labeled_image(full_path, margin_x, full_y_top, usable_w, full_h, "FULL LENGTH:")
+        draw_labeled_image(a_path, margin_x, bottom_y_top, half_w, bottom_h, "SIDE A:")
+        draw_labeled_image(b_path, margin_x + half_w + gap, bottom_y_top, half_w, bottom_h, "SIDE B:")
 
         c2.showPage()
         c2.save()
