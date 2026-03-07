@@ -188,53 +188,65 @@
               <option value="PASS" {% if s.test_result=="PASS" %}selected{% endif %}>PASS</option>
               <option value="FAIL" {% if s.test_result=="FAIL" %}selected{% endif %}>FAIL</option>
             </select>
-            <div style="margin-top:12px; font-weight:700;">Attachments</div>
-
-            <form method="post"
-                  action="/burst/{{ rep.id }}/sample/{{ s.id }}/upload_multi"
-                  enctype="multipart/form-data"
-                  style="margin-top:8px;">
+            <div class="card" style="margin-top:14px;">
+              <h3 style="margin:0 0 10px 0;">Attachments</h3>
             
-              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
-                <div>
-                  <label>Full Pipe (Photo)</label>
-                  <input type="file" name="photo_full" accept="image/*">
-                  {% if att_status.get((s.id, "PHOTO_FULL")) %}
-                    <div class="hint">Uploaded ✅</div>
-                  {% endif %}
+              <form method="POST"
+                    action="/burst/{{ rep.id }}/sample/{{ s.id }}/upload_attachments"
+                    enctype="multipart/form-data">
+            
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+            
+                  <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
+                    <label><b>Full Pipe Photo</b></label>
+                    <input type="file" name="photo_full" accept="image/*">
+                    {% if att_status.get((s.id, "PHOTO_FULL")) %}
+                      <div style="margin-top:6px; font-size:12px; color:green;">Uploaded ✅ (upload again to replace)</div>
+                    {% else %}
+                      <div style="margin-top:6px; font-size:12px; color:#6b7280;">Not uploaded yet</div>
+                    {% endif %}
+                  </div>
+            
+                  <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
+                    <label><b>Side A Photo</b></label>
+                    <input type="file" name="photo_a" accept="image/*">
+                    {% if att_status.get((s.id, "PHOTO_A")) %}
+                      <div style="margin-top:6px; font-size:12px; color:green;">Uploaded ✅ (upload again to replace)</div>
+                    {% else %}
+                      <div style="margin-top:6px; font-size:12px; color:#6b7280;">Not uploaded yet</div>
+                    {% endif %}
+                  </div>
+            
+                  <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
+                    <label><b>Side B Photo</b></label>
+                    <input type="file" name="photo_b" accept="image/*">
+                    {% if att_status.get((s.id, "PHOTO_B")) %}
+                      <div style="margin-top:6px; font-size:12px; color:green;">Uploaded ✅ (upload again to replace)</div>
+                    {% else %}
+                      <div style="margin-top:6px; font-size:12px; color:#6b7280;">Not uploaded yet</div>
+                    {% endif %}
+                  </div>
+            
+                  <div style="border:1px solid #e5e7eb; border-radius:10px; padding:12px;">
+                    <label><b>Chart</b></label>
+                    <input type="file" name="chart" accept="image/*">
+                    {% if att_status.get((s.id, "CHART")) %}
+                      <div style="margin-top:6px; font-size:12px; color:green;">Uploaded ✅ (upload again to replace)</div>
+                    {% else %}
+                      <div style="margin-top:6px; font-size:12px; color:#6b7280;">Not uploaded yet</div>
+                    {% endif %}
+                  </div>
+            
                 </div>
             
-                <div>
-                  <label>Side A (Photo)</label>
-                  <input type="file" name="photo_a" accept="image/*">
-                  {% if att_status.get((s.id, "PHOTO_A")) %}
-                    <div class="hint">Uploaded ✅</div>
-                  {% endif %}
+                <div style="margin-top:12px; display:flex; justify-content:flex-end;">
+                  <button class="btn btn-primary" type="submit">Upload Attachments</button>
                 </div>
             
-                <div>
-                  <label>Side B (Photo)</label>
-                  <input type="file" name="photo_b" accept="image/*">
-                  {% if att_status.get((s.id, "PHOTO_B")) %}
-                    <div class="hint">Uploaded ✅</div>
-                  {% endif %}
+                <div class="hint" style="margin-top:8px;">
+                  After upload, the page refreshes and file boxes become empty automatically. That is normal browser behavior.
                 </div>
-            
-                <div>
-                  <label>Chart (Image)</label>
-                  <input type="file" name="chart" accept="image/*">
-                  {% if att_status.get((s.id, "CHART")) %}
-                    <div class="hint">Uploaded ✅</div>
-                  {% endif %}
-                </div>
-              </div>
-            
-              <div style="margin-top:10px; display:flex; justify-content:flex-end;">
-                <button class="btn btn-primary" type="submit">Upload Attachments</button>
-              </div>
-            
-              <div class="hint">After upload the boxes clear automatically (browser behavior). Uploaded ✅ confirms it saved.</div>
-            </form>
+              </form>
             </div>
           </td>
         </tr>
