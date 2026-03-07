@@ -3396,7 +3396,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         # Header: logo + title only
         # ----------------------------
         try:
-            brand = os.path.join(STATIC_DIR, "images", "logo.png")
+            brand = _logo_path()
             if os.path.exists(brand):
                 c2.drawImage(
                     brand,
@@ -3444,46 +3444,71 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
             f"Length: {length_txt}   Actual Burst: {burst_txt}   Result: {result_txt}"
         )
 
-        gap = 4 * mm
-        usable_w = w2 - (2 * margin_x)
-
-        chart_y_top = content_top - 8 * mm
-        chart_h = 70 * mm
-
-        full_y_top = chart_y_top - chart_h - 10 * mm
-        full_h = 48 * mm
-
-        bottom_y_top = full_y_top - full_h - 10 * mm
-        bottom_h = 42 * mm
-        half_w = (usable_w - gap) / 2
-
-       def draw_labeled_image(path, x, y_top, box_w, box_h, label):
-            c2.setFont("Helvetica", 9)
-            c2.drawString(x, y_top, label)
+                gap = 4 * mm
+                usable_w = w2 - (2 * margin_x)
         
-            img_top = y_top - 7 * mm
-            c2.rect(x, img_top - box_h, box_w, box_h, stroke=1, fill=0)
+                chart_y_top = content_top - 8 * mm
+                chart_h = 70 * mm
         
-            if not path:
-                c2.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
-                return
+                full_y_top = chart_y_top - chart_h - 10 * mm
+                full_h = 48 * mm
         
-            real_path = resolve_burst_file_path(path)
-            if not real_path or not os.path.exists(real_path):
-                c2.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
-                return
+                bottom_y_top = full_y_top - full_h - 10 * mm
+                bottom_h = 42 * mm
+                half_w = (usable_w - gap) / 2
         
-            try:
-                img = ImageReader(real_path)
-                iw, ih = img.getSize()
-                scale = min(box_w / float(iw), box_h / float(ih))
-                dw, dh = float(iw) * scale, float(ih) * scale
-                dx = x + (box_w - dw) / 2
-                dy = img_top - dh - (box_h - dh) / 2
-                c2.drawImage(real_path, dx, dy, width=dw, height=dh, mask="auto")
-            except Exception:
-                c2.drawString(x + 4 * mm, img_top - 10 * mm, "Could not load image")
-
+                def draw_labeled_image(path, x, y_top, box_w, box_h, label):
+                    c2.setFont("Helvetica", 9)
+                    c2.drawString(x, y_top, label)
+        
+                    img_top = y_top - 7 * mm
+                    c2.rect(x, img_top - box_h, box_w, box_h, stroke=1, fill=0)
+        
+                    if not path:
+                        c2.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
+                        return
+        
+                    real_path = resolve_burst_file_path(path)
+                    if not real_path or not os.path.exists(real_path):
+                        c2.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
+                        return
+        
+                    try:
+                        img = ImageReader(real_path)
+                        iw, ih = img.getSize()
+                        scale = min(box_w / float(iw), box_h / float(ih))
+                        dw, dh = float(iw) * scale, float(ih) * scale
+                        dx = x + (box_w - dw) / 2
+                        dy = img_top - dh - (box_h - dh) / 2
+                        c2.drawImage(real_path, dx, dy, width=dw, height=dh, mask="auto")
+                    except Exception:
+                        c2.drawString(x + 4 * mm, img_top - 10 * mm, "Could not load image")
+        
+                draw_labeled_image(chart_path, margin_x, chart_y_top, usable_w, chart_h, "CHART")
+                draw_labeled_image(full_path, margin_x, full_y_top, usable_w, full_h, "FULL LENGTH:")
+                draw_labeled_image(a_path, margin_x, bottom_y_top, half_w, bottom_h, "SIDE A:")
+                draw_labeled_image(b_path, margin_x + half_w + gap, bottom_y_top, half_w, bottom_h, "SIDE B:")
+        
+                c2.showPage()
+                c2.save()
+                pages.append(buf2.getvalue())
+        
+            merged_writer = PdfWriter()
+            for pb in pages:
+                reader = PdfReader(BytesIO(pb))
+                for page in reader.pages:
+                    merged_writer.add_page(page)
+        
+            out = BytesIO()
+            merged_writer.write(out)
+            pdf_bytes = out.getvalue()
+            pdf_bytes = _stamp_page_numbers(pdf_bytes)
+        
+            return Response(
+                content=pdf_bytes,
+                media_type="application/pdf",
+                headers={"Content-Disposition": f'attachment; filename="burst_report_{report_id}.pdf"'},
+            )
 
 def _draw_sample_images(c, x, y, w, paths):
     # paths: dict {"A": path, "B": path, "CHART": path}
