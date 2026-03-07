@@ -63,13 +63,29 @@
     right: 0;
     border-top: 1px dashed #94a3b8;
   }
-  .attach-preview {
+  .crop-stage {
+    position: relative;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    overflow: hidden;
+  }
+  .attach-preview {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    max-width: none;
+    max-height: none;
+    width: auto;
+    height: auto;
     display: block;
-    transform: translate(var(--move-x, 0px), var(--move-y, 0px)) scale(var(--zoom, 1));
+    transform:
+      translate(-50%, -50%)
+      translate(var(--move-x, 0px), var(--move-y, 0px))
+      rotate(var(--rotation, 0deg))
+      scale(var(--zoom, 1));
     transform-origin: center center;
+    user-select: none;
+    -webkit-user-drag: none;
   }
   .crop-empty {
     height: 100%;
@@ -91,6 +107,18 @@
     gap:4px;
     font-size:12px;
     color:#374151;
+  }
+  .rotate-row {
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  .rotate-btn {
+    border:1px solid #cbd5e1;
+    background:#fff;
+    border-radius:8px;
+    padding:8px 10px;
+    cursor:pointer;
   }
   .save-row {
     margin-top:12px; display:flex; justify-content:flex-end;
@@ -295,7 +323,7 @@
         <div class="attach-grid">
           <div class="attach-card">
             <label><b>Full Pipe Photo</b></label>
-            {% set meta = crop_meta.get(s.id, {}).get("PHOTO_FULL", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0}) %}
+            {% set meta = crop_meta.get(s.id, {}).get("PHOTO_FULL", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
             <div class="crop-frame">
               {% if att_map.get(s.id, {}).get("PHOTO_FULL") %}
                 <img
@@ -313,6 +341,10 @@
             <input type="file" name="photo_full" accept="image/*">
             <input type="hidden" name="crop_photo_full" class="js-crop-hidden" value='{{ meta|tojson|safe }}'>
             <div class="crop-controls">
+              <div class="rotate-row">
+                <button type="button" class="rotate-btn js-rotate-left">Rotate Left</button>
+                <button type="button" class="rotate-btn js-rotate-right">Rotate Right</button>
+              </div>
               <label>Zoom
                 <input type="range" min="1" max="3" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
               </label>
@@ -327,7 +359,7 @@
 
           <div class="attach-card">
             <label><b>Side A Photo</b></label>
-            {% set meta = crop_meta.get(s.id, {}).get("PHOTO_A", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0}) %}
+            {% set meta = crop_meta.get(s.id, {}).get("PHOTO_A", {{"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
             <div class="crop-frame">
               {% if att_map.get(s.id, {}).get("PHOTO_A") %}
                 <img
@@ -345,6 +377,10 @@
             <input type="file" name="photo_a" accept="image/*">
             <input type="hidden" name="crop_photo_a" class="js-crop-hidden" value='{{ meta|tojson|safe }}'>
             <div class="crop-controls">
+              <div class="rotate-row">
+                <button type="button" class="rotate-btn js-rotate-left">Rotate Left</button>
+                <button type="button" class="rotate-btn js-rotate-right">Rotate Right</button>
+              </div>
               <label>Zoom
                 <input type="range" min="1" max="3" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
               </label>
@@ -359,7 +395,7 @@
 
           <div class="attach-card">
             <label><b>Side B Photo</b></label>
-            {% set meta = crop_meta.get(s.id, {}).get("PHOTO_B", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0}) %}
+            {% set meta = crop_meta.get(s.id, {}).get("PHOTO_B", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
             <div class="crop-frame">
               {% if att_map.get(s.id, {}).get("PHOTO_B") %}
                 <img
@@ -377,6 +413,10 @@
             <input type="file" name="photo_b" accept="image/*">
             <input type="hidden" name="crop_photo_b" class="js-crop-hidden" value='{{ meta|tojson|safe }}'>
             <div class="crop-controls">
+              <div class="rotate-row">
+                <button type="button" class="rotate-btn js-rotate-left">Rotate Left</button>
+                <button type="button" class="rotate-btn js-rotate-right">Rotate Right</button>
+              </div>
               <label>Zoom
                 <input type="range" min="1" max="3" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
               </label>
@@ -391,7 +431,7 @@
 
           <div class="attach-card">
             <label><b>Chart</b></label>
-            {% set meta = crop_meta.get(s.id, {}).get("CHART", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0}) %}
+            {% set meta = crop_meta.get(s.id, {}).get("CHART", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
             <div class="crop-frame">
               {% if att_map.get(s.id, {}).get("CHART") %}
                 <img
@@ -409,6 +449,10 @@
             <input type="file" name="chart" accept="image/*">
             <input type="hidden" name="crop_chart" class="js-crop-hidden" value='{{ meta|tojson|safe }}'>
             <div class="crop-controls">
+              <div class="rotate-row">
+                <button type="button" class="rotate-btn js-rotate-left">Rotate Left</button>
+                <button type="button" class="rotate-btn js-rotate-right">Rotate Right</button>
+              </div>
               <label>Zoom
                 <input type="range" min="1" max="3" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
               </label>
@@ -467,12 +511,23 @@
   });
 
   document.querySelectorAll(".attach-card").forEach(card => {
-    const img = card.querySelector(".js-crop-image");
     const zoom = card.querySelector(".js-crop-zoom");
     const x = card.querySelector(".js-crop-x");
     const y = card.querySelector(".js-crop-y");
     const hidden = card.querySelector(".js-crop-hidden");
     const file = card.querySelector('input[type="file"]');
+    const rotateLeft = card.querySelector(".js-rotate-left");
+    const rotateRight = card.querySelector(".js-rotate-right");
+
+    let img = card.querySelector(".js-crop-image");
+    let rotation = 0;
+
+    try {
+      const current = JSON.parse(hidden?.value || "{}");
+      rotation = parseInt(current.rotation || 0, 10) || 0;
+    } catch(e) {
+      rotation = 0;
+    }
 
     function apply(){
       if (!hidden) return;
@@ -484,15 +539,29 @@
       hidden.value = JSON.stringify({
         zoom: zoomVal,
         offset_x: xVal,
-        offset_y: yVal
+        offset_y: yVal,
+        rotation: rotation
       });
+
+      img = card.querySelector(".js-crop-image");
 
       if (img) {
         img.style.setProperty("--zoom", zoomVal);
         img.style.setProperty("--move-x", (xVal * 60) + "px");
         img.style.setProperty("--move-y", (-yVal * 60) + "px");
+        img.style.setProperty("--rotation", rotation + "deg");
       }
     }
+
+    rotateLeft && rotateLeft.addEventListener("click", () => {
+      rotation = (rotation + 270) % 360;
+      apply();
+    });
+
+    rotateRight && rotateRight.addEventListener("click", () => {
+      rotation = (rotation + 90) % 360;
+      apply();
+    });
 
     [zoom, x, y].forEach(el => {
       el && el.addEventListener("input", apply);
@@ -516,9 +585,10 @@
       const reader = new FileReader();
       reader.onload = function(e){
         targetImg.src = e.target.result;
-        zoom.value = "1";
-        x.value = "0";
-        y.value = "0";
+        rotation = 0;
+        if (zoom) zoom.value = "1";
+        if (x) x.value = "0";
+        if (y) y.value = "0";
         apply();
       };
       reader.readAsDataURL(selected);
