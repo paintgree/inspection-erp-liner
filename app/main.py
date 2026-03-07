@@ -3418,7 +3418,18 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         except Exception:
             pass
 
-        serial = _txt(getattr(s, "sample_serial_number", "")) or f"{idx}"
+        serial = _txt(getattr(s, "sample_serial_number", "")) or f"Specimen #{idx}"
+
+        c2.setFont("Helvetica-Bold", 12)
+        c2.drawString(margin_x, content_top, f"Specimen Serial No: {serial}")
+
+        info_y = content_top - 8 * mm
+        c2.setFont("Helvetica", 9)
+        c2.drawString(
+            margin_x,
+            info_y,
+            f"Length: {length_txt}   Actual Burst: {burst_txt}   Result: {result_txt}",
+        )
 
         c2.setFont("Helvetica-Bold", 16)
         c2.drawCentredString(w2 / 2, top_y, "Short-Time Hydrostatic Burst Pressure Test Report")
@@ -3455,7 +3466,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         gap = 4 * mm
         usable_w = w2 - (2 * margin_x)
 
-        chart_y_top = content_top - 8 * mm
+        chart_y_top = info_y - 8 * mm
         chart_h = 70 * mm
 
         full_y_top = chart_y_top - chart_h - 10 * mm
@@ -3465,7 +3476,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         bottom_h = 42 * mm
         half_w = (usable_w - gap) / 2
 
-        def draw_labeled_image(path, x, y_top, box_w, box_h, label):
+                def draw_labeled_image(path, x, y_top, box_w, box_h, label, allow_rotate=False, fill_box=False):
             c2.setFont("Helvetica", 9)
             c2.drawString(x, y_top, label)
 
@@ -3482,20 +3493,41 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
                 return
 
             try:
-                img = ImageReader(real_path)
-                iw, ih = img.getSize()
-                scale = min(box_w / float(iw), box_h / float(ih))
+                from PIL import Image
+
+                img = Image.open(real_path)
+
+                # auto-rotate tall photos to landscape if requested
+                if allow_rotate and img.height > img.width:
+                    img = img.rotate(90, expand=True)
+
+                iw, ih = img.size
+
+                if fill_box:
+                    scale = max(box_w / float(iw), box_h / float(ih))
+                else:
+                    scale = min(box_w / float(iw), box_h / float(ih))
+
                 dw, dh = float(iw) * scale, float(ih) * scale
                 dx = x + (box_w - dw) / 2
                 dy = img_top - dh - (box_h - dh) / 2
-                c2.drawImage(real_path, dx, dy, width=dw, height=dh, mask="auto")
+
+                # save temp image into memory for reportlab
+                temp_buf = BytesIO()
+                if img.mode not in ("RGB", "L"):
+                    img = img.convert("RGB")
+                img.save(temp_buf, format="JPEG")
+                temp_buf.seek(0)
+
+                c2.drawImage(ImageReader(temp_buf), dx, dy, width=dw, height=dh, mask="auto")
+
             except Exception:
                 c2.drawString(x + 4 * mm, img_top - 10 * mm, "Could not load image")
 
-        draw_labeled_image(chart_path, margin_x, chart_y_top, usable_w, chart_h, "CHART")
-        draw_labeled_image(full_path, margin_x, full_y_top, usable_w, full_h, "FULL LENGTH:")
-        draw_labeled_image(a_path, margin_x, bottom_y_top, half_w, bottom_h, "SIDE A:")
-        draw_labeled_image(b_path, margin_x + half_w + gap, bottom_y_top, half_w, bottom_h, "SIDE B:")
+        draw_labeled_image(chart_path, margin_x, chart_y_top, usable_w, chart_h, "CHART", allow_rotate=False, fill_box=False)
+        draw_labeled_image(full_path, margin_x, full_y_top, usable_w, full_h, "FULL LENGTH:", allow_rotate=True, fill_box=True)
+        draw_labeled_image(a_path, margin_x, bottom_y_top, half_w, bottom_h, "SIDE A:", allow_rotate=True, fill_box=True)
+        draw_labeled_image(b_path, margin_x + half_w + gap, bottom_y_top, half_w, bottom_h, "SIDE B:", allow_rotate=True, fill_box=True)
 
         c2.showPage()
         c2.save()
