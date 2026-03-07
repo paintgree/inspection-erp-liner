@@ -3730,7 +3730,40 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     overlay_buf_p0 = BytesIO()
     c0 = canvas.Canvas(overlay_buf_p0, pagesize=A4)
     
-    draw_main_page(c0)  # <-- your existing function that draws header/specimen
+    # ---------------- PAGE 1 ----------------
+    w0, h0 = A4
+    y0 = h0 - 32 * mm
+    
+    _draw_header_footer(c0, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
+    
+    # Report Information
+    c0.setFont("Helvetica-Bold", 11)
+    c0.drawString(20 * mm, y0, "Report Information")
+    y0 -= 6 * mm
+    
+    y0 = _draw_report_info_table(c0, report, 20 * mm, y0)
+    y0 -= 8 * mm
+    
+    # Specimens
+    c0.setFont("Helvetica-Bold", 11)
+    c0.drawString(20 * mm, y0, "Specimens")
+    y0 -= 7 * mm
+    
+    y0 = _draw_specimen_blocks(c0, report, samples, y0)
+    
+    # Results
+    if y0 < 85 * mm:
+        c0.showPage()
+        _draw_header_footer(c0, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
+        y0 = h0 - 32 * mm
+    
+    c0.setFont("Helvetica-Bold", 11)
+    c0.drawString(20 * mm, y0, "Results")
+    y0 -= 7 * mm
+    y0 = _draw_results_table(c0, samples, y0)
+    
+    # Signatures
+    y0 = _draw_signatures(c0, report, y0)
     c0.showPage()
     c0.save()
     overlay_pdf_p0 = overlay_buf_p0.getvalue()
