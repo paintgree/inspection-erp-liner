@@ -2592,6 +2592,7 @@ def _save_burst_image_meta(abs_path: str, meta_json: str | None):
         "zoom": 1.0,
         "offset_x": 0.0,
         "offset_y": 0.0,
+        "rotation": 0,
     }
 
     try:
@@ -2600,6 +2601,12 @@ def _save_burst_image_meta(abs_path: str, meta_json: str | None):
             meta["zoom"] = max(1.0, min(3.0, float(raw.get("zoom", 1.0) or 1.0)))
             meta["offset_x"] = max(-1.0, min(1.0, float(raw.get("offset_x", 0.0) or 0.0)))
             meta["offset_y"] = max(-1.0, min(1.0, float(raw.get("offset_y", 0.0) or 0.0)))
+
+            rotation = int(raw.get("rotation", 0) or 0)
+            rotation = rotation % 360
+            if rotation not in (0, 90, 180, 270):
+                rotation = 0
+            meta["rotation"] = rotation
     except Exception:
         pass
 
@@ -2610,18 +2617,24 @@ def _save_burst_image_meta(abs_path: str, meta_json: str | None):
 def _load_burst_image_meta(abs_path: str) -> dict:
     meta_path = _burst_meta_path(abs_path)
     if not abs_path or not os.path.exists(meta_path):
-        return {"zoom": 1.0, "offset_x": 0.0, "offset_y": 0.0}
+        return {"zoom": 1.0, "offset_x": 0.0, "offset_y": 0.0, "rotation": 0}
 
     try:
         with open(meta_path, "r", encoding="utf-8") as f:
             raw = json.load(f)
+
+        rotation = int(raw.get("rotation", 0) or 0) % 360
+        if rotation not in (0, 90, 180, 270):
+            rotation = 0
+
         return {
             "zoom": max(1.0, min(3.0, float(raw.get("zoom", 1.0) or 1.0))),
             "offset_x": max(-1.0, min(1.0, float(raw.get("offset_x", 0.0) or 0.0))),
             "offset_y": max(-1.0, min(1.0, float(raw.get("offset_y", 0.0) or 0.0))),
+            "rotation": rotation,
         }
     except Exception:
-        return {"zoom": 1.0, "offset_x": 0.0, "offset_y": 0.0}
+        return {"zoom": 1.0, "offset_x": 0.0, "offset_y": 0.0, "rotation": 0}
 
 
 def _render_burst_image_to_box(real_path: str, box_w: float, box_h: float, allow_rotate: bool = False, fill_box: bool = False):
@@ -2630,7 +2643,13 @@ def _render_burst_image_to_box(real_path: str, box_w: float, box_h: float, allow
     img = Image.open(real_path)
     img = ImageOps.exif_transpose(img)
 
-    if allow_rotate and img.height > img.width:
+    meta = _load_burst_image_meta(real_path)
+    rotation = int(meta.get("rotation", 0) or 0)
+
+    if rotation in (90, 180, 270):
+        img = img.rotate(-rotation, expand=True)
+
+    elif allow_rotate and img.height > img.width:
         img = img.rotate(90, expand=True)
 
     if img.mode not in ("RGB", "L"):
@@ -2656,6 +2675,41 @@ def _render_burst_image_to_box(real_path: str, box_w: float, box_h: float, allow
         canvas_img.save(out, format="JPEG", quality=92)
         out.seek(0)
         return out
+
+    zoom = float(meta.get("zoom", 1.0) or 1.0)
+    offset_x = float(meta.get("offset_x", 0.0) or 0.0)
+    offset_y = float(meta.get("offset_y", 0.0) or 0.0)
+
+    img_ratio = float(iw) / float(ih)
+
+    if img_ratio >= target_ratio:
+        base_h = float(ih)
+        base_w = base_h * target_ratio
+    else:
+        base_w = float(iw)
+        base_h = base_w / target_ratio
+
+    crop_w = max(1.0, min(float(iw), base_w / zoom))
+    crop_h = max(1.0, min(float(ih), base_h / zoom))
+
+    max_shift_x = max(0.0, (float(iw) - crop_w) / 2.0)
+    max_shift_y = max(0.0, (float(ih) - crop_h) / 2.0)
+
+    center_x = (float(iw) / 2.0) + (offset_x * max_shift_x)
+    center_y = (float(ih) / 2.0) - (offset_y * max_shift_y)
+
+    left = max(0.0, min(float(iw) - crop_w, center_x - (crop_w / 2.0)))
+    top = max(0.0, min(float(ih) - crop_h, center_y - (crop_h / 2.0)))
+    right = left + crop_w
+    bottom = top + crop_h
+
+    cropped = img.crop((int(round(left)), int(round(top)), int(round(right)), int(round(bottom))))
+    cropped = cropped.resize((target_px_w, target_px_h), resample)
+
+    out = BytesIO()
+    cropped.save(out, format="JPEG", quality=92)
+    out.seek(0)
+    return out
 
     meta = _load_burst_image_meta(real_path)
     zoom = float(meta.get("zoom", 1.0) or 1.0)
