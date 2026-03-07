@@ -3423,6 +3423,10 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
         serial = _txt(getattr(s, "sample_serial_number", "")) or f"Specimen #{idx}"
 
+        length_txt = _txt(getattr(s, "sample_length_m", "")) or "-"
+        burst_txt = _txt(getattr(s, "actual_burst_psi", "")) or "-"
+        result_txt = _txt(getattr(s, "test_result", "")) or "-"
+
         c2.setFont("Helvetica-Bold", 12)
         c2.drawString(margin_x, content_top, f"Specimen Serial No: {serial}")
 
@@ -3433,6 +3437,19 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
             info_y,
             f"Length: {length_txt}   Actual Burst: {burst_txt}   Result: {result_txt}",
         )
+
+        gap = 4 * mm
+        usable_w = w2 - (2 * margin_x)
+
+        chart_y_top = info_y - 8 * mm
+        chart_h = 70 * mm
+
+        full_y_top = chart_y_top - chart_h - 10 * mm
+        full_h = 48 * mm
+
+        bottom_y_top = full_y_top - full_h - 10 * mm
+        bottom_h = 42 * mm
+        half_w = (usable_w - gap) / 2
 
         c2.setFont("Helvetica-Bold", 16)
         c2.drawCentredString(w2 / 2, top_y, "Short-Time Hydrostatic Burst Pressure Test Report")
