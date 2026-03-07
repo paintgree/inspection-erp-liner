@@ -3600,7 +3600,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         chart_path = _get_att_path(sid, "CHART")
 
         
-            def draw_labeled_image(path, x, y_top, box_w, box_h, label, allow_rotate=False, fill_box=False):
+        def draw_labeled_image(path, x, y_top, box_w, box_h, label, allow_rotate=False, fill_box=False):
             c2.setFont("Helvetica", 9)
             c2.drawString(x, y_top, label)
 
