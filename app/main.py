@@ -2580,138 +2580,6 @@ BURST_UPLOAD_DIR = "/app/uploads/burst"  # create if not exist
 def _ensure_dir(p: str):
     os.makedirs(p, exist_ok=True)
 
-@app.post("/burst/{report_id}/sample/{sample_id}/upload")
-async def burst_sample_upload(
-    report_id: int,
-    sample_id: int,
-    kind: str = Form(...),  # "A" / "B" / "CHART"
-    file: UploadFile = File(...),
-    session: Session = Depends(get_session),
-):
-    rep = session.get(BurstTestReport, report_id)
-    if not rep:
-        raise HTTPException(404, "Burst report not found")
-
-    sample = session.get(BurstSample, sample_id)
-    if not sample or sample.report_id != report_id:
-        raise HTTPException(404, "Sample not found")
-
-    kind = (kind or "").strip().upper()
-    if kind not in {"FULL", "A", "B", "CHART"}:
-        raise HTTPException(400, "Invalid kind")
-
-    ext = os.path.splitext(file.filename or "")[1].lower()
-    if ext not in {".png", ".jpg", ".jpeg", ".webp"}:
-        raise HTTPException(400, "Only png/jpg/jpeg/webp allowed")
-
-    _ensure_dir(BURST_UPLOAD_DIR)
-    safe_name = f"{report_id}_{sample_id}_{kind}_{uuid.uuid4().hex}{ext}"
-    path = os.path.join(BURST_UPLOAD_DIR, safe_name)
-
-    with open(path, "wb") as f:
-        shutil.copyfileobj(file.file, f)
-
-    # Upsert: keep only ONE attachment per kind per sample
-    old = session.exec(
-        select(BurstAttachment)
-        .where(BurstAttachment.report_id == report_id)
-        .where(BurstAttachment.sample_id == sample_id)
-        .where(BurstAttachment.kind == kind)
-    ).first()
-
-    if old:
-        try:
-            if old.file_path and os.path.exists(old.file_path):
-                os.remove(old.file_path)
-        except Exception:
-            pass
-        old.file_path = path
-        old.caption = kind
-        session.add(old)
-    else:
-        att = BurstAttachment(
-            report_id=report_id,
-            sample_id=sample_id,
-            kind=kind,
-            caption=kind,
-            file_path=path,
-        )
-        session.add(att)
-
-    session.commit()
-    return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
-
-
-@app.post("/burst/{report_id}/sample/{sample_id}/upload_multi")
-async def burst_sample_upload_multi(
-    report_id: int,
-    sample_id: int,
-    request: Request,
-    photo_full: UploadFile | None = File(None),
-    photo_a: UploadFile | None = File(None),
-    photo_b: UploadFile | None = File(None),
-    chart: UploadFile | None = File(None),
-    session: Session = Depends(get_session),
-):
-    rep = session.get(BurstTestReport, report_id)
-    if not rep:
-        raise HTTPException(404, "Burst report not found")
-
-    sample = session.get(BurstSample, sample_id)
-    if not sample or sample.report_id != report_id:
-        raise HTTPException(404, "Sample not found")
-
-    async def save_one(up: UploadFile, kind: str):
-        ext = os.path.splitext(up.filename or "")[1].lower()
-        if ext not in {".png", ".jpg", ".jpeg", ".webp"}:
-            return
-
-        os.makedirs(BURST_UPLOAD_DIR, exist_ok=True)
-        safe_name = f"{report_id}_{sample_id}_{kind}_{uuid.uuid4().hex}{ext}"
-        path = os.path.join(BURST_UPLOAD_DIR, safe_name)
-
-        with open(path, "wb") as f:
-            shutil.copyfileobj(up.file, f)
-
-        # upsert
-        old = session.exec(
-            select(BurstAttachment)
-            .where(BurstAttachment.report_id == report_id)
-            .where(BurstAttachment.sample_id == sample_id)
-            .where(BurstAttachment.kind == kind)
-        ).first()
-
-        if old:
-            try:
-                if old.file_path and os.path.exists(old.file_path):
-                    os.remove(old.file_path)
-            except Exception:
-                pass
-            old.file_path = path
-            old.caption = kind
-            session.add(old)
-        else:
-            session.add(BurstAttachment(
-                report_id=report_id,
-                sample_id=sample_id,
-                kind=kind,
-                caption=kind,
-                file_path=path,
-            ))
-
-    if photo_full:
-        await save_one(photo_full, "FULL")
-    
-    if photo_a:
-        await save_one(photo_a, "A")
-    if photo_b:
-        await save_one(photo_b, "B")
-    if chart:
-        await save_one(chart, "CHART")
-
-    session.commit()
-    return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
-
 
 @app.post("/burst/{report_id}/sample/{sample_id}/upload_attachments")
 async def burst_upload_attachments(
@@ -2732,44 +2600,56 @@ async def burst_upload_attachments(
     if not sample or sample.report_id != report_id:
         raise HTTPException(404, "Burst sample not found")
 
-    upload_dir = Path("uploads") / "burst" / str(report_id) / str(sample_id)
-    upload_dir.mkdir(parents=True, exist_ok=True)
+    upload_dir = os.path.join(BURST_FILES_DIR, str(report_id), str(sample_id))
+    os.makedirs(upload_dir, exist_ok=True)
 
     def _save_one(file: UploadFile, kind: str):
-        if not file:
+        if not file or not getattr(file, "filename", ""):
             return None
 
-        # keep extension if possible
-        ext = (Path(file.filename).suffix or ".jpg").lower()
+        ext = (os.path.splitext(file.filename)[1] or ".jpg").lower()
+        if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
+            return None
+
         safe_name = f"{kind}{ext}"
-        path = upload_dir / safe_name
+        abs_path = os.path.join(upload_dir, safe_name)
 
         data = file.file.read()
-        path.write_bytes(data)
+        with open(abs_path, "wb") as f:
+            f.write(data)
 
-        # upsert DB record
+        rel_path = os.path.relpath(abs_path, BASE_DIR)
+
         att = session.exec(
             select(BurstAttachment).where(
+                (BurstAttachment.report_id == report_id) &
                 (BurstAttachment.sample_id == sample_id) &
                 (BurstAttachment.kind == kind)
             )
         ).first()
 
         if not att:
-            att = BurstAttachment(sample_id=sample_id, kind=kind, file_path=str(path))
+            att = BurstAttachment(
+                report_id=report_id,
+                sample_id=sample_id,
+                kind=kind,
+                caption=kind,
+                file_path=rel_path,
+            )
             session.add(att)
         else:
-            att.file_path = str(path)
+            att.file_path = rel_path
+            att.caption = kind
+            session.add(att)
 
-        session.commit()
-        return str(path)
+        return rel_path
 
     _save_one(photo_full, "PHOTO_FULL")
     _save_one(photo_a, "PHOTO_A")
     _save_one(photo_b, "PHOTO_B")
     _save_one(chart, "CHART")
 
-    # redirect back to burst view (file inputs will clear - normal)
+    session.commit()
     return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
 
 @app.get("/burst/{report_id}")
@@ -3543,9 +3423,9 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         # ----------------------------
         sid = getattr(s, "id", None)
 
-        full_path = _get_att_path(sid, "PHOTO_FULL", "FULL")
-        a_path = _get_att_path(sid, "PHOTO_A", "A")
-        b_path = _get_att_path(sid, "PHOTO_B", "B")
+        full_path = _get_att_path(sid, "PHOTO_FULL")
+        a_path = _get_att_path(sid, "PHOTO_A")
+        b_path = _get_att_path(sid, "PHOTO_B")
         chart_path = _get_att_path(sid, "CHART")
 
         # ----------------------------
@@ -3577,22 +3457,22 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         bottom_h = 42 * mm
         half_w = (usable_w - gap) / 2
 
-        def draw_labeled_image(path, x, y_top, box_w, box_h, label):
+       def draw_labeled_image(path, x, y_top, box_w, box_h, label):
             c2.setFont("Helvetica", 9)
             c2.drawString(x, y_top, label)
-
-            img_top = y_top - 5 * mm
+        
+            img_top = y_top - 7 * mm
             c2.rect(x, img_top - box_h, box_w, box_h, stroke=1, fill=0)
-
+        
             if not path:
                 c2.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
                 return
-
+        
             real_path = resolve_burst_file_path(path)
             if not real_path or not os.path.exists(real_path):
                 c2.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
                 return
-
+        
             try:
                 img = ImageReader(real_path)
                 iw, ih = img.getSize()
@@ -3602,34 +3482,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
                 dy = img_top - dh - (box_h - dh) / 2
                 c2.drawImage(real_path, dx, dy, width=dw, height=dh, mask="auto")
             except Exception:
-                c2.setFont("Helvetica", 9)
                 c2.drawString(x + 4 * mm, img_top - 10 * mm, "Could not load image")
-
-        draw_labeled_image(chart_path, margin_x, chart_y_top, usable_w, chart_h, "CHART")
-        draw_labeled_image(full_path, margin_x, full_y_top, usable_w, full_h, "FULL LENGTH:")
-        draw_labeled_image(a_path, margin_x, bottom_y_top, half_w, bottom_h, "SIDE A:")
-        draw_labeled_image(b_path, margin_x + half_w + gap, bottom_y_top, half_w, bottom_h, "SIDE B:")
-
-        c2.showPage()
-        c2.save()
-        pages.append(buf2.getvalue())
-
-    merged_writer = PdfWriter()
-    for pb in pages:
-        reader = PdfReader(BytesIO(pb))
-        for page in reader.pages:
-            merged_writer.add_page(page)
-
-    out = BytesIO()
-    merged_writer.write(out)
-    pdf_bytes = out.getvalue()
-    pdf_bytes = _stamp_page_numbers(pdf_bytes)
-
-    return Response(
-        content=pdf_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="burst_report_{report_id}.pdf"'},
-    )
 
 
 def _draw_sample_images(c, x, y, w, paths):
