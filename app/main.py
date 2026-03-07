@@ -1400,23 +1400,6 @@ def _doc_path_to_pdf_bytes(path: str) -> bytes | None:
 
     return None
 
-def _merge_overlay_bytes(base_pdf_bytes: bytes, overlay_pdf_bytes: bytes, only_page_index: int) -> bytes:
-    """
-    Merge overlay_pdf onto exactly one page (only_page_index) of base_pdf.
-    Returns new PDF bytes.
-    """
-    base_reader = PdfReader(BytesIO(base_pdf_bytes))
-    overlay_reader = PdfReader(BytesIO(overlay_pdf_bytes))
-
-    writer = PdfWriter()
-    for i, page in enumerate(base_reader.pages):
-        if i == only_page_index and len(overlay_reader.pages) > 0:
-            page.merge_page(overlay_reader.pages[0])
-        writer.add_page(page)
-
-    out = BytesIO()
-    writer.write(out)
-    return out.getvalue()
 
 def _generate_shipment_report_pdf_bytes(*, lot, insp, receiving, docs) -> bytes:
     """
@@ -3768,9 +3751,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     c0.save()
     overlay_pdf_p0 = overlay_buf_p0.getvalue()
     
-    # 2) Start from template bytes
-    with open(template_path, "rb") as f:
-        pdf_bytes = f.read()
+   
     
     # Merge overlay onto page 0
     pdf_bytes = _merge_overlay_bytes(pdf_bytes, overlay_pdf_p0, only_page_index=0)
