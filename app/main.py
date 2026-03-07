@@ -2847,11 +2847,20 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             if reinf_run:
                 live["reinforcement_material_grade"] = (getattr(reinf_run, "raw_material_spec", "") or "").strip()
 
-    attachments = session.exec(
-        select(BurstAttachment)
-        .where(BurstAttachment.report_id == report_id)
-        .order_by(BurstAttachment.uploaded_at.desc())
-    ).all()
+        # -----------------------------
+        # Attachment status for template
+        # -----------------------------
+        att_status = {}
+    
+        att_rows = session.exec(
+            select(BurstAttachment).where(BurstAttachment.report_id == rep.id)
+        ).all()
+    
+        for a in att_rows:
+            sid = getattr(a, "sample_id", None)
+            kind = (getattr(a, "kind", "") or "").upper()
+            if sid is not None and kind:
+                att_status[(sid, kind)] = True
 
     samples = session.exec(
         select(BurstSample)
@@ -3058,6 +3067,68 @@ async def burst_update(
     session.commit()
 
     return RedirectResponse(f"/burst/{report_id}", status_code=303)
+
+
+@app.post("/burst/{report_id}/sample/{sample_id}/upload_attachments")
+async def burst_upload_attachments(
+    report_id: int,
+    sample_id: int,
+    request: Request,
+    photo_full: UploadFile = File(None),
+    photo_a: UploadFile = File(None),
+    photo_b: UploadFile = File(None),
+    chart: UploadFile = File(None),
+    session: Session = Depends(get_session),
+):
+    rep = session.get(BurstTestReport, report_id)
+    if not rep:
+        raise HTTPException(404, "Burst report not found")
+
+    sample = session.get(BurstSample, sample_id)
+    if not sample or sample.report_id != report_id:
+        raise HTTPException(404, "Burst sample not found")
+
+    upload_dir = Path("uploads") / "burst" / str(report_id) / str(sample_id)
+    upload_dir.mkdir(parents=True, exist_ok=True)
+
+    def _save_one(file: UploadFile, kind: str):
+        if not file or not file.filename:
+            return
+
+        ext = (Path(file.filename).suffix or ".jpg").lower()
+        safe_name = f"{kind}{ext}"
+        path = upload_dir / safe_name
+
+        data = file.file.read()
+        path.write_bytes(data)
+
+        att = session.exec(
+            select(BurstAttachment).where(
+                (BurstAttachment.report_id == report_id) &
+                (BurstAttachment.sample_id == sample_id) &
+                (BurstAttachment.kind == kind)
+            )
+        ).first()
+
+        if not att:
+            att = BurstAttachment(
+                report_id=report_id,
+                sample_id=sample_id,
+                kind=kind,
+                file_path=str(path),
+            )
+            session.add(att)
+        else:
+            att.file_path = str(path)
+
+    _save_one(photo_full, "PHOTO_FULL")
+    _save_one(photo_a, "PHOTO_A")
+    _save_one(photo_b, "PHOTO_B")
+    _save_one(chart, "CHART")
+
+    session.commit()
+
+    return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
 
 
 # ------------------------------------------------------------
@@ -3512,46 +3583,143 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         c.save()
         pages.append(buf.getvalue())
 
-    # ---------------- MERGE + PAGE NUMBER STAMP ----------------
-    merged_writer = PdfWriter()
-    for pb in pages:
-        r = PdfReader(BytesIO(pb))
-        merged_writer.add_page(r.pages[0])
-
-    out = BytesIO()
-    merged_writer.write(out)
-    pdf_bytes = out.getvalue()
-
-    total_pages = len(PdfReader(BytesIO(pdf_bytes)).pages)
-    reader = PdfReader(BytesIO(pdf_bytes))
-    writer = PdfWriter()
-
-    for i, page in enumerate(reader.pages, start=1):
-        w0 = float(page.mediabox.width)
-        h0 = float(page.mediabox.height)
-
-        stamp_buf = BytesIO()
-        sc = canvas.Canvas(stamp_buf, pagesize=(w0, h0))
-        sc.setFont("Helvetica", 9)
-        sc.setFillColor(colors.grey)
-        sc.drawString(20 * mm, 12 * mm, doc_no)
-        sc.drawRightString(w0 - 20 * mm, 12 * mm, f"Page {i}/{total_pages}")
-        sc.showPage()
-        sc.save()
-        stamp_buf.seek(0)
-
-        stamp_reader = PdfReader(stamp_buf)
-        page.merge_page(stamp_reader.pages[0])
-        writer.add_page(page)
-
-    final = BytesIO()
-    writer.write(final)
-
-    return Response(
-        content=final.getvalue(),
-        media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="burst_report_{report_id}.pdf"'},
-    )
+        # -----------------------------
+        # FINALIZE MAIN REPORT PAGE
+        # -----------------------------
+        c.showPage()
+        c.save()
+        pages.append(buf.getvalue())
+    
+        # -----------------------------
+        # ATTACHMENT PAGES PER SAMPLE
+        # -----------------------------
+        att_rows = session.exec(
+            select(BurstAttachment)
+            .where(BurstAttachment.report_id == report.id)
+            .order_by(BurstAttachment.sample_id.asc(), BurstAttachment.kind.asc())
+        ).all()
+    
+        att_map = {}
+        for a in att_rows:
+            sid = getattr(a, "sample_id", None)
+            kind = (getattr(a, "kind", "") or "").upper()
+            if sid is not None and kind:
+                att_map[(sid, kind)] = getattr(a, "file_path", "")
+    
+        def _draw_image_on_page(c2, path, x, y_top, max_w, max_h, title):
+            c2.setFont("Helvetica-Bold", 11)
+            c2.drawString(x, y_top, title)
+            y_img = y_top - 6 * mm
+    
+            c2.rect(x, y_img - max_h, max_w, max_h, stroke=1, fill=0)
+    
+            if path and os.path.exists(path):
+                try:
+                    img = ImageReader(path)
+                    iw, ih = img.getSize()
+                    scale = min(max_w / iw, max_h / ih)
+                    dw, dh = iw * scale, ih * scale
+                    dx = x + (max_w - dw) / 2
+                    dy = y_img - dh - (max_h - dh) / 2
+                    c2.drawImage(img, dx, dy, width=dw, height=dh, mask="auto")
+                except Exception:
+                    c2.setFont("Helvetica", 9)
+                    c2.drawString(x + 4 * mm, y_img - 10 * mm, "Could not load image")
+            else:
+                c2.setFont("Helvetica", 9)
+                c2.drawString(x + 4 * mm, y_img - 10 * mm, "Not uploaded")
+    
+        for s in samples:
+            full_path = att_map.get((s.id, "PHOTO_FULL"))
+            a_path = att_map.get((s.id, "PHOTO_A"))
+            b_path = att_map.get((s.id, "PHOTO_B"))
+            chart_path = att_map.get((s.id, "CHART"))
+    
+            # skip if nothing uploaded
+            if not any([full_path, a_path, b_path, chart_path]):
+                continue
+    
+            buf2 = BytesIO()
+            c2 = canvas.Canvas(buf2, pagesize=A4)
+            w2, h2 = A4
+    
+            _draw_header_footer(
+                c2,
+                title="Burst Test Report",
+                doc_control_no=doc_no,
+                page_num=1,
+                page_total=1,
+            )
+    
+            y2 = h2 - 32 * mm
+            c2.setFont("Helvetica-Bold", 12)
+            c2.drawString(20 * mm, y2, f"Specimen Attachments — {getattr(s, 'sample_serial_number', '')}")
+            y2 -= 10 * mm
+    
+            # top row: full + side A
+            box_w = (w2 - 50 * mm) / 2
+            box_h = 55 * mm
+            _draw_image_on_page(c2, full_path, 20 * mm, y2, box_w, box_h, "Full Pipe")
+            _draw_image_on_page(c2, a_path, 30 * mm + box_w, y2, box_w, box_h, "Side A")
+    
+            # second row: side B
+            y3 = y2 - box_h - 18 * mm
+            _draw_image_on_page(c2, b_path, 20 * mm, y3, box_w, box_h, "Side B")
+    
+            # chart full width
+            chart_y = y3 - box_h - 18 * mm
+            _draw_image_on_page(c2, chart_path, 20 * mm, chart_y, w2 - 40 * mm, 90 * mm, "Chart")
+    
+            c2.showPage()
+            c2.save()
+            pages.append(buf2.getvalue())
+    
+        # -----------------------------
+        # MERGE ALL GENERATED PAGES
+        # -----------------------------
+        merged_writer = PdfWriter()
+        for pb in pages:
+            reader = PdfReader(BytesIO(pb))
+            for p in reader.pages:
+                merged_writer.add_page(p)
+    
+        out = BytesIO()
+        merged_writer.write(out)
+        pdf_bytes = out.getvalue()
+    
+        # -----------------------------
+        # STAMP CORRECT PAGE NUMBERS
+        # -----------------------------
+        total_pages = len(PdfReader(BytesIO(pdf_bytes)).pages)
+        reader = PdfReader(BytesIO(pdf_bytes))
+        writer = PdfWriter()
+    
+        for i, page in enumerate(reader.pages, start=1):
+            w0 = float(page.mediabox.width)
+            h0 = float(page.mediabox.height)
+    
+            stamp_buf = BytesIO()
+            sc = canvas.Canvas(stamp_buf, pagesize=(w0, h0))
+            sc.setFont("Helvetica", 9)
+            sc.setFillColor(colors.grey)
+            sc.drawString(20 * mm, 12 * mm, doc_no)
+            sc.drawRightString(w0 - 20 * mm, 12 * mm, f"Page {i}/{total_pages}")
+            sc.showPage()
+            sc.save()
+            stamp_buf.seek(0)
+    
+            stamp_reader = PdfReader(stamp_buf)
+            page.merge_page(stamp_reader.pages[0])
+            writer.add_page(page)
+    
+        final = BytesIO()
+        writer.write(final)
+    
+        return Response(
+            content=final.getvalue(),
+            media_type="application/pdf",
+            headers={"Content-Disposition": f'attachment; filename="burst_report_{report_id}.pdf"'},
+        )
     # ------------------------------------------------------------
     # Build overlay PDFs (page1 header/specimen + results table)
     # ------------------------------------------------------------
