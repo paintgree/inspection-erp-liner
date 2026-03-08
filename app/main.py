@@ -3645,6 +3645,7 @@ async def burst_revision_reject(
 
 @app.get("/burst/{report_id}/pdf")
 def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
+    report = session.get(BurstTestReport, report_id)
     if (not report.is_unlinked) and report.linked_run_id:
         linked_run = session.get(ProductionRun, report.linked_run_id)
         if linked_run:
