@@ -2841,7 +2841,13 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
     samples = session.exec(
         select(BurstSample).where(BurstSample.report_id == rep.id)
     ).all()
-    
+
+    audit = session.exec(
+        select(BurstAuditLog)
+        .where(BurstAuditLog.report_id == report_id)
+        .order_by(BurstAuditLog.id.desc())
+    ).all()
+
     att_rows = session.exec(
         select(BurstAttachment).where(BurstAttachment.report_id == rep.id)
     ).all()
