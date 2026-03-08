@@ -32,7 +32,7 @@
             {{ "%.1f"|format(r.sample_length_m or 0) }} m
             <small class="muted">(start {{ "%.1f"|format(r.sample_start_m or 0) }}m)</small>
           </td>
-          <td>{{ "%.0f"|format(r.actual_burst_psi or 0) }} PSI</td>
+          <td>{{ "%.2f"|format(r.actual_burst_MPa or 0) }} MPa</td>
           <td>{{ r.tested_at }}</td>
         </tr>
       {% endfor %}
