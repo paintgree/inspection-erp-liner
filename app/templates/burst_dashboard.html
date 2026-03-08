@@ -1,53 +1,57 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="page-head">
+<div class="page-head burst-head">
   <h2>Burst Testing</h2>
   <a class="btn" href="/burst/new">+ New Burst Test</a>
 </div>
 
-<div class="card">
-  <table class="table">
-    <thead>
-      <tr>
-        <th>ID</th>
-        <th>Batch</th>
-        <th>Linked</th>
-        <th>Sample</th>
-        <th>Burst</th>
-        <th>Status</th>
-        <th>Date</th>
-      </tr>
-    </thead>
-
-    <tbody>
-      {% for r in reports %}
-        {% set run = run_map.get(r.id) %}
+<div class="card burst-list-card">
+  <div class="tablewrap burst-tablewrap">
+    <table class="table burst-table">
+      <thead>
         <tr>
-          <td><a href="/burst/{{ r.id }}">#{{ r.id }}</a></td>
-          <td>{{ r.batch_no }}</td>
-          <td>
-            {% if run %}Yes{% else %}No{% endif %}
-          </td>
-          <td>
-            {{ "%.1f"|format(r.sample_length_m or 0) }} m
-            <small class="muted">(start {{ "%.1f"|format(r.sample_start_m or 0) }}m)</small>
-          </td>
-          <td>{{ "%.2f"|format(burst_map.get(r.id, 0) or 0) }} MPa</td>
-          <td>
-            {% if r.current_revision_status == "PENDING_APPROVAL" %}
-              <span class="badge" style="background:#fef3c7; color:#92400e;">Pending Approval</span>
-            {% elif r.edit_window_until and r.edit_window_until > r.tested_at %}
-              <span class="badge" style="background:#dcfce7; color:#166534;">Editable</span>
-            {% else %}
-              <span class="badge" style="background:#e5e7eb; color:#374151;">Published</span>
-            {% endif %}
-          </td>
-          <td>{{ r.tested_at }}</td>
+          <th>ID</th>
+          <th>Batch</th>
+          <th>Linked</th>
+          <th>Sample</th>
+          <th>Burst</th>
+          <th>Status</th>
+          <th>Date</th>
         </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+      </thead>
+
+      <tbody>
+        {% for r in reports %}
+          {% set run = run_map.get(r.id) %}
+          <tr>
+            <td><a href="/burst/{{ r.id }}">#{{ r.id }}</a></td>
+            <td class="wrap">{{ r.batch_no }}</td>
+            <td>
+              {% if run %}Yes{% else %}No{% endif %}
+            </td>
+            <td class="wrap">
+              {{ "%.1f"|format(r.sample_length_m or 0) }} m
+              <small class="muted burst-sub">(start {{ "%.1f"|format(r.sample_start_m or 0) }}m)</small>
+            </td>
+            <td>
+              {{ "%.2f"|format(burst_map.get(r.id, 0) or 0) }} MPa
+            </td>
+            <td>
+              {% if r.current_revision_status == "PENDING_APPROVAL" %}
+                <span class="badge" style="background:#fef3c7; color:#92400e;">Pending Approval</span>
+              {% elif r.edit_window_until and r.edit_window_until > r.tested_at %}
+                <span class="badge" style="background:#dcfce7; color:#166534;">Editable</span>
+              {% else %}
+                <span class="badge" style="background:#e5e7eb; color:#374151;">Published</span>
+              {% endif %}
+            </td>
+            <td class="wrap burst-date">{{ r.tested_at }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
 
 {% endblock %}
