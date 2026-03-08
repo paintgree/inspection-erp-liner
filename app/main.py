@@ -3389,53 +3389,41 @@ def _logo_path() -> str:
     # Put your logo here: app/static/images/logo.png
     return os.path.join(base_dir, "static", "images", "logo.png")
 
-def _draw_header_footer(c, title: str, doc_control_no: str = "", page_num: int = 1, page_total: int = 1):
-    from reportlab.lib.units import mm
-    from reportlab.lib import colors
-    from reportlab.pdfbase.pdfmetrics import stringWidth
-    import os
-
+def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, page_total: int):
     w, h = A4
 
-    # ===== HEADER AREA =====
-    logo_path = os.path.join("app", "static", "logo.png")  # keep your existing logo path if different
+    logo = _logo_path()
+    y_top = h - 12 * mm
+    y_title = h - 26 * mm
 
-    top_y = h - 18 * mm
-    logo_x = 20 * mm
-    logo_w = 32 * mm
-    logo_h = 12 * mm
-
-    # draw logo same size on every page
-    if os.path.exists(logo_path):
+    if os.path.exists(logo):
         try:
-            c.drawImage(logo_path, logo_x, top_y - logo_h, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
+            img = ImageReader(logo)
+            iw, ih = img.getSize()
+            target_w = 55 * mm
+            scale = target_w / float(iw)
+            target_h = float(ih) * scale
+            x = (w - target_w) / 2
+            c.drawImage(img, x, y_top - target_h, width=target_w, height=target_h, mask="auto")
+            y_title = (y_top - target_h) - 7 * mm
         except Exception:
             pass
 
-    # centered title, same size on every page
-    title_font = "Helvetica-Bold"
-    title_size = 18
-    c.setFont(title_font, title_size)
-    c.setFillColor(colors.black)
+    c.setFont("Helvetica-Bold", 16)
+    c.drawCentredString(w / 2, y_title, title)
 
-    title_y = h - 20 * mm
-    title_width = stringWidth(title, title_font, title_size)
-    c.drawString((w - title_width) / 2, title_y, title)
-
-    # separator line
-    line_y = h - 30 * mm
+    line_y = y_title - 4 * mm
     c.setStrokeColor(colors.black)
     c.line(20 * mm, line_y, w - 20 * mm, line_y)
 
-    # ===== FOOTER =====
+    # Footer
     c.setFont("Helvetica", 9)
     c.setFillColor(colors.grey)
     c.drawString(20 * mm, 12 * mm, doc_control_no or "")
     c.drawRightString(w - 20 * mm, 12 * mm, f"Page {page_num}/{page_total}")
     c.setFillColor(colors.black)
 
-    # return safe starting Y for page content
-    return line_y - 10 * mm
+    return line_y - 8 * mm
 
 def _draw_report_info_table(c, report, x, y):
     n = int(getattr(report, "total_no_of_specimens", 0) or 0)
@@ -3812,28 +3800,13 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         w2, h2 = A4
 
         margin_x = 12 * mm
-        top_y = h2 - 18 * mm
-        line_y = h2 - 34 * mm
-
-        # ----------------------------
-        # Header: logo + title only
-        # ----------------------------
-        try:
-            brand = _logo_path()
-            if os.path.exists(brand):
-                c2.drawImage(
-                    brand,
-                    margin_x,
-                    h2 - 24 * mm,
-                    width=24 * mm,
-                    height=12 * mm,
-                    preserveAspectRatio=True,
-                    mask="auto",
-                )
-        except Exception:
-            pass
-
-        content_top = line_y - 8 * mm
+        content_top = _draw_header_footer(
+            c2,
+            title="Short-Time Hydrostatic Burst Pressure Test Report",
+            doc_control_no=doc_no,
+            page_num=1,
+            page_total=1,
+        )
 
         serial = _txt(getattr(s, "sample_serial_number", "")) or f"Specimen #{idx}"
 
@@ -3864,12 +3837,6 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         bottom_y_top = full_y_top - full_h - 10 * mm
         bottom_h = 42 * mm
         half_w = (usable_w - gap) / 2
-
-        c2.setFont("Helvetica-Bold", 16)
-        c2.drawCentredString(w2 / 2, top_y, "Short-Time Hydrostatic Burst Pressure Test Report")
-
-        c2.setLineWidth(0.8)
-        c2.line(margin_x, line_y, w2 - margin_x, line_y)
 
         # ----------------------------
         # Attachment lookup
