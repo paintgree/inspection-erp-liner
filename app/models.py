@@ -378,7 +378,14 @@ class BurstTestReport(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
+    @property
+    def actual_burst_MPa(self) -> float:
+        return float(self.actual_burst_psi or 0.0)
 
+    @actual_burst_MPa.setter
+    def actual_burst_MPa(self, value: float):
+        self.actual_burst_psi = float(value or 0.0)
+        
 class BurstReportRevision(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
@@ -430,24 +437,24 @@ class BurstSample(SQLModel, table=True):
     pressurization_time_s: str = Field(default="")
     failure_mode: str = Field(default="")
     test_result: str = Field(default="")  # PASS/FAIL
-    liner_material_grade: str = Field(default="")
-    liner_thickness_mm: float = Field(default=0.0)
-    reinforcement_material_grade: str = Field(default="")
-    reinforcement_thickness_mm: float = Field(default=0.0)
-    cover_material_grade: str = Field(default="")
-    cover_thickness_mm: float = Field(default=0.0)
 
     # Per-sample construction (what you need for burst report)
     liner_material_grade: str = Field(default="")
     liner_thickness_mm: float = Field(default=0.0)
-    
     reinforcement_material_grade: str = Field(default="")
     reinforcement_thickness_mm: float = Field(default=0.0)
-    
     cover_material_grade: str = Field(default="")
     cover_thickness_mm: float = Field(default=0.0)
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    @property
+    def actual_burst_MPa(self) -> float:
+        return float(self.actual_burst_psi or 0.0)
+
+    @actual_burst_MPa.setter
+    def actual_burst_MPa(self, value: float):
+        self.actual_burst_psi = float(value or 0.0)
 
 
 class BurstAuditLog(SQLModel, table=True):
