@@ -1,10 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="page-head burst-head">
-  <h2>Burst Testing</h2>
-  <a class="btn" href="/burst/new">+ New Burst Test</a>
-</div>
 <a href="/dashboard" class="burst-back-btn">← Back</a>
 
 <div class="page-head burst-head">
@@ -18,7 +14,7 @@
     id="burstSearch"
     class="burst-search"
     placeholder="Search by batch, ID, date..."
-    oninput="filterBurstCards()"
+    oninput="filterBurstList()"
   />
 
   <div class="burst-filters">
@@ -30,6 +26,7 @@
     <button type="button" class="burst-filter-btn" onclick="setBurstFilter('fail', this)">Fail</button>
   </div>
 </div>
+
 <div class="card burst-list-card">
   <div class="tablewrap burst-tablewrap">
     <table class="table burst-table">
@@ -48,84 +45,94 @@
       <tbody>
         {% for r in reports %}
           {% set run = run_map.get(r.id) %}
-          <tr>
+          {% set burst_value = burst_map.get(r.id, 0) or 0 %}
+          {% set result_value = result_map.get(r.id, "") %}
+
+          {% if r.current_revision_status == "PENDING_APPROVAL" %}
+            {% set status_key = "pending" %}
+            {% set status_label = "Pending Approval" %}
+            {% set status_badge_class = "badge-pending" %}
+          {% elif r.edit_window_until and r.edit_window_until > r.tested_at %}
+            {% set status_key = "editable" %}
+            {% set status_label = "Editable" %}
+            {% set status_badge_class = "badge-editable" %}
+          {% else %}
+            {% set status_key = "published" %}
+            {% set status_label = "Published" %}
+            {% set status_badge_class = "badge-published" %}
+          {% endif %}
+
+          <tr
+            class="burst-table-row"
+            data-status="{{ status_key }}"
+            data-result="{{ (result_value or '')|lower }}"
+            data-search="#{{ r.id }} {{ r.batch_no or '' }} {{ r.tested_at or '' }} {{ result_value or '' }} {{ status_label }} {% if run %}yes{% else %}no{% endif %}"
+          >
             <td><a href="/burst/{{ r.id }}">#{{ r.id }}</a></td>
-            <td class="wrap">{{ r.batch_no }}</td>
+            <td>{{ r.batch_no or "-" }}</td>
+            <td>{% if run %}Yes{% else %}No{% endif %}</td>
             <td>
-              {% if run %}Yes{% else %}No{% endif %}
-            </td>
-            <td class="wrap">
               {{ "%.1f"|format(r.sample_length_m or 0) }} m
               <small class="muted burst-sub">(start {{ "%.1f"|format(r.sample_start_m or 0) }}m)</small>
             </td>
             <td>
-              {{ "%.2f"|format(burst_map.get(r.id, 0) or 0) }} MPa
+              <span class="burst-value {% if burst_value >= 40 %}burst-good{% elif burst_value > 0 %}burst-mid{% else %}burst-zero{% endif %}">
+                {{ "%.2f"|format(burst_value) }} MPa
+              </span>
             </td>
             <td>
-              {% if r.current_revision_status == "PENDING_APPROVAL" %}
-                <span class="badge" style="background:#fef3c7; color:#92400e;">Pending Approval</span>
-              {% elif r.edit_window_until and r.edit_window_until > r.tested_at %}
-                <span class="badge" style="background:#dcfce7; color:#166534;">Editable</span>
-              {% else %}
-                <span class="badge" style="background:#e5e7eb; color:#374151;">Published</span>
-              {% endif %}
+              <span class="burst-status {{ status_badge_class }}">{{ status_label }}</span>
             </td>
-            <td class="wrap burst-date">{{ r.tested_at }}</td>
+            <td class="burst-date">{{ r.tested_at }}</td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
-  <div class="burst-tools">
-    <input
-      type="text"
-      id="burstSearch"
-      class="burst-search"
-      placeholder="Search by batch, ID, date..."
-      oninput="filterBurstCards()"
-    />
-  
-    <div class="burst-filters">
-      <button type="button" class="burst-filter-btn active" data-filter="all" onclick="setBurstFilter('all', this)">All</button>
-      <button type="button" class="burst-filter-btn" data-filter="published" onclick="setBurstFilter('published', this)">Published</button>
-      <button type="button" class="burst-filter-btn" data-filter="editable" onclick="setBurstFilter('editable', this)">Editable</button>
-      <button type="button" class="burst-filter-btn" data-filter="pending" onclick="setBurstFilter('pending', this)">Pending</button>
-      <button type="button" class="burst-filter-btn" data-filter="pass" onclick="setBurstFilter('pass', this)">Pass</button>
-      <button type="button" class="burst-filter-btn" data-filter="fail" onclick="setBurstFilter('fail', this)">Fail</button>
-    </div>
-  </div>  
   </div>
-  <!-- MOBILE CARDS -->
-  <div class="burst-mobile-list">
-  
-    {% for r in reports %}
+</div>
+
+<div class="burst-mobile-list">
+  {% for r in reports %}
     {% set run = run_map.get(r.id) %}
-  
-    <a href="/burst/{{ r.id }}" class="burst-mobile-card">
-  
+    {% set burst_value = burst_map.get(r.id, 0) or 0 %}
+    {% set result_value = result_map.get(r.id, "") %}
+
+    {% if r.current_revision_status == "PENDING_APPROVAL" %}
+      {% set status_key = "pending" %}
+      {% set status_label = "Pending Approval" %}
+      {% set status_badge_class = "badge-pending" %}
+    {% elif r.edit_window_until and r.edit_window_until > r.tested_at %}
+      {% set status_key = "editable" %}
+      {% set status_label = "Editable" %}
+      {% set status_badge_class = "badge-editable" %}
+    {% else %}
+      {% set status_key = "published" %}
+      {% set status_label = "Published" %}
+      {% set status_badge_class = "badge-published" %}
+    {% endif %}
+
+    <a
+      href="/burst/{{ r.id }}"
+      class="burst-mobile-card"
+      data-status="{{ status_key }}"
+      data-result="{{ (result_value or '')|lower }}"
+      data-search="#{{ r.id }} {{ r.batch_no or '' }} {{ r.tested_at or '' }} {{ result_value or '' }} {{ status_label }} {% if run %}yes{% else %}no{% endif %}"
+    >
       <div class="burst-card-header">
         <span class="burst-id">#{{ r.id }}</span>
-  
-        <span class="burst-status">
-          {% if r.current_revision_status == "PENDING_APPROVAL" %}
-            Pending Approval
-          {% elif r.edit_window_until and r.edit_window_until > r.tested_at %}
-            Editable
-          {% else %}
-            Published
-          {% endif %}
-        </span>
+        <span class="burst-status {{ status_badge_class }}">{{ status_label }}</span>
       </div>
-  
+
       <div class="burst-row">
         <strong>Batch</strong>
-        <span>{{ r.batch_no }}</span>
+        <span>{{ r.batch_no or "-" }}</span>
       </div>
-  
+
       <div class="burst-row">
         <strong>Linked</strong>
         <span>{% if run %}Yes{% else %}No{% endif %}</span>
       </div>
-  
+
       <div class="burst-row">
         <strong>Sample</strong>
         <span>
@@ -133,45 +140,57 @@
           (start {{ "%.1f"|format(r.sample_start_m or 0) }}m)
         </span>
       </div>
-  
-      <div class="burst-row burst-burst">
+
+      <div class="burst-row burst-burst-row">
         <strong>Burst</strong>
-        <span>{{ "%.2f"|format(burst_map.get(r.id,0) or 0) }} MPa</span>
+        <span class="burst-value {% if burst_value >= 40 %}burst-good{% elif burst_value > 0 %}burst-mid{% else %}burst-zero{% endif %}">
+          {{ "%.2f"|format(burst_value) }} MPa
+        </span>
       </div>
-  
+
       <div class="burst-row">
+        <strong>Result</strong>
+        <span>
+          {% if (result_value or "")|upper == "PASS" %}
+            <span class="result-badge result-pass">PASS</span>
+          {% elif (result_value or "")|upper == "FAIL" %}
+            <span class="result-badge result-fail">FAIL</span>
+          {% else %}
+            <span class="result-badge result-empty">—</span>
+          {% endif %}
+        </span>
+      </div>
+
+      <div class="burst-row burst-date-row">
         <strong>Date</strong>
         <span>{{ r.tested_at }}</span>
       </div>
-  
     </a>
-  
-    {% endfor %}
-  
-  </div>
+  {% endfor %}
 </div>
+
 <script>
   let burstCurrentFilter = "all";
 
   function setBurstFilter(filter, btn) {
     burstCurrentFilter = filter;
 
-    document.querySelectorAll(".burst-filter-btn").forEach(b => {
+    document.querySelectorAll(".burst-filter-btn").forEach((b) => {
       b.classList.remove("active");
     });
 
     if (btn) btn.classList.add("active");
-    filterBurstCards();
+    filterBurstList();
   }
 
-  function filterBurstCards() {
-    const searchEl = document.getElementById("burstSearch");
-    const query = (searchEl ? searchEl.value : "").trim().toLowerCase();
+  function filterBurstList() {
+    const input = document.getElementById("burstSearch");
+    const query = input ? input.value.trim().toLowerCase() : "";
 
-    document.querySelectorAll(".burst-mobile-card").forEach(card => {
-      const text = (card.dataset.search || "").toLowerCase();
-      const status = (card.dataset.status || "").toLowerCase();
-      const result = (card.dataset.result || "").toLowerCase();
+    document.querySelectorAll(".burst-table-row, .burst-mobile-card").forEach((el) => {
+      const text = (el.dataset.search || "").toLowerCase();
+      const status = (el.dataset.status || "").toLowerCase();
+      const result = (el.dataset.result || "").toLowerCase();
 
       const matchesSearch = !query || text.includes(query);
 
@@ -182,7 +201,11 @@
       else if (burstCurrentFilter === "pass") matchesFilter = result === "pass";
       else if (burstCurrentFilter === "fail") matchesFilter = result === "fail";
 
-      card.style.display = (matchesSearch && matchesFilter) ? "block" : "none";
+      if (el.tagName.toLowerCase() === "tr") {
+        el.style.display = (matchesSearch && matchesFilter) ? "" : "none";
+      } else {
+        el.style.display = (matchesSearch && matchesFilter) ? "block" : "none";
+      }
     });
   }
 </script>
