@@ -83,6 +83,8 @@ from .models import (
     BurstAttachment,
     BurstSample,
     BurstAuditLog,
+    BurstReportRevision,
+
 )
 
 SLOTS = [
@@ -3020,7 +3022,6 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             "crop_meta": crop_meta,
             "pending_revisions": pending_revisions,
             "edit_direct_allowed": edit_direct_allowed,
-            "pending_revisions": pending_revisions,
         },
     )
 
