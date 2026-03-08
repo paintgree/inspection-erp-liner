@@ -3031,6 +3031,7 @@ async def burst_update(
     report_id: int,
     request: Request,
     session: Session = Depends(get_session),
+    
 
     # TEST DETAILS
     reference_standard: str = Form(""),
@@ -3072,6 +3073,8 @@ async def burst_update(
     rep = session.get(BurstTestReport, report_id)
     if not rep:
         raise HTTPException(404, detail="Burst report not found")
+
+    form = await request.form()
 
     # If already locked and user tries to save, allow saving only if you want.
     # Current behavior: locked reports can still be updated only via reopen endpoint.
