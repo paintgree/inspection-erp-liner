@@ -33,8 +33,7 @@
             {{ "%.1f"|format(r.sample_length_m or 0) }} m
             <small class="muted">(start {{ "%.1f"|format(r.sample_start_m or 0) }}m)</small>
           </td>
-          <td>{{ "%.2f"|format(r.actual_burst_MPa or 0) }} MPa</td>
-          <td>{{ r.tested_at }}</td>
+          <td>{{ "%.2f"|format(burst_map.get(r.id, 0) or 0) }} MPa</td>
           <td>
             {% if r.current_revision_status == "PENDING_APPROVAL" %}
               <span class="badge" style="background:#fef3c7; color:#92400e;">Pending Approval</span>
@@ -44,6 +43,7 @@
               <span class="badge" style="background:#e5e7eb; color:#374151;">Published</span>
             {% endif %}
           </td>
+          <td>{{ r.tested_at }}</td>
         </tr>
       {% endfor %}
     </tbody>
