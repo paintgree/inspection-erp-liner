@@ -2977,6 +2977,13 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
         .order_by(BurstReportRevision.id.desc())
     ).all()
 
+    edit_direct_allowed = (
+        not rep.published_at
+        or not rep.edit_window_until
+        or datetime.utcnow() <= rep.edit_window_until
+        or _is_manager_or_boss(user)
+    )
+
     att_status = {}
     att_map = defaultdict(dict)
     crop_meta = defaultdict(dict)
@@ -2988,12 +2995,6 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             continue
 
 
-        "edit_direct_allowed": (
-            not rep.published_at
-            or not rep.edit_window_until
-            or datetime.utcnow() <= rep.edit_window_until
-            or _is_manager_or_boss(user)
-        ),
 
         att_status[(sid, kind)] = True
         att_map[sid][kind] = a
@@ -3018,8 +3019,9 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             "att_map": att_map,
             "crop_meta": crop_meta,
             "pending_revisions": pending_revisions,
+            "edit_direct_allowed": edit_direct_allowed,
         },
-    )
+    ))
 
 
 @app.post("/burst/{report_id}/update")
