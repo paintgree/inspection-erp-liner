@@ -3469,10 +3469,10 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         .order_by(BurstAttachment.sample_id.asc(), BurstAttachment.uploaded_at.asc())
     ).all()
 
-    doc_no = _txt(getattr(report, "doc_control_no", "")) or "DOC CONTROL NO: __________"
+    doc_no = _txt(getattr(report, "doc_control_no", "")) or "QAW1401-F01"
     pages: list[bytes] = []
 
-    def new_page(title: str = "Burst Test Report"):
+    def new_page(title: str = "Short-Time Hydrostatic Burst Pressure Test Report"):
         buf = BytesIO()
         c = canvas.Canvas(buf, pagesize=A4)
         return buf, c, title
