@@ -3099,7 +3099,7 @@ async def burst_update(
 
     # legacy single-sample fields
     rep.sample_serial_number = (sample_serial_number or "").strip()
-    rep.actual_burst_MPa = float(actual_burst_MPa or 0.0)
+    rep.actual_burst_psi = float(actual_burst_psi or 0.0)
     rep.pressurization_time_s = (pressurization_time_s or "").strip()
     rep.test_result = (test_result or "").strip()
     rep.failure_mode = (failure_mode or "").strip()
@@ -3123,7 +3123,7 @@ async def burst_update(
     for s in db_samples[:n]:
 
         s.sample_serial_number = (form.get(f"sample_serial_number_{s.id}") or "").strip()
-        s.actual_burst_MPa = float(form.get(f"actual_burst_MPa_{s.id}") or 0.0)
+        s.actual_burst_psi = float(form.get(f"actual_burst_psi_{s.id}") or 0.0)
         s.pressurization_time_s = (form.get(f"pressurization_time_s_{s.id}") or "").strip()
         s.test_result = (form.get(f"test_result_{s.id}") or "").strip()
 
