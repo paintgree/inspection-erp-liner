@@ -45,12 +45,17 @@
     align-items:center;
     justify-content:center;
   }
-  .attach-preview {
+    .attach-preview {
     width:100%;
     height:100%;
     object-fit:contain;
     display:block;
     background:#fafafa;
+    transform:
+      translate(var(--move-x, 0px), var(--move-y, 0px))
+      rotate(var(--rotation, 0deg))
+      scale(var(--zoom, 1));
+    transform-origin:center center;
   }
   .attach-actions {
     display:grid;
@@ -421,7 +426,6 @@
                 <div class="hint">Not uploaded yet</div>
               {% endif %}
             </div>
-            <input type="file" name="photo_full" accept="image/*" class="js-file-input">
             <input type="hidden" name="crop_photo_full" class="js-crop-hidden" value='{{ meta_full|tojson|safe }}'>
             <div class="attach-actions">
               <button type="button"
@@ -656,7 +660,7 @@
     }
 
     state = {
-      zoom: parseFloat(state.zoom || 1) || 1,
+      zoom: parseFloat(state.zoom || 0.8) || 0.8,
       offset_x: parseFloat(state.offset_x || 0) || 0,
       offset_y: parseFloat(state.offset_y || 0) || 0,
       rotation: parseInt(state.rotation || 0, 10) || 0
@@ -687,18 +691,29 @@
   }
 
   function syncCardPreview(card, src){
-    const wrap = card.querySelector(".attach-thumb-wrap");
-    let img = wrap.querySelector(".attach-preview");
+  const wrap = card.querySelector(".attach-thumb-wrap");
+  const hidden = card.querySelector(".js-crop-hidden");
+  let meta = { zoom: 1, offset_x: 0, offset_y: 0, rotation: 0 };
 
-    if (!img) {
-      wrap.innerHTML = "";
-      img = document.createElement("img");
-      img.className = "attach-preview";
-      wrap.appendChild(img);
-    }
+  try {
+    meta = JSON.parse(hidden?.value || "{}") || meta;
+  } catch(e) {}
 
-    img.src = src;
+  let img = wrap.querySelector(".attach-preview");
+
+  if (!img) {
+    wrap.innerHTML = "";
+    img = document.createElement("img");
+    img.className = "attach-preview";
+    wrap.appendChild(img);
   }
+
+  img.src = src;
+  img.style.setProperty("--zoom", meta.zoom || 1);
+  img.style.setProperty("--move-x", ((meta.offset_x || 0) * 40) + "px");
+  img.style.setProperty("--move-y", (-(meta.offset_y || 0) * 40) + "px");
+  img.style.setProperty("--rotation", ((meta.rotation || 0)) + "deg");
+}
 
   document.querySelectorAll(".attach-card").forEach(card => {
     const choose = card.querySelector(".js-file-input");
@@ -715,7 +730,7 @@
         syncCardPreview(card, src);
 
         hidden.value = JSON.stringify({
-          zoom: 1,
+          zoom: 0.8,
           offset_x: 0,
           offset_y: 0,
           rotation: 0
@@ -770,18 +785,27 @@
   });
 
   btnSave && btnSave.addEventListener("click", () => {
-    if (!activeCard) return;
-    const hidden = activeCard.querySelector(".js-crop-hidden");
-    if (hidden) {
-      hidden.value = JSON.stringify({
-        zoom: state.zoom,
-        offset_x: state.offset_x,
-        offset_y: state.offset_y,
-        rotation: state.rotation
-      });
-    }
-    closeEditor();
-  });
+  if (!activeCard) return;
+
+  const hidden = activeCard.querySelector(".js-crop-hidden");
+  const openBtn = activeCard.querySelector(".js-open-editor");
+  const src = openBtn?.dataset.previewSrc || "";
+
+  if (hidden) {
+    hidden.value = JSON.stringify({
+      zoom: state.zoom,
+      offset_x: state.offset_x,
+      offset_y: state.offset_y,
+      rotation: state.rotation
+    });
+  }
+
+  if (src) {
+    syncCardPreview(activeCard, src);
+  }
+
+  closeEditor();
+});
 
   btnClose && btnClose.addEventListener("click", closeEditor);
   btnCancel && btnCancel.addEventListener("click", closeEditor);
