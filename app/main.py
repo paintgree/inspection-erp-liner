@@ -3021,7 +3021,7 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             "pending_revisions": pending_revisions,
             "edit_direct_allowed": edit_direct_allowed,
         },
-    ))
+    )
 
 
 @app.post("/burst/{report_id}/update")
