@@ -2910,7 +2910,7 @@ async def burst_update(
 
     # legacy single-sample fields (keep for backward compatibility)
     sample_serial_number: str = Form(""),
-    actual_burst_psi: float = Form(0.0),
+    actual_burst_MPa: float = Form(0.0),
     pressurization_time_s: str = Form(""),
     test_result: str = Form(""),
     failure_mode: str = Form(""),
@@ -2963,7 +2963,7 @@ async def burst_update(
 
     # legacy single-sample fields
     rep.sample_serial_number = (sample_serial_number or "").strip()
-    rep.actual_burst_psi = float(actual_burst_psi or 0.0)
+    rep.actual_burst_MPa = float(actual_burst_MPa or 0.0)
     rep.pressurization_time_s = (pressurization_time_s or "").strip()
     rep.test_result = (test_result or "").strip()
     rep.failure_mode = (failure_mode or "").strip()
@@ -2987,7 +2987,7 @@ async def burst_update(
     for s in db_samples[:n]:
 
         s.sample_serial_number = (form.get(f"sample_serial_number_{s.id}") or "").strip()
-        s.actual_burst_psi = float(form.get(f"actual_burst_psi_{s.id}") or 0.0)
+        s.actual_burst_MPa = float(form.get(f"actual_burst_MPa_{s.id}") or 0.0)
         s.pressurization_time_s = (form.get(f"pressurization_time_s_{s.id}") or "").strip()
         s.test_result = (form.get(f"test_result_{s.id}") or "").strip()
 
@@ -3283,7 +3283,7 @@ def _draw_results_table(c, samples, y):
         data.append([
             str(i),
             _txt(getattr(s, "sample_serial_number", "")),
-            _txt(getattr(s, "actual_burst_psi", "")),
+            _txt(getattr(s, "actual_burst_MPa", "")),
             _txt(getattr(s, "pressurization_time_s", "")),
             _txt(getattr(s, "test_result", "")),
         ])
@@ -3316,7 +3316,7 @@ def _make_burst_chart_png(samples) -> bytes | None:
         xs = []
         ys = []
         for i, s in enumerate(samples, start=1):
-            v = _float(getattr(s, "actual_burst_psi", None))
+            v = _float(getattr(s, "actual_burst_MPa", None))
             if v is not None:
                 xs.append(i)
                 ys.append(v)
@@ -3328,7 +3328,7 @@ def _make_burst_chart_png(samples) -> bytes | None:
         ax.plot(xs, ys, marker="o")
         ax.set_title("Burst Pressure by Specimen")
         ax.set_xlabel("Specimen #")
-        ax.set_ylabel("Actual Burst (PSI)")
+        ax.set_ylabel("Actual Burst (MPa)")
         ax.grid(True)
 
         buf = BytesIO()
@@ -3516,7 +3516,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         serial = _txt(getattr(s, "sample_serial_number", "")) or f"Specimen #{idx}"
 
         length_txt = _txt(getattr(s, "sample_length_m", "")) or "-"
-        burst_txt = _txt(getattr(s, "actual_burst_psi", "")) or "-"
+        burst_txt = _txt(getattr(s, "actual_burst_MPa", "")) or "-"
         result_txt = _txt(getattr(s, "test_result", "")) or "-"
 
         c2.setFont("Helvetica-Bold", 12)
