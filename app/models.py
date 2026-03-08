@@ -342,8 +342,8 @@ class BurstTestReport(SQLModel, table=True):
     # TEMPLATE: TEST RESULTS
     # -------------------------
     sample_serial_number: str = Field(default="")  # manual
-    target_pressure_MPa: float = Field(default=0.0)
-    actual_burst_MPa: float = Field(default=0.0)
+    target_pressure_psi: float = Field(default=0.0)
+    actual_burst_psi: float = Field(default=0.0)
     pressurization_time_s: str = Field(default="")  # manual
     test_result: str = Field(default="")            # PASS / FAIL
     failure_mode: str = Field(default="")
@@ -426,7 +426,7 @@ class BurstSample(SQLModel, table=True):
 
     # Optional per-sample results (useful when multiple specimens)
     sample_serial_number: str = Field(default="")
-    actual_burst_MPa: float = Field(default=0.0)
+    actual_burst_psi: float = Field(default=0.0)
     pressurization_time_s: str = Field(default="")
     failure_mode: str = Field(default="")
     test_result: str = Field(default="")  # PASS/FAIL
