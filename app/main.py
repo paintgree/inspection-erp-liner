@@ -3095,6 +3095,8 @@ async def burst_update(
     rep.laboratory_temperature = (form.get("laboratory_temperature") or "").strip()
     rep.testing_medium = (form.get("testing_medium") or "").strip()
     rep.total_no_of_specimens = int(form.get("total_no_of_specimens") or 1)
+    rep.pipe_specification = (form.get("pipe_specification") or "").strip()
+    rep.client_po = (form.get("client_po") or "").strip()
 
     # SPECIMENS (report-level)
     rep.effective_length_m = (form.get("effective_length_m") or "").strip()
@@ -3725,17 +3727,18 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
     _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
 
-
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(20 * mm, y, "Specimens")
-    y -= 7 * mm
-    y = _draw_specimen_blocks(c, report, samples, y)
-
     c.setFont("Helvetica-Bold", 11)
     c.drawString(20 * mm, y, "Report Information")
     y -= 6 * mm
     y = _draw_report_info_table(c, report, 20 * mm, y)
     y -= 8 * mm
+    
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(20 * mm, y, "Specimens")
+    y -= 7 * mm
+    y = _draw_specimen_blocks(c, report, samples, y)
+
+
 
     if y < 85 * mm:
         c.showPage()
