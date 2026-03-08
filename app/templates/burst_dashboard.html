@@ -52,6 +52,61 @@
       </tbody>
     </table>
   </div>
+  <!-- MOBILE CARDS -->
+  <div class="burst-mobile-list">
+  
+    {% for r in reports %}
+    {% set run = run_map.get(r.id) %}
+  
+    <a href="/burst/{{ r.id }}" class="burst-mobile-card">
+  
+      <div class="burst-card-header">
+        <span class="burst-id">#{{ r.id }}</span>
+  
+        <span class="burst-status">
+          {% if r.current_revision_status == "PENDING_APPROVAL" %}
+            Pending Approval
+          {% elif r.edit_window_until and r.edit_window_until > r.tested_at %}
+            Editable
+          {% else %}
+            Published
+          {% endif %}
+        </span>
+      </div>
+  
+      <div class="burst-row">
+        <strong>Batch</strong>
+        <span>{{ r.batch_no }}</span>
+      </div>
+  
+      <div class="burst-row">
+        <strong>Linked</strong>
+        <span>{% if run %}Yes{% else %}No{% endif %}</span>
+      </div>
+  
+      <div class="burst-row">
+        <strong>Sample</strong>
+        <span>
+          {{ "%.1f"|format(r.sample_length_m or 0) }} m
+          (start {{ "%.1f"|format(r.sample_start_m or 0) }}m)
+        </span>
+      </div>
+  
+      <div class="burst-row burst-burst">
+        <strong>Burst</strong>
+        <span>{{ "%.2f"|format(burst_map.get(r.id,0) or 0) }} MPa</span>
+      </div>
+  
+      <div class="burst-row">
+        <strong>Date</strong>
+        <span>{{ r.tested_at }}</span>
+      </div>
+  
+    </a>
+  
+    {% endfor %}
+  
+  </div>
 </div>
 
 {% endblock %}
