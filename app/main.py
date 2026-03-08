@@ -2514,17 +2514,32 @@ def burst_dashboard(request: Request, session: Session = Depends(get_session)):
     ).all()
 
     run_map = {}
+    burst_map = {}
     for r in reports:
         run = None
         if not r.is_unlinked and r.linked_run_id:
             run = session.get(ProductionRun, r.linked_run_id)
         run_map[r.id] = run
 
+        sample_rows = session.exec(
+            select(BurstSample)
+            .where(BurstSample.report_id == r.id)
+            .order_by(BurstSample.id.asc())
+        ).all()
+
+        values = [float(getattr(s, "actual_burst_psi", 0.0) or 0.0) for s in sample_rows]
+        burst_map[r.id] = max(values) if values else float(getattr(r, "actual_burst_psi", 0.0) or 0.0)
+
     return templates.TemplateResponse(
         "burst_dashboard.html",
-        {"request": request, "user": user, "reports": reports, "run_map": run_map},
+        {
+            "request": request,
+            "user": user,
+            "reports": reports,
+            "run_map": run_map,
+            "burst_map": burst_map,
+        },
     )
-
 
 from sqlalchemy import func  # make sure this import exists at top
 
@@ -3851,24 +3866,24 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         
         def draw_labeled_image(path, x, y_top, box_w, box_h, label, allow_rotate=False, fill_box=False):
             c2.setFont("Helvetica", 9)
-        
+
             # Move label a bit lower so it sits just above its own box
             label_y = y_top - 4 * mm
             c2.drawString(x, label_y, label)
-        
+
             # Keep a small gap between label and box
             img_top = label_y - 3 * mm
             c2.rect(x, img_top - box_h, box_w, box_h, stroke=1, fill=0)
-        
+
             if not path:
                 c2.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
                 return
-        
+
             real_path = resolve_burst_file_path(path)
             if not real_path or not os.path.exists(real_path):
                 c2.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
                 return
-        
+
             try:
                 temp_buf = _render_burst_image_to_box(
                     real_path,
@@ -3886,7 +3901,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
                     mask="auto",
                 )
             except Exception:
-        c2.drawString(x + 4 * mm, img_top - 10 * mm, "Could not load image")
+                c2.drawString(x + 4 * mm, img_top - 10 * mm, "Could not load image")
 
         draw_labeled_image(chart_path, margin_x, chart_y_top, usable_w, chart_h, "CHART", allow_rotate=False, fill_box=False)
         draw_labeled_image(full_path, margin_x, full_y_top, usable_w, full_h, "FULL LENGTH:", allow_rotate=True, fill_box=True)
