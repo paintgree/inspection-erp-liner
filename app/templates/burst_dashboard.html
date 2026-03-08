@@ -51,6 +51,24 @@
         {% endfor %}
       </tbody>
     </table>
+  <div class="burst-mobile-tools">
+    <input
+      type="text"
+      id="burstSearch"
+      class="burst-search"
+      placeholder="Search by batch, ID, date..."
+      oninput="filterBurstCards()"
+    />
+  
+    <div class="burst-filters">
+      <button type="button" class="burst-filter-btn active" data-filter="all" onclick="setBurstFilter('all', this)">All</button>
+      <button type="button" class="burst-filter-btn" data-filter="published" onclick="setBurstFilter('published', this)">Published</button>
+      <button type="button" class="burst-filter-btn" data-filter="editable" onclick="setBurstFilter('editable', this)">Editable</button>
+      <button type="button" class="burst-filter-btn" data-filter="pending" onclick="setBurstFilter('pending', this)">Pending</button>
+      <button type="button" class="burst-filter-btn" data-filter="pass" onclick="setBurstFilter('pass', this)">Pass</button>
+      <button type="button" class="burst-filter-btn" data-filter="fail" onclick="setBurstFilter('fail', this)">Fail</button>
+    </div>
+  </div>  
   </div>
   <!-- MOBILE CARDS -->
   <div class="burst-mobile-list">
@@ -108,5 +126,41 @@
   
   </div>
 </div>
+<script>
+  let burstCurrentFilter = "all";
+
+  function setBurstFilter(filter, btn) {
+    burstCurrentFilter = filter;
+
+    document.querySelectorAll(".burst-filter-btn").forEach(b => {
+      b.classList.remove("active");
+    });
+
+    if (btn) btn.classList.add("active");
+    filterBurstCards();
+  }
+
+  function filterBurstCards() {
+    const searchEl = document.getElementById("burstSearch");
+    const query = (searchEl ? searchEl.value : "").trim().toLowerCase();
+
+    document.querySelectorAll(".burst-mobile-card").forEach(card => {
+      const text = (card.dataset.search || "").toLowerCase();
+      const status = (card.dataset.status || "").toLowerCase();
+      const result = (card.dataset.result || "").toLowerCase();
+
+      const matchesSearch = !query || text.includes(query);
+
+      let matchesFilter = true;
+      if (burstCurrentFilter === "published") matchesFilter = status === "published";
+      else if (burstCurrentFilter === "editable") matchesFilter = status === "editable";
+      else if (burstCurrentFilter === "pending") matchesFilter = status === "pending";
+      else if (burstCurrentFilter === "pass") matchesFilter = result === "pass";
+      else if (burstCurrentFilter === "fail") matchesFilter = result === "fail";
+
+      card.style.display = (matchesSearch && matchesFilter) ? "block" : "none";
+    });
+  }
+</script>
 
 {% endblock %}
