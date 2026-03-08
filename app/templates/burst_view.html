@@ -21,7 +21,7 @@
     border:1px solid #e5e7eb; border-radius:12px; padding:12px; background:#fff;
     margin-top:10px;
   }
-  .spec-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+  .spec-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px; }
   .spec-head .tag { font-weight:700; }
   .hint { color:#6b7280; font-size:12px; margin-top:6px; }
   .btn-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
@@ -29,102 +29,188 @@
   table.table th, table.table td { border-bottom:1px solid #eee; padding:10px; text-align:left; vertical-align:top; }
   table.table th { font-size:13px; color:#374151; background:#fafafa; }
   input, select, textarea { width:100%; }
-    .attach-grid { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+
+  .attach-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:12px; }
   .attach-card {
-    border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#fff;
+    border:1px solid #e5e7eb; border-radius:12px; padding:12px; background:#fff;
   }
-  .crop-frame {
-    position: relative;
-    width: 100%;
-    height: 220px;
-    overflow: hidden;
-    border: 1px dashed #9ca3af;
-    border-radius: 8px;
-    background: #f8fafc;
-    margin: 10px 0;
+  .attach-thumb-wrap {
+    margin:10px 0;
+    border:1px solid #ddd;
+    border-radius:10px;
+    background:#f8fafc;
+    overflow:hidden;
+    height:180px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
   }
-  .crop-frame::before,
-  .crop-frame::after {
-    content: "";
-    position: absolute;
-    z-index: 2;
-    pointer-events: none;
-    opacity: 0.5;
+  .attach-preview {
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    display:block;
+    background:#fafafa;
   }
-  .crop-frame::before {
-    left: 50%;
-    top: 0;
-    bottom: 0;
-    border-left: 1px dashed #94a3b8;
+  .attach-actions {
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:8px;
+    margin-top:8px;
   }
-  .crop-frame::after {
-    top: 50%;
-    left: 0;
-    right: 0;
-    border-top: 1px dashed #94a3b8;
+  .save-row {
+    margin-top:12px; display:flex; justify-content:flex-end;
   }
-  .crop-stage {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
+
+  .editor-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.72);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 12px;
   }
-    .attach-preview {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    max-width: 100%;
+  .editor-modal.open {
+    display: flex;
+  }
+  .editor-sheet {
+    width: min(100%, 720px);
     max-height: 100%;
-    width: auto;
-    height: auto;
-    display: block;
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .editor-head {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:12px 14px;
+    border-bottom:1px solid #e5e7eb;
+  }
+  .editor-title {
+    font-weight:700;
+  }
+  .editor-body {
+    padding:12px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+  .editor-frame {
+    position: relative;
+    width: 100%;
+    height: min(62vh, 420px);
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f1f5f9;
+    border: 1px dashed #94a3b8;
+    touch-action: none;
+  }
+  .editor-frame::before,
+  .editor-frame::after {
+    content:"";
+    position:absolute;
+    z-index:2;
+    pointer-events:none;
+    opacity:.45;
+  }
+  .editor-frame::before {
+    left:50%;
+    top:0;
+    bottom:0;
+    border-left:1px dashed #94a3b8;
+  }
+  .editor-frame::after {
+    top:50%;
+    left:0;
+    right:0;
+    border-top:1px dashed #94a3b8;
+  }
+  .editor-image {
+    position:absolute;
+    left:50%;
+    top:50%;
+    max-width:100%;
+    max-height:100%;
+    width:auto;
+    height:auto;
     transform:
       translate(-50%, -50%)
       translate(var(--move-x, 0px), var(--move-y, 0px))
       rotate(var(--rotation, 0deg))
       scale(var(--zoom, 1));
-    transform-origin: center center;
-    user-select: none;
-    -webkit-user-drag: none;
+    transform-origin:center center;
+    user-select:none;
+    -webkit-user-drag:none;
+    touch-action:none;
   }
-  .crop-empty {
-    height: 100%;
+  .editor-empty {
+    height:100%;
     display:flex;
     align-items:center;
     justify-content:center;
-    color:#6b7280;
-    font-size:12px;
+    color:#64748b;
+    padding:20px;
     text-align:center;
-    padding:12px;
   }
-  .crop-controls {
+  .editor-toolbar {
     display:grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap:8px;
-    margin-top:8px;
   }
-  .crop-controls label {
-    display:grid;
-    gap:4px;
-    font-size:12px;
-    color:#374151;
+  .editor-toolbar button,
+  .editor-head button,
+  .attach-actions .btn,
+  .attach-actions label.btn {
+    min-height: 44px;
   }
-  .rotate-row {
+  .editor-foot {
     display:flex;
     gap:8px;
-    flex-wrap:wrap;
+    justify-content:flex-end;
+    padding:12px 14px;
+    border-top:1px solid #e5e7eb;
   }
-  .rotate-btn {
-    border:1px solid #cbd5e1;
-    background:#fff;
-    border-radius:8px;
-    padding:8px 10px;
-    cursor:pointer;
+
+  @media (max-width: 900px) {
+    .burst-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-2, .grid-3, .attach-grid { grid-template-columns: 1fr; }
+    .burst-header { flex-direction: column; }
+    .btn-row { justify-content: stretch; width:100%; }
+    .btn-row .btn { flex:1; text-align:center; }
   }
-  .save-row {
-    margin-top:12px; display:flex; justify-content:flex-end;
+
+  @media (max-width: 640px) {
+    .section, .spec-card, .attach-card { padding:10px; }
+    table.table, table.table thead, table.table tbody, table.table tr, table.table th, table.table td {
+      display:block;
+      width:100%;
+    }
+    table.table thead { display:none; }
+    table.table tr {
+      border:1px solid #eee;
+      border-radius:10px;
+      padding:8px;
+      margin-bottom:10px;
+      background:#fff;
+    }
+    table.table td {
+      border:0;
+      padding:6px 0;
+    }
+    .attach-actions {
+      grid-template-columns: 1fr;
+    }
+    .editor-toolbar {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
   }
 </style>
-
 <div class="burst-header">
   <div class="burst-title">
     <h2>Short-Time Hydrostatic Burst Pressure Test Report #{{ rep.id }}</h2>
@@ -313,7 +399,7 @@
     <div class="spec-card">
       <div class="spec-head">
         <div class="tag">Specimen #{{ loop.index }}{% if s.sample_serial_number %} - {{ s.sample_serial_number }}{% endif %}</div>
-        <div class="hint">Upload or replace images for this specimen</div>
+        <div class="hint">Tap Edit to adjust image on any device</div>
       </div>
 
       <form method="POST"
@@ -321,160 +407,170 @@
             enctype="multipart/form-data">
 
         <div class="attach-grid">
+
+          {% set meta_full = crop_meta.get(s.id, {}).get("PHOTO_FULL", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
           <div class="attach-card">
             <label><b>Full Pipe Photo</b></label>
-            {% set meta = crop_meta.get(s.id, {}).get("PHOTO_FULL", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
-            <div class="crop-frame">
+            <div class="attach-thumb-wrap">
               {% if att_map.get(s.id, {}).get("PHOTO_FULL") %}
                 <img
                   src="/burst/files/{{ att_map[s.id]['PHOTO_FULL'].id }}/view"
                   alt="Full Pipe"
-                  class="attach-preview js-crop-image"
-                  style="--zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 120 }}px; --move-y:{{ -meta.offset_y * 120 }}px;">
+                  class="attach-preview">
               {% else %}
-                <div class="crop-empty">Not uploaded yet</div>
+                <div class="hint">Not uploaded yet</div>
               {% endif %}
             </div>
-            <div style="margin-bottom:6px; font-size:12px; color:green;">
-              {% if att_map.get(s.id, {}).get("PHOTO_FULL") %}Uploaded ✅{% else %}Choose a file and adjust framing{% endif %}
-            </div>
-            <input type="file" name="photo_full" accept="image/*">
-            <input type="hidden" name="crop_photo_full" class="js-crop-hidden" value='{{ meta|tojson|safe }}'>
-            <div class="crop-controls">
-              <div class="rotate-row">
-                <button type="button" class="rotate-btn js-rotate-left">Rotate Left</button>
-                <button type="button" class="rotate-btn js-rotate-right">Rotate Right</button>
-              </div>
-              <label>Zoom
-                <input type="range" min="0.2" max="4" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
-              </label>
-              <label>Left / Right
-                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_x }}" class="js-crop-x">
-              </label>
-              <label>Up / Down
-                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_y }}" class="js-crop-y">
+            <input type="file" name="photo_full" accept="image/*" class="js-file-input">
+            <input type="hidden" name="crop_photo_full" class="js-crop-hidden" value='{{ meta_full|tojson|safe }}'>
+            <div class="attach-actions">
+              <button type="button"
+                      class="btn js-open-editor"
+                      data-label="Full Pipe Photo"
+                      data-input-name="photo_full"
+                      data-hidden-name="crop_photo_full"
+                      data-preview-src="{% if att_map.get(s.id, {}).get('PHOTO_FULL') %}/burst/files/{{ att_map[s.id]['PHOTO_FULL'].id }}/view{% endif %}">
+                Edit Photo
+              </button>
+              <label class="btn" style="display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                Choose File
+                <input type="file" name="photo_full" accept="image/*" class="js-file-input" style="display:none;">
               </label>
             </div>
           </div>
 
+          {% set meta_a = crop_meta.get(s.id, {}).get("PHOTO_A", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
           <div class="attach-card">
             <label><b>Side A Photo</b></label>
-            {% set meta = crop_meta.get(s.id, {}).get("PHOTO_A", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
-            <div class="crop-frame">
+            <div class="attach-thumb-wrap">
               {% if att_map.get(s.id, {}).get("PHOTO_A") %}
                 <img
                   src="/burst/files/{{ att_map[s.id]['PHOTO_A'].id }}/view"
                   alt="Side A"
-                  class="attach-preview js-crop-image"
-                  style="--zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 120 }}px; --move-y:{{ -meta.offset_y * 120 }}px;">
+                  class="attach-preview">
               {% else %}
-                <div class="crop-empty">Not uploaded yet</div>
+                <div class="hint">Not uploaded yet</div>
               {% endif %}
             </div>
-            <div style="margin-bottom:6px; font-size:12px; color:green;">
-              {% if att_map.get(s.id, {}).get("PHOTO_A") %}Uploaded ✅{% else %}Choose a file and adjust framing{% endif %}
-            </div>
-            <input type="file" name="photo_a" accept="image/*">
-            <input type="hidden" name="crop_photo_a" class="js-crop-hidden" value='{{ meta|tojson|safe }}'>
-            <div class="crop-controls">
-              <div class="rotate-row">
-                <button type="button" class="rotate-btn js-rotate-left">Rotate Left</button>
-                <button type="button" class="rotate-btn js-rotate-right">Rotate Right</button>
-              </div>
-              <label>Zoom
-                <input type="range" min="0.2" max="4" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
-              </label>
-              <label>Left / Right
-                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_x }}" class="js-crop-x">
-              </label>
-              <label>Up / Down
-                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_y }}" class="js-crop-y">
+            <input type="hidden" name="crop_photo_a" class="js-crop-hidden" value='{{ meta_a|tojson|safe }}'>
+            <div class="attach-actions">
+              <button type="button"
+                      class="btn js-open-editor"
+                      data-label="Side A Photo"
+                      data-input-name="photo_a"
+                      data-hidden-name="crop_photo_a"
+                      data-preview-src="{% if att_map.get(s.id, {}).get('PHOTO_A') %}/burst/files/{{ att_map[s.id]['PHOTO_A'].id }}/view{% endif %}">
+                Edit Photo
+              </button>
+              <label class="btn" style="display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                Choose File
+                <input type="file" name="photo_a" accept="image/*" class="js-file-input" style="display:none;">
               </label>
             </div>
           </div>
 
+          {% set meta_b = crop_meta.get(s.id, {}).get("PHOTO_B", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
           <div class="attach-card">
             <label><b>Side B Photo</b></label>
-            {% set meta = crop_meta.get(s.id, {}).get("PHOTO_B", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
-            <div class="crop-frame">
+            <div class="attach-thumb-wrap">
               {% if att_map.get(s.id, {}).get("PHOTO_B") %}
                 <img
                   src="/burst/files/{{ att_map[s.id]['PHOTO_B'].id }}/view"
                   alt="Side B"
-                  class="attach-preview js-crop-image"
-                  style="--zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 120 }}px; --move-y:{{ -meta.offset_y * 120 }}px;">
+                  class="attach-preview">
               {% else %}
-                <div class="crop-empty">Not uploaded yet</div>
+                <div class="hint">Not uploaded yet</div>
               {% endif %}
             </div>
-            <div style="margin-bottom:6px; font-size:12px; color:green;">
-              {% if att_map.get(s.id, {}).get("PHOTO_B") %}Uploaded ✅{% else %}Choose a file and adjust framing{% endif %}
-            </div>
-            <input type="file" name="photo_b" accept="image/*">
-            <input type="hidden" name="crop_photo_b" class="js-crop-hidden" value='{{ meta|tojson|safe }}'>
-            <div class="crop-controls">
-              <div class="rotate-row">
-                <button type="button" class="rotate-btn js-rotate-left">Rotate Left</button>
-                <button type="button" class="rotate-btn js-rotate-right">Rotate Right</button>
-              </div>
-              <label>Zoom
-                <input type="range" min="0.2" max="4" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
-              </label>
-              <label>Left / Right
-                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_x }}" class="js-crop-x">
-              </label>
-              <label>Up / Down
-                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_y }}" class="js-crop-y">
+            <input type="hidden" name="crop_photo_b" class="js-crop-hidden" value='{{ meta_b|tojson|safe }}'>
+            <div class="attach-actions">
+              <button type="button"
+                      class="btn js-open-editor"
+                      data-label="Side B Photo"
+                      data-input-name="photo_b"
+                      data-hidden-name="crop_photo_b"
+                      data-preview-src="{% if att_map.get(s.id, {}).get('PHOTO_B') %}/burst/files/{{ att_map[s.id]['PHOTO_B'].id }}/view{% endif %}">
+                Edit Photo
+              </button>
+              <label class="btn" style="display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                Choose File
+                <input type="file" name="photo_b" accept="image/*" class="js-file-input" style="display:none;">
               </label>
             </div>
           </div>
 
+          {% set meta_chart = crop_meta.get(s.id, {}).get("CHART", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
           <div class="attach-card">
             <label><b>Chart</b></label>
-            {% set meta = crop_meta.get(s.id, {}).get("CHART", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
-            <div class="crop-frame">
+            <div class="attach-thumb-wrap">
               {% if att_map.get(s.id, {}).get("CHART") %}
                 <img
                   src="/burst/files/{{ att_map[s.id]['CHART'].id }}/view"
                   alt="Chart"
-                  class="attach-preview js-crop-image"
-                  style="object-fit:contain; --zoom:{{ meta.zoom }}; --move-x:{{ meta.offset_x * 120 }}px; --move-y:{{ -meta.offset_y * 120 }}px;">
+                  class="attach-preview">
               {% else %}
-                <div class="crop-empty">Not uploaded yet</div>
+                <div class="hint">Not uploaded yet</div>
               {% endif %}
             </div>
-            <div style="margin-bottom:6px; font-size:12px; color:green;">
-              {% if att_map.get(s.id, {}).get("CHART") %}Uploaded ✅{% else %}Choose a file and adjust framing{% endif %}
-            </div>
-            <input type="file" name="chart" accept="image/*">
-            <input type="hidden" name="crop_chart" class="js-crop-hidden" value='{{ meta|tojson|safe }}'>
-            <div class="crop-controls">
-              <div class="rotate-row">
-                <button type="button" class="rotate-btn js-rotate-left">Rotate Left</button>
-                <button type="button" class="rotate-btn js-rotate-right">Rotate Right</button>
-              </div>
-              <label>Zoom
-                <input type="range" min="0.2" max="4" step="0.01" value="{{ meta.zoom }}" class="js-crop-zoom">
-              </label>
-              <label>Left / Right
-                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_x }}" class="js-crop-x">
-              </label>
-              <label>Up / Down
-                <input type="range" min="-1" max="1" step="0.01" value="{{ meta.offset_y }}" class="js-crop-y">
+            <input type="hidden" name="crop_chart" class="js-crop-hidden" value='{{ meta_chart|tojson|safe }}'>
+            <div class="attach-actions">
+              <button type="button"
+                      class="btn js-open-editor"
+                      data-label="Chart"
+                      data-input-name="chart"
+                      data-hidden-name="crop_chart"
+                      data-preview-src="{% if att_map.get(s.id, {}).get('CHART') %}/burst/files/{{ att_map[s.id]['CHART'].id }}/view{% endif %}">
+                Edit Photo
+              </button>
+              <label class="btn" style="display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                Choose File
+                <input type="file" name="chart" accept="image/*" class="js-file-input" style="display:none;">
               </label>
             </div>
           </div>
+
         </div>
+
         <div class="save-row">
           <button class="btn btn-primary" type="submit">Upload Attachments</button>
         </div>
 
         <div class="hint">
-          After upload, the file chooser clears automatically, but the uploaded image should stay visible here.
+          On phone: choose file, tap Edit Photo, drag with finger, then use big buttons to zoom or rotate.
         </div>
       </form>
     </div>
   {% endfor %}
+</div>
+
+<div class="editor-modal" id="imageEditorModal">
+  <div class="editor-sheet">
+    <div class="editor-head">
+      <div class="editor-title" id="editorTitle">Edit Photo</div>
+      <button type="button" class="btn" id="editorCloseBtn">Close</button>
+    </div>
+
+    <div class="editor-body">
+      <div class="editor-frame" id="editorFrame">
+        <div class="editor-empty" id="editorEmpty">Choose an image first</div>
+        <img id="editorImage" class="editor-image" style="display:none;">
+      </div>
+
+      <div class="editor-toolbar">
+        <button type="button" class="btn" id="btnZoomOut">Zoom Out</button>
+        <button type="button" class="btn" id="btnZoomIn">Zoom In</button>
+        <button type="button" class="btn" id="btnReset">Reset</button>
+        <button type="button" class="btn" id="btnRotateLeft">Rotate Left</button>
+        <button type="button" class="btn" id="btnRotateRight">Rotate Right</button>
+        <button type="button" class="btn" id="btnFit">Fit</button>
+      </div>
+    </div>
+
+    <div class="editor-foot">
+      <button type="button" class="btn" id="editorCancelBtn">Cancel</button>
+      <button type="button" class="btn btn-primary" id="editorSaveBtn">Save</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -510,92 +606,233 @@
     });
   });
 
-  document.querySelectorAll(".attach-card").forEach(card => {
-    const zoom = card.querySelector(".js-crop-zoom");
-    const x = card.querySelector(".js-crop-x");
-    const y = card.querySelector(".js-crop-y");
+  const modal = document.getElementById("imageEditorModal");
+  const editorTitle = document.getElementById("editorTitle");
+  const editorFrame = document.getElementById("editorFrame");
+  const editorImg = document.getElementById("editorImage");
+  const editorEmpty = document.getElementById("editorEmpty");
+
+  const btnZoomOut = document.getElementById("btnZoomOut");
+  const btnZoomIn = document.getElementById("btnZoomIn");
+  const btnRotateLeft = document.getElementById("btnRotateLeft");
+  const btnRotateRight = document.getElementById("btnRotateRight");
+  const btnReset = document.getElementById("btnReset");
+  const btnFit = document.getElementById("btnFit");
+  const btnSave = document.getElementById("editorSaveBtn");
+  const btnClose = document.getElementById("editorCloseBtn");
+  const btnCancel = document.getElementById("editorCancelBtn");
+
+  let activeCard = null;
+  let state = { zoom: 1, offset_x: 0, offset_y: 0, rotation: 0 };
+  let startPoint = null;
+  let startOffset = null;
+
+  function applyEditorState(){
+    editorImg.style.setProperty("--zoom", state.zoom);
+    editorImg.style.setProperty("--move-x", (state.offset_x * 160) + "px");
+    editorImg.style.setProperty("--move-y", (-state.offset_y * 160) + "px");
+    editorImg.style.setProperty("--rotation", state.rotation + "deg");
+  }
+
+  function clampState(){
+    if (state.zoom < 0.2) state.zoom = 0.2;
+    if (state.zoom > 4) state.zoom = 4;
+    if (state.offset_x < -1.5) state.offset_x = -1.5;
+    if (state.offset_x > 1.5) state.offset_x = 1.5;
+    if (state.offset_y < -1.5) state.offset_y = -1.5;
+    if (state.offset_y > 1.5) state.offset_y = 1.5;
+    state.rotation = ((state.rotation % 360) + 360) % 360;
+  }
+
+  function openEditor(card, label, src){
+    activeCard = card;
+    editorTitle.textContent = label || "Edit Photo";
+
     const hidden = card.querySelector(".js-crop-hidden");
-    const file = card.querySelector('input[type="file"]');
-    const rotateLeft = card.querySelector(".js-rotate-left");
-    const rotateRight = card.querySelector(".js-rotate-right");
-
-    let img = card.querySelector(".js-crop-image");
-    let rotation = 0;
-
     try {
-      const current = JSON.parse(hidden?.value || "{}");
-      rotation = parseInt(current.rotation || 0, 10) || 0;
+      state = JSON.parse(hidden?.value || "{}");
     } catch(e) {
-      rotation = 0;
+      state = {};
     }
 
-    function apply(){
-      if (!hidden) return;
+    state = {
+      zoom: parseFloat(state.zoom || 1) || 1,
+      offset_x: parseFloat(state.offset_x || 0) || 0,
+      offset_y: parseFloat(state.offset_y || 0) || 0,
+      rotation: parseInt(state.rotation || 0, 10) || 0
+    };
+    clampState();
 
-      const zoomVal = parseFloat(zoom?.value || "1");
-      const xVal = parseFloat(x?.value || "0");
-      const yVal = parseFloat(y?.value || "0");
-
-      hidden.value = JSON.stringify({
-        zoom: zoomVal,
-        offset_x: xVal,
-        offset_y: yVal,
-        rotation: rotation
-      });
-
-      img = card.querySelector(".js-crop-image");
-
-      if (img) {
-        img.style.setProperty("--zoom", zoomVal);
-        img.style.setProperty("--move-x", (xVal * 120) + "px");
-        img.style.setProperty("--move-y", (-yVal * 120) + "px");
-        img.style.setProperty("--rotation", rotation + "deg");
-      }
+    if (src) {
+      editorImg.src = src;
+      editorImg.style.display = "block";
+      editorEmpty.style.display = "none";
+    } else {
+      editorImg.removeAttribute("src");
+      editorImg.style.display = "none";
+      editorEmpty.style.display = "flex";
     }
 
-    rotateLeft && rotateLeft.addEventListener("click", () => {
-      rotation = (rotation + 270) % 360;
-      apply();
-    });
+    applyEditorState();
+    modal.classList.add("open");
+    document.body.style.overflow = "hidden";
+  }
 
-    rotateRight && rotateRight.addEventListener("click", () => {
-      rotation = (rotation + 90) % 360;
-      apply();
-    });
+  function closeEditor(){
+    modal.classList.remove("open");
+    document.body.style.overflow = "";
+    activeCard = null;
+    startPoint = null;
+    startOffset = null;
+  }
 
-    [zoom, x, y].forEach(el => {
-      el && el.addEventListener("input", apply);
-    });
+  function syncCardPreview(card, src){
+    const wrap = card.querySelector(".attach-thumb-wrap");
+    let img = wrap.querySelector(".attach-preview");
 
-    file && file.addEventListener("change", function(){
-      const selected = this.files && this.files[0];
-      if (!selected) return;
+    if (!img) {
+      wrap.innerHTML = "";
+      img = document.createElement("img");
+      img.className = "attach-preview";
+      wrap.appendChild(img);
+    }
 
-      const frame = card.querySelector(".crop-frame");
-      let targetImg = card.querySelector(".js-crop-image");
+    img.src = src;
+  }
 
-      if (!targetImg) {
-        frame.innerHTML = "";
-        targetImg = document.createElement("img");
-        targetImg.className = "attach-preview js-crop-image";
-        targetImg.alt = "Preview";
-        frame.appendChild(targetImg);
-      }
+  document.querySelectorAll(".attach-card").forEach(card => {
+    const choose = card.querySelector(".js-file-input");
+    const openBtn = card.querySelector(".js-open-editor");
+    const hidden = card.querySelector(".js-crop-hidden");
+
+    choose && choose.addEventListener("change", function(){
+      const file = this.files && this.files[0];
+      if (!file) return;
 
       const reader = new FileReader();
       reader.onload = function(e){
-        targetImg.src = e.target.result;
-        rotation = 0;
-        if (zoom) zoom.value = "0.8";
-        if (x) x.value = "0";
-        if (y) y.value = "0";
-        apply();
+        const src = e.target.result;
+        syncCardPreview(card, src);
+
+        hidden.value = JSON.stringify({
+          zoom: 1,
+          offset_x: 0,
+          offset_y: 0,
+          rotation: 0
+        });
+
+        openBtn.dataset.previewSrc = src;
+        openEditor(card, openBtn.dataset.label, src);
       };
-      reader.readAsDataURL(selected);
+      reader.readAsDataURL(file);
     });
 
-    apply();
+    openBtn && openBtn.addEventListener("click", function(){
+      openEditor(card, this.dataset.label, this.dataset.previewSrc || "");
+    });
   });
+
+  btnZoomOut && btnZoomOut.addEventListener("click", () => {
+    state.zoom = Math.max(0.2, +(state.zoom - 0.1).toFixed(2));
+    clampState();
+    applyEditorState();
+  });
+
+  btnZoomIn && btnZoomIn.addEventListener("click", () => {
+    state.zoom = Math.min(4, +(state.zoom + 0.1).toFixed(2));
+    clampState();
+    applyEditorState();
+  });
+
+  btnRotateLeft && btnRotateLeft.addEventListener("click", () => {
+    state.rotation = (state.rotation + 270) % 360;
+    applyEditorState();
+  });
+
+  btnRotateRight && btnRotateRight.addEventListener("click", () => {
+    state.rotation = (state.rotation + 90) % 360;
+    applyEditorState();
+  });
+
+  btnReset && btnReset.addEventListener("click", () => {
+    state.zoom = 1;
+    state.offset_x = 0;
+    state.offset_y = 0;
+    state.rotation = 0;
+    applyEditorState();
+  });
+
+  btnFit && btnFit.addEventListener("click", () => {
+    state.zoom = 0.8;
+    state.offset_x = 0;
+    state.offset_y = 0;
+    applyEditorState();
+  });
+
+  btnSave && btnSave.addEventListener("click", () => {
+    if (!activeCard) return;
+    const hidden = activeCard.querySelector(".js-crop-hidden");
+    if (hidden) {
+      hidden.value = JSON.stringify({
+        zoom: state.zoom,
+        offset_x: state.offset_x,
+        offset_y: state.offset_y,
+        rotation: state.rotation
+      });
+    }
+    closeEditor();
+  });
+
+  btnClose && btnClose.addEventListener("click", closeEditor);
+  btnCancel && btnCancel.addEventListener("click", closeEditor);
+
+  modal && modal.addEventListener("click", function(e){
+    if (e.target === modal) closeEditor();
+  });
+
+  function getPoint(e){
+    if (e.touches && e.touches[0]) {
+      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }
+    return { x: e.clientX, y: e.clientY };
+  }
+
+  function startDrag(e){
+    if (editorImg.style.display === "none") return;
+    e.preventDefault();
+    const p = getPoint(e);
+    startPoint = p;
+    startOffset = { x: state.offset_x, y: state.offset_y };
+  }
+
+  function moveDrag(e){
+    if (!startPoint || !startOffset) return;
+    e.preventDefault();
+
+    const p = getPoint(e);
+    const dx = p.x - startPoint.x;
+    const dy = p.y - startPoint.y;
+
+    state.offset_x = startOffset.x + (dx / 160);
+    state.offset_y = startOffset.y - (dy / 160);
+
+    clampState();
+    applyEditorState();
+  }
+
+  function endDrag(){
+    startPoint = null;
+    startOffset = null;
+  }
+
+  editorFrame.addEventListener("mousedown", startDrag);
+  window.addEventListener("mousemove", moveDrag);
+  window.addEventListener("mouseup", endDrag);
+
+  editorFrame.addEventListener("touchstart", startDrag, { passive:false });
+  window.addEventListener("touchmove", moveDrag, { passive:false });
+  window.addEventListener("touchend", endDrag);
+
 })();
 </script>
 
