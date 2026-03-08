@@ -984,3 +984,126 @@ MOBILE VIEW
   }
 
 }
+
+/* =========================
+   Burst mobile tools
+========================= */
+
+.burst-mobile-tools{
+  display:none;
+}
+
+.burst-search{
+  width:100%;
+  border:1px solid #d1d5db;
+  border-radius:12px;
+  padding:12px 14px;
+  font-size:14px;
+  outline:none;
+  background:#fff;
+  margin-bottom:12px;
+}
+
+.burst-search:focus{
+  border-color:#2563eb;
+  box-shadow:0 0 0 3px rgba(37,99,235,0.12);
+}
+
+.burst-filters{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  margin-bottom:14px;
+}
+
+.burst-filter-btn{
+  border:1px solid #d1d5db;
+  background:#fff;
+  color:#374151;
+  border-radius:999px;
+  padding:8px 12px;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.burst-filter-btn.active{
+  background:#111827;
+  color:#fff;
+  border-color:#111827;
+}
+
+/* =========================
+   Burst cards upgraded
+========================= */
+
+.burst-mobile-card{
+  transition:transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.burst-mobile-card:active{
+  transform:scale(0.985);
+}
+
+.burst-mobile-card:hover{
+  box-shadow:0 6px 18px rgba(0,0,0,0.08);
+  border-color:#dbeafe;
+}
+
+.burst-burst-row{
+  align-items:center;
+}
+
+.burst-value{
+  font-weight:800;
+  font-size:18px;
+  padding:4px 10px;
+  border-radius:10px;
+}
+
+.burst-good{
+  background:#dcfce7;
+  color:#166534;
+}
+
+.burst-mid{
+  background:#fef3c7;
+  color:#92400e;
+}
+
+.burst-zero{
+  background:#f3f4f6;
+  color:#6b7280;
+}
+
+.result-badge{
+  display:inline-block;
+  min-width:56px;
+  text-align:center;
+  padding:5px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:800;
+}
+
+.result-pass{
+  background:#dcfce7;
+  color:#166534;
+}
+
+.result-fail{
+  background:#fee2e2;
+  color:#991b1b;
+}
+
+.result-empty{
+  background:#f3f4f6;
+  color:#6b7280;
+}
+
+@media (max-width: 767px){
+  .burst-mobile-tools{
+    display:block;
+    margin-bottom:14px;
+  }
+}
