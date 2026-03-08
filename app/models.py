@@ -358,6 +358,13 @@ class BurstTestReport(SQLModel, table=True):
     technician_name: str = Field(default="")
 
 
+    # Publish / control workflow
+    is_complete: bool = Field(default=False)
+    published_at: Optional[datetime] = Field(default=None)
+    edit_window_until: Optional[datetime] = Field(default=None)
+
+    current_revision_status: str = Field(default="LIVE")  # LIVE / PENDING_APPROVAL
+    
     # Workflow
     is_locked: bool = Field(default=False)
     locked_at: Optional[datetime] = Field(default=None)
@@ -370,6 +377,26 @@ class BurstTestReport(SQLModel, table=True):
     created_by_user_name: str = Field(default="")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+
+
+class BurstReportRevision(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    report_id: int = Field(foreign_key="bursttestreport.id", index=True)
+
+    status: str = Field(default="PENDING", index=True)  # PENDING / APPROVED / REJECTED
+
+    payload_json: str = Field(default="")
+
+    submitted_by_user_id: Optional[int] = Field(default=None)
+    submitted_by_user_name: str = Field(default="")
+    submitted_at: datetime = Field(default_factory=datetime.utcnow)
+
+    reviewed_by_user_id: Optional[int] = Field(default=None)
+    reviewed_by_user_name: str = Field(default="")
+    reviewed_at: Optional[datetime] = Field(default=None)
+
+    review_comment: str = Field(default="")
 
 class BurstAttachment(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
