@@ -2554,7 +2554,7 @@ def burst_dashboard(request: Request, session: Session = Depends(get_session)):
             "result_map": result_map,
         },
     )
-
+    
 from sqlalchemy import func  # make sure this import exists at top
 
 from sqlalchemy import func  # make sure this import exists near your imports
