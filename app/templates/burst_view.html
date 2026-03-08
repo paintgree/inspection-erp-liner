@@ -365,7 +365,7 @@
         <tr>
           <td>{{ loop.index }}</td>
           <td><input id="result_serial_{{ s.id }}" value="{{ s.sample_serial_number }}" readonly></td>
-          <td><input name="actual_burst_psi_{{ s.id }}" type="number" step="0.01" value="{{ s.actual_burst_psi }}"></td>
+          <td><input name="actual_burst_MPa_{{ s.id }}" type="number" step="0.01" value="{{ s.actual_burst_MPa }}"></td>
           <td><input name="pressurization_time_s_{{ s.id }}" value="{{ s.pressurization_time_s }}"></td>
           <td>
             <select name="test_result_{{ s.id }}">
