@@ -3851,20 +3851,24 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         
         def draw_labeled_image(path, x, y_top, box_w, box_h, label, allow_rotate=False, fill_box=False):
             c2.setFont("Helvetica", 9)
-            c2.drawString(x, y_top, label)
-
-            img_top = y_top - 7 * mm
+        
+            # Move label a bit lower so it sits just above its own box
+            label_y = y_top - 4 * mm
+            c2.drawString(x, label_y, label)
+        
+            # Keep a small gap between label and box
+            img_top = label_y - 3 * mm
             c2.rect(x, img_top - box_h, box_w, box_h, stroke=1, fill=0)
-
+        
             if not path:
                 c2.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
                 return
-
+        
             real_path = resolve_burst_file_path(path)
             if not real_path or not os.path.exists(real_path):
                 c2.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
                 return
-
+        
             try:
                 temp_buf = _render_burst_image_to_box(
                     real_path,
@@ -3882,7 +3886,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
                     mask="auto",
                 )
             except Exception:
-                c2.drawString(x + 4 * mm, img_top - 10 * mm, "Could not load image")
+        c2.drawString(x + 4 * mm, img_top - 10 * mm, "Could not load image")
 
         draw_labeled_image(chart_path, margin_x, chart_y_top, usable_w, chart_h, "CHART", allow_rotate=False, fill_box=False)
         draw_labeled_image(full_path, margin_x, full_y_top, usable_w, full_h, "FULL LENGTH:", allow_rotate=True, fill_box=True)
