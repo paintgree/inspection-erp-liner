@@ -431,14 +431,12 @@ class BurstSample(SQLModel, table=True):
     sample_start_m: float = Field(default=0.0)
     sample_length_m: float = Field(default=0.0)
 
-    # Optional per-sample results (useful when multiple specimens)
     sample_serial_number: str = Field(default="")
     actual_burst_psi: float = Field(default=0.0)
     pressurization_time_s: str = Field(default="")
     failure_mode: str = Field(default="")
-    test_result: str = Field(default="")  # PASS/FAIL
+    test_result: str = Field(default="")
 
-    # Per-sample construction (what you need for burst report)
     liner_material_grade: str = Field(default="")
     liner_thickness_mm: float = Field(default=0.0)
     reinforcement_material_grade: str = Field(default="")
@@ -455,7 +453,6 @@ class BurstSample(SQLModel, table=True):
     @actual_burst_MPa.setter
     def actual_burst_MPa(self, value: float):
         self.actual_burst_psi = float(value or 0.0)
-
 
 class BurstAuditLog(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
