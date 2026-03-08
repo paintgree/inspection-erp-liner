@@ -1107,3 +1107,72 @@ MOBILE VIEW
     margin-bottom:14px;
   }
 }
+
+/* Burst page back button */
+.burst-back-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  margin:0 0 14px 0;
+  text-decoration:none;
+  color:#374151;
+  font-weight:600;
+  font-size:14px;
+}
+
+.burst-back-btn:hover{
+  color:#111827;
+}
+
+/* Mobile tools hidden by default */
+.burst-mobile-tools{
+  display:none;
+}
+
+/* Show only on phones */
+@media (max-width: 767px){
+  .burst-mobile-tools{
+    display:block;
+    margin-bottom:14px;
+  }
+
+  .burst-search{
+    width:100%;
+    border:1px solid #d1d5db;
+    border-radius:12px;
+    padding:12px 14px;
+    font-size:14px;
+    outline:none;
+    background:#fff;
+    margin-bottom:12px;
+  }
+
+  .burst-search:focus{
+    border-color:#2563eb;
+    box-shadow:0 0 0 3px rgba(37,99,235,0.12);
+  }
+
+  .burst-filters{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+
+  .burst-filter-btn{
+    border:1px solid #d1d5db;
+    background:#fff;
+    color:#374151;
+    border-radius:999px;
+    padding:8px 12px;
+    font-size:12px;
+    font-weight:700;
+    cursor:pointer;
+  }
+
+  .burst-filter-btn.active{
+    background:#111827;
+    color:#fff;
+    border-color:#111827;
+  }
+}
