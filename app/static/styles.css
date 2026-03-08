@@ -989,9 +989,6 @@ MOBILE VIEW
    Burst mobile tools
 ========================= */
 
-.burst-mobile-tools{
-  display:none;
-}
 
 .burst-search{
   width:100%;
@@ -1175,4 +1172,51 @@ MOBILE VIEW
     color:#fff;
     border-color:#111827;
   }
+}
+
+/* =========================
+Burst search + filters
+========================= */
+
+.burst-tools{
+  margin-bottom:18px;
+}
+
+.burst-search{
+  width:100%;
+  border:1px solid #d1d5db;
+  border-radius:12px;
+  padding:12px 14px;
+  font-size:14px;
+  outline:none;
+  background:#fff;
+  margin-bottom:12px;
+}
+
+.burst-search:focus{
+  border-color:#2563eb;
+  box-shadow:0 0 0 3px rgba(37,99,235,0.12);
+}
+
+.burst-filters{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.burst-filter-btn{
+  border:1px solid #d1d5db;
+  background:#fff;
+  color:#374151;
+  border-radius:999px;
+  padding:8px 12px;
+  font-size:12px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.burst-filter-btn.active{
+  background:#111827;
+  color:#fff;
+  border-color:#111827;
 }
