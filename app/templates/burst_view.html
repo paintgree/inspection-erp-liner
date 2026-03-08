@@ -217,6 +217,17 @@
   }
 </style>
 <div class="burst-header">
+  <div class="section">
+    {% if rep.edit_window_until and not edit_direct_allowed and user.role not in ["MANAGER", "BOSS"] %}
+      <div class="hint" style="color:#92400e; font-weight:600;">
+        This report is past the 24-hour edit window. Your changes will be saved as a pending draft and require manager approval.
+      </div>
+    {% elif rep.edit_window_until %}
+      <div class="hint" style="color:#166534; font-weight:600;">
+        Direct editing is allowed until {{ rep.edit_window_until }} UTC.
+      </div>
+    {% endif %}
+  </div>
   <div class="burst-title">
     <h2>Short-Time Hydrostatic Burst Pressure Test Report #{{ rep.id }}</h2>
     <div class="hint">
@@ -391,8 +402,42 @@
     <h3>Notes</h3>
     <textarea name="notes" rows="3">{{ rep.notes }}</textarea>
 
+    {% if pending_revisions %}
+    <div class="section">
+      <h3>Pending Revisions</h3>
+    
+      {% for rev in pending_revisions %}
+        <div class="spec-card">
+          <div><b>Revision #{{ rev.id }}</b></div>
+          <div class="hint">Submitted by {{ rev.submitted_by_user_name }} at {{ rev.submitted_at }}</div>
+    
+          {% if user.role in ["MANAGER", "BOSS"] %}
+            <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+              <form method="post" action="/burst/revision/{{ rev.id }}/approve">
+                <button class="btn btn-primary" type="submit">Approve</button>
+              </form>
+    
+              <form method="post" action="/burst/revision/{{ rev.id }}/reject">
+                <input type="text" name="review_comment" placeholder="Reject reason">
+                <button class="btn" type="submit">Reject</button>
+              </form>
+            </div>
+          {% else %}
+            <div class="hint" style="margin-top:8px;">Waiting for manager review.</div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
     <div class="save-row">
-      <button class="btn btn-primary" type="submit">Save Report Data</button>
+      <button class="btn btn-primary" type="submit">
+        {% if edit_direct_allowed or user.role in ["MANAGER", "BOSS"] %}
+          Save Report Data
+        {% else %}
+          Submit Draft For Approval
+        {% endif %}
+      </button>
     </div>
   </div>
 </form>
