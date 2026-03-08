@@ -2599,8 +2599,8 @@ def _save_burst_image_meta(abs_path: str, meta_json: str | None):
         raw = json.loads(meta_json or "{}")
         if isinstance(raw, dict):
             meta["zoom"] = max(0.2, min(4.0, float(raw.get("zoom", 1.0) or 1.0)))
-            meta["offset_x"] = max(-1.0, min(1.0, float(raw.get("offset_x", 0.0) or 0.0)))
-            meta["offset_y"] = max(-1.0, min(1.0, float(raw.get("offset_y", 0.0) or 0.0)))
+            meta["offset_x"] = max(-1.5, min(1.5, float(raw.get("offset_x", 0.0) or 0.0)))
+            meta["offset_y"] = max(-1.5, min(1.5, float(raw.get("offset_y", 0.0) or 0.0)))
 
             rotation = int(raw.get("rotation", 0) or 0)
             rotation = rotation % 360
@@ -2629,8 +2629,8 @@ def _load_burst_image_meta(abs_path: str) -> dict:
 
         return {
             "zoom": max(0.2, min(4.0, float(raw.get("zoom", 1.0) or 1.0))),
-            "offset_x": max(-1.0, min(1.0, float(raw.get("offset_x", 0.0) or 0.0))),
-            "offset_y": max(-1.0, min(1.0, float(raw.get("offset_y", 0.0) or 0.0))),
+            "offset_x": max(-1.5, min(1.5, float(raw.get("offset_x", 0.0) or 0.0))),
+            "offset_y": max(-1.5, min(1.5, float(raw.get("offset_y", 0.0) or 0.0))),
             "rotation": rotation,
         }
     except Exception:
@@ -2690,77 +2690,7 @@ def _render_burst_image_to_box(real_path: str, box_w: float, box_h: float, allow
     return out
 
     
-    zoom = float(meta.get("zoom", 1.0) or 1.0)
-    offset_x = float(meta.get("offset_x", 0.0) or 0.0)
-    offset_y = float(meta.get("offset_y", 0.0) or 0.0)
-
-    img_ratio = float(iw) / float(ih)
-
-    if img_ratio >= target_ratio:
-        base_h = float(ih)
-        base_w = base_h * target_ratio
-    else:
-        base_w = float(iw)
-        base_h = base_w / target_ratio
-
-    crop_w = max(1.0, min(float(iw), base_w / zoom))
-    crop_h = max(1.0, min(float(ih), base_h / zoom))
-
-    max_shift_x = max(0.0, (float(iw) - crop_w) / 2.0)
-    max_shift_y = max(0.0, (float(ih) - crop_h) / 2.0)
-
-    center_x = (float(iw) / 2.0) + (offset_x * max_shift_x)
-    center_y = (float(ih) / 2.0) - (offset_y * max_shift_y)
-
-    left = max(0.0, min(float(iw) - crop_w, center_x - (crop_w / 2.0)))
-    top = max(0.0, min(float(ih) - crop_h, center_y - (crop_h / 2.0)))
-    right = left + crop_w
-    bottom = top + crop_h
-
-    cropped = img.crop((int(round(left)), int(round(top)), int(round(right)), int(round(bottom))))
-    cropped = cropped.resize((target_px_w, target_px_h), resample)
-
-    out = BytesIO()
-    cropped.save(out, format="JPEG", quality=92)
-    out.seek(0)
-    return out
-
-    meta = _load_burst_image_meta(real_path)
-    zoom = float(meta.get("zoom", 1.0) or 1.0)
-    offset_x = float(meta.get("offset_x", 0.0) or 0.0)
-    offset_y = float(meta.get("offset_y", 0.0) or 0.0)
-
-    img_ratio = float(iw) / float(ih)
-
-    if img_ratio >= target_ratio:
-        base_h = float(ih)
-        base_w = base_h * target_ratio
-    else:
-        base_w = float(iw)
-        base_h = base_w / target_ratio
-
-    crop_w = max(1.0, min(float(iw), base_w / zoom))
-    crop_h = max(1.0, min(float(ih), base_h / zoom))
-
-    max_shift_x = max(0.0, (float(iw) - crop_w) / 2.0)
-    max_shift_y = max(0.0, (float(ih) - crop_h) / 2.0)
-
-    center_x = (float(iw) / 2.0) + (offset_x * max_shift_x)
-    center_y = (float(ih) / 2.0) - (offset_y * max_shift_y)
-
-    left = max(0.0, min(float(iw) - crop_w, center_x - (crop_w / 2.0)))
-    top = max(0.0, min(float(ih) - crop_h, center_y - (crop_h / 2.0)))
-    right = left + crop_w
-    bottom = top + crop_h
-
-    cropped = img.crop((int(round(left)), int(round(top)), int(round(right)), int(round(bottom))))
-    cropped = cropped.resize((target_px_w, target_px_h), resample)
-
-    out = BytesIO()
-    cropped.save(out, format="JPEG", quality=92)
-    out.seek(0)
-    return out
-
+    
 
 @app.post("/burst/{report_id}/sample/{sample_id}/upload_attachments")
 async def burst_upload_attachments(
@@ -2914,6 +2844,7 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
 
     att_status = {}
     att_map = defaultdict(dict)
+    crop_meta = defaultdict(dict)
 
     for a in att_rows:
         sid = getattr(a, "sample_id", None)
@@ -2924,48 +2855,8 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
         att_status[(sid, kind)] = True
         att_map[sid][kind] = a
 
-        
-
-    samples = session.exec(
-        select(BurstSample)
-        .where(BurstSample.report_id == report_id)
-        .order_by(BurstSample.id.asc())
-    ).all()
-
-    audit = session.exec(
-        select(BurstAuditLog)
-        .where(BurstAuditLog.report_id == report_id)
-        .order_by(BurstAuditLog.id.desc())
-    ).all()
-
-    att_status = {}  # (sample_id, kind) -> True
-    
-    att_rows = session.exec(
-        select(BurstAttachment).where(BurstAttachment.report_id == rep.id)
-    ).all()
-    
-    for a in att_rows:
-        sid = getattr(a, "sample_id", None)
-        kind = (getattr(a, "kind", "") or "").upper()
-        if sid is not None and kind:
-            att_status[(sid, kind)] = True
-
-
-    # Attachments flags per sample (for UI "Uploaded ✅")
-    att_rows = session.exec(
-        select(BurstAttachment).where(BurstAttachment.sample_id.in_([x.id for x in samples]))
-    ).all()
-    
-    att_map = defaultdict(dict)
-    for a in att_rows:
-        att_map[a.sample_id][a.kind] = a
-
-    crop_meta = defaultdict(dict)
-    for a in att_rows:
-        sid = getattr(a, "sample_id", None)
-        kind = (getattr(a, "kind", "") or "").strip().upper()
         real_path = resolve_burst_file_path(getattr(a, "file_path", "") or "")
-        if sid is not None and kind and real_path:
+        if real_path:
             crop_meta[sid][kind] = _load_burst_image_meta(real_path)
     
 
@@ -3089,15 +2980,6 @@ async def burst_update(
         s.actual_burst_psi = float(form.get(f"actual_burst_psi_{s.id}") or 0.0)
         s.pressurization_time_s = (form.get(f"pressurization_time_s_{s.id}") or "").strip()
         s.test_result = (form.get(f"test_result_{s.id}") or "").strip()
-       
-        s.liner_material_grade = (form.get(f"liner_material_grade_{s.id}") or "").strip()
-        s.liner_thickness_mm = float(form.get(f"liner_thickness_mm_{s.id}") or 0.0)
-        
-        s.reinforcement_material_grade = (form.get(f"reinforcement_material_grade_{s.id}") or "").strip()
-        s.reinforcement_thickness_mm = float(form.get(f"reinforcement_thickness_mm_{s.id}") or 0.0)
-        
-        s.cover_material_grade = (form.get(f"cover_material_grade_{s.id}") or "").strip()
-        s.cover_thickness_mm = float(form.get(f"cover_thickness_mm_{s.id}") or 0.0)
 
         s.liner_material_grade = (form.get(f"liner_material_grade_{s.id}") or "").strip()
         s.liner_thickness_mm = float(form.get(f"liner_thickness_mm_{s.id}") or 0.0)
