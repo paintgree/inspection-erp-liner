@@ -2386,6 +2386,123 @@ def _draw_report_info_table(c, report, x, y):
     tbl.drawOn(c, x, y - tbl_h)
     return y - tbl_h
 
+
+def _is_manager_or_boss(user: User) -> bool:
+    return (getattr(user, "role", "") or "").strip().upper() in ["MANAGER", "BOSS"]
+
+
+def _burst_report_is_complete(rep: BurstTestReport, samples: list["BurstSample"]) -> bool:
+    if not (rep.reference_standard or "").strip():
+        return False
+    if not (rep.reference_dhtp_procedure or "").strip():
+        return False
+    if not (rep.testing_medium or "").strip():
+        return False
+    if not (rep.technician_name or "").strip():
+        return False
+
+    needed = samples[: max(1, int(rep.total_no_of_specimens or 1))]
+    if not needed:
+        return False
+
+    for s in needed:
+        if not (s.sample_serial_number or "").strip():
+            return False
+        if float(getattr(s, "sample_length_m", 0.0) or 0.0) <= 0:
+            return False
+        if float(getattr(s, "actual_burst_psi", 0.0) or 0.0) <= 0:
+            return False
+        if not (s.pressurization_time_s or "").strip():
+            return False
+        if not (s.test_result or "").strip():
+            return False
+
+    return True
+
+
+def _burst_snapshot(rep: BurstTestReport, samples: list["BurstSample"]) -> dict:
+    return {
+        "report": {
+            "reference_standard": rep.reference_standard,
+            "reference_dhtp_procedure": rep.reference_dhtp_procedure,
+            "system_max_pressure": rep.system_max_pressure,
+            "laboratory_temperature": rep.laboratory_temperature,
+            "testing_medium": rep.testing_medium,
+            "total_no_of_specimens": rep.total_no_of_specimens,
+            "effective_length_m": rep.effective_length_m,
+            "liner_thickness": rep.liner_thickness,
+            "reinforcement_thickness": rep.reinforcement_thickness,
+            "cover_thickness": rep.cover_thickness,
+            "sample_serial_number": rep.sample_serial_number,
+            "actual_burst_psi": rep.actual_burst_psi,
+            "pressurization_time_s": rep.pressurization_time_s,
+            "test_result": rep.test_result,
+            "failure_mode": rep.failure_mode,
+            "notes": rep.notes,
+            "qa_qc_officer_name": rep.qa_qc_officer_name,
+            "technician_name": rep.technician_name,
+        },
+        "samples": [
+            {
+                "id": s.id,
+                "sample_serial_number": s.sample_serial_number,
+                "sample_length_m": s.sample_length_m,
+                "actual_burst_psi": s.actual_burst_psi,
+                "pressurization_time_s": s.pressurization_time_s,
+                "test_result": s.test_result,
+                "liner_material_grade": s.liner_material_grade,
+                "liner_thickness_mm": s.liner_thickness_mm,
+                "reinforcement_material_grade": s.reinforcement_material_grade,
+                "reinforcement_thickness_mm": s.reinforcement_thickness_mm,
+                "cover_material_grade": s.cover_material_grade,
+                "cover_thickness_mm": s.cover_thickness_mm,
+            }
+            for s in samples
+        ],
+    }
+
+
+def _apply_burst_snapshot(rep: BurstTestReport, samples: list["BurstSample"], payload: dict):
+    r = payload.get("report", {}) or {}
+
+    rep.reference_standard = r.get("reference_standard", "") or ""
+    rep.reference_dhtp_procedure = r.get("reference_dhtp_procedure", "") or ""
+    rep.system_max_pressure = r.get("system_max_pressure", "") or ""
+    rep.laboratory_temperature = r.get("laboratory_temperature", "") or ""
+    rep.testing_medium = r.get("testing_medium", "") or ""
+    rep.total_no_of_specimens = int(r.get("total_no_of_specimens", rep.total_no_of_specimens or 1) or 1)
+    rep.effective_length_m = r.get("effective_length_m", "") or ""
+    rep.liner_thickness = r.get("liner_thickness", "") or ""
+    rep.reinforcement_thickness = r.get("reinforcement_thickness", "") or ""
+    rep.cover_thickness = r.get("cover_thickness", "") or ""
+    rep.sample_serial_number = r.get("sample_serial_number", "") or ""
+    rep.actual_burst_psi = float(r.get("actual_burst_psi", 0.0) or 0.0)
+    rep.pressurization_time_s = r.get("pressurization_time_s", "") or ""
+    rep.test_result = r.get("test_result", "") or ""
+    rep.failure_mode = r.get("failure_mode", "") or ""
+    rep.notes = r.get("notes", "") or ""
+    rep.qa_qc_officer_name = r.get("qa_qc_officer_name", "") or ""
+    rep.technician_name = r.get("technician_name", "") or ""
+
+    by_id = {s.id: s for s in samples}
+    for item in payload.get("samples", []) or []:
+        s = by_id.get(item.get("id"))
+        if not s:
+            continue
+
+        s.sample_serial_number = item.get("sample_serial_number", "") or ""
+        s.sample_length_m = float(item.get("sample_length_m", 0.0) or 0.0)
+        s.actual_burst_psi = float(item.get("actual_burst_psi", 0.0) or 0.0)
+        s.pressurization_time_s = item.get("pressurization_time_s", "") or ""
+        s.test_result = item.get("test_result", "") or ""
+        s.liner_material_grade = item.get("liner_material_grade", "") or ""
+        s.liner_thickness_mm = float(item.get("liner_thickness_mm", 0.0) or 0.0)
+        s.reinforcement_material_grade = item.get("reinforcement_material_grade", "") or ""
+        s.reinforcement_thickness_mm = float(item.get("reinforcement_thickness_mm", 0.0) or 0.0)
+        s.cover_material_grade = item.get("cover_material_grade", "") or ""
+        s.cover_thickness_mm = float(item.get("cover_thickness_mm", 0.0) or 0.0)
+        
+
 @app.get("/burst")
 def burst_dashboard(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -2852,6 +2969,14 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
         select(BurstAttachment).where(BurstAttachment.report_id == rep.id)
     ).all()
 
+
+    pending_revisions = session.exec(
+        select(BurstReportRevision)
+        .where(BurstReportRevision.report_id == report_id)
+        .where(BurstReportRevision.status == "PENDING")
+        .order_by(BurstReportRevision.id.desc())
+    ).all()
+
     att_status = {}
     att_map = defaultdict(dict)
     crop_meta = defaultdict(dict)
@@ -2861,6 +2986,14 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
         kind = (getattr(a, "kind", "") or "").strip().upper()
         if sid is None or not kind:
             continue
+
+
+        "edit_direct_allowed": (
+            not rep.published_at
+            or not rep.edit_window_until
+            or datetime.utcnow() <= rep.edit_window_until
+            or _is_manager_or_boss(user)
+        ),
 
         att_status[(sid, kind)] = True
         att_map[sid][kind] = a
@@ -2884,6 +3017,7 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             "att_status": att_status,
             "att_map": att_map,
             "crop_meta": crop_meta,
+            "pending_revisions": pending_revisions,
         },
     )
 
@@ -3027,6 +3161,49 @@ async def burst_update(
             user_id=user.id,
             user_name=user.display_name,
         ))
+
+
+        now_utc = datetime.utcnow()
+
+    is_complete = _burst_report_is_complete(rep, db_samples[:n])
+
+    if is_complete and not rep.published_at:
+        rep.is_complete = True
+        rep.published_at = now_utc
+        rep.edit_window_until = now_utc + timedelta(hours=24)
+
+    direct_edit_allowed = (
+        not rep.published_at
+        or not rep.edit_window_until
+        or now_utc <= rep.edit_window_until
+        or _is_manager_or_boss(user)
+    )
+
+    if not direct_edit_allowed:
+        payload = _burst_snapshot(rep, db_samples[:n])
+
+        rev = BurstReportRevision(
+            report_id=report_id,
+            status="PENDING",
+            payload_json=json.dumps(payload),
+            submitted_by_user_id=user.id,
+            submitted_by_user_name=user.display_name,
+        )
+        session.add(rev)
+
+        rep.current_revision_status = "PENDING_APPROVAL"
+
+        session.add(BurstAuditLog(
+            report_id=report_id,
+            action="REVISION_REQUEST",
+            note="Saved as pending revision after 24h lock window",
+            user_id=user.id,
+            user_name=user.display_name,
+        ))
+
+        session.add(rep)
+        session.commit()
+        return RedirectResponse(f"/burst/{report_id}?msg=pending_approval", status_code=303)
 
     session.add(rep)
     session.commit()
@@ -3338,6 +3515,93 @@ def _make_burst_chart_png(samples) -> bytes | None:
         return buf.getvalue()
     except Exception:
         return None
+
+
+@app.post("/burst/revision/{revision_id}/approve")
+def burst_revision_approve(
+    revision_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    rev = session.get(BurstReportRevision, revision_id)
+    if not rev:
+        raise HTTPException(404, "Revision not found")
+    if rev.status != "PENDING":
+        raise HTTPException(400, "Revision already processed")
+
+    rep = session.get(BurstTestReport, rev.report_id)
+    if not rep:
+        raise HTTPException(404, "Burst report not found")
+
+    samples = ensure_burst_samples(session, rep.id, desired=rep.total_no_of_specimens or 1)
+
+    payload = json.loads(rev.payload_json or "{}")
+    _apply_burst_snapshot(rep, samples, payload)
+
+    rep.current_revision_status = "LIVE"
+
+    rev.status = "APPROVED"
+    rev.reviewed_by_user_id = user.id
+    rev.reviewed_by_user_name = user.display_name
+    rev.reviewed_at = datetime.utcnow()
+
+    session.add(rep)
+    session.add(rev)
+    session.add(BurstAuditLog(
+        report_id=rep.id,
+        action="REVISION_APPROVED",
+        note=f"Approved revision #{rev.id}",
+        user_id=user.id,
+        user_name=user.display_name,
+    ))
+    session.commit()
+
+    return RedirectResponse(f"/burst/{rep.id}?msg=revision_approved", status_code=303)
+
+
+@app.post("/burst/revision/{revision_id}/reject")
+async def burst_revision_reject(
+    revision_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    review_comment: str = Form(""),
+):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    rev = session.get(BurstReportRevision, revision_id)
+    if not rev:
+        raise HTTPException(404, "Revision not found")
+    if rev.status != "PENDING":
+        raise HTTPException(400, "Revision already processed")
+
+    rep = session.get(BurstTestReport, rev.report_id)
+    if not rep:
+        raise HTTPException(404, "Burst report not found")
+
+    rev.status = "REJECTED"
+    rev.reviewed_by_user_id = user.id
+    rev.reviewed_by_user_name = user.display_name
+    rev.reviewed_at = datetime.utcnow()
+    rev.review_comment = (review_comment or "").strip()
+
+    rep.current_revision_status = "LIVE"
+
+    session.add(rep)
+    session.add(rev)
+    session.add(BurstAuditLog(
+        report_id=rep.id,
+        action="REVISION_REJECTED",
+        note=f"Rejected revision #{rev.id}",
+        user_id=user.id,
+        user_name=user.display_name,
+    ))
+    session.commit()
+
+    return RedirectResponse(f"/burst/{rep.id}?msg=revision_rejected", status_code=303)
 
 @app.get("/burst/{report_id}/pdf")
 def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
