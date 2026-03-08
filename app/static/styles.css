@@ -826,3 +826,90 @@ input:focus, select:focus, textarea:focus{
   opacity:0.75;
 }
 
+
+/* =========================
+   Burst dashboard mobile improvements
+========================= */
+.burst-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.burst-list-card{
+  padding:0;
+  overflow:hidden;
+}
+
+.burst-tablewrap{
+  width:100%;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+
+.burst-table{
+  min-width:760px;
+}
+
+.burst-sub{
+  display:block;
+  margin-top:4px;
+  font-size:12px;
+}
+
+.burst-date{
+  font-size:14px;
+  line-height:1.35;
+}
+
+.badge{
+  display:inline-block;
+  padding:4px 8px;
+  border-radius:8px;
+  font-size:12px;
+  font-weight:700;
+  white-space:nowrap;
+}
+
+@media (max-width: 768px){
+  .burst-head{
+    align-items:stretch;
+  }
+
+  .burst-head h2{
+    margin-bottom:0;
+  }
+
+  .burst-head .btn{
+    width:100%;
+  }
+
+  .burst-list-card{
+    padding:0;
+    border-radius:12px;
+  }
+
+  .burst-tablewrap{
+    overflow-x:auto !important;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .burst-table{
+    min-width:780px !important;
+    font-size:14px;
+  }
+
+  .burst-table th,
+  .burst-table td{
+    padding:12px 10px !important;
+    vertical-align:top;
+  }
+
+  .burst-date{
+    min-width:160px;
+    font-size:13px;
+    line-height:1.35;
+  }
+}
