@@ -2634,11 +2634,23 @@ async def burst_create(
 
         # optional autofill if these fields exist in your model
         client_name = getattr(cover_run, "client_name", "") or ""
-        client_po = getattr(cover_run, "client_po", "") or ""
-        pipe_spec = getattr(cover_run, "pipe_spec", "") or ""
-        liner_grade = getattr(cover_run, "liner_grade", "") or ""
-        reinf_grade = getattr(cover_run, "reinf_grade", "") or ""
-        cover_grade = getattr(cover_run, "cover_grade", "") or ""
+        client_po = getattr(cover_run, "po_number", "") or ""
+        pipe_spec = getattr(cover_run, "pipe_specification", "") or ""
+        cover_grade = getattr(cover_run, "raw_material_spec", "") or ""
+
+        liner_run = session.exec(
+            select(ProductionRun).where(
+                (ProductionRun.dhtp_batch_no == batch_no) & (ProductionRun.process == "LINER")
+            )
+        ).first()
+        reinf_run = session.exec(
+            select(ProductionRun).where(
+                (ProductionRun.dhtp_batch_no == batch_no) & (ProductionRun.process == "REINFORCEMENT")
+            )
+        ).first()
+
+        liner_grade = getattr(liner_run, "raw_material_spec", "") if liner_run else ""
+        reinf_grade = getattr(reinf_run, "raw_material_spec", "") if reinf_run else ""
 
     # Create report
     rep = BurstTestReport(
@@ -3089,14 +3101,31 @@ async def burst_update(
     if n > 50: n = 50
 
     # TEST DETAILS
+        # TEST DETAILS
     rep.reference_standard = (form.get("reference_standard") or "").strip()
     rep.reference_dhtp_procedure = (form.get("reference_dhtp_procedure") or "").strip()
     rep.system_max_pressure = (form.get("system_max_pressure") or "").strip()
     rep.laboratory_temperature = (form.get("laboratory_temperature") or "").strip()
     rep.testing_medium = (form.get("testing_medium") or "").strip()
     rep.total_no_of_specimens = int(form.get("total_no_of_specimens") or 1)
-    rep.pipe_specification = (form.get("pipe_specification") or "").strip()
-    rep.client_po = (form.get("client_po") or "").strip()
+
+    form_pipe_spec = (form.get("pipe_specification") or "").strip()
+    form_client_po = (form.get("client_po") or "").strip()
+
+    if form_pipe_spec:
+        rep.pipe_specification = form_pipe_spec
+    if form_client_po:
+        rep.client_po = form_client_po
+
+    if (not rep.is_unlinked) and rep.linked_run_id:
+        linked_run = session.get(ProductionRun, rep.linked_run_id)
+        if linked_run:
+            if not rep.pipe_specification:
+                rep.pipe_specification = (getattr(linked_run, "pipe_specification", "") or "").strip()
+            if not rep.client_po:
+                rep.client_po = (getattr(linked_run, "po_number", "") or "").strip()
+            if not rep.client_name:
+                rep.client_name = (getattr(linked_run, "client_name", "") or "").strip()
 
     # SPECIMENS (report-level)
     rep.effective_length_m = (form.get("effective_length_m") or "").strip()
@@ -3106,7 +3135,7 @@ async def burst_update(
 
     # legacy single-sample fields
     rep.sample_serial_number = (form.get("sample_serial_number") or "").strip()
-    rep.actual_burst_psi = float(form.get("actual_burst_psi") or 0.0)
+    rep.actual_burst_psi = float(form.get("actual_burst_MPa") or form.get("actual_burst_psi") or 0.0)
     rep.pressurization_time_s = (form.get("pressurization_time_s") or "").strip()
     rep.test_result = (form.get("test_result") or "").strip()
     rep.failure_mode = (form.get("failure_mode") or "").strip()
@@ -3130,7 +3159,7 @@ async def burst_update(
     for s in db_samples[:n]:
 
         s.sample_serial_number = (form.get(f"sample_serial_number_{s.id}") or "").strip()
-        s.actual_burst_psi = float(form.get(f"actual_burst_psi_{s.id}") or 0.0)
+        s.actual_burst_psi = float(form.get(f"actual_burst_MPa_{s.id}") or form.get(f"actual_burst_psi_{s.id}") or 0.0)
         s.pressurization_time_s = (form.get(f"pressurization_time_s_{s.id}") or "").strip()
         s.test_result = (form.get(f"test_result_{s.id}") or "").strip()
 
@@ -3385,7 +3414,8 @@ def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, pa
     c.drawCentredString(w / 2, y_title, title)
 
     c.setStrokeColor(colors.black)
-    c.line(20 * mm, y_title - 4 * mm, w - 20 * mm, y_title - 4 * mm)
+    line_y = y_title - 4 * mm
+    c.line(20 * mm, line_y, w - 20 * mm, line_y)
 
     # Footer
     c.setFont("Helvetica", 9)
@@ -3393,6 +3423,7 @@ def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, pa
     c.drawString(20 * mm, 12 * mm, doc_control_no or "")
     c.drawRightString(w - 20 * mm, 12 * mm, f"Page {page_num}/{page_total}")
     c.setFillColor(colors.black)
+    return line_y - 8 * mm
 
 def _draw_report_info_table(c, report, x, y):
     n = int(getattr(report, "total_no_of_specimens", 0) or 0)
@@ -3614,9 +3645,15 @@ async def burst_revision_reject(
 
 @app.get("/burst/{report_id}/pdf")
 def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
-    report = session.get(BurstTestReport, report_id)
-    if not report:
-        raise HTTPException(404, "Burst report not found")
+    if (not report.is_unlinked) and report.linked_run_id:
+        linked_run = session.get(ProductionRun, report.linked_run_id)
+        if linked_run:
+            if not (report.client_name or "").strip():
+                report.client_name = (getattr(linked_run, "client_name", "") or "").strip()
+            if not (report.client_po or "").strip():
+                report.client_po = (getattr(linked_run, "po_number", "") or "").strip()
+            if not (report.pipe_specification or "").strip():
+                report.pipe_specification = (getattr(linked_run, "pipe_specification", "") or "").strip()
 
     samples = session.exec(
         select(BurstSample)
@@ -3723,9 +3760,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     # ------------------------------------------------------------
     buf, c, title = new_page()
     w, h = A4
-    y = h - 32 * mm
-
-    _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
+    y = _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
 
     c.setFont("Helvetica-Bold", 11)
     c.drawString(20 * mm, y, "Report Information")
@@ -3742,8 +3777,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
     if y < 85 * mm:
         c.showPage()
-        _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
-        y = h - 32 * mm
+        y = _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1)
 
     c.setFont("Helvetica-Bold", 11)
     c.drawString(20 * mm, y, "Results")
