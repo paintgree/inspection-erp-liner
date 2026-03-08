@@ -913,3 +913,74 @@ input:focus, select:focus, textarea:focus{
     line-height:1.35;
   }
 }
+/* -------------------------
+MOBILE BURST LIST
+--------------------------*/
+
+.burst-mobile-list{
+  display:none;
+}
+
+.burst-mobile-card{
+  display:block;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  padding:16px;
+  margin-bottom:14px;
+  text-decoration:none;
+  color:inherit;
+  box-shadow:0 2px 6px rgba(0,0,0,0.04);
+}
+
+.burst-card-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:10px;
+}
+
+.burst-id{
+  font-size:20px;
+  font-weight:700;
+  color:#2563eb;
+}
+
+.burst-status{
+  font-size:13px;
+  background:#e5e7eb;
+  padding:4px 8px;
+  border-radius:6px;
+}
+
+.burst-row{
+  display:flex;
+  justify-content:space-between;
+  margin-top:8px;
+  font-size:14px;
+}
+
+.burst-row strong{
+  color:#6b7280;
+}
+
+.burst-burst span{
+  font-weight:700;
+  font-size:16px;
+}
+
+/* -------------------------
+MOBILE VIEW
+--------------------------*/
+
+@media (max-width:768px){
+
+  .burst-mobile-list{
+    display:block;
+  }
+
+  .tablewrap{
+    display:none;
+  }
+
+}
