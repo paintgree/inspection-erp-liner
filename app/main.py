@@ -2838,6 +2838,10 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
     # -----------------------------
     # Attachments for template
     # -----------------------------
+    samples = session.exec(
+        select(BurstSample).where(BurstSample.report_id == rep.id)
+    ).all()
+    
     att_rows = session.exec(
         select(BurstAttachment).where(BurstAttachment.report_id == rep.id)
     ).all()
@@ -2869,7 +2873,7 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             "run": run,
             "produced_len": produced_len,
             "live": live,
-            "samples": db_samples,
+            "samples": samples,
             "audit": audit,
             "att_status": att_status,
             "att_map": att_map,
