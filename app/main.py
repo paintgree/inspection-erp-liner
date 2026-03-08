@@ -2515,6 +2515,8 @@ def burst_dashboard(request: Request, session: Session = Depends(get_session)):
 
     run_map = {}
     burst_map = {}
+    result_map = {}
+
     for r in reports:
         run = None
         if not r.is_unlinked and r.linked_run_id:
@@ -2530,6 +2532,17 @@ def burst_dashboard(request: Request, session: Session = Depends(get_session)):
         values = [float(getattr(s, "actual_burst_psi", 0.0) or 0.0) for s in sample_rows]
         burst_map[r.id] = max(values) if values else float(getattr(r, "actual_burst_psi", 0.0) or 0.0)
 
+        result_value = ""
+        for s in sample_rows:
+            tv = (getattr(s, "test_result", "") or "").strip().upper()
+            if tv == "FAIL":
+                result_value = "FAIL"
+                break
+            elif tv == "PASS" and result_value != "FAIL":
+                result_value = "PASS"
+
+        result_map[r.id] = result_value
+
     return templates.TemplateResponse(
         "burst_dashboard.html",
         {
@@ -2538,6 +2551,7 @@ def burst_dashboard(request: Request, session: Session = Depends(get_session)):
             "reports": reports,
             "run_map": run_map,
             "burst_map": burst_map,
+            "result_map": result_map,
         },
     )
 
