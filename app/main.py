@@ -3389,41 +3389,53 @@ def _logo_path() -> str:
     # Put your logo here: app/static/images/logo.png
     return os.path.join(base_dir, "static", "images", "logo.png")
 
-def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, page_total: int):
+def _draw_header_footer(c, title: str, doc_control_no: str = "", page_num: int = 1, page_total: int = 1):
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+    import os
+
     w, h = A4
 
-    # Header: centered logo + centered title
-    logo = _logo_path()
-    y_top = h - 12 * mm
-    y_title = h - 26 * mm
+    # ===== HEADER AREA =====
+    logo_path = os.path.join("app", "static", "logo.png")  # keep your existing logo path if different
 
-    if os.path.exists(logo):
+    top_y = h - 18 * mm
+    logo_x = 20 * mm
+    logo_w = 32 * mm
+    logo_h = 12 * mm
+
+    # draw logo same size on every page
+    if os.path.exists(logo_path):
         try:
-            img = ImageReader(logo)
-            iw, ih = img.getSize()
-            target_w = 55 * mm  # slightly bigger
-            scale = target_w / float(iw)
-            target_h = float(ih) * scale
-            x = (w - target_w) / 2
-            c.drawImage(img, x, y_top - target_h, width=target_w, height=target_h, mask="auto")
-            y_title = (y_top - target_h) - 7 * mm
+            c.drawImage(logo_path, logo_x, top_y - logo_h, width=logo_w, height=logo_h, preserveAspectRatio=True, mask='auto')
         except Exception:
             pass
 
-    c.setFont("Helvetica-Bold", 16)
-    c.drawCentredString(w / 2, y_title, title)
+    # centered title, same size on every page
+    title_font = "Helvetica-Bold"
+    title_size = 18
+    c.setFont(title_font, title_size)
+    c.setFillColor(colors.black)
 
+    title_y = h - 20 * mm
+    title_width = stringWidth(title, title_font, title_size)
+    c.drawString((w - title_width) / 2, title_y, title)
+
+    # separator line
+    line_y = h - 30 * mm
     c.setStrokeColor(colors.black)
-    line_y = y_title - 4 * mm
     c.line(20 * mm, line_y, w - 20 * mm, line_y)
 
-    # Footer
+    # ===== FOOTER =====
     c.setFont("Helvetica", 9)
     c.setFillColor(colors.grey)
     c.drawString(20 * mm, 12 * mm, doc_control_no or "")
     c.drawRightString(w - 20 * mm, 12 * mm, f"Page {page_num}/{page_total}")
     c.setFillColor(colors.black)
-    return line_y - 8 * mm
+
+    # return safe starting Y for page content
+    return line_y - 10 * mm
 
 def _draw_report_info_table(c, report, x, y):
     n = int(getattr(report, "total_no_of_specimens", 0) or 0)
