@@ -3086,28 +3086,28 @@ async def burst_update(
     if n > 50: n = 50
 
     # TEST DETAILS
-    rep.reference_standard = (reference_standard or "").strip()
-    rep.reference_dhtp_procedure = (reference_dhtp_procedure or "").strip()
-    rep.system_max_pressure = (system_max_pressure or "").strip()
-    rep.laboratory_temperature = (laboratory_temperature or "").strip()
-    rep.testing_medium = (testing_medium or "").strip()
-    rep.total_no_of_specimens = n
+    rep.reference_standard = (form.get("reference_standard") or "").strip()
+    rep.reference_dhtp_procedure = (form.get("reference_dhtp_procedure") or "").strip()
+    rep.system_max_pressure = (form.get("system_max_pressure") or "").strip()
+    rep.laboratory_temperature = (form.get("laboratory_temperature") or "").strip()
+    rep.testing_medium = (form.get("testing_medium") or "").strip()
+    rep.total_no_of_specimens = int(form.get("total_no_of_specimens") or 1)
 
     # SPECIMENS (report-level)
-    rep.effective_length_m = (effective_length_m or "").strip()
-    rep.liner_thickness = (liner_thickness or "").strip()
-    rep.reinforcement_thickness = (reinforcement_thickness or "").strip()
-    rep.cover_thickness = (cover_thickness or "").strip()
+    rep.effective_length_m = (form.get("effective_length_m") or "").strip()
+    rep.liner_thickness = (form.get("liner_thickness") or "").strip()
+    rep.reinforcement_thickness = (form.get("reinforcement_thickness") or "").strip()
+    rep.cover_thickness = (form.get("cover_thickness") or "").strip()
 
     # legacy single-sample fields
-    rep.sample_serial_number = (sample_serial_number or "").strip()
-    rep.actual_burst_psi = float(actual_burst_psi or 0.0)
-    rep.pressurization_time_s = (pressurization_time_s or "").strip()
-    rep.test_result = (test_result or "").strip()
-    rep.failure_mode = (failure_mode or "").strip()
-    rep.notes = (notes or "").strip()
+    rep.sample_serial_number = (form.get("sample_serial_number") or "").strip()
+    rep.actual_burst_psi = float(form.get("actual_burst_psi") or 0.0)
+    rep.pressurization_time_s = (form.get("pressurization_time_s") or "").strip()
+    rep.test_result = (form.get("test_result") or "").strip()
+    rep.failure_mode = (form.get("failure_mode") or "").strip()
+    rep.notes = (form.get("notes") or "").strip()
 
-    rep.qa_qc_officer_name = (qa_qc_officer_name or "").strip()
+    rep.qa_qc_officer_name = (form.get("qa_qc_officer_name") or "").strip()
 
     # ✅ get the full form FIRST (so we can read technician_name and per-sample fields)
     form = await request.form()
