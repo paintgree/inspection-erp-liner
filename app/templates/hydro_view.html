@@ -154,6 +154,7 @@
           <th>Result</th>
           <th>Technician</th>
           <th>Date</th>
+          <th>Approval</th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -172,18 +173,42 @@
             </td>
             <td>{{ r.technician_name or '-' }}</td>
             <td>{{ r.tested_at }}</td>
+        
+            <td>
+              <span class="burst-status {% if (r.approval_status or 'DRAFT') == 'APPROVED' %}badge-editable{% elif (r.approval_status or '') == 'PENDING_APPROVAL' %}badge-pending{% else %}badge-published{% endif %}">
+                {{ hydro_record_status_label(r.approval_status) }}
+              </span>
+            </td>
+        
             <td>
               <div class="toolbar">
-                <a class="btn btn-sm" href="/hydro/batch/{{ summary.batch_no }}?edit_id={{ r.id }}">Edit</a>
-                <form method="post" action="/hydro/batch/{{ summary.batch_no }}/delete/{{ r.id }}" onsubmit="return confirm('Delete this hydrotest range?');">
-                  <button class="btn btn-sm" type="submit">Delete</button>
-                </form>
+                <a class="btn btn-sm" href="/hydro/record/{{ r.id }}/pdf" target="_blank">PDF</a>
+        
+                {% if (r.approval_status or 'DRAFT') == 'DRAFT' %}
+                  <a class="btn btn-sm" href="/hydro/batch/{{ summary.batch_no }}?edit_id={{ r.id }}">Edit</a>
+        
+                  <form method="post" action="/hydro/batch/{{ summary.batch_no }}/submit/{{ r.id }}">
+                    <button class="btn btn-sm" type="submit">Submit</button>
+                  </form>
+        
+                  <form method="post" action="/hydro/batch/{{ summary.batch_no }}/delete/{{ r.id }}" onsubmit="return confirm('Delete this hydrotest range?');">
+                    <button class="btn btn-sm" type="submit">Delete</button>
+                  </form>
+        
+                {% elif (r.approval_status or '') == 'PENDING_APPROVAL' %}
+                  <form method="post" action="/hydro/batch/{{ summary.batch_no }}/approve/{{ r.id }}">
+                    <button class="btn btn-sm btn-primary" type="submit">Approve</button>
+                  </form>
+        
+                {% else %}
+                  <span class="burst-status badge-editable">Approved</span>
+                {% endif %}
               </div>
             </td>
           </tr>
         {% else %}
           <tr>
-            <td colspan="9" class="muted">No hydrotest ranges saved yet.</td>
+            <td colspan="10" class="muted">No hydrotest ranges saved yet.</td>
           </tr>
         {% endfor %}
       </tbody>
