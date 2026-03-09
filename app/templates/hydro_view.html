@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block content %}
+
+<a href="/hydro" class="burst-back-btn">← Back to Hydro Dashboard</a>
+
+<div class="page-head burst-head">
+  <h2>Hydro Testing • Batch {{ summary.batch_no }}</h2>
+  <span class="burst-status {% if summary.status == 'COMPLETE' %}badge-editable{% elif summary.status == 'PARTIAL' %}badge-pending{% else %}badge-published{% endif %}">
+    {{ hydro_status_badge(summary.status) }}
+  </span>
+</div>
+
+{% if error %}
+  <div class="card" style="border-color:#fecaca; background:#fef2f2; color:#991b1b;">
+    {{ error }}
+  </div>
+{% endif %}
+
+<div class="hydro-detail-grid">
+  <div class="card">
+    <div class="kpi-grid hydro-kpi-grid">
+      <div class="kpi-card"><div class="kpi-label">Total Order</div><div class="kpi-value">{{ '%.1f'|format(summary.total_order_m) }} m</div></div>
+      <div class="kpi-card"><div class="kpi-label">Finished Produced</div><div class="kpi-value">{{ '%.1f'|format(summary.produced_length_m) }} m</div></div>
+      <div class="kpi-card"><div class="kpi-label">Burst Excluded</div><div class="kpi-value">{{ '%.1f'|format(summary.burst_used_m) }} m</div></div>
+      <div class="kpi-card"><div class="kpi-label">Hydrotested</div><div class="kpi-value">{{ '%.1f'|format(summary.hydro_tested_m) }} m</div></div>
+      <div class="kpi-card"><div class="kpi-label">Remaining</div><div class="kpi-value">{{ '%.1f'|format(summary.hydro_remaining_m) }} m</div></div>
+      <div class="kpi-card"><div class="kpi-label">Coverage</div><div class="kpi-value">{{ summary.coverage_pct }}%</div></div>
+    </div>
+
+    <div class="hydro-legend mt">
+      <span class="legend-chip legend-tested">Hydrotested</span>
+      <span class="legend-chip legend-burst">Used in Burst Test</span>
+      <span class="legend-chip legend-remaining">Remaining for Hydrotest</span>
+    </div>
+
+    <div class="hydro-progress-head mt">
+      <span>Finished produced length visual</span>
+      <strong>0 — {{ '%.1f'|format(summary.produced_length_m) }} m</strong>
+    </div>
+
+    <div class="hydro-track hydro-track-lg">
+      {% for seg in summary.segments %}
+        <span
+          class="hydro-seg hydro-seg-{{ seg.kind }}"
+          title="{{ seg.kind }}: {{ '%.1f'|format(seg.start) }} to {{ '%.1f'|format(seg.end) }} m"
+          style="left: {{ '%.4f'|format(seg.left_pct) }}%; width: {{ '%.4f'|format(seg.width_pct) }}%;"
+        ></span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">
+      {% if edit_record %}Edit Hydrotest Range #{{ edit_record.id }}{% else %}Add Hydrotest Range{% endif %}
+    </h3>
+
+    <form method="post" action="/hydro/batch/{{ summary.batch_no }}/save">
+      <input type="hidden" name="record_id" value="{{ edit_record.id if edit_record else '' }}">
+
+      <div class="grid2">
+        <label>Start Length (m)
+          <input class="input" type="number" step="0.001" name="start_length_m" value="{{ edit_record.start_length_m if edit_record else '' }}" required>
+        </label>
+
+        <label>End Length (m)
+          <input class="input" type="number" step="0.001" name="end_length_m" value="{{ edit_record.end_length_m if edit_record else '' }}" required>
+        </label>
+
+        <label>Pressure (MPa)
+          <input class="input" type="number" step="0.001" name="hydrotest_pressure_mpa" value="{{ edit_record.hydrotest_pressure_mpa if edit_record else '' }}">
+        </label>
+
+        <label>Hold Time (s)
+          <input class="input" type="text" name="hold_time_s" value="{{ edit_record.hold_time_s if edit_record else '' }}">
+        </label>
+
+        <label>Medium
+          <input class="input" type="text" name="test_medium" value="{{ edit_record.test_medium if edit_record else 'Water' }}">
+        </label>
+
+        <label>Lab Temp
+          <input class="input" type="text" name="laboratory_temperature" value="{{ edit_record.laboratory_temperature if edit_record else '' }}">
+        </label>
+
+        <label>Result
+          <select class="input" name="test_result">
+            <option value="PASS" {% if edit_record and edit_record.test_result == 'PASS' %}selected{% endif %}>PASS</option>
+            <option value="FAIL" {% if edit_record and edit_record.test_result == 'FAIL' %}selected{% endif %}>FAIL</option>
+          </select>
+        </label>
+
+        <label>Technician
+          <input class="input" type="text" name="technician_name" value="{{ edit_record.technician_name if edit_record else '' }}">
+        </label>
+      </div>
+
+      <label>Notes
+        <textarea class="input" name="notes" rows="3">{{ edit_record.notes if edit_record else '' }}</textarea>
+      </label>
+
+      <div class="toolbar mt">
+        <button class="btn btn-primary" type="submit">
+          {% if edit_record %}Update Hydrotest Range{% else %}Save Hydrotest Range{% endif %}
+        </button>
+
+        {% if edit_record %}
+          <a class="btn" href="/hydro/batch/{{ summary.batch_no }}">Cancel Edit</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="hydro-detail-grid mt">
+  <div class="card">
+    <h3 style="margin-top:0">Remaining Hydrotest Ranges</h3>
+    {% if summary.hydro_remaining_ranges %}
+      <ul class="simple-list">
+        {% for a, b in summary.hydro_remaining_ranges %}
+          <li>{{ '%.1f'|format(a) }} m → {{ '%.1f'|format(b) }} m ({{ '%.1f'|format(b-a) }} m)</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="muted">No remaining hydrotest range inside finished produced material.</div>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Burst-Test Excluded Ranges</h3>
+    {% if summary.burst_ranges %}
+      <ul class="simple-list">
+        {% for a, b in summary.burst_ranges %}
+          <li>{{ '%.1f'|format(a) }} m → {{ '%.1f'|format(b) }} m ({{ '%.1f'|format(b-a) }} m)</li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="muted">No burst-tested consumed length found for this batch.</div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mt">
+  <h3 style="margin-top:0">Hydrotest Records</h3>
+
+  <div class="tablewrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Range</th>
+          <th>Length</th>
+          <th>Pressure</th>
+          <th>Hold</th>
+          <th>Result</th>
+          <th>Technician</th>
+          <th>Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in summary.records %}
+          <tr>
+            <td>#{{ r.id }}</td>
+            <td>{{ '%.1f'|format(r.start_length_m) }} → {{ '%.1f'|format(r.end_length_m) }} m</td>
+            <td>{{ '%.1f'|format(r.tested_length_m) }} m</td>
+            <td>{{ '%.2f'|format(r.hydrotest_pressure_mpa or 0) }} MPa</td>
+            <td>{{ r.hold_time_s or '-' }}</td>
+            <td>
+              <span class="result-badge {% if (r.test_result or '').upper() == 'PASS' %}result-pass{% elif (r.test_result or '').upper() == 'FAIL' %}result-fail{% else %}result-empty{% endif %}">
+                {{ r.test_result or '—' }}
+              </span>
+            </td>
+            <td>{{ r.technician_name or '-' }}</td>
+            <td>{{ r.tested_at }}</td>
+            <td>
+              <div class="toolbar">
+                <a class="btn btn-sm" href="/hydro/batch/{{ summary.batch_no }}?edit_id={{ r.id }}">Edit</a>
+                <form method="post" action="/hydro/batch/{{ summary.batch_no }}/delete/{{ r.id }}" onsubmit="return confirm('Delete this hydrotest range?');">
+                  <button class="btn btn-sm" type="submit">Delete</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="9" class="muted">No hydrotest ranges saved yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
