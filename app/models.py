@@ -490,6 +490,17 @@ class HydroTestRecord(SQLModel, table=True):
     test_medium: str = Field(default="Water")
     laboratory_temperature: str = Field(default="")
 
+    reference_standard: str = Field(default="API 15S")
+    reference_dhtp_procedure: str = Field(default="QAW2000")
+    machine_model: str = Field(default="")
+    calibration_status: str = Field(default="")
+    highest_pressure_recorded_mpa: float = Field(default=0.0)
+    lowest_pressure_recorded_mpa: float = Field(default=0.0)
+    pressure_holding_time_min: str = Field(default="")
+    qaqc_name: str = Field(default="")
+    testing_operator_name: str = Field(default="")
+    chart_image_path: str = Field(default="")
+
     test_result: str = Field(default="")  # PASS / FAIL
     technician_name: str = Field(default="")
     notes: str = Field(default="")
