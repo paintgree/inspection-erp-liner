@@ -5122,6 +5122,14 @@ def apply_specs_to_template(ws, run: ProductionRun, session: Session):
 # HYDRO TESTING
 # =========================
 
+def _hydro_record_status_label(status: str) -> str:
+    s = (status or "").upper()
+    if s == "APPROVED":
+        return "Approved"
+    if s == "PENDING_APPROVAL":
+        return "Pending Approval"
+    return "Draft"
+
 def _merge_length_ranges(ranges: list[tuple[float, float]]) -> list[tuple[float, float]]:
     cleaned = []
     for start, end in ranges:
@@ -5376,6 +5384,7 @@ def hydro_batch_view(batch_no: str, request: Request, session: Session = Depends
         edit_record = session.get(HydroTestRecord, int(edit_id_raw))
         if edit_record and (edit_record.batch_no or "").strip() != (batch_no or "").strip():
             edit_record = None
+            
 
     return templates.TemplateResponse(
         "hydro_view.html",
@@ -5469,6 +5478,13 @@ def hydro_batch_save_record(
     record.test_result = (test_result or "PASS").strip().upper()
     record.technician_name = (technician_name or "").strip()
     record.notes = (notes or "").strip()
+    
+    # editing or saving moves record back to draft
+    record.approval_status = "DRAFT"
+    record.submitted_at = None
+    record.approved_at = None
+    record.approved_by_user_id = None
+    record.approved_by_user_name = ""
 
     session.add(record)
     session.commit()
@@ -5490,7 +5506,153 @@ def hydro_batch_delete_record(batch_no: str, record_id: int, request: Request, s
     return RedirectResponse(f"/hydro/batch/{batch_no}", status_code=303)
 
 
+@app.post("/hydro/batch/{batch_no}/submit/{record_id}")
+def hydro_batch_submit_record(batch_no: str, record_id: int, request: Request, session: Session = Depends(get_session)):
+    get_current_user(request, session)
 
+    record = session.get(HydroTestRecord, record_id)
+    if not record or (record.batch_no or "").strip() != (batch_no or "").strip():
+        raise HTTPException(404, "Hydrotest record not found")
+
+    record.approval_status = "PENDING_APPROVAL"
+    record.submitted_at = datetime.utcnow()
+    session.add(record)
+    session.commit()
+
+    return RedirectResponse(f"/hydro/batch/{batch_no}", status_code=303)
+
+
+@app.post("/hydro/batch/{batch_no}/approve/{record_id}")
+def hydro_batch_approve_record(batch_no: str, record_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    record = session.get(HydroTestRecord, record_id)
+    if not record or (record.batch_no or "").strip() != (batch_no or "").strip():
+        raise HTTPException(404, "Hydrotest record not found")
+
+    record.approval_status = "APPROVED"
+    record.approved_at = datetime.utcnow()
+    record.approved_by_user_id = getattr(user, "id", None)
+    record.approved_by_user_name = getattr(user, "display_name", "") or ""
+    session.add(record)
+    session.commit()
+
+    return RedirectResponse(f"/hydro/batch/{batch_no}", status_code=303)
+
+
+@app.get("/hydro/record/{record_id}/pdf")
+def hydro_record_pdf(record_id: int, session: Session = Depends(get_session)):
+    record = session.get(HydroTestRecord, record_id)
+    if not record:
+        raise HTTPException(404, "Hydrotest record not found")
+
+    batch_no = (record.batch_no or "").strip()
+    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
+    summary = _build_hydro_batch_summary(session, cover) if cover else None
+
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.pdfgen import canvas
+
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    w, h = A4
+
+    def row(label, value, x1=22 * mm, x2=70 * mm):
+        nonlocal y
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(x1, y, label)
+        c.setFont("Helvetica", 10)
+        c.drawString(x2, y, str(value or "-"))
+        y -= 7 * mm
+
+    y = h - 22 * mm
+
+    c.setFont("Helvetica-Bold", 18)
+    c.drawCentredString(w / 2, y, "Hydrostatic Test Report")
+    y -= 8 * mm
+
+    c.setStrokeColor(colors.black)
+    c.line(20 * mm, y, w - 20 * mm, y)
+    y -= 12 * mm
+
+    row("Batch No", record.batch_no)
+    row("Client", record.client_name)
+    row("Client PO", record.client_po)
+    row("Pipe Spec", record.pipe_specification)
+    row("Finished Length", f"{record.finished_length_m:.1f} m")
+    row("Test Range", f"{record.start_length_m:.1f} m - {record.end_length_m:.1f} m")
+    row("Tested Length", f"{record.tested_length_m:.1f} m")
+    row("Pressure", f"{float(record.hydrotest_pressure_mpa or 0):.2f} MPa")
+    row("Hold Time", record.hold_time_s)
+    row("Medium", record.test_medium)
+    row("Lab Temp", record.laboratory_temperature)
+    row("Result", record.test_result)
+    row("Technician", record.technician_name)
+    row("Status", _hydro_record_status_label(record.approval_status))
+    row("Test Date", record.tested_at)
+
+    if record.approved_by_user_name:
+        row("Approved By", record.approved_by_user_name)
+    if record.approved_at:
+        row("Approved At", record.approved_at)
+
+    y -= 5 * mm
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(22 * mm, y, "Notes")
+    y -= 7 * mm
+    c.setFont("Helvetica", 10)
+    text = c.beginText(22 * mm, y)
+    text.setLeading(14)
+    for line in (record.notes or "-").splitlines() or ["-"]:
+        text.textLine(line)
+    c.drawText(text)
+
+    if summary:
+        y = 55 * mm
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(22 * mm, y, "Coverage Summary")
+        y -= 8 * mm
+        c.setFont("Helvetica", 10)
+        c.drawString(22 * mm, y, f"Hydrotested: {summary['hydro_tested_m']:.1f} m")
+        c.drawString(80 * mm, y, f"Burst Excluded: {summary['burst_used_m']:.1f} m")
+        c.drawString(145 * mm, y, f"Remaining: {summary['hydro_remaining_m']:.1f} m")
+
+        track_x = 22 * mm
+        track_y = y - 10 * mm
+        track_w = w - 44 * mm
+        track_h = 10 * mm
+
+        c.setFillColor(colors.HexColor("#e5e7eb"))
+        c.roundRect(track_x, track_y, track_w, track_h, 4, stroke=0, fill=1)
+
+        if summary["produced_length_m"] > 0:
+            for seg in summary["segments"]:
+                if seg["kind"] == "tested":
+                    c.setFillColor(colors.HexColor("#22c55e"))
+                elif seg["kind"] == "burst":
+                    c.setFillColor(colors.HexColor("#f59e0b"))
+                else:
+                    c.setFillColor(colors.HexColor("#cbd5e1"))
+
+                sx = track_x + (seg["left_pct"] / 100.0) * track_w
+                sw = max((seg["width_pct"] / 100.0) * track_w, 2)
+                c.roundRect(sx, track_y, sw, track_h, 4, stroke=0, fill=1)
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+
+    filename = f"hydro_record_{record_id}.pdf"
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+    
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
