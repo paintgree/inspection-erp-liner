@@ -58,58 +58,105 @@
 
   <div class="card">
     <h3 style="margin-top:0">
-      {% if edit_record %}Edit Hydrotest Range #{{ edit_record.id }}{% else %}Add Hydrotest Range{% endif %}
+      {% if edit_record %}Edit Hydrotest Report #{{ edit_record.id }}{% else %}Add Hydrotest Report{% endif %}
     </h3>
-
-    <form method="post" action="/hydro/batch/{{ summary.batch_no }}/save">
+  
+    <form method="post" action="/hydro/batch/{{ summary.batch_no }}/save" enctype="multipart/form-data">
       <input type="hidden" name="record_id" value="{{ edit_record.id if edit_record else '' }}">
-
+  
       <div class="grid2">
+        <label>Reference Standard
+          <input class="input" type="text" name="reference_standard" value="{{ edit_record.reference_standard if edit_record else 'API 15S' }}">
+        </label>
+  
+        <label>Reference DHTP Procedure
+          <input class="input" type="text" name="reference_dhtp_procedure" value="{{ edit_record.reference_dhtp_procedure if edit_record else 'QAW2000' }}">
+        </label>
+  
+        <label>Machine Model
+          <input class="input" type="text" name="machine_model" value="{{ edit_record.machine_model if edit_record else '' }}">
+        </label>
+  
+        <label>Calibration Status
+          <input class="input" type="text" name="calibration_status" value="{{ edit_record.calibration_status if edit_record else '' }}">
+        </label>
+  
         <label>Start Length (m)
           <input class="input" type="number" step="0.001" name="start_length_m" value="{{ edit_record.start_length_m if edit_record else '' }}" required>
         </label>
-
+  
         <label>End Length (m)
           <input class="input" type="number" step="0.001" name="end_length_m" value="{{ edit_record.end_length_m if edit_record else '' }}" required>
         </label>
-
-        <label>Pressure (MPa)
+  
+        <label>Testing Medium
+          <input class="input" type="text" name="test_medium" value="{{ edit_record.test_medium if edit_record else 'Water' }}">
+        </label>
+  
+        <label>Laboratory Temperature
+          <input class="input" type="text" name="laboratory_temperature" value="{{ edit_record.laboratory_temperature if edit_record else '' }}">
+        </label>
+  
+        <label>Test Pressure (MPa)
           <input class="input" type="number" step="0.001" name="hydrotest_pressure_mpa" value="{{ edit_record.hydrotest_pressure_mpa if edit_record else '' }}">
         </label>
-
+  
+        <label>Pressure Holding Time (Min)
+          <input class="input" type="text" name="pressure_holding_time_min" value="{{ edit_record.pressure_holding_time_min if edit_record else '' }}">
+        </label>
+  
+        <label>Highest Pressure Recorded (MPa)
+          <input class="input" type="number" step="0.001" name="highest_pressure_recorded_mpa" value="{{ edit_record.highest_pressure_recorded_mpa if edit_record else '' }}">
+        </label>
+  
+        <label>Lowest Pressure Recorded (MPa)
+          <input class="input" type="number" step="0.001" name="lowest_pressure_recorded_mpa" value="{{ edit_record.lowest_pressure_recorded_mpa if edit_record else '' }}">
+        </label>
+  
         <label>Hold Time (s)
           <input class="input" type="text" name="hold_time_s" value="{{ edit_record.hold_time_s if edit_record else '' }}">
         </label>
-
-        <label>Medium
-          <input class="input" type="text" name="test_medium" value="{{ edit_record.test_medium if edit_record else 'Water' }}">
-        </label>
-
-        <label>Lab Temp
-          <input class="input" type="text" name="laboratory_temperature" value="{{ edit_record.laboratory_temperature if edit_record else '' }}">
-        </label>
-
+  
         <label>Result
           <select class="input" name="test_result">
             <option value="PASS" {% if edit_record and edit_record.test_result == 'PASS' %}selected{% endif %}>PASS</option>
             <option value="FAIL" {% if edit_record and edit_record.test_result == 'FAIL' %}selected{% endif %}>FAIL</option>
           </select>
         </label>
-
+  
+        <label>QA/QC
+          <input class="input" type="text" name="qaqc_name" value="{{ edit_record.qaqc_name if edit_record else '' }}">
+        </label>
+  
+        <label>Testing Operator
+          <input class="input" type="text" name="testing_operator_name" value="{{ edit_record.testing_operator_name if edit_record else '' }}">
+        </label>
+  
         <label>Technician
           <input class="input" type="text" name="technician_name" value="{{ edit_record.technician_name if edit_record else '' }}">
         </label>
+  
+        <label>Pressure Curve Chart
+          <input class="input" type="file" name="chart_image" accept=".png,.jpg,.jpeg,.webp">
+        </label>
       </div>
-
+  
+      {% if edit_record and edit_record.chart_image_path %}
+        <div class="mt">
+          <div class="muted">Current chart:</div>
+          <img src="{{ edit_record.chart_image_path }}" alt="Hydro chart" style="max-width:100%; max-height:240px; border:1px solid #e5e7eb; border-radius:8px;">
+        </div>
+      {% endif %}
+  
       <label>Notes
         <textarea class="input" name="notes" rows="3">{{ edit_record.notes if edit_record else '' }}</textarea>
       </label>
-
+  
       <div class="toolbar mt">
         <button class="btn btn-primary" type="submit">
-          {% if edit_record %}Update Hydrotest Range{% else %}Save Hydrotest Range{% endif %}
+          {% if edit_record %}Update Hydrotest Report{% else %}Save Hydrotest Report{% endif %}
         </button>
-
+  
         {% if edit_record %}
           <a class="btn" href="/hydro/batch/{{ summary.batch_no }}">Cancel Edit</a>
         {% endif %}
