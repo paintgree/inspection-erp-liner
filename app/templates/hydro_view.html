@@ -4,12 +4,19 @@
 <a href="/hydro" class="burst-back-btn">← Back to Hydro Dashboard</a>
 
 <div class="page-head burst-head">
-  <h2>Hydro Testing • Batch {{ summary.batch_no }}</h2>
-  <span class="burst-status {% if summary.status == 'COMPLETE' %}badge-editable{% elif summary.status == 'PARTIAL' %}badge-pending{% else %}badge-published{% endif %}">
-    {{ hydro_status_badge(summary.status) }}
-  </span>
-</div>
+  <div>
+    <h2>Hydro Testing • Batch {{ summary.batch_no }}</h2>
+  </div>
 
+  <div class="toolbar">
+    {% if summary.records %}
+      <a class="btn" href="/hydro/batch/{{ summary.batch_no }}/pdf" target="_blank">Export All Records</a>
+    {% endif %}
+    <span class="burst-status {% if summary.status == 'COMPLETE' %}badge-editable{% elif summary.status == 'PARTIAL' %}badge-pending{% else %}badge-published{% endif %}">
+      {{ hydro_status_badge(summary.status) }}
+    </span>
+  </div>
+</div>
 {% if error %}
   <div class="card" style="border-color:#fecaca; background:#fef2f2; color:#991b1b;">
     {{ error }}
@@ -147,6 +154,7 @@
       <thead>
         <tr>
           <th>ID</th>
+          <th>Report No</th>
           <th>Range</th>
           <th>Length</th>
           <th>Pressure</th>
@@ -162,6 +170,7 @@
         {% for r in summary.records %}
           <tr>
             <td>#{{ r.id }}</td>
+            <td>{{ r.report_no or ('HT-%04d' % r.id) }}</td>
             <td>{{ '%.1f'|format(r.start_length_m) }} → {{ '%.1f'|format(r.end_length_m) }} m</td>
             <td>{{ '%.1f'|format(r.tested_length_m) }} m</td>
             <td>{{ '%.2f'|format(r.hydrotest_pressure_mpa or 0) }} MPa</td>
@@ -208,7 +217,7 @@
           </tr>
         {% else %}
           <tr>
-            <td colspan="10" class="muted">No hydrotest ranges saved yet.</td>
+            <td colspan="11" class="muted">No hydrotest ranges saved yet.</td>
           </tr>
         {% endfor %}
       </tbody>
