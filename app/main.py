@@ -2687,6 +2687,7 @@ async def burst_create(
     created_at=datetime.utcnow(),
     created_by_user_id=user.id,
     created_by_user_name=user.display_name,
+    testing_operator_name=user.display_name,
 
     is_unlinked=is_manual,
     linked_run_id=linked_id,
