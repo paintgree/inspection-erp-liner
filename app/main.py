@@ -5343,7 +5343,21 @@ def _build_hydro_batch_summary(session: Session, cover_run: ProductionRun) -> di
         "records": hydro_rows,
     }
 
+def _next_hydro_report_no(session: Session) -> str:
+    rows = session.exec(
+        select(HydroTestRecord).order_by(HydroTestRecord.id.desc())
+    ).all()
 
+    max_num = 0
+    for r in rows:
+        rn = (getattr(r, "report_no", "") or "").strip().upper()
+        if rn.startswith("HT-"):
+            tail = rn[3:]
+            if tail.isdigit():
+                max_num = max(max_num, int(tail))
+
+    return f"HT-{max_num + 1:04d}"
+    
 @app.get("/hydro", response_class=HTMLResponse)
 def hydro_dashboard(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -5458,11 +5472,15 @@ def hydro_batch_save_record(
             raise HTTPException(404, "Hydrotest record not found")
     else:
         record = HydroTestRecord(
+            report_no=_next_hydro_report_no(session),
             batch_no=(batch_no or "").strip(),
             linked_run_id=cover.id,
             created_by_user_id=getattr(user, "id", None),
             created_by_user_name=getattr(user, "display_name", "") or "",
         )
+
+    if not (record.report_no or "").strip():
+        record.report_no = _next_hydro_report_no(session)
 
     record.batch_no = (batch_no or "").strip()
     record.linked_run_id = cover.id
@@ -5580,6 +5598,7 @@ def hydro_record_pdf(record_id: int, session: Session = Depends(get_session)):
     c.line(20 * mm, y, w - 20 * mm, y)
     y -= 12 * mm
 
+    row("Report No", record.report_no or f"HT-{record.id:04d}")
     row("Batch No", record.batch_no)
     row("Client", record.client_name)
     row("Client PO", record.client_po)
@@ -5654,6 +5673,127 @@ def hydro_record_pdf(record_id: int, session: Session = Depends(get_session)):
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
 
+
+@app.get("/hydro/batch/{batch_no}/pdf")
+def hydro_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
+    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
+    if not cover:
+        raise HTTPException(404, "Cover run not found for this batch")
+
+    summary = _build_hydro_batch_summary(session, cover)
+
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.pdfgen import canvas
+
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    w, h = A4
+
+    def draw_header(title: str):
+        y_top = h - 18 * mm
+        c.setFont("Helvetica-Bold", 16)
+        c.drawCentredString(w / 2, y_top, title)
+        c.setStrokeColor(colors.black)
+        c.line(20 * mm, y_top - 4 * mm, w - 20 * mm, y_top - 4 * mm)
+
+    def draw_row(y, label, value, x1=20 * mm, x2=68 * mm):
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(x1, y, label)
+        c.setFont("Helvetica", 10)
+        c.drawString(x2, y, str(value or "-"))
+        return y - 7 * mm
+
+    draw_header(f"Hydro Testing Batch Summary - {batch_no}")
+    y = h - 32 * mm
+
+    y = draw_row(y, "Batch No", summary["batch_no"])
+    y = draw_row(y, "Client", summary["client_name"])
+    y = draw_row(y, "Client PO", summary["client_po"])
+    y = draw_row(y, "Pipe Spec", summary["pipe_specification"])
+    y = draw_row(y, "Finished Produced", f"{summary['produced_length_m']:.1f} m")
+    y = draw_row(y, "Hydrotested", f"{summary['hydro_tested_m']:.1f} m")
+    y = draw_row(y, "Burst Excluded", f"{summary['burst_used_m']:.1f} m")
+    y = draw_row(y, "Remaining", f"{summary['hydro_remaining_m']:.1f} m")
+    y = draw_row(y, "Coverage", f"{summary['coverage_pct']}%")
+
+    y -= 4 * mm
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(20 * mm, y, "Coverage Visual")
+    y -= 8 * mm
+
+    track_x = 20 * mm
+    track_y = y
+    track_w = w - 40 * mm
+    track_h = 10 * mm
+
+    c.setFillColor(colors.HexColor("#e5e7eb"))
+    c.roundRect(track_x, track_y, track_w, track_h, 4, stroke=0, fill=1)
+
+    if summary["produced_length_m"] > 0:
+        for seg in summary["segments"]:
+            if seg["kind"] == "tested":
+                c.setFillColor(colors.HexColor("#22c55e"))
+            elif seg["kind"] == "burst":
+                c.setFillColor(colors.HexColor("#f59e0b"))
+            else:
+                c.setFillColor(colors.HexColor("#cbd5e1"))
+
+            sx = track_x + (seg["left_pct"] / 100.0) * track_w
+            sw = max((seg["width_pct"] / 100.0) * track_w, 2)
+            c.roundRect(sx, track_y, sw, track_h, 4, stroke=0, fill=1)
+
+    y -= 18 * mm
+
+    c.setFont("Helvetica-Bold", 11)
+    c.drawString(20 * mm, y, "Hydrotest Records")
+    y -= 8 * mm
+
+    headers = ["Report No", "Range", "Length", "Pressure", "Result", "Approval"]
+    xs = [20 * mm, 52 * mm, 92 * mm, 118 * mm, 148 * mm, 172 * mm]
+
+    c.setFont("Helvetica-Bold", 9)
+    for i, head in enumerate(headers):
+        c.drawString(xs[i], y, head)
+    y -= 5 * mm
+    c.line(20 * mm, y, w - 20 * mm, y)
+    y -= 6 * mm
+
+    for r in summary["records"]:
+        if y < 25 * mm:
+            c.showPage()
+            draw_header(f"Hydro Testing Batch Summary - {batch_no}")
+            y = h - 32 * mm
+
+            c.setFont("Helvetica-Bold", 9)
+            for i, head in enumerate(headers):
+                c.drawString(xs[i], y, head)
+            y -= 5 * mm
+            c.line(20 * mm, y, w - 20 * mm, y)
+            y -= 6 * mm
+
+        approval_label = _hydro_record_status_label(getattr(r, "approval_status", "DRAFT"))
+        c.setFont("Helvetica", 8)
+        c.drawString(xs[0], y, (r.report_no or f"HT-{r.id:04d}"))
+        c.drawString(xs[1], y, f"{r.start_length_m:.1f}-{r.end_length_m:.1f} m")
+        c.drawString(xs[2], y, f"{r.tested_length_m:.1f} m")
+        c.drawString(xs[3], y, f"{float(r.hydrotest_pressure_mpa or 0):.2f}")
+        c.drawString(xs[4], y, (r.test_result or "-"))
+        c.drawString(xs[5], y, approval_label)
+        y -= 6 * mm
+
+    c.showPage()
+    c.save()
+    buf.seek(0)
+
+    filename = f"hydro_batch_{batch_no}.pdf"
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
     
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(request: Request, session: Session = Depends(get_session)):
