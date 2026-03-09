@@ -471,6 +471,7 @@ class BurstAuditLog(SQLModel, table=True):
 
 class HydroTestRecord(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
+    report_no: str = Field(default="", index=True)
 
     batch_no: str = Field(default="", index=True)
     linked_run_id: Optional[int] = Field(default=None, foreign_key="productionrun.id", index=True)
