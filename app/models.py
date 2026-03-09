@@ -465,7 +465,38 @@ class BurstAuditLog(SQLModel, table=True):
     user_name: str = Field(default="")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+# =========================
+# HYDRO TESTING
+# =========================
 
+class HydroTestRecord(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    batch_no: str = Field(default="", index=True)
+    linked_run_id: Optional[int] = Field(default=None, foreign_key="productionrun.id", index=True)
+
+    client_name: str = Field(default="")
+    client_po: str = Field(default="")
+    pipe_specification: str = Field(default="")
+
+    finished_length_m: float = Field(default=0.0)
+    start_length_m: float = Field(default=0.0)
+    end_length_m: float = Field(default=0.0)
+    tested_length_m: float = Field(default=0.0)
+
+    hydrotest_pressure_mpa: float = Field(default=0.0)
+    hold_time_s: str = Field(default="")
+    test_medium: str = Field(default="Water")
+    laboratory_temperature: str = Field(default="")
+
+    test_result: str = Field(default="")  # PASS / FAIL
+    technician_name: str = Field(default="")
+    notes: str = Field(default="")
+
+    tested_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    created_by_user_id: Optional[int] = Field(default=None, index=True)
+    created_by_user_name: str = Field(default="")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 
