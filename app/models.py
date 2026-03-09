@@ -493,10 +493,18 @@ class HydroTestRecord(SQLModel, table=True):
     technician_name: str = Field(default="")
     notes: str = Field(default="")
 
+    approval_status: str = Field(default="DRAFT", index=True)  # DRAFT / PENDING_APPROVAL / APPROVED
+    submitted_at: Optional[datetime] = Field(default=None)
+    approved_at: Optional[datetime] = Field(default=None)
+    approved_by_user_id: Optional[int] = Field(default=None, index=True)
+    approved_by_user_name: str = Field(default="")
+
     tested_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     created_by_user_id: Optional[int] = Field(default=None, index=True)
     created_by_user_name: str = Field(default="")
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 
 
 
