@@ -84,6 +84,7 @@ from .models import (
     BurstSample,
     BurstAuditLog,
     BurstReportRevision,
+    HydroTestRecord,
 
 )
 
@@ -5115,6 +5116,379 @@ def apply_specs_to_template(ws, run: ProductionRun, session: Session):
 
         _set_cell_safe(ws, f"{SPEC_COL}{r}", set_val if set_val is not None else "")
         _set_cell_safe(ws, f"{TOL_COL}{r}", tol_txt)
+
+
+# =========================
+# HYDRO TESTING
+# =========================
+
+def _merge_length_ranges(ranges: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    cleaned = []
+    for start, end in ranges:
+        try:
+            a = float(start or 0.0)
+            b = float(end or 0.0)
+        except Exception:
+            continue
+        if b <= a:
+            continue
+        cleaned.append((a, b))
+
+    if not cleaned:
+        return []
+
+    cleaned.sort(key=lambda x: (x[0], x[1]))
+    merged = [cleaned[0]]
+
+    for start, end in cleaned[1:]:
+        last_start, last_end = merged[-1]
+        if start <= last_end:
+            merged[-1] = (last_start, max(last_end, end))
+        else:
+            merged.append((start, end))
+
+    return merged
+
+
+def _subtract_length_ranges(base: list[tuple[float, float]], cuts: list[tuple[float, float]]) -> list[tuple[float, float]]:
+    if not base:
+        return []
+    if not cuts:
+        return base[:]
+
+    cuts = _merge_length_ranges(cuts)
+    result = []
+
+    for start, end in base:
+        pieces = [(start, end)]
+        for cstart, cend in cuts:
+            new_pieces = []
+            for pstart, pend in pieces:
+                if cend <= pstart or cstart >= pend:
+                    new_pieces.append((pstart, pend))
+                    continue
+
+                if cstart > pstart:
+                    new_pieces.append((pstart, cstart))
+                if cend < pend:
+                    new_pieces.append((cend, pend))
+
+            pieces = new_pieces
+            if not pieces:
+                break
+
+        result.extend(pieces)
+
+    return _merge_length_ranges(result)
+
+
+def _range_total_length(ranges: list[tuple[float, float]]) -> float:
+    total = 0.0
+    for start, end in ranges:
+        total += max(0.0, float(end) - float(start))
+    return round(total, 3)
+
+
+def _clamp_ranges_to_length(ranges: list[tuple[float, float]], max_length: float) -> list[tuple[float, float]]:
+    out = []
+    max_length = max(0.0, float(max_length or 0.0))
+
+    for start, end in ranges:
+        a = max(0.0, min(float(start or 0.0), max_length))
+        b = max(0.0, min(float(end or 0.0), max_length))
+        if b > a:
+            out.append((a, b))
+
+    return _merge_length_ranges(out)
+
+
+def _get_burst_used_ranges(session: Session, batch_no: str, finished_length_m: float) -> list[tuple[float, float]]:
+    reports = session.exec(
+        select(BurstTestReport).where(BurstTestReport.batch_no == (batch_no or "").strip())
+    ).all()
+
+    report_ids = [r.id for r in reports if r.id is not None]
+    if not report_ids:
+        return []
+
+    samples = session.exec(
+        select(BurstSample).where(BurstSample.report_id.in_(report_ids))
+    ).all()
+
+    ranges = []
+    for s in samples:
+        start = float(getattr(s, "sample_start_m", 0.0) or 0.0)
+        length = float(getattr(s, "sample_length_m", 0.0) or 0.0)
+        end = start + length
+        if end > start:
+            ranges.append((start, end))
+
+    return _clamp_ranges_to_length(ranges, finished_length_m)
+
+
+def _get_hydro_tested_ranges(
+    session: Session,
+    batch_no: str,
+    finished_length_m: float,
+    exclude_record_id: int | None = None,
+) -> list[tuple[float, float]]:
+    rows = session.exec(
+        select(HydroTestRecord)
+        .where(HydroTestRecord.batch_no == (batch_no or "").strip())
+        .order_by(HydroTestRecord.start_length_m.asc())
+    ).all()
+
+    ranges = []
+    for r in rows:
+        if exclude_record_id and r.id == exclude_record_id:
+            continue
+        ranges.append((float(r.start_length_m or 0.0), float(r.end_length_m or 0.0)))
+
+    return _clamp_ranges_to_length(ranges, finished_length_m)
+
+
+def _hydro_overlap_error(start_m: float, end_m: float, used_ranges: list[tuple[float, float]]) -> bool:
+    for a, b in used_ranges:
+        if start_m < b and end_m > a:
+            return True
+    return False
+
+
+def _hydro_status_badge(status: str) -> str:
+    s = (status or "").upper()
+    if s == "COMPLETE":
+        return "Complete"
+    if s == "PARTIAL":
+        return "Partially Tested"
+    return "Not Started"
+
+
+def _build_hydro_batch_summary(session: Session, cover_run: ProductionRun) -> dict:
+    batch_no = (cover_run.dhtp_batch_no or "").strip()
+    produced_length_m = float(get_run_produced_length_m(session, cover_run.id) or 0.0)
+    total_order_m = float(getattr(cover_run, "total_length_m", 0.0) or 0.0)
+
+    burst_ranges = _get_burst_used_ranges(session, batch_no, produced_length_m)
+    hydro_rows = session.exec(
+        select(HydroTestRecord)
+        .where(HydroTestRecord.batch_no == batch_no)
+        .order_by(HydroTestRecord.created_at.desc())
+    ).all()
+
+    hydro_ranges = _get_hydro_tested_ranges(session, batch_no, produced_length_m)
+    hydro_allowed_ranges = _subtract_length_ranges([(0.0, produced_length_m)], burst_ranges)
+    hydro_remaining_ranges = _subtract_length_ranges(hydro_allowed_ranges, hydro_ranges)
+
+    burst_used_m = _range_total_length(burst_ranges)
+    hydro_tested_m = _range_total_length(hydro_ranges)
+    hydro_eligible_m = _range_total_length(hydro_allowed_ranges)
+    hydro_remaining_m = _range_total_length(hydro_remaining_ranges)
+
+    coverage_pct = 0
+    if hydro_eligible_m > 0:
+        coverage_pct = int(round(min(100.0, (hydro_tested_m / hydro_eligible_m) * 100.0)))
+
+    if hydro_tested_m <= 0:
+        status = "NOT_STARTED"
+    elif hydro_remaining_m > 0.0001:
+        status = "PARTIAL"
+    else:
+        status = "COMPLETE"
+
+    segments = []
+    if produced_length_m > 0:
+        for kind, ranges in [
+            ("burst", burst_ranges),
+            ("tested", hydro_ranges),
+            ("remaining", hydro_remaining_ranges),
+        ]:
+            for start, end in ranges:
+                left = (start / produced_length_m) * 100.0
+                width = ((end - start) / produced_length_m) * 100.0
+                segments.append({
+                    "kind": kind,
+                    "start": start,
+                    "end": end,
+                    "left_pct": left,
+                    "width_pct": max(width, 0.8),
+                })
+
+    return {
+        "batch_no": batch_no,
+        "run": cover_run,
+        "client_name": getattr(cover_run, "client_name", "") or "",
+        "client_po": getattr(cover_run, "po_number", "") or "",
+        "pipe_specification": getattr(cover_run, "pipe_specification", "") or "",
+        "total_order_m": total_order_m,
+        "produced_length_m": produced_length_m,
+        "burst_used_m": burst_used_m,
+        "hydro_eligible_m": hydro_eligible_m,
+        "hydro_tested_m": hydro_tested_m,
+        "hydro_remaining_m": hydro_remaining_m,
+        "coverage_pct": coverage_pct,
+        "status": status,
+        "burst_ranges": burst_ranges,
+        "hydro_ranges": hydro_ranges,
+        "hydro_remaining_ranges": hydro_remaining_ranges,
+        "segments": segments,
+        "records": hydro_rows,
+    }
+
+
+@app.get("/hydro", response_class=HTMLResponse)
+def hydro_dashboard(request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    cover_runs = get_finished_cover_runs(session)
+
+    summaries = []
+    for run in cover_runs:
+        summary = _build_hydro_batch_summary(session, run)
+        if summary["produced_length_m"] > 0:
+            summaries.append(summary)
+
+    summaries.sort(key=lambda x: (x["status"] != "PARTIAL", x["batch_no"]), reverse=False)
+
+    return templates.TemplateResponse(
+        "hydro_dashboard.html",
+        {
+            "request": request,
+            "user": user,
+            "summaries": summaries,
+            "hydro_status_badge": _hydro_status_badge,
+        },
+    )
+
+
+@app.get("/hydro/batch/{batch_no}", response_class=HTMLResponse)
+def hydro_batch_view(batch_no: str, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
+    if not cover:
+        raise HTTPException(404, "Cover run not found for this batch")
+
+    summary = _build_hydro_batch_summary(session, cover)
+
+    error = request.query_params.get("error") or ""
+    edit_id_raw = request.query_params.get("edit_id") or ""
+    edit_record = None
+
+    if edit_id_raw.isdigit():
+        edit_record = session.get(HydroTestRecord, int(edit_id_raw))
+        if edit_record and (edit_record.batch_no or "").strip() != (batch_no or "").strip():
+            edit_record = None
+
+    return templates.TemplateResponse(
+        "hydro_view.html",
+        {
+            "request": request,
+            "user": user,
+            "summary": summary,
+            "error": error,
+            "edit_record": edit_record,
+            "hydro_status_badge": _hydro_status_badge,
+        },
+    )
+
+
+@app.post("/hydro/batch/{batch_no}/save")
+def hydro_batch_save_record(
+    batch_no: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    record_id: str = Form(""),
+    start_length_m: float = Form(...),
+    end_length_m: float = Form(...),
+    hydrotest_pressure_mpa: float = Form(0.0),
+    hold_time_s: str = Form(""),
+    test_medium: str = Form("Water"),
+    laboratory_temperature: str = Form(""),
+    test_result: str = Form("PASS"),
+    technician_name: str = Form(""),
+    notes: str = Form(""),
+):
+    user = get_current_user(request, session)
+    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
+    if not cover:
+        raise HTTPException(404, "Cover run not found for this batch")
+
+    summary = _build_hydro_batch_summary(session, cover)
+    produced = float(summary["produced_length_m"] or 0.0)
+    start_m = float(start_length_m or 0.0)
+    end_m = float(end_length_m or 0.0)
+
+    current_id = int(record_id) if str(record_id).isdigit() else None
+
+    def _redir(msg: str):
+        if current_id:
+            return RedirectResponse(f"/hydro/batch/{batch_no}?error={msg}&edit_id={current_id}", status_code=303)
+        return RedirectResponse(f"/hydro/batch/{batch_no}?error={msg}", status_code=303)
+
+    if produced <= 0:
+        return _redir("This batch has no finished produced length yet.")
+    if end_m <= start_m:
+        return _redir("End length must be greater than start length.")
+    if start_m < 0 or end_m > produced:
+        return _redir(f"Range must stay inside finished produced length 0.0 to {produced:.1f} m.")
+    if _hydro_overlap_error(start_m, end_m, summary["burst_ranges"]):
+        return _redir("This range overlaps material already consumed by burst testing.")
+
+    existing_hydro_ranges = _get_hydro_tested_ranges(
+        session=session,
+        batch_no=batch_no,
+        finished_length_m=produced,
+        exclude_record_id=current_id,
+    )
+    if _hydro_overlap_error(start_m, end_m, existing_hydro_ranges):
+        return _redir("This range overlaps an already hydrotested range.")
+
+    if current_id:
+        record = session.get(HydroTestRecord, current_id)
+        if not record or (record.batch_no or "").strip() != (batch_no or "").strip():
+            raise HTTPException(404, "Hydrotest record not found")
+    else:
+        record = HydroTestRecord(
+            batch_no=(batch_no or "").strip(),
+            linked_run_id=cover.id,
+            created_by_user_id=getattr(user, "id", None),
+            created_by_user_name=getattr(user, "display_name", "") or "",
+        )
+
+    record.batch_no = (batch_no or "").strip()
+    record.linked_run_id = cover.id
+    record.client_name = getattr(cover, "client_name", "") or ""
+    record.client_po = getattr(cover, "po_number", "") or ""
+    record.pipe_specification = getattr(cover, "pipe_specification", "") or ""
+    record.finished_length_m = produced
+    record.start_length_m = start_m
+    record.end_length_m = end_m
+    record.tested_length_m = round(end_m - start_m, 3)
+    record.hydrotest_pressure_mpa = float(hydrotest_pressure_mpa or 0.0)
+    record.hold_time_s = (hold_time_s or "").strip()
+    record.test_medium = (test_medium or "Water").strip()
+    record.laboratory_temperature = (laboratory_temperature or "").strip()
+    record.test_result = (test_result or "PASS").strip().upper()
+    record.technician_name = (technician_name or "").strip()
+    record.notes = (notes or "").strip()
+
+    session.add(record)
+    session.commit()
+
+    return RedirectResponse(f"/hydro/batch/{batch_no}", status_code=303)
+
+
+@app.post("/hydro/batch/{batch_no}/delete/{record_id}")
+def hydro_batch_delete_record(batch_no: str, record_id: int, request: Request, session: Session = Depends(get_session)):
+    get_current_user(request, session)
+
+    record = session.get(HydroTestRecord, record_id)
+    if not record or (record.batch_no or "").strip() != (batch_no or "").strip():
+        raise HTTPException(404, "Hydrotest record not found")
+
+    session.delete(record)
+    session.commit()
+
+    return RedirectResponse(f"/hydro/batch/{batch_no}", status_code=303)
+
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
