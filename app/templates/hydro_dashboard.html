@@ -33,6 +33,13 @@
   </div>
 </div>
 
+<div class="toolbar mt">
+  <a class="btn btn-primary" href="/hydro/batch/{{ s.batch_no }}">Open Batch</a>
+  {% if s.records and s.records|length > 0 %}
+    <a class="btn" href="/hydro/batch/{{ s.batch_no }}/pdf" target="_blank">Export All Records</a>
+    <a class="btn" href="/hydro/record/{{ s.records[0].id }}/pdf" target="_blank">Export Latest Record</a>
+  {% endif %}
+</div>
 <div class="tablewrap hydro-tablewrap">
   <table class="table hydro-table">
     <thead>
@@ -92,6 +99,13 @@
       <span class="burst-status {% if s.status == 'COMPLETE' %}badge-editable{% elif s.status == 'PARTIAL' %}badge-pending{% else %}badge-published{% endif %}">
         {{ hydro_status_badge(s.status) }}
       </span>
+    </div>
+    <div class="toolbar mt">
+      <a class="btn btn-primary" href="/hydro/batch/{{ s.batch_no }}">Open Batch</a>
+      {% if s.records and s.records|length > 0 %}
+        <a class="btn" href="/hydro/batch/{{ s.batch_no }}/pdf" target="_blank">Export All Records</a>
+        <a class="btn" href="/hydro/record/{{ s.records[0].id }}/pdf" target="_blank">Export Latest Record</a>
+      {% endif %}
     </div>
 
     <div class="hydro-summary-grid">
