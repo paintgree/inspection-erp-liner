@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block content %}
+
+<a href="/dashboard" class="burst-back-btn">← Back</a>
+
+<div class="page-head burst-head">
+  <h2>Hydro Testing</h2>
+  <div class="muted">Coverage is calculated against finished produced length only. Burst-tested sections are excluded automatically.</div>
+</div>
+
+<div class="card hydro-note-card">
+  <div class="hydro-legend">
+    <span class="legend-chip legend-tested">Hydrotested</span>
+    <span class="legend-chip legend-burst">Used in Burst Test</span>
+    <span class="legend-chip legend-remaining">Remaining for Hydrotest</span>
+  </div>
+</div>
+
+<div class="hydro-grid">
+  {% for s in summaries %}
+    <a class="hydro-batch-card" href="/hydro/batch/{{ s.batch_no }}">
+      <div class="hydro-batch-top">
+        <div>
+          <div class="hydro-batch-title">Batch {{ s.batch_no }}</div>
+          <div class="muted">{{ s.client_name or '—' }}{% if s.pipe_specification %} • {{ s.pipe_specification }}{% endif %}</div>
+        </div>
+        <span class="burst-status {% if s.status == 'COMPLETE' %}badge-editable{% elif s.status == 'PARTIAL' %}badge-pending{% else %}badge-published{% endif %}">
+          {{ hydro_status_badge(s.status) }}
+        </span>
+      </div>
+
+      <div class="hydro-summary-grid">
+        <div><strong>Finished</strong><span>{{ '%.1f'|format(s.produced_length_m) }} m</span></div>
+        <div><strong>Hydrotested</strong><span>{{ '%.1f'|format(s.hydro_tested_m) }} m</span></div>
+        <div><strong>Burst Used</strong><span>{{ '%.1f'|format(s.burst_used_m) }} m</span></div>
+        <div><strong>Remaining</strong><span>{{ '%.1f'|format(s.hydro_remaining_m) }} m</span></div>
+      </div>
+
+      <div class="hydro-progress-head">
+        <span>Hydro coverage</span>
+        <strong>{{ s.coverage_pct }}%</strong>
+      </div>
+
+      <div class="hydro-track">
+        {% for seg in s.segments %}
+          <span
+            class="hydro-seg hydro-seg-{{ seg.kind }}"
+            style="left: {{ '%.4f'|format(seg.left_pct) }}%; width: {{ '%.4f'|format(seg.width_pct) }}%;"
+          ></span>
+        {% endfor %}
+      </div>
+    </a>
+  {% else %}
+    <div class="card">
+      <div class="muted">No finished cover batches are ready for hydro testing yet.</div>
+    </div>
+  {% endfor %}
+</div>
+
+{% endblock %}
