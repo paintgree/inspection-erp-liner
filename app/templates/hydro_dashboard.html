@@ -8,6 +8,23 @@
   <div class="muted">Coverage is calculated against finished produced length only. Burst-tested sections are excluded automatically.</div>
 </div>
 
+<div class="burst-tools">
+  <input
+    type="text"
+    id="hydroSearch"
+    class="burst-search"
+    placeholder="Search by batch, client, spec..."
+    oninput="filterHydroList()"
+  />
+
+  <div class="burst-filters">
+    <button type="button" class="burst-filter-btn active" onclick="setHydroFilter('all', this)">All</button>
+    <button type="button" class="burst-filter-btn" onclick="setHydroFilter('not_started', this)">Not Started</button>
+    <button type="button" class="burst-filter-btn" onclick="setHydroFilter('partial', this)">Partial</button>
+    <button type="button" class="burst-filter-btn" onclick="setHydroFilter('complete', this)">Complete</button>
+  </div>
+</div>
+
 <div class="card hydro-note-card">
   <div class="hydro-legend">
     <span class="legend-chip legend-tested">Hydrotested</span>
@@ -16,45 +33,119 @@
   </div>
 </div>
 
-<div class="hydro-grid">
+<div class="tablewrap hydro-tablewrap">
+  <table class="table hydro-table">
+    <thead>
+      <tr>
+        <th>Batch</th>
+        <th>Client</th>
+        <th>Pipe Spec</th>
+        <th>Finished</th>
+        <th>Hydrotested</th>
+        <th>Burst Used</th>
+        <th>Remaining</th>
+        <th>Coverage</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in summaries %}
+      <tr
+        class="hydro-table-row"
+        data-status="{{ s.status|lower }}"
+        data-search="{{ s.batch_no }} {{ s.client_name }} {{ s.pipe_specification }} {{ hydro_status_badge(s.status) }}"
+        onclick="window.location='/hydro/batch/{{ s.batch_no }}'"
+        style="cursor:pointer;"
+      >
+        <td><a href="/hydro/batch/{{ s.batch_no }}">Batch {{ s.batch_no }}</a></td>
+        <td>{{ s.client_name or '—' }}</td>
+        <td>{{ s.pipe_specification or '—' }}</td>
+        <td>{{ '%.1f'|format(s.produced_length_m) }} m</td>
+        <td>{{ '%.1f'|format(s.hydro_tested_m) }} m</td>
+        <td>{{ '%.1f'|format(s.burst_used_m) }} m</td>
+        <td>{{ '%.1f'|format(s.hydro_remaining_m) }} m</td>
+        <td><span class="burst-value {% if s.coverage_pct >= 100 %}burst-good{% elif s.coverage_pct > 0 %}burst-mid{% else %}burst-zero{% endif %}">{{ s.coverage_pct }}%</span></td>
+        <td>
+          <span class="burst-status {% if s.status == 'COMPLETE' %}badge-editable{% elif s.status == 'PARTIAL' %}badge-pending{% else %}badge-published{% endif %}">
+            {{ hydro_status_badge(s.status) }}
+          </span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="hydro-mobile-list">
   {% for s in summaries %}
-    <a class="hydro-batch-card" href="/hydro/batch/{{ s.batch_no }}">
-      <div class="hydro-batch-top">
-        <div>
-          <div class="hydro-batch-title">Batch {{ s.batch_no }}</div>
-          <div class="muted">{{ s.client_name or '—' }}{% if s.pipe_specification %} • {{ s.pipe_specification }}{% endif %}</div>
-        </div>
-        <span class="burst-status {% if s.status == 'COMPLETE' %}badge-editable{% elif s.status == 'PARTIAL' %}badge-pending{% else %}badge-published{% endif %}">
-          {{ hydro_status_badge(s.status) }}
-        </span>
+  <a
+    class="hydro-mobile-card"
+    href="/hydro/batch/{{ s.batch_no }}"
+    data-status="{{ s.status|lower }}"
+    data-search="{{ s.batch_no }} {{ s.client_name }} {{ s.pipe_specification }} {{ hydro_status_badge(s.status) }}"
+  >
+    <div class="hydro-batch-top">
+      <div>
+        <div class="hydro-batch-title">Batch {{ s.batch_no }}</div>
+        <div class="muted">{{ s.client_name or '—' }}{% if s.pipe_specification %} • {{ s.pipe_specification }}{% endif %}</div>
       </div>
-
-      <div class="hydro-summary-grid">
-        <div><strong>Finished</strong><span>{{ '%.1f'|format(s.produced_length_m) }} m</span></div>
-        <div><strong>Hydrotested</strong><span>{{ '%.1f'|format(s.hydro_tested_m) }} m</span></div>
-        <div><strong>Burst Used</strong><span>{{ '%.1f'|format(s.burst_used_m) }} m</span></div>
-        <div><strong>Remaining</strong><span>{{ '%.1f'|format(s.hydro_remaining_m) }} m</span></div>
-      </div>
-
-      <div class="hydro-progress-head">
-        <span>Hydro coverage</span>
-        <strong>{{ s.coverage_pct }}%</strong>
-      </div>
-
-      <div class="hydro-track">
-        {% for seg in s.segments %}
-          <span
-            class="hydro-seg hydro-seg-{{ seg.kind }}"
-            style="left: {{ '%.4f'|format(seg.left_pct) }}%; width: {{ '%.4f'|format(seg.width_pct) }}%;"
-          ></span>
-        {% endfor %}
-      </div>
-    </a>
-  {% else %}
-    <div class="card">
-      <div class="muted">No finished cover batches are ready for hydro testing yet.</div>
+      <span class="burst-status {% if s.status == 'COMPLETE' %}badge-editable{% elif s.status == 'PARTIAL' %}badge-pending{% else %}badge-published{% endif %}">
+        {{ hydro_status_badge(s.status) }}
+      </span>
     </div>
+
+    <div class="hydro-summary-grid">
+      <div><strong>Finished</strong><span>{{ '%.1f'|format(s.produced_length_m) }} m</span></div>
+      <div><strong>Hydrotested</strong><span>{{ '%.1f'|format(s.hydro_tested_m) }} m</span></div>
+      <div><strong>Burst Used</strong><span>{{ '%.1f'|format(s.burst_used_m) }} m</span></div>
+      <div><strong>Remaining</strong><span>{{ '%.1f'|format(s.hydro_remaining_m) }} m</span></div>
+    </div>
+
+    <div class="hydro-progress-head">
+      <span>Hydro coverage</span>
+      <strong>{{ s.coverage_pct }}%</strong>
+    </div>
+
+    <div class="hydro-track">
+      {% for seg in s.segments %}
+        <span
+          class="hydro-seg hydro-seg-{{ seg.kind }}"
+          style="left: {{ '%.4f'|format(seg.left_pct) }}%; width: {{ '%.4f'|format(seg.width_pct) }}%;"
+        ></span>
+      {% endfor %}
+    </div>
+  </a>
   {% endfor %}
 </div>
+
+<script>
+  let hydroCurrentFilter = "all";
+
+  function setHydroFilter(filter, btn) {
+    hydroCurrentFilter = filter;
+    document.querySelectorAll(".burst-filter-btn").forEach((b) => b.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+    filterHydroList();
+  }
+
+  function filterHydroList() {
+    const input = document.getElementById("hydroSearch");
+    const query = input ? input.value.trim().toLowerCase() : "";
+
+    document.querySelectorAll(".hydro-table-row, .hydro-mobile-card").forEach((el) => {
+      const text = (el.dataset.search || "").toLowerCase();
+      const status = (el.dataset.status || "").toLowerCase();
+
+      const matchesSearch = !query || text.includes(query);
+      const matchesFilter = hydroCurrentFilter === "all" || status === hydroCurrentFilter;
+
+      if (el.tagName.toLowerCase() === "tr") {
+        el.style.display = (matchesSearch && matchesFilter) ? "" : "none";
+      } else {
+        el.style.display = (matchesSearch && matchesFilter) ? "block" : "none";
+      }
+    });
+  }
+</script>
 
 {% endblock %}
