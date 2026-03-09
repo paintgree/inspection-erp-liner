@@ -5395,6 +5395,7 @@ def hydro_batch_view(batch_no: str, request: Request, session: Session = Depends
             "error": error,
             "edit_record": edit_record,
             "hydro_status_badge": _hydro_status_badge,
+            "hydro_record_status_label": _hydro_record_status_label,
         },
     )
 
