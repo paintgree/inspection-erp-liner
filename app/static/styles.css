@@ -1477,3 +1477,184 @@ Burst search + filters
     width:100%;
   }
 }
+
+/* =========================
+   Hydro testing
+========================= */
+
+.hydro-note-card{
+  padding:12px 16px;
+}
+
+.hydro-grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:16px;
+}
+
+.hydro-batch-card{
+  display:block;
+  text-decoration:none;
+  color:inherit;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  padding:16px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.04);
+}
+
+.hydro-batch-card:hover{
+  border-color:#cbd5e1;
+  box-shadow:0 6px 18px rgba(0,0,0,0.08);
+}
+
+.hydro-batch-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+}
+
+.hydro-batch-title{
+  font-size:20px;
+  font-weight:800;
+}
+
+.hydro-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:10px 16px;
+  margin-bottom:14px;
+}
+
+.hydro-summary-grid div{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.hydro-summary-grid strong{
+  font-size:12px;
+  color:#6b7280;
+}
+
+.hydro-progress-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:8px;
+  font-size:14px;
+}
+
+.hydro-track{
+  position:relative;
+  width:100%;
+  height:18px;
+  border-radius:999px;
+  background:#e5e7eb;
+  overflow:hidden;
+}
+
+.hydro-track-lg{
+  height:24px;
+}
+
+.hydro-seg{
+  position:absolute;
+  top:0;
+  bottom:0;
+  border-radius:999px;
+}
+
+.hydro-seg-tested{
+  background:#22c55e;
+}
+
+.hydro-seg-burst{
+  background:#f59e0b;
+}
+
+.hydro-seg-remaining{
+  background:#cbd5e1;
+}
+
+.hydro-legend{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.legend-chip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+}
+
+.legend-tested{
+  background:#dcfce7;
+  color:#166534;
+}
+
+.legend-burst{
+  background:#fef3c7;
+  color:#92400e;
+}
+
+.legend-remaining{
+  background:#e5e7eb;
+  color:#475569;
+}
+
+.hydro-detail-grid{
+  display:grid;
+  grid-template-columns:1.25fr 1fr;
+  gap:16px;
+}
+
+.hydro-kpi-grid{
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+}
+
+.simple-list{
+  margin:0;
+  padding-left:18px;
+}
+
+.simple-list li{
+  margin:8px 0;
+}
+
+@media (max-width: 900px){
+  .hydro-grid{
+    grid-template-columns:1fr;
+  }
+
+  .hydro-detail-grid{
+    grid-template-columns:1fr;
+  }
+
+  .hydro-kpi-grid{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px){
+  .hydro-kpi-grid{
+    grid-template-columns:1fr;
+  }
+
+  .hydro-summary-grid{
+    grid-template-columns:1fr;
+  }
+
+  .hydro-batch-top{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+}
