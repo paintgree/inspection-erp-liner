@@ -1658,3 +1658,42 @@ Burst search + filters
     align-items:flex-start;
   }
 }
+
+/* Hydro dashboard search + mobile */
+.hydro-tablewrap{
+  width:100%;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+
+.hydro-mobile-list{
+  display:none;
+}
+
+.hydro-mobile-card{
+  display:block;
+  text-decoration:none;
+  color:inherit;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  padding:16px;
+  margin:0 0 14px 0;
+  box-shadow:0 2px 8px rgba(0,0,0,0.04);
+}
+
+.hydro-mobile-card:hover{
+  border-color:#cbd5e1;
+  box-shadow:0 6px 18px rgba(0,0,0,0.08);
+}
+
+@media (max-width: 767px){
+  .hydro-tablewrap{
+    display:none !important;
+  }
+
+  .hydro-mobile-list{
+    display:block;
+    margin-top:16px;
+  }
+}
