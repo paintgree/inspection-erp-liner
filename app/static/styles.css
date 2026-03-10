@@ -979,7 +979,7 @@ MOBILE VIEW
     display:block;
   }
 
-  .tablewrap{
+  .burst-tablewrap{
     display:none;
   }
 
@@ -1778,3 +1778,4 @@ Burst search + filters
     grid-template-columns:1fr;
   }
 }
+
