@@ -1263,6 +1263,7 @@ def fill_hydro_template_docx_bytes(record: HydroTestRecord) -> bytes:
 
     approved_dt = format_oman_dt(record.approved_at) if record.approved_at else ""
     approved_by = (record.approved_by_user_name or "").strip()
+    qaqc_display = (record.qaqc_name or record.assigned_qaqc_display_name or "").strip()
 
     bookmark_values = {
         "BM_CLIENT_NAME": txt(record.client_name),
@@ -1283,7 +1284,7 @@ def fill_hydro_template_docx_bytes(record: HydroTestRecord) -> bytes:
         "BM_HOLD_TIME": txt(record.pressure_holding_time_min),
         "BM_MAX_PRESS": num2(record.highest_pressure_recorded_mpa),
         "BM_MIN_PRESS": num2(record.lowest_pressure_recorded_mpa),
-        "BM_QAQC": txt(record.qaqc_name),
+        "BM_QAQC": txt(qaqc_display),
         "BM_TECH": txt(record.testing_operator_name or record.technician_name),
     }
 
