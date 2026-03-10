@@ -497,7 +497,15 @@ class HydroTestRecord(SQLModel, table=True):
     highest_pressure_recorded_mpa: float = Field(default=0.0)
     lowest_pressure_recorded_mpa: float = Field(default=0.0)
     pressure_holding_time_min: str = Field(default="")
+
+    # shown on form/report
     qaqc_name: str = Field(default="")
+
+    # selected approver
+    assigned_qaqc_user_id: Optional[int] = Field(default=None, index=True)
+    assigned_qaqc_username: str = Field(default="")
+    assigned_qaqc_display_name: str = Field(default="")
+
     testing_operator_name: str = Field(default="")
     chart_image_path: str = Field(default="")
 
@@ -515,7 +523,6 @@ class HydroTestRecord(SQLModel, table=True):
     created_by_user_id: Optional[int] = Field(default=None, index=True)
     created_by_user_name: str = Field(default="")
     created_at: datetime = Field(default_factory=datetime.utcnow)
-
 
 
 
