@@ -1204,37 +1204,30 @@ def fill_mrr_f02_docx_bytes(*, lot, inspection, receiving, docs: list) -> bytes:
     return bio.getvalue()
 
 def docx_bytes_to_pdf_bytes(docx_bytes: bytes) -> bytes:
-    """
-    Convert DOCX bytes to PDF bytes using LibreOffice (soffice).
-    """
+    import tempfile
+    import subprocess
+    import os
+
     with tempfile.TemporaryDirectory() as tmpdir:
-        in_path = os.path.join(tmpdir, "in.docx")
-        out_dir = tmpdir
+        in_path = os.path.join(tmpdir, "hydro_export.docx")
+        out_path = os.path.join(tmpdir, "hydro_export.pdf")
+
         with open(in_path, "wb") as f:
             f.write(docx_bytes)
 
-        # LibreOffice conversion
         cmd = [
             "soffice",
             "--headless",
-            "--nologo",
-            "--nofirststartwizard",
             "--convert-to", "pdf",
-            "--outdir", out_dir,
+            "--outdir", tmpdir,
             in_path,
         ]
-        p = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        if p.returncode != 0:
-            raise HTTPException(
-                500,
-                f"DOCX->PDF failed. stdout={p.stdout.decode(errors='ignore')} stderr={p.stderr.decode(errors='ignore')}"
-            )
+        subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-        pdf_path = os.path.join(out_dir, "in.pdf")
-        if not os.path.exists(pdf_path):
-            raise HTTPException(500, "DOCX->PDF failed: output PDF not found")
+        if not os.path.exists(out_path):
+            raise HTTPException(500, "PDF conversion failed")
 
-        with open(pdf_path, "rb") as f:
+        with open(out_path, "rb") as f:
             return f.read()
 
 def fill_hydro_template_docx_bytes(record: HydroTestRecord) -> bytes:
@@ -1273,7 +1266,7 @@ def fill_hydro_template_docx_bytes(record: HydroTestRecord) -> bytes:
 
     bookmark_values = {
         "BM_CLIENT_NAME": txt(record.client_name),
-        "BM_PO_NO": txt(record.client_po),
+        "BM_PO": txt(record.client_po),
         "BM_TEST_DATE": test_date,
         "BM_REPORT_NO": txt(record.report_no or f"HT-{record.id:04d}"),
         "BM_PIPE_SPEC": txt(record.pipe_specification),
@@ -1283,9 +1276,9 @@ def fill_hydro_template_docx_bytes(record: HydroTestRecord) -> bytes:
         "BM_MACHINE": txt(record.machine_model),
         "BM_CALIBRATION": txt(record.calibration_status),
         "BM_STARTING_LEGNTH": num1(record.start_length_m),
-        "BM_ENDING_LENGTH": num1(record.end_length_m),
+        "BM_ENDING_LEGNTH": num1(record.end_length_m),
         "BM_TEST_MEDIUM": txt(record.test_medium),
-        "BM_TOTAL_LENGTH": num1(record.tested_length_m),
+        "BM_TOTAL_LEGNTH": num1(record.tested_length_m),
         "BM_TEST_PRESSURE": num2(record.hydrotest_pressure_mpa),
         "BM_HOLD_TIME": txt(record.pressure_holding_time_min),
         "BM_MAX_PRESS": num2(record.highest_pressure_recorded_mpa),
