@@ -5838,10 +5838,10 @@ def hydro_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
 
     def draw_legend_dot(x, y, fill_color, label):
         c.setFillColor(fill_color)
-        c.circle(x, y, 2.2 * mm, stroke=0, fill=1)
+        c.circle(x, y, 2.4 * mm, stroke=0, fill=1)
         c.setFillColor(colors.black)
-        c.setFont("Helvetica-Bold", 7)
-        c.drawString(x + 4 * mm, y - 1.5 * mm, label)
+        c.setFont("Helvetica-Bold", 9)
+        c.drawString(x + 5 * mm, y - 1.5 * mm, label)
 
     def report_no_text(r):
         return (getattr(r, "report_no", "") or f"HT-{r.id:04d}")
@@ -5864,9 +5864,9 @@ def hydro_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
 
     # Legend row
     draw_legend_dot(20 * mm, y, colors.HexColor("#22c55e"), "Hydrotested")
-    draw_legend_dot(55 * mm, y, colors.HexColor("#f59e0b"), "Used in burst")
-    draw_legend_dot(90 * mm, y, colors.HexColor("#cbd5e1"), "Remaining")
-    y -= 10 * mm
+    draw_legend_dot(72 * mm, y, colors.HexColor("#f59e0b"), "Used in burst")
+    draw_legend_dot(128 * mm, y, colors.HexColor("#cbd5e1"), "Remaining")
+    y = legend_y - 10 * mm
 
     # Main coverage bar
     track_x = 12 * mm
