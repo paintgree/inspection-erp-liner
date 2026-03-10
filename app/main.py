@@ -5818,108 +5818,143 @@ def hydro_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
         c.setFont("Helvetica-Bold", 16)
         c.drawCentredString(w / 2, y_top, title)
         c.setStrokeColor(colors.black)
-        c.line(20 * mm, y_top - 4 * mm, w - 20 * mm, y_top - 4 * mm)
+        c.setLineWidth(1)
+        c.line(10 * mm, y_top - 5 * mm, w - 10 * mm, y_top - 5 * mm)
 
-    def draw_row(y, label, value, x1=20 * mm, x2=68 * mm):
+    def draw_pair_row(y, left_label, left_value, right_label="", right_value=""):
         c.setFont("Helvetica-Bold", 10)
-        c.drawString(x1, y, label)
-        c.setFont("Helvetica", 10)
-        c.drawString(x2, y, str(value or "-"))
-        return y - 7 * mm
-
-    def draw_legend_chip(x, y, text, fill_color, text_color=colors.black):
-        c.setFillColor(fill_color)
-        c.roundRect(x, y - 4, 36 * mm, 8 * mm, 4, stroke=0, fill=1)
-        c.setFillColor(text_color)
-        c.setFont("Helvetica-Bold", 8)
-        c.drawCentredString(x + 18 * mm, y - 1, text)
         c.setFillColor(colors.black)
+        c.drawString(12 * mm, y, left_label)
+        c.setFont("Helvetica", 10)
+        c.drawString(42 * mm, y, str(left_value or ""))
+
+        if right_label:
+            c.setFont("Helvetica-Bold", 10)
+            c.drawString(95 * mm, y, right_label)
+            c.setFont("Helvetica", 10)
+            c.drawString(150 * mm, y, str(right_value or ""))
+
+        return y - 8 * mm
+
+    def draw_legend_dot(x, y, fill_color, label):
+        c.setFillColor(fill_color)
+        c.circle(x, y, 2.2 * mm, stroke=0, fill=1)
+        c.setFillColor(colors.black)
+        c.setFont("Helvetica-Bold", 7)
+        c.drawString(x + 4 * mm, y - 1.5 * mm, label)
+
+    def report_no_text(r):
+        return (getattr(r, "report_no", "") or f"HT-{r.id:04d}")
 
     draw_header(f"Hydro Testing Batch Summary - {batch_no}")
-    y = h - 32 * mm
+    y = h - 34 * mm
 
-    y = draw_row(y, "Batch No", summary["batch_no"])
-    y = draw_row(y, "Client", summary["client_name"])
-    y = draw_row(y, "Client PO", summary["client_po"])
-    y = draw_row(y, "Pipe Spec", summary["pipe_specification"])
-    y = draw_row(y, "Finished Produced", f"{summary['produced_length_m']:.1f} m")
-    y = draw_row(y, "Hydrotested", f"{summary['hydro_tested_m']:.1f} m")
-    y = draw_row(y, "Burst Excluded", f"{summary['burst_used_m']:.1f} m")
-    y = draw_row(y, "Remaining", f"{summary['hydro_remaining_m']:.1f} m")
-    y = draw_row(y, "Coverage", f"{summary['coverage_pct']}%")
+    y = draw_pair_row(y, "Batch No", summary["batch_no"], "Finished Produced", f"{summary['produced_length_m']:.1f} m")
+    y = draw_pair_row(y, "Client", summary["client_name"], "Hydrotested", f"{summary['hydro_tested_m']:.1f} m")
+    y = draw_pair_row(y, "Client PO", summary["client_po"], "Burst Excluded", f"{summary['burst_used_m']:.1f} m")
+    y = draw_pair_row(y, "Pipe Spec", summary["pipe_specification"], "Remaining", f"{summary['hydro_remaining_m']:.1f} m")
 
     y -= 2 * mm
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(20 * mm, y, "Coverage Visual")
-    y -= 9 * mm
+    c.setFillColor(colors.black)
+    c.drawString(12 * mm, y, "Coverage Visual")
+    c.setFont("Helvetica-Bold", 11)
+    c.drawRightString(w - 12 * mm, y, f"Coverage  {summary['coverage_pct']}%")
+    y -= 7 * mm
 
-    draw_legend_chip(20 * mm, y, "Hydrotested", colors.HexColor("#22c55e"))
-    draw_legend_chip(60 * mm, y, "Used in Burst", colors.HexColor("#f59e0b"))
-    draw_legend_chip(103 * mm, y, "Remaining", colors.HexColor("#cbd5e1"))
-    y -= 12 * mm
+    # Legend row
+    draw_legend_dot(20 * mm, y, colors.HexColor("#22c55e"), "Hydrotested")
+    draw_legend_dot(55 * mm, y, colors.HexColor("#f59e0b"), "Used in burst")
+    draw_legend_dot(90 * mm, y, colors.HexColor("#cbd5e1"), "Remaining")
+    y -= 10 * mm
 
-    track_x = 20 * mm
+    # Main coverage bar
+    track_x = 12 * mm
     track_y = y
-    track_w = w - 40 * mm
-    track_h = 10 * mm
+    track_w = w - 24 * mm
+    track_h = 12 * mm
 
     c.setFillColor(colors.HexColor("#e5e7eb"))
-    c.roundRect(track_x, track_y, track_w, track_h, 4, stroke=0, fill=1)
+    c.roundRect(track_x, track_y, track_w, track_h, 3, stroke=0, fill=1)
 
+    # Draw remaining first, then hydro, then burst on top so burst is very visible
     if summary["produced_length_m"] > 0:
-        for seg in summary["segments"]:
-            if seg["kind"] == "tested":
-                c.setFillColor(colors.HexColor("#22c55e"))
-            elif seg["kind"] == "burst":
-                c.setFillColor(colors.HexColor("#f59e0b"))
-            else:
-                c.setFillColor(colors.HexColor("#cbd5e1"))
+        ordered_kinds = ["remaining", "tested", "burst"]
+        for kind in ordered_kinds:
+            for seg in summary["segments"]:
+                if seg["kind"] != kind:
+                    continue
 
-            sx = track_x + (seg["left_pct"] / 100.0) * track_w
-            sw = max((seg["width_pct"] / 100.0) * track_w, 2)
-            c.roundRect(sx, track_y, sw, track_h, 4, stroke=0, fill=1)
+                if kind == "tested":
+                    c.setFillColor(colors.HexColor("#22c55e"))
+                elif kind == "burst":
+                    c.setFillColor(colors.HexColor("#f59e0b"))
+                else:
+                    c.setFillColor(colors.HexColor("#cbd5e1"))
 
-    y -= 22 * mm
+                sx = track_x + (seg["left_pct"] / 100.0) * track_w
+                sw = (seg["width_pct"] / 100.0) * track_w
 
+                # Make burst areas clearly visible, even if tiny
+                if kind == "burst":
+                    sw = max(sw, 8)  # thicker minimum width for burst zones
+                else:
+                    sw = max(sw, 2)
+
+                # keep inside track
+                if sx + sw > track_x + track_w:
+                    sw = (track_x + track_w) - sx
+
+                c.roundRect(sx, track_y, sw, track_h, 2.5, stroke=0, fill=1)
+
+    y -= 16 * mm
+
+    # Records section
     c.setFont("Helvetica-Bold", 11)
-    c.drawString(20 * mm, y, "Hydrotest Records")
+    c.setFillColor(colors.black)
+    c.drawString(12 * mm, y, "Hydrotest Records")
     y -= 8 * mm
 
     headers = ["Report No", "Range", "Length", "Pressure", "Holding Period", "Result"]
-    xs = [20 * mm, 52 * mm, 88 * mm, 113 * mm, 140 * mm, 175 * mm]
+    xs = [12 * mm, 38 * mm, 78 * mm, 110 * mm, 136 * mm, 176 * mm]
 
     c.setFont("Helvetica-Bold", 9)
+    c.setFillColor(colors.black)
     for i, head in enumerate(headers):
         c.drawString(xs[i], y, head)
     y -= 5 * mm
-    c.line(20 * mm, y, w - 20 * mm, y)
-    y -= 6 * mm
+    c.setLineWidth(0.8)
+    c.line(12 * mm, y, w - 12 * mm, y)
+    y -= 7 * mm
 
     for r in summary["records"]:
-        if y < 25 * mm:
+        if y < 20 * mm:
             c.showPage()
             draw_header(f"Hydro Testing Batch Summary - {batch_no}")
             y = h - 28 * mm
 
             c.setFont("Helvetica-Bold", 11)
-            c.drawString(20 * mm, y, "Hydrotest Records")
+            c.setFillColor(colors.black)
+            c.drawString(12 * mm, y, "Hydrotest Records")
             y -= 8 * mm
 
             c.setFont("Helvetica-Bold", 9)
             for i, head in enumerate(headers):
                 c.drawString(xs[i], y, head)
             y -= 5 * mm
-            c.line(20 * mm, y, w - 20 * mm, y)
-            y -= 6 * mm
+            c.line(12 * mm, y, w - 12 * mm, y)
+            y -= 7 * mm
 
-        c.setFont("Helvetica", 8)
-        c.drawString(xs[0], y, (r.report_no or f"HT-{r.id:04d}"))
+        # Keep records text black
+        c.setFont("Helvetica", 8.5)
+        c.setFillColor(colors.black)
+        c.drawString(xs[0], y, report_no_text(r))
         c.drawString(xs[1], y, f"{r.start_length_m:.1f}-{r.end_length_m:.1f} m")
         c.drawString(xs[2], y, f"{r.tested_length_m:.1f} m")
         c.drawString(xs[3], y, f"{float(r.hydrotest_pressure_mpa or 0):.2f}")
         c.drawString(xs[4], y, (getattr(r, "pressure_holding_time_min", "") or getattr(r, "hold_time_s", "") or "-"))
         c.drawString(xs[5], y, (r.test_result or "-"))
-        y -= 6 * mm
+        y -= 6.5 * mm
 
     c.showPage()
     c.save()
