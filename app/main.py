@@ -5827,6 +5827,14 @@ def hydro_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
         c.drawString(x2, y, str(value or "-"))
         return y - 7 * mm
 
+    def draw_legend_chip(x, y, text, fill_color, text_color=colors.black):
+        c.setFillColor(fill_color)
+        c.roundRect(x, y - 4, 36 * mm, 8 * mm, 4, stroke=0, fill=1)
+        c.setFillColor(text_color)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawCentredString(x + 18 * mm, y - 1, text)
+        c.setFillColor(colors.black)
+
     draw_header(f"Hydro Testing Batch Summary - {batch_no}")
     y = h - 32 * mm
 
@@ -5840,10 +5848,15 @@ def hydro_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
     y = draw_row(y, "Remaining", f"{summary['hydro_remaining_m']:.1f} m")
     y = draw_row(y, "Coverage", f"{summary['coverage_pct']}%")
 
-    y -= 4 * mm
+    y -= 2 * mm
     c.setFont("Helvetica-Bold", 11)
     c.drawString(20 * mm, y, "Coverage Visual")
-    y -= 8 * mm
+    y -= 9 * mm
+
+    draw_legend_chip(20 * mm, y, "Hydrotested", colors.HexColor("#22c55e"))
+    draw_legend_chip(60 * mm, y, "Used in Burst", colors.HexColor("#f59e0b"))
+    draw_legend_chip(103 * mm, y, "Remaining", colors.HexColor("#cbd5e1"))
+    y -= 12 * mm
 
     track_x = 20 * mm
     track_y = y
@@ -5866,14 +5879,14 @@ def hydro_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
             sw = max((seg["width_pct"] / 100.0) * track_w, 2)
             c.roundRect(sx, track_y, sw, track_h, 4, stroke=0, fill=1)
 
-    y -= 18 * mm
+    y -= 22 * mm
 
     c.setFont("Helvetica-Bold", 11)
     c.drawString(20 * mm, y, "Hydrotest Records")
     y -= 8 * mm
 
-    headers = ["Report No", "Range", "Length", "Pressure", "Result", "Approval"]
-    xs = [20 * mm, 52 * mm, 92 * mm, 118 * mm, 148 * mm, 172 * mm]
+    headers = ["Report No", "Range", "Length", "Pressure", "Holding Period", "Result"]
+    xs = [20 * mm, 52 * mm, 88 * mm, 113 * mm, 140 * mm, 175 * mm]
 
     c.setFont("Helvetica-Bold", 9)
     for i, head in enumerate(headers):
@@ -5886,7 +5899,11 @@ def hydro_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
         if y < 25 * mm:
             c.showPage()
             draw_header(f"Hydro Testing Batch Summary - {batch_no}")
-            y = h - 32 * mm
+            y = h - 28 * mm
+
+            c.setFont("Helvetica-Bold", 11)
+            c.drawString(20 * mm, y, "Hydrotest Records")
+            y -= 8 * mm
 
             c.setFont("Helvetica-Bold", 9)
             for i, head in enumerate(headers):
@@ -5895,14 +5912,13 @@ def hydro_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
             c.line(20 * mm, y, w - 20 * mm, y)
             y -= 6 * mm
 
-        approval_label = _hydro_record_status_label(getattr(r, "approval_status", "DRAFT"))
         c.setFont("Helvetica", 8)
         c.drawString(xs[0], y, (r.report_no or f"HT-{r.id:04d}"))
         c.drawString(xs[1], y, f"{r.start_length_m:.1f}-{r.end_length_m:.1f} m")
         c.drawString(xs[2], y, f"{r.tested_length_m:.1f} m")
         c.drawString(xs[3], y, f"{float(r.hydrotest_pressure_mpa or 0):.2f}")
-        c.drawString(xs[4], y, (r.test_result or "-"))
-        c.drawString(xs[5], y, approval_label)
+        c.drawString(xs[4], y, (getattr(r, "pressure_holding_time_min", "") or getattr(r, "hold_time_s", "") or "-"))
+        c.drawString(xs[5], y, (r.test_result or "-"))
         y -= 6 * mm
 
     c.showPage()
