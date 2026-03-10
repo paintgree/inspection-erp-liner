@@ -285,6 +285,8 @@ MRR_TEMPLATE_DOCX_MAP = {
     "OUTSOURCED": os.path.join(MRR_TEMPLATE_DIR, "QAP0600-F02.docx"),
 }
 
+HYDRO_TEMPLATE_DOCX = os.path.join(MRR_TEMPLATE_DIR, "New hydrotest template 2026.docx")
+
 # =========================
 # =========================
 
@@ -1235,7 +1237,81 @@ def docx_bytes_to_pdf_bytes(docx_bytes: bytes) -> bytes:
         with open(pdf_path, "rb") as f:
             return f.read()
 
+def fill_hydro_template_docx_bytes(record: HydroTestRecord) -> bytes:
+    """
+    Fill the hydrotest DOCX template using Word bookmarks, then return DOCX bytes.
+    Template file location:
+    app/templates/templates_xlsx/New hydrotest template 2026.docx
+    """
+    if not os.path.exists(HYDRO_TEMPLATE_DOCX):
+        raise HTTPException(
+            500,
+            f"Hydro template missing. Put 'New hydrotest template 2026.docx' in {MRR_TEMPLATE_DIR}"
+        )
 
+    doc = Document(HYDRO_TEMPLATE_DOCX)
+
+    def txt(v):
+        return "" if v is None else str(v)
+
+    def num1(v):
+        try:
+            return f"{float(v):.1f}"
+        except Exception:
+            return ""
+
+    def num2(v):
+        try:
+            return f"{float(v):.2f}"
+        except Exception:
+            return ""
+
+    test_date = record.tested_at.strftime("%Y-%m-%d") if record.tested_at else ""
+
+    approved_dt = format_oman_dt(record.approved_at) if record.approved_at else ""
+    approved_by = (record.approved_by_user_name or "").strip()
+
+    bookmark_values = {
+        "BM_CLIENT_NAME": txt(record.client_name),
+        "BM_PO_NO": txt(record.client_po),
+        "BM_TEST_DATE": test_date,
+        "BM_REPORT_NO": txt(record.report_no or f"HT-{record.id:04d}"),
+        "BM_SPECIMEN_SPECIFICATION": txt(record.pipe_specification),
+        "BM_REFERENCE_STANDARD": txt(record.reference_standard),
+        "BM_BATCH_REF": txt(record.batch_no),
+        "BM_REFERENCE_DHTP_PROCEDURE": txt(record.reference_dhtp_procedure),
+        "BM_MACHINE_MODEL": txt(record.machine_model),
+        "BM_CALIBRATION_STATUS": txt(record.calibration_status),
+        "BM_PIPE_START_LENGTH": num1(record.start_length_m),
+        "BM_PIPE_END_LENGTH": num1(record.end_length_m),
+        "BM_TEST_MEDIUM": txt(record.test_medium),
+        "BM_TOTAL_LENGTH": num1(record.tested_length_m),
+        "BM_TEST_PRESSURE_MPA": num2(record.hydrotest_pressure_mpa),
+        "BM_PRESSURE_HOLDING_TIME_MIN": txt(record.pressure_holding_time_min),
+        "BM_HIGHEST_PRESSURE_RECORDED_MPA": num2(record.highest_pressure_recorded_mpa),
+        "BM_LOWEST_PRESSURE_RECORDED_MPA": num2(record.lowest_pressure_recorded_mpa),
+        "BM_QAQC": txt(record.qaqc_name),
+        "BM_TESTING_OPERATOR": txt(record.testing_operator_name or record.technician_name),
+    }
+
+    for bm, value in bookmark_values.items():
+        _set_bookmark_text(doc, bm, value)
+
+    if (record.approval_status or "").upper() == "APPROVED" and approved_by and approved_dt:
+        _set_bookmark_signature_block(
+            doc,
+            "BM_APPROVAL_SIGNATURE",
+            f"Digitally signed by: {approved_by}",
+            f"Date/Time: {approved_dt} (Oman)",
+            font_pt=8.5,
+            rgb=(70, 70, 70),
+        )
+    else:
+        _set_bookmark_text(doc, "BM_APPROVAL_SIGNATURE", "")
+
+    bio = io.BytesIO()
+    doc.save(bio)
+    return bio.getvalue()
     # -------------------------
     # LOGO
     # -------------------------
@@ -5616,212 +5692,12 @@ def hydro_record_pdf(record_id: int, session: Session = Depends(get_session)):
     if not record:
         raise HTTPException(404, "Hydrotest record not found")
 
-    from io import BytesIO
-    from reportlab.lib.pagesizes import A4
-    from reportlab.lib.units import mm
-    from reportlab.lib import colors
-    from reportlab.pdfgen import canvas
-    from reportlab.lib.utils import ImageReader
+    docx_bytes = fill_hydro_template_docx_bytes(record)
+    pdf_bytes = docx_bytes_to_pdf_bytes(docx_bytes)
 
-    buf = BytesIO()
-    c = canvas.Canvas(buf, pagesize=A4)
-    w, h = A4
-
-    def draw_text(x, y, txt, font="Helvetica", size=10):
-        c.setFont(font, size)
-        c.drawString(x, y, str(txt or ""))
-
-    def box(x, y, bw, bh):
-        c.rect(x, y, bw, bh, stroke=1, fill=0)
-
-    y_top = h - 18 * mm
-    draw_text(w / 2 - 40 * mm, y_top, "Hydrostatic Test Report", "Helvetica-Bold", 16)
-    c.line(18 * mm, y_top - 4 * mm, w - 18 * mm, y_top - 4 * mm)
-
-    y = h - 34 * mm
-
-    # Top info
-    draw_text(20 * mm, y, "Client Name", "Helvetica-Bold", 9)
-    box(45 * mm, y - 3 * mm, 55 * mm, 8 * mm)
-    draw_text(47 * mm, y, record.client_name, "Helvetica", 9)
-
-    draw_text(104 * mm, y, "PO#", "Helvetica-Bold", 9)
-    box(116 * mm, y - 3 * mm, 28 * mm, 8 * mm)
-    draw_text(118 * mm, y, record.client_po, "Helvetica", 9)
-
-    draw_text(148 * mm, y, "Test Date", "Helvetica-Bold", 9)
-    box(166 * mm, y - 3 * mm, 26 * mm, 8 * mm)
-    draw_text(168 * mm, y, record.tested_at.strftime("%Y-%m-%d") if record.tested_at else "", "Helvetica", 8)
-
-    y -= 11 * mm
-
-    draw_text(20 * mm, y, "Report Number", "Helvetica-Bold", 9)
-    box(45 * mm, y - 3 * mm, 45 * mm, 8 * mm)
-    draw_text(47 * mm, y, record.report_no or f"HT-{record.id:04d}", "Helvetica", 9)
-
-    y -= 13 * mm
-    c.setFillColor(colors.HexColor("#f3f4f6"))
-    c.rect(18 * mm, y - 2 * mm, w - 36 * mm, 8 * mm, stroke=1, fill=1)
-    c.setFillColor(colors.black)
-    draw_text(20 * mm, y, "TEST DETAILS", "Helvetica-Bold", 10)
-
-    y -= 12 * mm
-
-    draw_text(20 * mm, y, "Specimen Specification", "Helvetica-Bold", 9)
-    box(60 * mm, y - 3 * mm, 50 * mm, 8 * mm)
-    draw_text(62 * mm, y, record.pipe_specification, "Helvetica", 8)
-
-    draw_text(114 * mm, y, "Reference Standard", "Helvetica-Bold", 9)
-    box(151 * mm, y - 3 * mm, 41 * mm, 8 * mm)
-    draw_text(153 * mm, y, record.reference_standard, "Helvetica", 8)
-
-    y -= 11 * mm
-
-    draw_text(20 * mm, y, "DHTP Batch Number Ref", "Helvetica-Bold", 9)
-    box(60 * mm, y - 3 * mm, 50 * mm, 8 * mm)
-    draw_text(62 * mm, y, record.batch_no, "Helvetica", 8)
-
-    draw_text(114 * mm, y, "Reference DHTP Procedure", "Helvetica-Bold", 9)
-    box(161 * mm, y - 3 * mm, 31 * mm, 8 * mm)
-    draw_text(163 * mm, y, record.reference_dhtp_procedure, "Helvetica", 8)
-
-    y -= 11 * mm
-
-    draw_text(20 * mm, y, "Machine Model", "Helvetica-Bold", 9)
-    box(60 * mm, y - 3 * mm, 50 * mm, 8 * mm)
-    draw_text(62 * mm, y, record.machine_model, "Helvetica", 8)
-
-    draw_text(114 * mm, y, "Calibration Status", "Helvetica-Bold", 9)
-    box(151 * mm, y - 3 * mm, 41 * mm, 8 * mm)
-    draw_text(153 * mm, y, record.calibration_status, "Helvetica", 8)
-
-    y -= 11 * mm
-
-    draw_text(20 * mm, y, "Pipe Starting Length (Meter)", "Helvetica-Bold", 9)
-    box(60 * mm, y - 3 * mm, 24 * mm, 8 * mm)
-    draw_text(62 * mm, y, f"{float(record.start_length_m or 0):.1f}", "Helvetica", 8)
-
-    draw_text(90 * mm, y, "Pipe Ending Length (Meter)", "Helvetica-Bold", 9)
-    box(131 * mm, y - 3 * mm, 24 * mm, 8 * mm)
-    draw_text(133 * mm, y, f"{float(record.end_length_m or 0):.1f}", "Helvetica", 8)
-
-    draw_text(160 * mm, y, "Testing Medium", "Helvetica-Bold", 9)
-    box(184 * mm, y - 3 * mm, 8 * mm, 8 * mm)
-    draw_text(184.5 * mm, y, record.test_medium, "Helvetica", 7)
-
-    y -= 11 * mm
-
-    draw_text(20 * mm, y, "Total Length (Meter)", "Helvetica-Bold", 9)
-    box(60 * mm, y - 3 * mm, 24 * mm, 8 * mm)
-    draw_text(62 * mm, y, f"{float(record.tested_length_m or 0):.1f}", "Helvetica", 8)
-
-    y -= 13 * mm
-    c.setFillColor(colors.HexColor("#f3f4f6"))
-    c.rect(18 * mm, y - 2 * mm, w - 36 * mm, 8 * mm, stroke=1, fill=1)
-    c.setFillColor(colors.black)
-    draw_text(20 * mm, y, "TEST RESULTS", "Helvetica-Bold", 10)
-
-    y -= 12 * mm
-
-    draw_text(20 * mm, y, "Test Pressure (MPa)", "Helvetica-Bold", 9)
-    box(55 * mm, y - 3 * mm, 20 * mm, 8 * mm)
-    draw_text(57 * mm, y, f"{float(record.hydrotest_pressure_mpa or 0):.2f}", "Helvetica", 8)
-
-    draw_text(80 * mm, y, "Pressure Holding Time (Min)", "Helvetica-Bold", 9)
-    box(128 * mm, y - 3 * mm, 20 * mm, 8 * mm)
-    draw_text(130 * mm, y, record.pressure_holding_time_min, "Helvetica", 8)
-
-    draw_text(153 * mm, y, "Highest Pressure Recorded (MPa)", "Helvetica-Bold", 8)
-    box(186 * mm, y - 3 * mm, 8 * mm, 8 * mm)
-    draw_text(186.5 * mm, y, f"{float(record.highest_pressure_recorded_mpa or 0):.2f}", "Helvetica", 6)
-
-    y -= 11 * mm
-
-    draw_text(20 * mm, y, "Lowest Pressure Recorded (MPa)", "Helvetica-Bold", 9)
-    box(60 * mm, y - 3 * mm, 20 * mm, 8 * mm)
-    draw_text(62 * mm, y, f"{float(record.lowest_pressure_recorded_mpa or 0):.2f}", "Helvetica", 8)
-
-    # Chart section
-    y -= 14 * mm
-    draw_text(20 * mm, y, "Test Pressure Curves", "Helvetica-Bold", 10)
-    y -= 5 * mm
-
-    chart_x = 20 * mm
-    chart_y = y - 58 * mm
-    chart_w = w - 40 * mm
-    chart_h = 58 * mm
-    c.rect(chart_x, chart_y, chart_w, chart_h, stroke=1, fill=0)
-
-    if record.chart_image_path:
-        abs_chart = os.path.join("app", record.chart_image_path.lstrip("/").replace("/", os.sep))
-        if os.path.exists(abs_chart):
-            try:
-                c.drawImage(
-                    ImageReader(abs_chart),
-                    chart_x + 2 * mm,
-                    chart_y + 2 * mm,
-                    width=chart_w - 4 * mm,
-                    height=chart_h - 4 * mm,
-                    preserveAspectRatio=True,
-                    mask="auto",
-                )
-            except Exception:
-                draw_text(chart_x + 4 * mm, chart_y + chart_h - 8 * mm, "Could not load chart image", "Helvetica", 9)
-        else:
-            draw_text(chart_x + 4 * mm, chart_y + chart_h - 8 * mm, "Chart image not found", "Helvetica", 9)
-    else:
-        draw_text(chart_x + 4 * mm, chart_y + chart_h - 8 * mm, "No chart uploaded", "Helvetica", 9)
-
-    # Approval / signature section
-    y = chart_y - 16 * mm
-    draw_text(20 * mm, y, "Approval & Signature", "Helvetica-Bold", 10)
-
-    y -= 12 * mm
-    draw_text(20 * mm, y, "QA/QC", "Helvetica-Bold", 9)
-    box(35 * mm, y - 3 * mm, 55 * mm, 8 * mm)
-    draw_text(37 * mm, y, record.qaqc_name, "Helvetica", 8)
-
-    draw_text(105 * mm, y, "Testing Operator", "Helvetica-Bold", 9)
-    box(137 * mm, y - 3 * mm, 55 * mm, 8 * mm)
-    draw_text(139 * mm, y, record.testing_operator_name, "Helvetica", 8)
-
-    y -= 14 * mm
-    draw_text(20 * mm, y, "Approval Status", "Helvetica-Bold", 9)
-    box(50 * mm, y - 3 * mm, 40 * mm, 8 * mm)
-    draw_text(52 * mm, y, record.approval_status or "DRAFT", "Helvetica", 8)
-
-    approved_at_txt = format_oman_dt(record.approved_at) if record.approved_at else ""
-    if (record.approval_status or "").upper() == "APPROVED":
-        draw_text(105 * mm, y, "Approved By", "Helvetica-Bold", 9)
-        box(130 * mm, y - 3 * mm, 62 * mm, 8 * mm)
-        draw_text(132 * mm, y, record.approved_by_user_name or "-", "Helvetica", 8)
-
-        y -= 11 * mm
-        draw_text(105 * mm, y, "Approved At", "Helvetica-Bold", 9)
-        box(130 * mm, y - 3 * mm, 62 * mm, 8 * mm)
-        draw_text(132 * mm, y, approved_at_txt, "Helvetica", 8)
-
-    # Footer
-    c.setFont("Helvetica", 9)
-    c.setFillColor(colors.grey)
-    c.drawString(20 * mm, 12 * mm, "QAW2000-F01")
-    c.setFillColor(colors.black)
-
-    c.showPage()
-    c.save()
-    pdf_bytes = buf.getvalue()
-
-    if (record.approval_status or "").upper() == "APPROVED" and record.approved_by_user_name and record.approved_at:
-        pdf_bytes = stamp_approval_on_pdf(
-            pdf_bytes=pdf_bytes,
-            approved_by=record.approved_by_user_name,
-            approved_at_utc=record.approved_at,
-        )
-
-    out = BytesIO(pdf_bytes)
     filename = f"hydro_record_{record_id}.pdf"
-    return StreamingResponse(
-        out,
+    return Response(
+        content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename=\"{filename}\"'},
     )
