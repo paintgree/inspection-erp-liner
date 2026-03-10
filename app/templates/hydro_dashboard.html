@@ -8,6 +8,43 @@
   <div class="muted">Coverage is calculated against finished produced length only. Burst-tested sections are excluded automatically.</div>
 </div>
 
+{% if can_hydro_approve %}
+  <div class="card" style="margin-bottom:16px;">
+    <h3 style="margin-top:0">My Hydro Approvals</h3>
+
+    {% if my_pending_approvals %}
+      <div class="tablewrap">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Report No</th>
+              <th>Batch</th>
+              <th>Assigned QA/QC</th>
+              <th>Submitted</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in my_pending_approvals %}
+              <tr>
+                <td>{{ r.report_no or ('HT-%04d' % r.id) }}</td>
+                <td>{{ r.batch_no }}</td>
+                <td>{{ r.assigned_qaqc_display_name or r.qaqc_name or '-' }}</td>
+                <td>{{ r.submitted_at or '-' }}</td>
+                <td>
+                  <a class="btn btn-sm btn-primary" href="/hydro/batch/{{ r.batch_no }}">Open Batch</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="muted">No hydro reports are currently assigned to you for QA/QC approval.</div>
+    {% endif %}
+  </div>
+{% endif %}
+
 <div class="burst-tools">
   <input
     type="text"
