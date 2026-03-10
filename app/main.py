@@ -4639,6 +4639,30 @@ def require_manager(user: User):
     if (getattr(user, "role", "") or "").strip().upper() != "MANAGER":
         raise HTTPException(403, "Manager only")
 
+def _can_hydro_approve(user: User) -> bool:
+    return (getattr(user, "role", "") or "").strip().upper() in ["INSPECTOR", "MANAGER"]
+
+def _hydro_qaqc_candidates(session: Session, query: str) -> list[User]:
+    q = (query or "").strip().lower()
+
+    users = session.exec(
+        select(User)
+        .where(User.role.in_(["INSPECTOR", "MANAGER"]))
+        .order_by(User.display_name, User.username)
+    ).all()
+
+    if not q:
+        return users[:8]
+
+    out = []
+    for u in users:
+        hay = f"{u.username} {u.display_name} {u.role}".lower()
+        if q in hay:
+            out.append(u)
+        if len(out) >= 8:
+            break
+    return out
+
 def forbid_boss(user: User):
     if user.role == "BOSS":
         raise HTTPException(403, "Read-only user")
@@ -5450,7 +5474,27 @@ def save_hydro_chart_file(file: UploadFile, batch_no: str) -> str:
         shutil.copyfileobj(file.file, out)
 
     return f"/static/uploads/hydro_charts/{filename}"
-    
+
+@app.get("/api/hydro/qaqc-users")
+def api_hydro_qaqc_users(
+    request: Request,
+    q: str = "",
+    session: Session = Depends(get_session),
+):
+    get_current_user(request, session)
+
+    users = _hydro_qaqc_candidates(session, q)
+    data = [
+        {
+            "id": u.id,
+            "username": u.username,
+            "display_name": u.display_name or u.username,
+            "role": u.role,
+        }
+        for u in users
+    ]
+    return JSONResponse(data)
+
 @app.get("/hydro", response_class=HTMLResponse)
 def hydro_dashboard(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -5464,6 +5508,15 @@ def hydro_dashboard(request: Request, session: Session = Depends(get_session)):
 
     summaries.sort(key=lambda x: (x["status"] != "PARTIAL", x["batch_no"]), reverse=False)
 
+    my_pending_approvals = []
+    if _can_hydro_approve(user) and getattr(user, "id", None):
+        my_pending_approvals = session.exec(
+            select(HydroTestRecord)
+            .where(HydroTestRecord.approval_status == "PENDING_APPROVAL")
+            .where(HydroTestRecord.assigned_qaqc_user_id == user.id)
+            .order_by(HydroTestRecord.submitted_at.desc(), HydroTestRecord.id.desc())
+        ).all()
+
     return templates.TemplateResponse(
         "hydro_dashboard.html",
         {
@@ -5471,6 +5524,8 @@ def hydro_dashboard(request: Request, session: Session = Depends(get_session)):
             "user": user,
             "summaries": summaries,
             "hydro_status_badge": _hydro_status_badge,
+            "my_pending_approvals": my_pending_approvals,
+            "can_hydro_approve": _can_hydro_approve(user),
         },
     )
 
@@ -5504,9 +5559,9 @@ def hydro_batch_view(batch_no: str, request: Request, session: Session = Depends
             "hydro_status_badge": _hydro_status_badge,
             "hydro_record_status_label": _hydro_record_status_label,
             "format_oman_dt": format_oman_dt,
+            "can_hydro_approve": _can_hydro_approve(user),
         },
     )
-
 
 @app.post("/hydro/batch/{batch_no}/save")
 def hydro_batch_save_record(
@@ -5517,9 +5572,11 @@ def hydro_batch_save_record(
     start_length_m: float = Form(...),
     end_length_m: float = Form(...),
     hydrotest_pressure_mpa: float = Form(0.0),
+    hold_time_s: str = Form(""),
     test_medium: str = Form("Water"),
     laboratory_temperature: str = Form(""),
     test_result: str = Form("PASS"),
+    technician_name: str = Form(""),
     notes: str = Form(""),
     reference_standard: str = Form("API 15S"),
     reference_dhtp_procedure: str = Form("QAW2000"),
@@ -5529,6 +5586,7 @@ def hydro_batch_save_record(
     lowest_pressure_recorded_mpa: float = Form(0.0),
     pressure_holding_time_min: str = Form(""),
     qaqc_name: str = Form(""),
+    assigned_qaqc_user_id: str = Form(""),
     testing_operator_name: str = Form(""),
     chart_image: UploadFile | None = File(None),
 ):
@@ -5543,6 +5601,111 @@ def hydro_batch_save_record(
     end_m = float(end_length_m or 0.0)
 
     current_id = int(record_id) if str(record_id).isdigit() else None
+
+    def _redir(msg: str):
+        if current_id:
+            return RedirectResponse(f"/hydro/batch/{batch_no}?error={msg}&edit_id={current_id}", status_code=303)
+        return RedirectResponse(f"/hydro/batch/{batch_no}?error={msg}", status_code=303)
+
+    if produced <= 0:
+        return _redir("This batch has no finished produced length yet.")
+    if end_m <= start_m:
+        return _redir("End length must be greater than start length.")
+    if start_m < 0 or end_m > produced:
+        return _redir(f"Range must stay inside finished produced length 0.0 to {produced:.1f} m.")
+    if _hydro_overlap_error(start_m, end_m, summary["burst_ranges"]):
+        return _redir("This range overlaps material already consumed by burst testing.")
+
+    existing_hydro_ranges = _get_hydro_tested_ranges(
+        session=session,
+        batch_no=batch_no,
+        finished_length_m=produced,
+        exclude_record_id=current_id,
+    )
+    if _hydro_overlap_error(start_m, end_m, existing_hydro_ranges):
+        return _redir("This range overlaps an already hydrotested range.")
+
+    if current_id:
+        record = session.get(HydroTestRecord, current_id)
+        if not record or (record.batch_no or "").strip() != (batch_no or "").strip():
+            raise HTTPException(404, "Hydrotest record not found")
+    else:
+        record = HydroTestRecord(
+            report_no=_next_hydro_report_no(session),
+            batch_no=(batch_no or "").strip(),
+            linked_run_id=cover.id,
+            created_by_user_id=getattr(user, "id", None),
+            created_by_user_name=getattr(user, "display_name", "") or "",
+        )
+
+    if not (record.report_no or "").strip():
+        record.report_no = _next_hydro_report_no(session)
+
+    record.batch_no = (batch_no or "").strip()
+    record.linked_run_id = cover.id
+    record.client_name = getattr(cover, "client_name", "") or ""
+    record.client_po = getattr(cover, "po_number", "") or ""
+    record.pipe_specification = getattr(cover, "pipe_specification", "") or ""
+    record.finished_length_m = produced
+    record.start_length_m = start_m
+    record.end_length_m = end_m
+    record.tested_length_m = round(end_m - start_m, 3)
+
+    record.hydrotest_pressure_mpa = float(hydrotest_pressure_mpa or 0.0)
+    record.hold_time_s = (hold_time_s or "").strip()
+    record.test_medium = (test_medium or "Water").strip()
+    record.laboratory_temperature = (laboratory_temperature or "").strip()
+    record.test_result = (test_result or "PASS").strip().upper()
+    record.technician_name = (technician_name or "").strip()
+    record.notes = (notes or "").strip()
+
+    record.reference_standard = (reference_standard or "API 15S").strip()
+    record.reference_dhtp_procedure = (reference_dhtp_procedure or "QAW2000").strip()
+    record.machine_model = (machine_model or "").strip()
+    record.calibration_status = (calibration_status or "").strip()
+    record.highest_pressure_recorded_mpa = float(highest_pressure_recorded_mpa or 0.0)
+    record.lowest_pressure_recorded_mpa = float(lowest_pressure_recorded_mpa or 0.0)
+    record.pressure_holding_time_min = (pressure_holding_time_min or "").strip()
+    record.testing_operator_name = (testing_operator_name or "").strip()
+
+    selected_qaqc = None
+    if str(assigned_qaqc_user_id).isdigit():
+        selected_qaqc = session.get(User, int(assigned_qaqc_user_id))
+        if not selected_qaqc:
+            return _redir("Selected QA/QC approver was not found.")
+        if (selected_qaqc.role or "").strip().upper() not in ["INSPECTOR", "MANAGER"]:
+            return _redir("Assigned QA/QC approver must be INSPECTOR or MANAGER.")
+
+    if selected_qaqc:
+        record.assigned_qaqc_user_id = selected_qaqc.id
+        record.assigned_qaqc_username = selected_qaqc.username or ""
+        record.assigned_qaqc_display_name = selected_qaqc.display_name or selected_qaqc.username or ""
+        record.qaqc_name = record.assigned_qaqc_display_name
+    else:
+        manual_qaqc = (qaqc_name or "").strip()
+        if manual_qaqc.startswith("@"):
+            manual_qaqc = manual_qaqc[1:].strip()
+
+        record.assigned_qaqc_user_id = None
+        record.assigned_qaqc_username = ""
+        record.assigned_qaqc_display_name = ""
+        record.qaqc_name = manual_qaqc
+
+    if chart_image and getattr(chart_image, "filename", ""):
+        saved = save_hydro_chart_file(chart_image, batch_no)
+        if saved:
+            record.chart_image_path = saved
+
+    record.approval_status = "DRAFT"
+    record.submitted_at = None
+    record.approved_at = None
+    record.approved_by_user_id = None
+    record.approved_by_user_name = ""
+
+    session.add(record)
+    session.commit()
+
+    return RedirectResponse(f"/hydro/batch/{batch_no}", status_code=303)
 
     def _redir(msg: str):
         if current_id:
@@ -5653,6 +5816,12 @@ def hydro_batch_submit_record(batch_no: str, record_id: int, request: Request, s
     if not record or (record.batch_no or "").strip() != (batch_no or "").strip():
         raise HTTPException(404, "Hydrotest record not found")
 
+    if not record.assigned_qaqc_user_id:
+        return RedirectResponse(
+            f"/hydro/batch/{batch_no}?error=Please assign a QA/QC approver before submit.",
+            status_code=303,
+        )
+
     record.approval_status = "PENDING_APPROVAL"
     record.submitted_at = datetime.utcnow()
     session.add(record)
@@ -5660,19 +5829,27 @@ def hydro_batch_submit_record(batch_no: str, record_id: int, request: Request, s
 
     return RedirectResponse(f"/hydro/batch/{batch_no}", status_code=303)
 
-
 @app.post("/hydro/batch/{batch_no}/approve/{record_id}")
 def hydro_batch_approve_record(batch_no: str, record_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
+
+    if not _can_hydro_approve(user):
+        raise HTTPException(403, "Only INSPECTOR or MANAGER can approve hydro reports.")
 
     record = session.get(HydroTestRecord, record_id)
     if not record or (record.batch_no or "").strip() != (batch_no or "").strip():
         raise HTTPException(404, "Hydrotest record not found")
 
+    approver_name = (getattr(user, "display_name", "") or getattr(user, "username", "") or "").strip()
+
     record.approval_status = "APPROVED"
     record.approved_at = datetime.utcnow()
     record.approved_by_user_id = getattr(user, "id", None)
-    record.approved_by_user_name = getattr(user, "display_name", "") or ""
+    record.approved_by_user_name = approver_name
+
+    # after approval, QA/QC shown on report becomes the real approver
+    record.qaqc_name = approver_name
+
     session.add(record)
     session.commit()
 
