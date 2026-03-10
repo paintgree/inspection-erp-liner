@@ -1697,3 +1697,22 @@ Burst search + filters
     margin-top:16px;
   }
 }
+
+/* Hydro dashboard responsive visibility */
+.hydro-grid{
+  display:grid;
+}
+
+.hydro-mobile-list{
+  display:none;
+}
+
+@media (max-width: 767px){
+  .hydro-grid{
+    display:none !important;
+  }
+
+  .hydro-mobile-list{
+    display:block !important;
+  }
+}
