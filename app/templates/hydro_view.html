@@ -317,6 +317,19 @@
       </table>
     </div>
   </div>
+  <div class="hydro-mobile-list">
+    {% for r in summary.records %}
+      <div class="hydro-mobile-card">
+        <strong>{{ r.report_no or ('HT-%04d' % r.id) }}</strong><br>
+        Range: {{ '%.1f'|format(r.start_length_m) }} → {{ '%.1f'|format(r.end_length_m) }} m<br>
+        Length: {{ '%.1f'|format(r.tested_length_m) }} m<br>
+        Pressure: {{ '%.2f'|format(r.hydrotest_pressure_mpa or 0) }} MPa<br>
+        Result: {{ r.test_result or '—' }}<br>
+        Technician: {{ r.technician_name or '-' }}<br>
+        Date: {{ r.tested_at }}
+      </div>
+    {% endfor %}
+  </div>
 </div>
 
 <script>
