@@ -253,22 +253,24 @@ input:focus,select:focus,textarea:focus{border-color:#b7bce8}
 @media (max-width: 768px){
   .tablewrap{
     width:100%;
-    overflow-x:auto !important;
+    overflow-x:auto;
     -webkit-overflow-scrolling:touch;
   }
+
   .tablewrap table.table{
-    width:max-content !important;
-    min-width:720px !important;
-    table-layout:auto !important;
-    font-size:13px !important;
+    width:100%;
+    min-width:640px;
+    table-layout:auto;
+    font-size:13px;
   }
+
   .tablewrap table.table th,
   .tablewrap table.table td{
-    padding:10px 8px !important;
-    white-space:nowrap !important;
-    word-break:keep-all !important;
-    overflow-wrap:normal !important;
-    hyphens:none !important;
+    padding:10px 8px;
+    white-space:normal;
+    word-break:break-word;
+    overflow-wrap:anywhere;
+    hyphens:auto;
   }
 }
 
@@ -1778,4 +1780,5 @@ Burst search + filters
     grid-template-columns:1fr;
   }
 }
+
 
