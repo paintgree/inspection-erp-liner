@@ -5866,7 +5866,7 @@ def hydro_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
     draw_legend_dot(20 * mm, y, colors.HexColor("#22c55e"), "Hydrotested")
     draw_legend_dot(72 * mm, y, colors.HexColor("#f59e0b"), "Used in burst")
     draw_legend_dot(128 * mm, y, colors.HexColor("#cbd5e1"), "Remaining")
-    y = legend_y - 10 * mm
+    y -= 10 * mm
 
     # Main coverage bar
     track_x = 12 * mm
