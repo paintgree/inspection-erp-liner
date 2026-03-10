@@ -1,7 +1,8 @@
 {% extends "base.html" %}
 {% block content %}
 
-<a href="/hydro" class="burst-back-btn">← Back to Hydro Dashboard</a>
+<div class="hydro-page-wide">
+  <a href="/hydro" class="burst-back-btn">← Back to Hydro Dashboard</a>
 
 <div class="page-head burst-head">
   <div>
@@ -228,8 +229,8 @@
               </span>
   
               {% if (r.approval_status or '') == 'APPROVED' and r.approved_by_user_name and r.approved_at %}
-                <div class="muted" style="margin-top:6px; font-size:12px; line-height:1.4;">
-                  <strong>Signed by:</strong> {{ r.approved_by_user_name }}<br>
+                <div class="hydro-signature-note">
+                  <strong>Digitally signed by:</strong> {{ r.approved_by_user_name }}<br>
                   <strong>Date/Time:</strong> {{ format_oman_dt(r.approved_at) }} (Oman)
                 </div>
               {% endif %}
@@ -272,3 +273,4 @@
 </div>
 
 {% endblock %}
+</div>
