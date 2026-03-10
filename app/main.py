@@ -5860,14 +5860,16 @@ def hydro_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
     c.drawString(12 * mm, y, "Coverage Visual")
     c.setFont("Helvetica-Bold", 11)
     c.drawRightString(w - 12 * mm, y, f"Coverage  {summary['coverage_pct']}%")
-    y -= 7 * mm
+    y -= 10 * mm
 
     # Legend row
     legend_y = y
     draw_legend_dot(20 * mm, y, colors.HexColor("#22c55e"), "Hydrotested")
     draw_legend_dot(72 * mm, y, colors.HexColor("#f59e0b"), "Used in burst")
     draw_legend_dot(128 * mm, y, colors.HexColor("#cbd5e1"), "Remaining")
-    y =legend_y - 14 * mm
+    
+    # leave clear gap under legend before drawing the bar
+    y =legend_y - 16 * mm
 
     # Main coverage bar
     track_x = 12 * mm
