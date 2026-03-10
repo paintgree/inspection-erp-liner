@@ -13,7 +13,7 @@
     type="text"
     id="hydroSearch"
     class="burst-search"
-    placeholder="Search by batch, client, spec..."
+    placeholder="Search by batch, client, spec, report no..."
     oninput="filterHydroList()"
   />
 
@@ -38,7 +38,7 @@
     <div
       class="hydro-batch-card hydro-search-item"
       data-status="{{ s.status|lower }}"
-      data-search="{{ s.batch_no }} {{ s.client_name }} {{ s.pipe_specification }} {{ hydro_status_badge(s.status) }}"
+      data-search="{{ s.batch_no }} {{ s.client_name }} {{ s.pipe_specification }} {{ hydro_status_badge(s.status) }} {% for r in s.records %} {{ r.report_no or ('HT-%04d' % r.id) }} {% endfor %}"
     >
       <div class="hydro-batch-top">
         <div>
@@ -92,7 +92,7 @@
     <div
       class="hydro-mobile-card hydro-search-item"
       data-status="{{ s.status|lower }}"
-      data-search="{{ s.batch_no }} {{ s.client_name }} {{ s.pipe_specification }} {{ hydro_status_badge(s.status) }}"
+      data-search="{{ s.batch_no }} {{ s.client_name }} {{ s.pipe_specification }} {{ hydro_status_badge(s.status) }} {% for r in s.records %} {{ r.report_no or ('HT-%04d' % r.id) }} {% endfor %}"
     >
       <div class="hydro-batch-top">
         <div>
