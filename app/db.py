@@ -236,6 +236,26 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE bursttestreport ADD COLUMN IF NOT EXISTS technician_name TEXT DEFAULT ''",
         "ALTER TABLE bursttestreport ADD COLUMN technician_name TEXT DEFAULT ''",
     )
+
+        # --- hydrotestrecord QA/QC assignment fields ---
+    _add_column_if_missing(
+        "hydrotestrecord",
+        "assigned_qaqc_user_id",
+        "ALTER TABLE hydrotestrecord ADD COLUMN IF NOT EXISTS assigned_qaqc_user_id INTEGER",
+        "ALTER TABLE hydrotestrecord ADD COLUMN assigned_qaqc_user_id INTEGER",
+    )
+    _add_column_if_missing(
+        "hydrotestrecord",
+        "assigned_qaqc_username",
+        "ALTER TABLE hydrotestrecord ADD COLUMN IF NOT EXISTS assigned_qaqc_username TEXT DEFAULT ''",
+        "ALTER TABLE hydrotestrecord ADD COLUMN assigned_qaqc_username TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
+        "hydrotestrecord",
+        "assigned_qaqc_display_name",
+        "ALTER TABLE hydrotestrecord ADD COLUMN IF NOT EXISTS assigned_qaqc_display_name TEXT DEFAULT ''",
+        "ALTER TABLE hydrotestrecord ADD COLUMN assigned_qaqc_display_name TEXT DEFAULT ''",
+    )
          
     # =========================
     # BURST: BurstAttachment.sample_id
