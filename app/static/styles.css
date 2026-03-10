@@ -24,7 +24,7 @@
 body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;background:var(--bg);color:var(--text)}
 a{color:inherit}
 
-.page{max-width:1200px;margin:0 auto;padding:18px}
+.page{max-width:min(1680px, calc(100vw - 24px));margin:0 auto;padding:18px}
 @media (max-width:1200px){ .page{max-width:100%;padding:14px} }
 
 .card{
@@ -1613,7 +1613,7 @@ Burst search + filters
 
 .hydro-detail-grid{
   display:grid;
-  grid-template-columns:1.25fr 1fr;
+  grid-template-columns:minmax(0, 1.15fr) minmax(480px, 0.85fr);
   gap:16px;
 }
 
@@ -1714,5 +1714,67 @@ Burst search + filters
 
   .hydro-mobile-list{
     display:block !important;
+  }
+}
+/* =========================
+   Hydro batch page - wider desktop layout
+========================= */
+.hydro-page-wide{
+  width:100%;
+}
+
+.hydro-page-wide .card{
+  overflow:visible;
+}
+
+.hydro-page-wide .tablewrap{
+  overflow-x:auto;
+  overflow-y:visible;
+}
+
+.hydro-page-wide .table{
+  width:100%;
+  min-width:0;
+  table-layout:auto;
+}
+
+.hydro-page-wide .table th,
+.hydro-page-wide .table td{
+  white-space:normal;
+  vertical-align:top;
+}
+
+.hydro-page-wide .table th:last-child,
+.hydro-page-wide .table td:last-child{
+  min-width:160px;
+}
+
+.hydro-page-wide .table th:nth-child(10),
+.hydro-page-wide .table td:nth-child(10){
+  min-width:220px;
+}
+
+.hydro-page-wide .toolbar{
+  flex-wrap:wrap;
+}
+
+.hydro-page-wide .toolbar form{
+  margin:0;
+}
+
+.hydro-page-wide .toolbar .btn{
+  width:auto;
+}
+
+.hydro-signature-note{
+  margin-top:6px;
+  font-size:12px;
+  line-height:1.45;
+  color:#64748b;
+}
+
+@media (max-width: 1100px){
+  .hydro-detail-grid{
+    grid-template-columns:1fr;
   }
 }
