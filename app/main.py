@@ -5436,6 +5436,8 @@ def _range_total_length(ranges: list[tuple[float, float]]) -> float:
         total += max(0.0, float(end) - float(start))
     return round(total, 3)
 
+def _ranges_overlap(a1: float, a2: float, b1: float, b2: float) -> bool:
+    return max(a1, b1) < min(a2, b2)
 
 def _clamp_ranges_to_length(ranges: list[tuple[float, float]], max_length: float) -> list[tuple[float, float]]:
     out = []
@@ -5740,7 +5742,9 @@ def final_batch_save_reel(
     request: Request,
     session: Session = Depends(get_session),
     reel_no: str = Form(...),
-    reel_length_m: float = Form(...),
+    start_length_m: float = Form(0.0),
+    end_length_m: float = Form(0.0),
+    reel_length_m: float = Form(0.0),
     od_mm: float = Form(0.0),
     liner_thickness_mm: float = Form(0.0),
     reinforcement_thickness_mm: float = Form(0.0),
@@ -5748,6 +5752,7 @@ def final_batch_save_reel(
     secured_ok: str = Form(""),
     condition_status: str = Form("GOOD"),
     notes: str = Form(""),
+    override_burst_conflict: str = Form(""),
 ):
     user = get_current_user(request, session)
 
@@ -5766,7 +5771,38 @@ def final_batch_save_reel(
         raise HTTPException(404, "Cover run not found for this batch")
 
     summary = _build_final_batch_summary(session, cover)
+    start_m = float(start_length_m or 0.0)
+    end_m = float(end_length_m or 0.0)
     reel_len = float(reel_length_m or 0.0)
+
+    burst_conflict = False
+    if end_m > start_m:
+        for b1, b2 in summary["burst_ranges"]:
+            if _ranges_overlap(start_m, end_m, float(b1), float(b2)):
+                burst_conflict = True
+                break
+
+    if burst_conflict and override_burst_conflict != "1":
+        return RedirectResponse(
+            f"/final/batch/{batch_no}?error=This reel range overlaps a burst-used length. Tick override only if you are sure.",
+            status_code=303,
+        )
+
+    if start_m > 0 or end_m > 0:
+        calculated_len = round(end_m - start_m, 3)
+        if reel_len <= 0:
+            reel_len = calculated_len
+        elif abs(reel_len - calculated_len) > 0.05:
+            return RedirectResponse(
+                f"/final/batch/{batch_no}?error=Reel length does not match start/end range.",
+                status_code=303,
+            )
+
+    if reel_len <= 0:
+        return RedirectResponse(
+            f"/final/batch/{batch_no}?error=Reel length must be greater than zero.",
+            status_code=303,
+        )
 
     if reel_len <= 0:
         return RedirectResponse(
@@ -5787,7 +5823,9 @@ def final_batch_save_reel(
                 status_code=303,
             )
 
-        liner_thk = float(liner_thickness_mm or 0.0)
+    reel_len = float(reel_length_m or 0.0)
+    od_val = float(od_mm or 0.0)
+    liner_thk = float(liner_thickness_mm or 0.0)
     reinf_thk = float(reinforcement_thickness_mm or 0.0)
     cover_thk = float(cover_thickness_mm or 0.0)
     total_wall_thk = liner_thk + reinf_thk + cover_thk
@@ -5798,8 +5836,10 @@ def final_batch_save_reel(
         linked_cover_run_id=cover.id,
         reel_no=(reel_no or "").strip(),
         reel_length_m=reel_len,
-        od_mm=float(od_mm or 0.0),
-        wall_thickness_mm=total_wall_thk,   # legacy DB compatibility
+        start_length_m=start_m,
+        end_length_m=end_m,
+        od_mm=od_val,
+        wall_thickness_mm=total_wall_thk,
         liner_thickness_mm=liner_thk,
         reinforcement_thickness_mm=reinf_thk,
         cover_thickness_mm=cover_thk,
@@ -6024,12 +6064,14 @@ def final_phase_pdf(batch_no: str, phase_id: int, session: Session = Depends(get
     story.append(Paragraph("Reel List", section_style))
 
     rows = [[
-        "ID", "Reel No", "Length", "OD", "Liner", "Reinf", "Cover", "Secured", "Condition"
+        "ID", "Reel No", "Start", "End", "Length", "OD", "Liner", "Reinf", "Cover", "Secured", "Condition"
     ]]
     for r in reels:
         rows.append([
             f"#{r.id}",
             r.reel_no or "-",
+            f"{float(r.start_length_m or 0.0):.1f}",
+            f"{float(r.end_length_m or 0.0):.1f}",
             f"{float(r.reel_length_m or 0.0):.1f}",
             f"{float(r.od_mm or 0.0):.2f}",
             f"{float(r.liner_thickness_mm or 0.0):.2f}",
@@ -6040,9 +6082,13 @@ def final_phase_pdf(batch_no: str, phase_id: int, session: Session = Depends(get
         ])
 
     if len(rows) == 1:
-        rows.append(["-", "-", "-", "-", "-", "-", "-", "-", "-"])
+        rows.append(["-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-"])
 
-    tbl = Table(rows, colWidths=[12*mm, 24*mm, 18*mm, 15*mm, 15*mm, 15*mm, 15*mm, 18*mm, 24*mm], repeatRows=1)
+    tbl = Table(
+        rows,
+        colWidths=[11*mm, 18*mm, 14*mm, 14*mm, 16*mm, 13*mm, 13*mm, 13*mm, 13*mm, 16*mm, 20*mm],
+        repeatRows=1
+    )
     tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#dbeafe")),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
