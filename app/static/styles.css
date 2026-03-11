@@ -1793,6 +1793,9 @@ Burst search + filters
     grid-template-columns:1fr;
   }
 }
+.toolbar .btn{
+  color:#111827 !important;
+}
 
 
 
