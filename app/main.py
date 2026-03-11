@@ -5787,6 +5787,11 @@ def final_batch_save_reel(
                 status_code=303,
             )
 
+        liner_thk = float(liner_thickness_mm or 0.0)
+    reinf_thk = float(reinforcement_thickness_mm or 0.0)
+    cover_thk = float(cover_thickness_mm or 0.0)
+    total_wall_thk = liner_thk + reinf_thk + cover_thk
+
     reel = FinalInspectionReel(
         phase_id=phase.id,
         batch_no=(batch_no or "").strip(),
@@ -5794,9 +5799,10 @@ def final_batch_save_reel(
         reel_no=(reel_no or "").strip(),
         reel_length_m=reel_len,
         od_mm=float(od_mm or 0.0),
-        liner_thickness_mm=float(liner_thickness_mm or 0.0),
-        reinforcement_thickness_mm=float(reinforcement_thickness_mm or 0.0),
-        cover_thickness_mm=float(cover_thickness_mm or 0.0),
+        wall_thickness_mm=total_wall_thk,   # legacy DB compatibility
+        liner_thickness_mm=liner_thk,
+        reinforcement_thickness_mm=reinf_thk,
+        cover_thickness_mm=cover_thk,
         secured_ok=(secured_ok == "1"),
         condition_status=(condition_status or "GOOD").strip().upper(),
         notes=(notes or "").strip(),
