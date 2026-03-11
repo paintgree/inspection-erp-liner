@@ -322,37 +322,70 @@
       <div class="hydro-mobile-card">
         <div class="hydro-mobile-card-head">
           <div>
-            <div style="font-weight:800; font-size:18px;">{{ r.report_no or ('HT-%04d' % r.id) }}</div>
-            <div class="muted">ID: #{{ r.id }}</div>
+            <div class="hydro-mobile-title">{{ r.report_no or ('HT-%04d' % r.id) }}</div>
+            <div class="hydro-mobile-subtitle">Report ID #{{ r.id }}</div>
           </div>
   
-          <span class="burst-status {% if (r.approval_status or 'DRAFT') == 'APPROVED' %}badge-editable{% elif (r.approval_status or '') == 'PENDING_APPROVAL' %}badge-pending{% else %}badge-published{% endif %}">
+          <span class="hydro-mobile-status burst-status {% if (r.approval_status or 'DRAFT') == 'APPROVED' %}badge-editable{% elif (r.approval_status or '') == 'PENDING_APPROVAL' %}badge-pending{% else %}badge-published{% endif %}">
             {{ hydro_record_status_label(r.approval_status) }}
           </span>
         </div>
   
         <div class="hydro-mobile-fields">
-          <div><strong>Range:</strong> {{ '%.1f'|format(r.start_length_m) }} → {{ '%.1f'|format(r.end_length_m) }} m</div>
-          <div><strong>Length:</strong> {{ '%.1f'|format(r.tested_length_m) }} m</div>
-          <div><strong>Pressure:</strong> {{ '%.2f'|format(r.hydrotest_pressure_mpa or 0) }} MPa</div>
-          <div><strong>Holding Time:</strong> {{ r.pressure_holding_time_min or r.hold_time_s or '-' }}</div>
-          <div><strong>Result:</strong> {{ r.test_result or '—' }}</div>
-          <div><strong>QA/QC:</strong> {{ r.assigned_qaqc_display_name or r.qaqc_name or '-' }}</div>
-          <div><strong>Date:</strong> {{ format_oman_dt(r.tested_at) if r.tested_at else '-' }}</div>
+          <div class="hydro-mobile-row">
+            <span class="hydro-mobile-label">Range</span>
+            <span class="hydro-mobile-value">{{ '%.1f'|format(r.start_length_m) }} → {{ '%.1f'|format(r.end_length_m) }} m</span>
+          </div>
+  
+          <div class="hydro-mobile-row">
+            <span class="hydro-mobile-label">Length</span>
+            <span class="hydro-mobile-value">{{ '%.1f'|format(r.tested_length_m) }} m</span>
+          </div>
+  
+          <div class="hydro-mobile-row">
+            <span class="hydro-mobile-label">Pressure</span>
+            <span class="hydro-mobile-value">{{ '%.2f'|format(r.hydrotest_pressure_mpa or 0) }} MPa</span>
+          </div>
+  
+          <div class="hydro-mobile-row">
+            <span class="hydro-mobile-label">Hold Time</span>
+            <span class="hydro-mobile-value">{{ r.pressure_holding_time_min or r.hold_time_s or '-' }} min</span>
+          </div>
+  
+          <div class="hydro-mobile-row">
+            <span class="hydro-mobile-label">Result</span>
+            <span class="hydro-mobile-value">
+              <span class="result-badge {% if (r.test_result or '').upper() == 'PASS' %}result-pass{% elif (r.test_result or '').upper() == 'FAIL' %}result-fail{% else %}result-empty{% endif %}">
+                {{ r.test_result or '—' }}
+              </span>
+            </span>
+          </div>
+  
+          <div class="hydro-mobile-row">
+            <span class="hydro-mobile-label">QA/QC</span>
+            <span class="hydro-mobile-value">{{ r.assigned_qaqc_display_name or r.qaqc_name or '-' }}</span>
+          </div>
+  
+          <div class="hydro-mobile-row">
+            <span class="hydro-mobile-label">Date</span>
+            <span class="hydro-mobile-value">{{ format_oman_dt(r.tested_at) if r.tested_at else '-' }}</span>
+          </div>
         </div>
   
         {% if (r.approval_status or '') == 'APPROVED' and r.approved_by_user_name and r.approved_at %}
-          <div class="hydro-signature-note">
-            <strong>Digitally signed by:</strong> {{ r.approved_by_user_name }}<br>
-            <strong>Date/Time:</strong> {{ format_oman_dt(r.approved_at) }} (Oman)
+          <div class="hydro-mobile-signature">
+            <div class="hydro-mobile-signature-title">Digital approval</div>
+            <div><strong>Digitally signed by:</strong> {{ r.approved_by_user_name }}</div>
+            <div><strong>Date/Time:</strong> {{ format_oman_dt(r.approved_at) }} (Oman)</div>
           </div>
         {% elif (r.approval_status or '') == 'PENDING_APPROVAL' %}
-          <div class="hydro-signature-note">
-            Waiting for QA/QC approval
+          <div class="hydro-mobile-signature">
+            <div class="hydro-mobile-signature-title">Digital approval</div>
+            <div>Waiting for QA/QC approval</div>
           </div>
         {% endif %}
   
-        <div class="toolbar mt">
+        <div class="hydro-mobile-actions">
           <a class="btn btn-sm" href="/hydro/record/{{ r.id }}/pdf" target="_blank">PDF</a>
   
           {% if (r.approval_status or 'DRAFT') == 'DRAFT' %}
