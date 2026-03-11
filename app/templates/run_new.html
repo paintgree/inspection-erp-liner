@@ -11,14 +11,25 @@
 
   <form method="post" action="/runs/new">
     <div class="grid2">
-      <div>
-        <label>Process</label>
-        <select name="process" required>
-          <option value="">-- Select --</option>
-          <option value="LINER">LINER</option>
-          <option value="REINFORCEMENT">REINFORCEMENT</option>
-          <option value="COVER">COVER</option>
-        </select>
+      <div style="grid-column:1 / -1;">
+        <label>Create Layer(s)</label>
+        <div class="toolbar" style="gap:14px; flex-wrap:wrap; margin-top:8px;">
+          <label style="display:flex; gap:8px; align-items:center;">
+            <input type="checkbox" name="selected_processes" value="LINER" checked>
+            LINER
+          </label>
+          <label style="display:flex; gap:8px; align-items:center;">
+            <input type="checkbox" name="selected_processes" value="REINFORCEMENT" checked>
+            REINFORCEMENT
+          </label>
+          <label style="display:flex; gap:8px; align-items:center;">
+            <input type="checkbox" name="selected_processes" value="COVER" checked>
+            COVER
+          </label>
+        </div>
+        <div class="muted tiny mt">
+          You can create 1, 2, or all 3 layers in one step. Each layer will still be editable separately later.
+        </div>
       </div>
 
       <div>
@@ -57,16 +68,15 @@
       </div>
     </div>
 
-    <!-- ✅ THE TICK IS HERE (INSIDE FORM) -->
     <div class="mt">
       <label style="display:flex; gap:10px; align-items:center;">
         <input type="checkbox" name="allow_duplicate" value="1">
-        Allow duplicate line for same Batch + Process (use when 2 production lines run same batch)
+        Allow duplicate line for same Batch + Process
       </label>
     </div>
 
     <div class="toolbar mt">
-      <button class="btn btn-primary" type="submit">Create Run</button>
+      <button class="btn btn-primary" type="submit">Create Run(s)</button>
       <a class="btn" href="/dashboard">Cancel</a>
     </div>
   </form>
