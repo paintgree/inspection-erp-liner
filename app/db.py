@@ -292,6 +292,20 @@ def _ensure_schema_patches() -> None:
         "reinforcement_thickness_mm",
         "ALTER TABLE finalinspectionreel ADD COLUMN IF NOT EXISTS reinforcement_thickness_mm DOUBLE PRECISION DEFAULT 0",
         "ALTER TABLE finalinspectionreel ADD COLUMN reinforcement_thickness_mm REAL DEFAULT 0",
+        
+    )
+        _add_column_if_missing(
+        "finalinspectionreel",
+        "start_length_m",
+        "ALTER TABLE finalinspectionreel ADD COLUMN IF NOT EXISTS start_length_m DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE finalinspectionreel ADD COLUMN start_length_m REAL DEFAULT 0",
+    )
+
+    _add_column_if_missing(
+        "finalinspectionreel",
+        "end_length_m",
+        "ALTER TABLE finalinspectionreel ADD COLUMN IF NOT EXISTS end_length_m DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE finalinspectionreel ADD COLUMN end_length_m REAL DEFAULT 0",
     )
     _add_column_if_missing(
         "finalinspectionreel",
