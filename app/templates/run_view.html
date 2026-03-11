@@ -21,7 +21,21 @@
 
         {% if run.status == "OPEN" %}
           <form method="post" action="/runs/{{ run.id }}/close"
-                onsubmit="return confirm('Are you sure you want to CLOSE this process? Inspectors will NOT be able to add entries until you Reopen.');">
+                onsubmit="return confirm('Close this process?');"
+                style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end;">
+            {% if run.process == "COVER" %}
+              <div>
+                <label style="display:block; font-size:12px; font-weight:700;">Confirmed Final Produced Length (m)</label>
+                <input type="number" step="0.01" name="confirmed_total_length_m" placeholder="Optional if higher than inspected length" style="min-width:220px;">
+              </div>
+              <div>
+                <label style="display:block; font-size:12px; font-weight:700;">Reason / Note</label>
+                <input type="text" name="confirmed_length_note" placeholder="Optional note for extra produced length" style="min-width:260px;">
+              </div>
+            {% else %}
+              <input type="hidden" name="confirmed_total_length_m" value="0">
+              <input type="hidden" name="confirmed_length_note" value="">
+            {% endif %}
             <button class="btn" type="submit">Close</button>
           </form>
         {% endif %}
@@ -67,7 +81,13 @@
       <div class="kv"><span>ITP</span><b>{{ run.itp_number }}</b></div>
       <div class="kv"><span>Pipe Spec</span><b>{{ run.pipe_specification }}</b></div>
       <div class="kv"><span>Raw Spec</span><b>{{ run.raw_material_spec }}</b></div>
+      <div class="kv"><span>Order Length</span><b>{{ '%.1f'|format(run.total_length_m or 0) }} m</b></div>
+      <div class="kv"><span>Measured / Effective Produced</span><b>{{ '%.1f'|format(progress and (run.confirmed_total_length_m if run.confirmed_total_length_m else 0) or 0) if false else '%.1f'|format((run.confirmed_total_length_m if run.confirmed_total_length_m and run.confirmed_total_length_m > 0 else 0)) }}{% if not run.confirmed_total_length_m %}{% endif %}</b></div>
+      <div class="kv"><span>Confirmed Final Produced</span><b>{% if run.confirmed_total_length_m and run.confirmed_total_length_m > 0 %}{{ '%.1f'|format(run.confirmed_total_length_m) }} m{% else %}-{% endif %}</b></div>
     </div>
+   {% if run.confirmed_length_note %}
+    <div class="kv"><span>Confirmed Length Note</span><b>{{ run.confirmed_length_note }}</b></div>
+   {% endif %}
 
     <div class="card inner">
       <h2>Machines Used</h2>
@@ -205,6 +225,7 @@
   </div>
 </div>
 {% endblock %}
+
 
 
 
