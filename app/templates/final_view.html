@@ -75,9 +75,17 @@
         <label>Reel Number
           <input class="input" type="text" name="reel_no" required>
         </label>
-
+        
         <label>Reel Length (m)
-          <input class="input" type="number" step="0.01" name="reel_length_m" required>
+          <input class="input" type="number" step="0.01" name="reel_length_m" value="0">
+        </label>
+        
+        <label>Start Length (m)
+          <input class="input" type="number" step="0.01" name="start_length_m" value="0">
+        </label>
+        
+        <label>End Length (m)
+          <input class="input" type="number" step="0.01" name="end_length_m" value="0">
         </label>
 
         <label>OD (mm)
@@ -113,6 +121,15 @@
           </span>
         </label>
       </div>
+
+      <label class="final-secured-card">
+        <input type="checkbox" name="override_burst_conflict" value="1">
+        <span class="final-secured-box"></span>
+        <span class="final-secured-text">
+          <strong>Override burst-length conflict</strong>
+          <small>Use only if you confirmed this reel range is correct</small>
+        </span>
+      </label>
 
       <label>Notes
         <textarea class="input" name="notes" rows="3"></textarea>
@@ -157,6 +174,8 @@
           <tr>
             <th>ID</th>
             <th>Reel No</th>
+            <th>Start</th>
+            <th>End</th>
             <th>Length</th>
             <th>OD</th>
             <th>Liner</th>
@@ -173,6 +192,8 @@
             <tr>
               <td>#{{ r.id }}</td>
               <td>{{ r.reel_no }}</td>
+              <td>{{ '%.1f'|format(r.start_length_m or 0) }}</td>
+              <td>{{ '%.1f'|format(r.end_length_m or 0) }}</td>
               <td>{{ '%.1f'|format(r.reel_length_m) }} m</td>
               <td>{{ '%.2f'|format(r.od_mm or 0) }}</td>
               <td>{{ '%.2f'|format(r.liner_thickness_mm or 0) }}</td>
