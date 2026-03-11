@@ -301,6 +301,71 @@ def _ensure_schema_patches() -> None:
     )
 
 
+    # --- finalinspectionphase ---
+    _add_column_if_missing(
+        "finalinspectionphase",
+        "status",
+        "ALTER TABLE finalinspectionphase ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'DRAFT'",
+        "ALTER TABLE finalinspectionphase ADD COLUMN status TEXT DEFAULT 'DRAFT'",
+    )
+    _add_column_if_missing(
+        "finalinspectionphase",
+        "submitted_at",
+        "ALTER TABLE finalinspectionphase ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP NULL",
+        "ALTER TABLE finalinspectionphase ADD COLUMN submitted_at TIMESTAMP NULL",
+    )
+    _add_column_if_missing(
+        "finalinspectionphase",
+        "approved_at",
+        "ALTER TABLE finalinspectionphase ADD COLUMN IF NOT EXISTS approved_at TIMESTAMP NULL",
+        "ALTER TABLE finalinspectionphase ADD COLUMN approved_at TIMESTAMP NULL",
+    )
+    _add_column_if_missing(
+        "finalinspectionphase",
+        "approved_by_user_id",
+        "ALTER TABLE finalinspectionphase ADD COLUMN IF NOT EXISTS approved_by_user_id INTEGER",
+        "ALTER TABLE finalinspectionphase ADD COLUMN approved_by_user_id INTEGER",
+    )
+    _add_column_if_missing(
+        "finalinspectionphase",
+        "approved_by_user_name",
+        "ALTER TABLE finalinspectionphase ADD COLUMN IF NOT EXISTS approved_by_user_name TEXT DEFAULT ''",
+        "ALTER TABLE finalinspectionphase ADD COLUMN approved_by_user_name TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
+        "finalinspectionphase",
+        "notes",
+        "ALTER TABLE finalinspectionphase ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT ''",
+        "ALTER TABLE finalinspectionphase ADD COLUMN notes TEXT DEFAULT ''",
+    )
+
+    # --- finalinspectionreel ---
+    _add_column_if_missing(
+        "finalinspectionreel",
+        "phase_id",
+        "ALTER TABLE finalinspectionreel ADD COLUMN IF NOT EXISTS phase_id INTEGER",
+        "ALTER TABLE finalinspectionreel ADD COLUMN phase_id INTEGER",
+    )
+    _add_column_if_missing(
+        "finalinspectionreel",
+        "liner_thickness_mm",
+        "ALTER TABLE finalinspectionreel ADD COLUMN IF NOT EXISTS liner_thickness_mm DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE finalinspectionreel ADD COLUMN liner_thickness_mm REAL DEFAULT 0",
+    )
+    _add_column_if_missing(
+        "finalinspectionreel",
+        "reinforcement_thickness_mm",
+        "ALTER TABLE finalinspectionreel ADD COLUMN IF NOT EXISTS reinforcement_thickness_mm DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE finalinspectionreel ADD COLUMN reinforcement_thickness_mm REAL DEFAULT 0",
+    )
+    _add_column_if_missing(
+        "finalinspectionreel",
+        "cover_thickness_mm",
+        "ALTER TABLE finalinspectionreel ADD COLUMN IF NOT EXISTS cover_thickness_mm DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE finalinspectionreel ADD COLUMN cover_thickness_mm REAL DEFAULT 0",
+    )
+
+
 def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
     _ensure_schema_patches()
