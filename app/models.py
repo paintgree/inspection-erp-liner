@@ -46,6 +46,11 @@ class ProductionRun(SQLModel, table=True):
     raw_material_spec: str = Field(default="")
 
     total_length_m: float = Field(default=0.0)
+
+    # manager can confirm the final actual produced length before approval
+    confirmed_total_length_m: float = Field(default=0.0)
+    confirmed_length_note: str = Field(default="")
+
     status: str = Field(default="OPEN")  # OPEN / CLOSED / APPROVED
       # ✅ Approval audit fields
     approved_by_user_id: Optional[int] = Field(default=None, index=True)
@@ -524,7 +529,37 @@ class HydroTestRecord(SQLModel, table=True):
     created_by_user_name: str = Field(default="")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+class FinalInspectionReel(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
 
+    batch_no: str = Field(default="", index=True)
+    linked_cover_run_id: Optional[int] = Field(default=None, foreign_key="productionrun.id", index=True)
+
+    reel_no: str = Field(default="", index=True)
+    reel_length_m: float = Field(default=0.0)
+
+    od_mm: float = Field(default=0.0)
+    wall_thickness_mm: float = Field(default=0.0)
+
+    secured_ok: bool = Field(default=False)
+    condition_status: str = Field(default="GOOD")  # GOOD / HOLD / DAMAGED
+    notes: str = Field(default="")
+
+    created_by_user_id: Optional[int] = Field(default=None, index=True)
+    created_by_user_name: str = Field(default="")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class FinalInspectionBatchNote(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    batch_no: str = Field(default="", index=True, unique=True)
+    linked_cover_run_id: Optional[int] = Field(default=None, foreign_key="productionrun.id", index=True)
+
+    extra_loss_note: str = Field(default="")
+    updated_by_user_id: Optional[int] = Field(default=None, index=True)
+    updated_by_user_name: str = Field(default="")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 
