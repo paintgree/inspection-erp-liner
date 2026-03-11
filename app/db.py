@@ -294,7 +294,7 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE finalinspectionreel ADD COLUMN reinforcement_thickness_mm REAL DEFAULT 0",
         
     )
-        _add_column_if_missing(
+    _add_column_if_missing(
         "finalinspectionreel",
         "start_length_m",
         "ALTER TABLE finalinspectionreel ADD COLUMN IF NOT EXISTS start_length_m DOUBLE PRECISION DEFAULT 0",
