@@ -87,6 +87,9 @@ from .models import (
     HydroTestRecord,
     FinalInspectionReel,
     FinalInspectionBatchNote,
+    FinalInspectionPhase,
+    FinalInspectionReel,
+    FinalInspectionBatchNote,
 
 )
 
@@ -2448,34 +2451,79 @@ def _create_run_with_default_params(
     return run
 
 
+def _next_final_phase_no(session: Session, batch_no: str) -> int:
+    phases = session.exec(
+        select(FinalInspectionPhase)
+        .where(FinalInspectionPhase.batch_no == (batch_no or "").strip())
+        .order_by(FinalInspectionPhase.phase_no.desc(), FinalInspectionPhase.id.desc())
+    ).all()
+    if not phases:
+        return 1
+    return int(phases[0].phase_no or 0) + 1
+
+
+def _final_phase_total_length_m(session: Session, phase_id: int) -> float:
+    reels = session.exec(
+        select(FinalInspectionReel).where(FinalInspectionReel.phase_id == phase_id)
+    ).all()
+    total = 0.0
+    for r in reels:
+        try:
+            total += float(r.reel_length_m or 0.0)
+        except Exception:
+            pass
+    return round(total, 3)
+
+
 def _build_final_batch_summary(session: Session, cover_run: ProductionRun) -> dict:
     batch_no = (cover_run.dhtp_batch_no or "").strip()
     produced_length_m = float(get_run_produced_length_m(session, cover_run.id) or 0.0)
 
     burst_ranges = _get_burst_used_ranges(session, batch_no, produced_length_m)
     burst_used_m = _range_total_length(burst_ranges)
-
     expected_after_burst_m = max(0.0, produced_length_m - burst_used_m)
 
-    reels = session.exec(
-        select(FinalInspectionReel)
-        .where(FinalInspectionReel.batch_no == batch_no)
-        .order_by(FinalInspectionReel.created_at.desc(), FinalInspectionReel.id.desc())
+    phases = session.exec(
+        select(FinalInspectionPhase)
+        .where(FinalInspectionPhase.batch_no == batch_no)
+        .order_by(FinalInspectionPhase.phase_no.asc(), FinalInspectionPhase.id.asc())
     ).all()
 
-    inspected_total_m = 0.0
-    for r in reels:
-        try:
-            inspected_total_m += float(r.reel_length_m or 0.0)
-        except Exception:
-            pass
+    phase_rows = []
+    approved_total_m = 0.0
+    all_reels_total_m = 0.0
 
-    remaining_for_final_m = max(0.0, expected_after_burst_m - inspected_total_m)
-    unexplained_loss_m = max(0.0, expected_after_burst_m - inspected_total_m)
+    for p in phases:
+        reels = session.exec(
+            select(FinalInspectionReel)
+            .where(FinalInspectionReel.phase_id == p.id)
+            .order_by(FinalInspectionReel.created_at.asc(), FinalInspectionReel.id.asc())
+        ).all()
+
+        phase_total_m = 0.0
+        for r in reels:
+            try:
+                phase_total_m += float(r.reel_length_m or 0.0)
+            except Exception:
+                pass
+
+        all_reels_total_m += phase_total_m
+        if (p.status or "").upper() == "APPROVED":
+            approved_total_m += phase_total_m
+
+        phase_rows.append({
+            "phase": p,
+            "reels": reels,
+            "reel_count": len(reels),
+            "phase_total_m": round(phase_total_m, 3),
+        })
 
     batch_note = session.exec(
         select(FinalInspectionBatchNote).where(FinalInspectionBatchNote.batch_no == batch_no)
     ).first()
+
+    remaining_vs_confirmed_m = max(0.0, expected_after_burst_m - approved_total_m)
+    pending_overrun_m = max(0.0, all_reels_total_m - expected_after_burst_m)
 
     return {
         "batch_no": batch_no,
@@ -2486,14 +2534,14 @@ def _build_final_batch_summary(session: Session, cover_run: ProductionRun) -> di
         "produced_length_m": produced_length_m,
         "burst_used_m": burst_used_m,
         "expected_after_burst_m": expected_after_burst_m,
-        "inspected_total_m": inspected_total_m,
-        "remaining_for_final_m": remaining_for_final_m,
-        "unexplained_loss_m": unexplained_loss_m,
-        "reels": reels,
+        "approved_total_m": round(approved_total_m, 3),
+        "all_reels_total_m": round(all_reels_total_m, 3),
+        "remaining_vs_confirmed_m": round(remaining_vs_confirmed_m, 3),
+        "pending_overrun_m": round(pending_overrun_m, 3),
+        "phases": phase_rows,
         "batch_note": batch_note,
         "burst_ranges": burst_ranges,
     }
-
 # =========================
 # BURST TESTING ROUTES
 # =========================
@@ -4737,6 +4785,9 @@ def require_manager(user: User):
 def _can_hydro_approve(user: User) -> bool:
     return (getattr(user, "role", "") or "").strip().upper() in ["INSPECTOR", "MANAGER"]
 
+def _can_final_approve(user: User) -> bool:
+    return (getattr(user, "role", "") or "").strip().upper() in ["MANAGER"]
+
 def _hydro_qaqc_candidates(session: Session, query: str) -> list[User]:
     q = (query or "").strip().lower()
 
@@ -5599,7 +5650,7 @@ def final_dashboard(request: Request, session: Session = Depends(get_session)):
 
     for run in cover_runs:
         summary = _build_final_batch_summary(session, run)
-        if summary["produced_length_m"] > 0:
+        if summary["produced_length_m"] > 0 or summary["phases"]:
             summaries.append(summary)
 
     summaries.sort(key=lambda x: x["batch_no"])
@@ -5610,6 +5661,7 @@ def final_dashboard(request: Request, session: Session = Depends(get_session)):
             "request": request,
             "user": user,
             "summaries": summaries,
+            "can_final_approve": _can_final_approve(user),
         },
     )
 
@@ -5625,6 +5677,13 @@ def final_batch_view(batch_no: str, request: Request, session: Session = Depends
     summary = _build_final_batch_summary(session, cover)
     error = request.query_params.get("error") or ""
 
+    open_phase = session.exec(
+        select(FinalInspectionPhase)
+        .where(FinalInspectionPhase.batch_no == (batch_no or "").strip())
+        .where(FinalInspectionPhase.status == "DRAFT")
+        .order_by(FinalInspectionPhase.phase_no.desc(), FinalInspectionPhase.id.desc())
+    ).first()
+
     return templates.TemplateResponse(
         "final_view.html",
         {
@@ -5632,13 +5691,52 @@ def final_batch_view(batch_no: str, request: Request, session: Session = Depends
             "user": user,
             "summary": summary,
             "error": error,
+            "open_phase": open_phase,
+            "can_final_approve": _can_final_approve(user),
         },
     )
 
 
-@app.post("/final/batch/{batch_no}/save")
+@app.post("/final/batch/{batch_no}/phase/new")
+def final_create_phase(batch_no: str, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
+    if not cover:
+        raise HTTPException(404, "Cover run not found for this batch")
+
+    existing_draft = session.exec(
+        select(FinalInspectionPhase)
+        .where(FinalInspectionPhase.batch_no == (batch_no or "").strip())
+        .where(FinalInspectionPhase.status == "DRAFT")
+    ).first()
+
+    if existing_draft:
+        return RedirectResponse(
+            f"/final/batch/{batch_no}?error=There is already an open draft phase. Use it or submit it first.",
+            status_code=303,
+        )
+
+    phase_no = _next_final_phase_no(session, batch_no)
+    phase = FinalInspectionPhase(
+        batch_no=(batch_no or "").strip(),
+        linked_cover_run_id=cover.id,
+        phase_no=phase_no,
+        title=f"Phase {phase_no}",
+        status="DRAFT",
+        created_by_user_id=getattr(user, "id", None),
+        created_by_user_name=getattr(user, "display_name", "") or "",
+    )
+    session.add(phase)
+    session.commit()
+
+    return RedirectResponse(f"/final/batch/{batch_no}", status_code=303)
+
+
+@app.post("/final/batch/{batch_no}/phase/{phase_id}/save-reel")
 def final_batch_save_reel(
     batch_no: str,
+    phase_id: int,
     request: Request,
     session: Session = Depends(get_session),
     reel_no: str = Form(...),
@@ -5653,6 +5751,16 @@ def final_batch_save_reel(
 ):
     user = get_current_user(request, session)
 
+    phase = session.get(FinalInspectionPhase, phase_id)
+    if not phase or (phase.batch_no or "").strip() != (batch_no or "").strip():
+        raise HTTPException(404, "Final inspection phase not found")
+
+    if (phase.status or "").upper() != "DRAFT":
+        return RedirectResponse(
+            f"/final/batch/{batch_no}?error=Only draft phases can be edited.",
+            status_code=303,
+        )
+
     _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
     if not cover:
         raise HTTPException(404, "Cover run not found for this batch")
@@ -5661,18 +5769,26 @@ def final_batch_save_reel(
     reel_len = float(reel_length_m or 0.0)
 
     if reel_len <= 0:
-        return RedirectResponse(f"/final/batch/{batch_no}?error=Reel length must be greater than zero.", status_code=303)
-
-    next_total = float(summary["inspected_total_m"] or 0.0) + reel_len
-    allowed = float(summary["expected_after_burst_m"] or 0.0)
-
-    if next_total > allowed + 0.0001:
         return RedirectResponse(
-            f"/final/batch/{batch_no}?error=Total final inspected reels cannot exceed available usable length ({allowed:.1f} m after burst deduction).",
+            f"/final/batch/{batch_no}?error=Reel length must be greater than zero.",
             status_code=303,
         )
 
+    # before final cover closure/confirmation, allow partial dispatch even if over current measured length
+    produced_confirmed = float(getattr(cover, "confirmed_total_length_m", 0.0) or 0.0)
+    expected_after_burst = float(summary["expected_after_burst_m"] or 0.0)
+
+    if produced_confirmed > 0:
+        # hard limit only once cover produced length was confirmed
+        current_all = float(summary["all_reels_total_m"] or 0.0)
+        if current_all + reel_len > expected_after_burst + 0.0001:
+            return RedirectResponse(
+                f"/final/batch/{batch_no}?error=Total inspected reels exceed confirmed available usable length ({expected_after_burst:.1f} m after burst deduction).",
+                status_code=303,
+            )
+
     reel = FinalInspectionReel(
+        phase_id=phase.id,
         batch_no=(batch_no or "").strip(),
         linked_cover_run_id=cover.id,
         reel_no=(reel_no or "").strip(),
@@ -5693,16 +5809,126 @@ def final_batch_save_reel(
     return RedirectResponse(f"/final/batch/{batch_no}", status_code=303)
 
 
-@app.post("/final/batch/{batch_no}/delete/{reel_id}")
-def final_batch_delete_reel(batch_no: str, reel_id: int, request: Request, session: Session = Depends(get_session)):
+@app.post("/final/batch/{batch_no}/phase/{phase_id}/delete-reel/{reel_id}")
+def final_batch_delete_reel(batch_no: str, phase_id: int, reel_id: int, request: Request, session: Session = Depends(get_session)):
     get_current_user(request, session)
 
+    phase = session.get(FinalInspectionPhase, phase_id)
+    if not phase or (phase.batch_no or "").strip() != (batch_no or "").strip():
+        raise HTTPException(404, "Final inspection phase not found")
+
+    if (phase.status or "").upper() != "DRAFT":
+        return RedirectResponse(
+            f"/final/batch/{batch_no}?error=Only draft phases can be edited.",
+            status_code=303,
+        )
+
     reel = session.get(FinalInspectionReel, reel_id)
-    if not reel or (reel.batch_no or "").strip() != (batch_no or "").strip():
+    if not reel or reel.phase_id != phase_id:
         raise HTTPException(404, "Reel not found")
 
     session.delete(reel)
     session.commit()
+    return RedirectResponse(f"/final/batch/{batch_no}", status_code=303)
+
+
+@app.post("/final/batch/{batch_no}/phase/{phase_id}/submit")
+def final_submit_phase(batch_no: str, phase_id: int, request: Request, session: Session = Depends(get_session)):
+    get_current_user(request, session)
+
+    phase = session.get(FinalInspectionPhase, phase_id)
+    if not phase or (phase.batch_no or "").strip() != (batch_no or "").strip():
+        raise HTTPException(404, "Final inspection phase not found")
+
+    if (phase.status or "").upper() != "DRAFT":
+        return RedirectResponse(
+            f"/final/batch/{batch_no}?error=Only draft phases can be submitted.",
+            status_code=303,
+        )
+
+    reels = session.exec(
+        select(FinalInspectionReel).where(FinalInspectionReel.phase_id == phase.id)
+    ).all()
+    if not reels:
+        return RedirectResponse(
+            f"/final/batch/{batch_no}?error=Add at least one reel before submit.",
+            status_code=303,
+        )
+
+    phase.status = "PENDING_APPROVAL"
+    phase.submitted_at = datetime.utcnow()
+    session.add(phase)
+    session.commit()
+
+    return RedirectResponse(f"/final/batch/{batch_no}", status_code=303)
+
+
+@app.post("/final/batch/{batch_no}/phase/{phase_id}/approve")
+def final_approve_phase(batch_no: str, phase_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    if not _can_final_approve(user):
+        raise HTTPException(403, "Manager only")
+
+    phase = session.get(FinalInspectionPhase, phase_id)
+    if not phase or (phase.batch_no or "").strip() != (batch_no or "").strip():
+        raise HTTPException(404, "Final inspection phase not found")
+
+    if (phase.status or "").upper() != "PENDING_APPROVAL":
+        return RedirectResponse(
+            f"/final/batch/{batch_no}?error=Only pending phases can be approved.",
+            status_code=303,
+        )
+
+    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
+    if not cover:
+        raise HTTPException(404, "Cover run not found for this batch")
+
+    summary = _build_final_batch_summary(session, cover)
+    produced_confirmed = float(getattr(cover, "confirmed_total_length_m", 0.0) or 0.0)
+
+    if produced_confirmed > 0:
+        expected_after_burst = float(summary["expected_after_burst_m"] or 0.0)
+
+        already_approved = 0.0
+        for row in summary["phases"]:
+            p = row["phase"]
+            if p.id != phase.id and (p.status or "").upper() == "APPROVED":
+                already_approved += float(row["phase_total_m"] or 0.0)
+
+        this_phase_total = _final_phase_total_length_m(session, phase.id)
+        if already_approved + this_phase_total > expected_after_burst + 0.0001:
+            return RedirectResponse(
+                f"/final/batch/{batch_no}?error=Approving this phase would exceed confirmed usable length ({expected_after_burst:.1f} m).",
+                status_code=303,
+            )
+
+    phase.status = "APPROVED"
+    phase.approved_at = datetime.utcnow()
+    phase.approved_by_user_id = getattr(user, "id", None)
+    phase.approved_by_user_name = (getattr(user, "display_name", "") or getattr(user, "username", "") or "").strip()
+    session.add(phase)
+    session.commit()
+
+    return RedirectResponse(f"/final/batch/{batch_no}", status_code=303)
+
+
+@app.post("/final/batch/{batch_no}/phase/{phase_id}/reopen")
+def final_reopen_phase(batch_no: str, phase_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    if not _can_final_approve(user):
+        raise HTTPException(403, "Manager only")
+
+    phase = session.get(FinalInspectionPhase, phase_id)
+    if not phase or (phase.batch_no or "").strip() != (batch_no or "").strip():
+        raise HTTPException(404, "Final inspection phase not found")
+
+    phase.status = "DRAFT"
+    phase.approved_at = None
+    phase.approved_by_user_id = None
+    phase.approved_by_user_name = ""
+    session.add(phase)
+    session.commit()
+
     return RedirectResponse(f"/final/batch/{batch_no}", status_code=303)
 
 
@@ -5738,6 +5964,207 @@ def final_batch_save_note(
     session.commit()
 
     return RedirectResponse(f"/final/batch/{batch_no}", status_code=303)
+
+
+@app.get("/final/batch/{batch_no}/phase/{phase_id}/pdf")
+def final_phase_pdf(batch_no: str, phase_id: int, session: Session = Depends(get_session)):
+    phase = session.get(FinalInspectionPhase, phase_id)
+    if not phase or (phase.batch_no or "").strip() != (batch_no or "").strip():
+        raise HTTPException(404, "Final inspection phase not found")
+
+    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
+    if not cover:
+        raise HTTPException(404, "Cover run not found for this batch")
+
+    reels = session.exec(
+        select(FinalInspectionReel)
+        .where(FinalInspectionReel.phase_id == phase.id)
+        .order_by(FinalInspectionReel.created_at.asc(), FinalInspectionReel.id.asc())
+    ).all()
+
+    batch_summary = _build_final_batch_summary(session, cover)
+    phase_total = sum(float(r.reel_length_m or 0.0) for r in reels)
+
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=12*mm, bottomMargin=12*mm)
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle("title", parent=styles["Heading1"], fontName="Helvetica-Bold", fontSize=16, leading=20, spaceAfter=8)
+    body_style = ParagraphStyle("body", parent=styles["BodyText"], fontName="Helvetica", fontSize=9, leading=12)
+    section_style = ParagraphStyle("sec", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=10, leading=12, spaceBefore=8, spaceAfter=6)
+
+    story = []
+    story.append(Paragraph("Final Inspection Certificate", title_style))
+    story.append(Paragraph(f"Batch: <b>{batch_no}</b>", body_style))
+    story.append(Paragraph(f"Phase: <b>{phase.title or ('Phase ' + str(phase.phase_no))}</b>", body_style))
+    story.append(Paragraph(f"Client: {batch_summary['client_name'] or '-'}", body_style))
+    story.append(Paragraph(f"PO: {batch_summary['client_po'] or '-'}", body_style))
+    story.append(Paragraph(f"Specification: {batch_summary['pipe_specification'] or '-'}", body_style))
+    story.append(Paragraph(f"No. of Reels: {len(reels)}", body_style))
+    story.append(Paragraph(f"Phase Total Length: {phase_total:.1f} m", body_style))
+
+    if (phase.status or "").upper() == "APPROVED" and phase.approved_by_user_name and phase.approved_at:
+        story.append(Paragraph(f"Digitally signed by: {phase.approved_by_user_name}", body_style))
+        story.append(Paragraph(f"Date/Time: {format_oman_dt(phase.approved_at)} (Oman)", body_style))
+
+    story.append(Spacer(1, 4 * mm))
+    story.append(Paragraph("Reel List", section_style))
+
+    rows = [[
+        "ID", "Reel No", "Length", "OD", "Liner", "Reinf", "Cover", "Secured", "Condition"
+    ]]
+    for r in reels:
+        rows.append([
+            f"#{r.id}",
+            r.reel_no or "-",
+            f"{float(r.reel_length_m or 0.0):.1f}",
+            f"{float(r.od_mm or 0.0):.2f}",
+            f"{float(r.liner_thickness_mm or 0.0):.2f}",
+            f"{float(r.reinforcement_thickness_mm or 0.0):.2f}",
+            f"{float(r.cover_thickness_mm or 0.0):.2f}",
+            "YES" if r.secured_ok else "NO",
+            r.condition_status or "-",
+        ])
+
+    if len(rows) == 1:
+        rows.append(["-", "-", "-", "-", "-", "-", "-", "-", "-"])
+
+    tbl = Table(rows, colWidths=[12*mm, 24*mm, 18*mm, 15*mm, 15*mm, 15*mm, 15*mm, 18*mm, 24*mm], repeatRows=1)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#dbeafe")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#cbd5e1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(tbl)
+
+    doc.build(story)
+
+    pdf_bytes = buf.getvalue()
+    filename = f"final_phase_{batch_no}_p{phase.phase_no}.pdf"
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename=\"{filename}\"'},
+    )
+
+
+@app.get("/final/batch/{batch_no}/pdf")
+def final_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
+    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
+    if not cover:
+        raise HTTPException(404, "Cover run not found for this batch")
+
+    summary = _build_final_batch_summary(session, cover)
+
+    from io import BytesIO
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=12*mm, bottomMargin=12*mm)
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle("title", parent=styles["Heading1"], fontName="Helvetica-Bold", fontSize=16, leading=20, spaceAfter=8)
+    body_style = ParagraphStyle("body", parent=styles["BodyText"], fontName="Helvetica", fontSize=9, leading=12)
+    section_style = ParagraphStyle("sec", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=10, leading=12, spaceBefore=8, spaceAfter=6)
+
+    story = []
+    story.append(Paragraph("Final Inspection Full Batch Summary", title_style))
+    story.append(Paragraph(f"Batch: <b>{summary['batch_no']}</b>", body_style))
+    story.append(Paragraph(f"Client: {summary['client_name'] or '-'}", body_style))
+    story.append(Paragraph(f"PO: {summary['client_po'] or '-'}", body_style))
+    story.append(Paragraph(f"Specification: {summary['pipe_specification'] or '-'}", body_style))
+    story.append(Spacer(1, 4 * mm))
+
+    batch_rows = [
+        ["Produced Length", f"{float(summary['produced_length_m'] or 0.0):.1f} m"],
+        ["Burst Used", f"{float(summary['burst_used_m'] or 0.0):.1f} m"],
+        ["Expected After Burst", f"{float(summary['expected_after_burst_m'] or 0.0):.1f} m"],
+        ["Approved Total", f"{float(summary['approved_total_m'] or 0.0):.1f} m"],
+        ["All Phase Reel Total", f"{float(summary['all_reels_total_m'] or 0.0):.1f} m"],
+        ["Remaining vs Confirmed", f"{float(summary['remaining_vs_confirmed_m'] or 0.0):.1f} m"],
+    ]
+    batch_tbl = Table(batch_rows, colWidths=[65*mm, 45*mm])
+    batch_tbl.setStyle(TableStyle([
+        ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#cbd5e1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(batch_tbl)
+    story.append(Spacer(1, 5 * mm))
+
+    story.append(Paragraph("Phase Summary", section_style))
+    phase_rows = [["Phase", "Status", "Reels", "Length (m)", "Approved By", "Approved At"]]
+    for row in summary["phases"]:
+        p = row["phase"]
+        phase_rows.append([
+            p.title or f"Phase {p.phase_no}",
+            p.status or "-",
+            str(row["reel_count"]),
+            f"{float(row['phase_total_m'] or 0.0):.1f}",
+            p.approved_by_user_name or "-",
+            format_oman_dt(p.approved_at) if p.approved_at else "-",
+        ])
+
+    if len(phase_rows) == 1:
+        phase_rows.append(["-", "-", "-", "-", "-", "-"])
+
+    phase_tbl = Table(phase_rows, colWidths=[28*mm, 28*mm, 18*mm, 22*mm, 45*mm, 35*mm], repeatRows=1)
+    phase_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#cbd5e1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(phase_tbl)
+    story.append(Spacer(1, 5 * mm))
+
+    story.append(Paragraph("Loss / Justification Note", section_style))
+    story.append(Paragraph(
+        f"Auto Reason: Burst test consumption: {float(summary['burst_used_m'] or 0.0):.1f} m",
+        body_style
+    ))
+    story.append(Spacer(1, 2 * mm))
+    story.append(Paragraph(
+        summary["batch_note"].extra_loss_note if summary["batch_note"] and summary["batch_note"].extra_loss_note else "No additional loss note provided.",
+        body_style
+    ))
+
+    doc.build(story)
+
+    pdf_bytes = buf.getvalue()
+    filename = f"final_batch_{batch_no}.pdf"
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename=\"{filename}\"'},
+    )
 
 
 @app.get("/hydro/batch/{batch_no}", response_class=HTMLResponse)
