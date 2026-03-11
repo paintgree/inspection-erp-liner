@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block content %}
+
+<a href="/final" class="burst-back-btn">← Back to Final Inspection</a>
+
+<div class="page-head burst-head">
+  <h2>Final Inspection • Batch {{ summary.batch_no }}</h2>
+  <div class="muted">{{ summary.client_name or '-' }}{% if summary.pipe_specification %} • {{ summary.pipe_specification }}{% endif %}</div>
+</div>
+
+{% if error %}
+  <div class="card" style="border-color:#fecaca; background:#fef2f2; color:#991b1b;">
+    {{ error }}
+  </div>
+{% endif %}
+
+<div class="grid2">
+  <div class="card">
+    <h3 style="margin-top:0">Batch Summary</h3>
+    <div class="kv"><span>Produced Length</span><b>{{ '%.1f'|format(summary.produced_length_m) }} m</b></div>
+    <div class="kv"><span>Burst Used</span><b>{{ '%.1f'|format(summary.burst_used_m) }} m</b></div>
+    <div class="kv"><span>Expected After Burst</span><b>{{ '%.1f'|format(summary.expected_after_burst_m) }} m</b></div>
+    <div class="kv"><span>Final Inspected / Spooled</span><b>{{ '%.1f'|format(summary.inspected_total_m) }} m</b></div>
+    <div class="kv"><span>Remaining Available</span><b>{{ '%.1f'|format(summary.remaining_for_final_m) }} m</b></div>
+    <div class="kv"><span>Auto Reason</span><b>Burst test consumption: {{ '%.1f'|format(summary.burst_used_m) }} m</b></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">Additional Loss / Shortage Note</h3>
+    <form method="post" action="/final/batch/{{ summary.batch_no }}/note">
+      <label>Explain any extra loss not covered by burst testing
+        <textarea class="input" name="extra_loss_note" rows="5">{{ summary.batch_note.extra_loss_note if summary.batch_note else '' }}</textarea>
+      </label>
+
+      <div class="toolbar mt">
+        <button class="btn btn-primary" type="submit">Save Note</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card mt">
+  <h3 style="margin-top:0">Add Reel</h3>
+
+  <form method="post" action="/final/batch/{{ summary.batch_no }}/save">
+    <div class="grid2">
+      <label>Reel Number
+        <input class="input" type="text" name="reel_no" required>
+      </label>
+
+      <label>Reel Length (m)
+        <input class="input" type="number" step="0.01" name="reel_length_m" required>
+      </label>
+
+      <label>OD (mm)
+        <input class="input" type="number" step="0.01" name="od_mm" value="0">
+      </label>
+
+      <label>Wall Thickness (mm)
+        <input class="input" type="number" step="0.01" name="wall_thickness_mm" value="0">
+      </label>
+
+      <label>Condition
+        <select class="input" name="condition_status">
+          <option value="GOOD">GOOD</option>
+          <option value="HOLD">HOLD</option>
+          <option value="DAMAGED">DAMAGED</option>
+        </select>
+      </label>
+
+      <label style="display:flex; gap:10px; align-items:center; margin-top:24px;">
+        <input type="checkbox" name="secured_ok" value="1">
+        Reel secured properly
+      </label>
+    </div>
+
+    <label>Notes
+      <textarea class="input" name="notes" rows="3"></textarea>
+    </label>
+
+    <div class="toolbar mt">
+      <button class="btn btn-primary" type="submit">Save Reel</button>
+    </div>
+  </form>
+</div>
+
+<div class="card mt">
+  <h3 style="margin-top:0">Final Inspection Reels</h3>
+
+  <div class="tablewrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Reel No</th>
+          <th>Length</th>
+          <th>OD</th>
+          <th>Wall</th>
+          <th>Secured</th>
+          <th>Condition</th>
+          <th>Notes</th>
+          <th>Created By</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in summary.reels %}
+          <tr>
+            <td>#{{ r.id }}</td>
+            <td>{{ r.reel_no }}</td>
+            <td>{{ '%.1f'|format(r.reel_length_m) }} m</td>
+            <td>{{ '%.2f'|format(r.od_mm or 0) }}</td>
+            <td>{{ '%.2f'|format(r.wall_thickness_mm or 0) }}</td>
+            <td>{{ 'YES' if r.secured_ok else 'NO' }}</td>
+            <td>{{ r.condition_status }}</td>
+            <td>{{ r.notes or '-' }}</td>
+            <td>{{ r.created_by_user_name or '-' }}</td>
+            <td>
+              <form method="post" action="/final/batch/{{ summary.batch_no }}/delete/{{ r.id }}" onsubmit="return confirm('Delete this reel?');">
+                <button class="btn btn-sm" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="10" class="muted">No reels saved yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
