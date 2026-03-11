@@ -1797,6 +1797,112 @@ Burst search + filters
   color:#111827 !important;
 }
 
+/* Hydro mobile cards - professional layout */
+.hydro-mobile-list{
+  display:none;
+}
+
+.hydro-mobile-card{
+  border:1px solid #dbe2ea;
+  border-radius:22px;
+  background:#fff;
+  padding:16px;
+  margin-bottom:16px;
+  box-shadow:0 2px 10px rgba(15,23,42,.04);
+}
+
+.hydro-mobile-card-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  flex-wrap:wrap;
+  margin-bottom:14px;
+}
+
+.hydro-mobile-title{
+  font-size:18px;
+  font-weight:800;
+  line-height:1.2;
+  color:#0f172a;
+}
+
+.hydro-mobile-subtitle{
+  margin-top:4px;
+  font-size:13px;
+  color:#64748b;
+}
+
+.hydro-mobile-status{
+  font-size:12px;
+  font-weight:700;
+}
+
+.hydro-mobile-fields{
+  display:grid;
+  gap:10px;
+}
+
+.hydro-mobile-row{
+  display:grid;
+  grid-template-columns:92px 1fr;
+  gap:10px;
+  align-items:start;
+}
+
+.hydro-mobile-label{
+  font-size:13px;
+  font-weight:700;
+  color:#64748b;
+}
+
+.hydro-mobile-value{
+  font-size:15px;
+  font-weight:500;
+  color:#0f172a;
+  min-width:0;
+}
+
+.hydro-mobile-signature{
+  margin-top:14px;
+  padding-top:12px;
+  border-top:1px dashed #dbe2ea;
+  font-size:14px;
+  line-height:1.5;
+  color:#475569;
+}
+
+.hydro-mobile-signature-title{
+  font-size:13px;
+  font-weight:800;
+  color:#0f172a;
+  margin-bottom:6px;
+}
+
+.hydro-mobile-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:14px;
+}
+
+.hydro-mobile-actions .btn,
+.hydro-mobile-actions button.btn{
+  color:#111827 !important;
+  font-weight:700;
+  min-width:78px;
+  justify-content:center;
+}
+
+@media (max-width: 767px){
+  .hydro-tablewrap{
+    display:none !important;
+  }
+
+  .hydro-mobile-list{
+    display:block;
+  }
+}
 
 
 
