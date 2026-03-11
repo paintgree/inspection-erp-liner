@@ -338,7 +338,7 @@
           <div><strong>Holding Time:</strong> {{ r.pressure_holding_time_min or r.hold_time_s or '-' }}</div>
           <div><strong>Result:</strong> {{ r.test_result or '—' }}</div>
           <div><strong>QA/QC:</strong> {{ r.assigned_qaqc_display_name or r.qaqc_name or '-' }}</div>
-          <div><strong>Date:</strong> {{ r.tested_at }}</div>
+          <div><strong>Date:</strong> {{ format_oman_dt(r.tested_at) if r.tested_at else '-' }}</div>
         </div>
   
         {% if (r.approval_status or '') == 'APPROVED' and r.approved_by_user_name and r.approved_at %}
