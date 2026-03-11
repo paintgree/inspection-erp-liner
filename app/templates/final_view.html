@@ -4,8 +4,14 @@
 <a href="/final" class="burst-back-btn">← Back to Final Inspection</a>
 
 <div class="page-head burst-head">
-  <h2>Final Inspection • Batch {{ summary.batch_no }}</h2>
-  <div class="muted">{{ summary.client_name or '-' }}{% if summary.pipe_specification %} • {{ summary.pipe_specification }}{% endif %}</div>
+  <div>
+    <h2>Final Inspection • Batch {{ summary.batch_no }}</h2>
+    <div class="muted">{{ summary.client_name or '-' }}{% if summary.pipe_specification %} • {{ summary.pipe_specification }}{% endif %}</div>
+  </div>
+
+  <div class="toolbar">
+    <a class="btn" href="/final/batch/{{ summary.batch_no }}/pdf" target="_blank">Export Full Batch PDF</a>
+  </div>
 </div>
 
 {% if error %}
@@ -20,9 +26,16 @@
     <div class="kv"><span>Produced Length</span><b>{{ '%.1f'|format(summary.produced_length_m) }} m</b></div>
     <div class="kv"><span>Burst Used</span><b>{{ '%.1f'|format(summary.burst_used_m) }} m</b></div>
     <div class="kv"><span>Expected After Burst</span><b>{{ '%.1f'|format(summary.expected_after_burst_m) }} m</b></div>
-    <div class="kv"><span>Final Inspected / Spooled</span><b>{{ '%.1f'|format(summary.inspected_total_m) }} m</b></div>
-    <div class="kv"><span>Remaining Available</span><b>{{ '%.1f'|format(summary.remaining_for_final_m) }} m</b></div>
+    <div class="kv"><span>Approved Total</span><b>{{ '%.1f'|format(summary.approved_total_m) }} m</b></div>
+    <div class="kv"><span>All Phase Total</span><b>{{ '%.1f'|format(summary.all_reels_total_m) }} m</b></div>
+    <div class="kv"><span>Remaining vs Confirmed</span><b>{{ '%.1f'|format(summary.remaining_vs_confirmed_m) }} m</b></div>
     <div class="kv"><span>Auto Reason</span><b>Burst test consumption: {{ '%.1f'|format(summary.burst_used_m) }} m</b></div>
+
+    {% if summary.pending_overrun_m > 0 %}
+      <div class="mt" style="padding:10px 12px; border:1px solid #fde68a; background:#fffbeb; border-radius:12px; color:#92400e;">
+        Warning: Current reel total across phases exceeds confirmed usable length by {{ '%.1f'|format(summary.pending_overrun_m) }} m.
+      </div>
+    {% endif %}
   </div>
 
   <div class="card">
@@ -40,107 +53,177 @@
 </div>
 
 <div class="card mt">
-  <h3 style="margin-top:0">Add Reel</h3>
+  <div class="toolbar" style="justify-content:space-between; align-items:center;">
+    <h3 style="margin:0;">Dispatch Phases</h3>
 
-  <form method="post" action="/final/batch/{{ summary.batch_no }}/save">
-    <div class="grid2">
-      <label>Reel Number
-        <input class="input" type="text" name="reel_no" required>
-      </label>
-
-      <label>Reel Length (m)
-        <input class="input" type="number" step="0.01" name="reel_length_m" required>
-      </label>
-
-      <label>OD (mm)
-        <input class="input" type="number" step="0.01" name="od_mm" value="0">
-      </label>
-
-      <label>Liner Thickness (mm)
-        <input class="input" type="number" step="0.01" name="liner_thickness_mm" value="0">
-      </label>
-
-      <label>Reinforcement Thickness (mm)
-        <input class="input" type="number" step="0.01" name="reinforcement_thickness_mm" value="0">
-      </label>
-
-      <label>Cover Thickness (mm)
-        <input class="input" type="number" step="0.01" name="cover_thickness_mm" value="0">
-      </label>
-
-      <label>Condition
-        <select class="input" name="condition_status">
-          <option value="GOOD">GOOD</option>
-          <option value="HOLD">HOLD</option>
-          <option value="DAMAGED">DAMAGED</option>
-        </select>
-      </label>
-
-      <label style="display:flex; gap:10px; align-items:center; margin-top:24px;">
-        <input type="checkbox" name="secured_ok" value="1">
-        Reel secured properly
-      </label>
-    </div>
-
-    <label>Notes
-      <textarea class="input" name="notes" rows="3"></textarea>
-    </label>
-
-    <div class="toolbar mt">
-      <button class="btn btn-primary" type="submit">Save Reel</button>
-    </div>
-  </form>
-</div>
-
-<div class="card mt">
-  <h3 style="margin-top:0">Final Inspection Reels</h3>
-
-  <div class="tablewrap">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>Reel No</th>
-          <th>Length</th>
-          <th>OD</th>
-          <th>Liner Thk</th>
-          <th>Reinf Thk</th>
-          <th>Cover Thk</th>
-          <th>Secured</th>
-          <th>Condition</th>
-          <th>Notes</th>
-          <th>Created By</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in summary.reels %}
-          <tr>
-            <td>#{{ r.id }}</td>
-            <td>{{ r.reel_no }}</td>
-            <td>{{ '%.1f'|format(r.reel_length_m) }} m</td>
-            <td>{{ '%.2f'|format(r.od_mm or 0) }}</td>
-            <td>{{ '%.2f'|format(r.liner_thickness_mm or 0) }}</td>
-            <td>{{ '%.2f'|format(r.reinforcement_thickness_mm or 0) }}</td>
-            <td>{{ '%.2f'|format(r.cover_thickness_mm or 0) }}</td>
-            <td>{{ 'YES' if r.secured_ok else 'NO' }}</td>
-            <td>{{ r.condition_status }}</td>
-            <td>{{ r.notes or '-' }}</td>
-            <td>{{ r.created_by_user_name or '-' }}</td>
-            <td>
-              <form method="post" action="/final/batch/{{ summary.batch_no }}/delete/{{ r.id }}" onsubmit="return confirm('Delete this reel?');">
-                <button class="btn btn-sm" type="submit">Delete</button>
-              </form>
-            </td>
-          </tr>
-        {% else %}
-          <tr>
-            <td colspan="12" class="muted">No reels saved yet.</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    {% if not open_phase %}
+      <form method="post" action="/final/batch/{{ summary.batch_no }}/phase/new">
+        <button class="btn btn-primary" type="submit">+ New Phase</button>
+      </form>
+    {% else %}
+      <span class="muted">Open draft: {{ open_phase.title }}</span>
+    {% endif %}
   </div>
 </div>
+
+{% if open_phase %}
+  <div class="card mt">
+    <h3 style="margin-top:0">Add Reel to {{ open_phase.title }}</h3>
+
+    <form method="post" action="/final/batch/{{ summary.batch_no }}/phase/{{ open_phase.id }}/save-reel">
+      <div class="grid2">
+        <label>Reel Number
+          <input class="input" type="text" name="reel_no" required>
+        </label>
+
+        <label>Reel Length (m)
+          <input class="input" type="number" step="0.01" name="reel_length_m" required>
+        </label>
+
+        <label>OD (mm)
+          <input class="input" type="number" step="0.01" name="od_mm" value="0">
+        </label>
+
+        <label>Liner Thickness (mm)
+          <input class="input" type="number" step="0.01" name="liner_thickness_mm" value="0">
+        </label>
+
+        <label>Reinforcement Thickness (mm)
+          <input class="input" type="number" step="0.01" name="reinforcement_thickness_mm" value="0">
+        </label>
+
+        <label>Cover Thickness (mm)
+          <input class="input" type="number" step="0.01" name="cover_thickness_mm" value="0">
+        </label>
+
+        <label>Condition
+          <select class="input" name="condition_status">
+            <option value="GOOD">GOOD</option>
+            <option value="HOLD">HOLD</option>
+            <option value="DAMAGED">DAMAGED</option>
+          </select>
+        </label>
+
+        <label class="final-secured-check">
+          <input type="checkbox" name="secured_ok" value="1">
+          <span>Reel secured properly</span>
+        </label>
+      </div>
+
+      <label>Notes
+        <textarea class="input" name="notes" rows="3"></textarea>
+      </label>
+
+      <div class="toolbar mt">
+        <button class="btn btn-primary" type="submit">Save Reel</button>
+      </div>
+    </form>
+  </div>
+{% endif %}
+
+{% for row in summary.phases %}
+  {% set p = row.phase %}
+  <div class="card mt">
+    <div class="toolbar" style="justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+      <div>
+        <h3 style="margin:0;">{{ p.title or ('Phase ' ~ p.phase_no) }}</h3>
+        <div class="muted">
+          Reels: {{ row.reel_count }} • Length: {{ '%.1f'|format(row.phase_total_m) }} m
+        </div>
+      </div>
+
+      <div class="toolbar">
+        <span class="burst-status {% if (p.status or '') == 'APPROVED' %}badge-editable{% elif (p.status or '') == 'PENDING_APPROVAL' %}badge-pending{% else %}badge-published{% endif %}">
+          {{ p.status or 'DRAFT' }}
+        </span>
+        <a class="btn btn-sm" href="/final/batch/{{ summary.batch_no }}/phase/{{ p.id }}/pdf" target="_blank">Export Phase PDF</a>
+      </div>
+    </div>
+
+    {% if (p.status or '') == 'APPROVED' and p.approved_by_user_name and p.approved_at %}
+      <div class="hydro-signature-note" style="margin:10px 0 14px;">
+        <strong>Digitally signed by:</strong> {{ p.approved_by_user_name }}<br>
+        <strong>Date/Time:</strong> {{ format_oman_dt(p.approved_at) }} (Oman)
+      </div>
+    {% endif %}
+
+    <div class="tablewrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Reel No</th>
+            <th>Length</th>
+            <th>OD</th>
+            <th>Liner</th>
+            <th>Reinf</th>
+            <th>Cover</th>
+            <th>Secured</th>
+            <th>Condition</th>
+            <th>Notes</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in row.reels %}
+            <tr>
+              <td>#{{ r.id }}</td>
+              <td>{{ r.reel_no }}</td>
+              <td>{{ '%.1f'|format(r.reel_length_m) }} m</td>
+              <td>{{ '%.2f'|format(r.od_mm or 0) }}</td>
+              <td>{{ '%.2f'|format(r.liner_thickness_mm or 0) }}</td>
+              <td>{{ '%.2f'|format(r.reinforcement_thickness_mm or 0) }}</td>
+              <td>{{ '%.2f'|format(r.cover_thickness_mm or 0) }}</td>
+              <td>{{ 'YES' if r.secured_ok else 'NO' }}</td>
+              <td>{{ r.condition_status }}</td>
+              <td>{{ r.notes or '-' }}</td>
+              <td>
+                {% if (p.status or '') == 'DRAFT' %}
+                  <form method="post" action="/final/batch/{{ summary.batch_no }}/phase/{{ p.id }}/delete-reel/{{ r.id }}" onsubmit="return confirm('Delete this reel?');">
+                    <button class="btn btn-sm" type="submit">Delete</button>
+                  </form>
+                {% else %}
+                  <span class="muted">Locked</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="11" class="muted">No reels in this phase yet.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="toolbar mt">
+      {% if (p.status or '') == 'DRAFT' %}
+        <form method="post" action="/final/batch/{{ summary.batch_no }}/phase/{{ p.id }}/submit">
+          <button class="btn btn-primary" type="submit">Submit for Approval</button>
+        </form>
+      {% elif (p.status or '') == 'PENDING_APPROVAL' %}
+        {% if can_final_approve %}
+          <form method="post" action="/final/batch/{{ summary.batch_no }}/phase/{{ p.id }}/approve">
+            <button class="btn btn-primary" type="submit">Approve</button>
+          </form>
+        {% else %}
+          <span class="muted">Waiting for manager approval</span>
+        {% endif %}
+      {% elif (p.status or '') == 'APPROVED' %}
+        {% if can_final_approve %}
+          <form method="post" action="/final/batch/{{ summary.batch_no }}/phase/{{ p.id }}/reopen">
+            <button class="btn" type="submit">Reopen Phase</button>
+          </form>
+        {% else %}
+          <span class="muted">Approved and locked</span>
+        {% endif %}
+      {% endif %}
+    </div>
+  </div>
+{% else %}
+  <div class="card mt">
+    <div class="muted">No final inspection phases yet.</div>
+  </div>
+{% endfor %}
 
 {% endblock %}
