@@ -562,6 +562,10 @@ class FinalInspectionReel(SQLModel, table=True):
     reel_length_m: float = Field(default=0.0)
 
     od_mm: float = Field(default=0.0)
+
+    # legacy compatibility column kept for old DB rows / schema
+    wall_thickness_mm: float = Field(default=0.0)
+
     liner_thickness_mm: float = Field(default=0.0)
     reinforcement_thickness_mm: float = Field(default=0.0)
     cover_thickness_mm: float = Field(default=0.0)
