@@ -365,6 +365,12 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE finalinspectionreel ADD COLUMN cover_thickness_mm REAL DEFAULT 0",
     )
 
+    _add_column_if_missing(
+        "finalinspectionreel",
+        "wall_thickness_mm",
+        "ALTER TABLE finalinspectionreel ADD COLUMN IF NOT EXISTS wall_thickness_mm DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE finalinspectionreel ADD COLUMN wall_thickness_mm REAL DEFAULT 0",
+    )
 
 def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
