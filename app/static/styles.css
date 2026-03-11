@@ -92,7 +92,7 @@ button.btn{
 }
 
 .btn-primary{
-  -webkit-text-fill-color: #fff;
+  -webkit-text-fill-color: #111827;
 }
 
 /* Modern browsers */
@@ -1793,6 +1793,7 @@ Burst search + filters
     grid-template-columns:1fr;
   }
 }
+
 
 
 
