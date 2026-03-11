@@ -559,6 +559,9 @@ class FinalInspectionReel(SQLModel, table=True):
     linked_cover_run_id: Optional[int] = Field(default=None, foreign_key="productionrun.id", index=True)
 
     reel_no: str = Field(default="", index=True)
+
+    start_length_m: float = Field(default=0.0)
+    end_length_m: float = Field(default=0.0)
     reel_length_m: float = Field(default=0.0)
 
     od_mm: float = Field(default=0.0)
