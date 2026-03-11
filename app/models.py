@@ -539,7 +539,10 @@ class FinalInspectionReel(SQLModel, table=True):
     reel_length_m: float = Field(default=0.0)
 
     od_mm: float = Field(default=0.0)
-    wall_thickness_mm: float = Field(default=0.0)
+
+    liner_thickness_mm: float = Field(default=0.0)
+    reinforcement_thickness_mm: float = Field(default=0.0)
+    cover_thickness_mm: float = Field(default=0.0)
 
     secured_ok: bool = Field(default=False)
     condition_status: str = Field(default="GOOD")  # GOOD / HOLD / DAMAGED
