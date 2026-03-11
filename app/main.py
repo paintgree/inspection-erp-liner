@@ -1272,7 +1272,7 @@ def fill_hydro_template_docx_bytes(record: HydroTestRecord) -> bytes:
         "BM_REPORT_NO": txt(record.report_no or f"HT-{record.id:04d}"),
         "BM_PIPE_SPEC": txt(record.pipe_specification),
         "BM_REF_STANDARD": txt(record.reference_standard),
-        "BM_BATCH_REF": txt(record.batch_no),
+        "BM_BATCH": txt(record.batch_no),
         "BM_REF_PROC": txt(record.reference_dhtp_procedure),
         "BM_MACHINE": txt(record.machine_model),
         "BM_CALIBRATION": txt(record.calibration_status),
