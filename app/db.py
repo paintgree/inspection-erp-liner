@@ -267,7 +267,19 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE burstattachment ADD COLUMN sample_id INTEGER",
     )
     
-
+    # --- productionrun: confirmed final length before approval ---
+    _add_column_if_missing(
+        "productionrun",
+        "confirmed_total_length_m",
+        "ALTER TABLE productionrun ADD COLUMN IF NOT EXISTS confirmed_total_length_m DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE productionrun ADD COLUMN confirmed_total_length_m REAL DEFAULT 0",
+    )
+    _add_column_if_missing(
+        "productionrun",
+        "confirmed_length_note",
+        "ALTER TABLE productionrun ADD COLUMN IF NOT EXISTS confirmed_length_note TEXT DEFAULT ''",
+        "ALTER TABLE productionrun ADD COLUMN confirmed_length_note TEXT DEFAULT ''",
+    )
 
 
 def create_db_and_tables() -> None:
