@@ -529,9 +529,32 @@ class HydroTestRecord(SQLModel, table=True):
     created_by_user_name: str = Field(default="")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+class FinalInspectionPhase(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    batch_no: str = Field(default="", index=True)
+    linked_cover_run_id: Optional[int] = Field(default=None, foreign_key="productionrun.id", index=True)
+
+    phase_no: int = Field(default=1, index=True)
+    title: str = Field(default="")
+
+    status: str = Field(default="DRAFT", index=True)  # DRAFT / PENDING_APPROVAL / APPROVED
+    submitted_at: Optional[datetime] = Field(default=None)
+    approved_at: Optional[datetime] = Field(default=None)
+    approved_by_user_id: Optional[int] = Field(default=None, index=True)
+    approved_by_user_name: str = Field(default="")
+
+    created_by_user_id: Optional[int] = Field(default=None, index=True)
+    created_by_user_name: str = Field(default="")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+    notes: str = Field(default="")
+
+
 class FinalInspectionReel(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
+    phase_id: int = Field(foreign_key="finalinspectionphase.id", index=True)
     batch_no: str = Field(default="", index=True)
     linked_cover_run_id: Optional[int] = Field(default=None, foreign_key="productionrun.id", index=True)
 
@@ -539,7 +562,6 @@ class FinalInspectionReel(SQLModel, table=True):
     reel_length_m: float = Field(default=0.0)
 
     od_mm: float = Field(default=0.0)
-
     liner_thickness_mm: float = Field(default=0.0)
     reinforcement_thickness_mm: float = Field(default=0.0)
     cover_thickness_mm: float = Field(default=0.0)
@@ -563,7 +585,6 @@ class FinalInspectionBatchNote(SQLModel, table=True):
     updated_by_user_id: Optional[int] = Field(default=None, index=True)
     updated_by_user_name: str = Field(default="")
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-
 
 
 
