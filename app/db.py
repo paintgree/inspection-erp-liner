@@ -280,6 +280,25 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE productionrun ADD COLUMN IF NOT EXISTS confirmed_length_note TEXT DEFAULT ''",
         "ALTER TABLE productionrun ADD COLUMN confirmed_length_note TEXT DEFAULT ''",
     )
+        # --- finalinspectionreel layer thickness fields ---
+    _add_column_if_missing(
+        "finalinspectionreel",
+        "liner_thickness_mm",
+        "ALTER TABLE finalinspectionreel ADD COLUMN IF NOT EXISTS liner_thickness_mm DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE finalinspectionreel ADD COLUMN liner_thickness_mm REAL DEFAULT 0",
+    )
+    _add_column_if_missing(
+        "finalinspectionreel",
+        "reinforcement_thickness_mm",
+        "ALTER TABLE finalinspectionreel ADD COLUMN IF NOT EXISTS reinforcement_thickness_mm DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE finalinspectionreel ADD COLUMN reinforcement_thickness_mm REAL DEFAULT 0",
+    )
+    _add_column_if_missing(
+        "finalinspectionreel",
+        "cover_thickness_mm",
+        "ALTER TABLE finalinspectionreel ADD COLUMN IF NOT EXISTS cover_thickness_mm DOUBLE PRECISION DEFAULT 0",
+        "ALTER TABLE finalinspectionreel ADD COLUMN cover_thickness_mm REAL DEFAULT 0",
+    )
 
 
 def create_db_and_tables() -> None:
