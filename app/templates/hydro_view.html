@@ -320,14 +320,68 @@
   <div class="hydro-mobile-list">
     {% for r in summary.records %}
       <div class="hydro-mobile-card">
-        <strong>{{ r.report_no or ('HT-%04d' % r.id) }}</strong><br>
-        Range: {{ '%.1f'|format(r.start_length_m) }} → {{ '%.1f'|format(r.end_length_m) }} m<br>
-        Length: {{ '%.1f'|format(r.tested_length_m) }} m<br>
-        Pressure: {{ '%.2f'|format(r.hydrotest_pressure_mpa or 0) }} MPa<br>
-        Result: {{ r.test_result or '—' }}<br>
-        Technician: {{ r.technician_name or '-' }}<br>
-        Date: {{ r.tested_at }}
+        <div class="hydro-mobile-card-head">
+          <div>
+            <div style="font-weight:800; font-size:18px;">{{ r.report_no or ('HT-%04d' % r.id) }}</div>
+            <div class="muted">ID: #{{ r.id }}</div>
+          </div>
+  
+          <span class="burst-status {% if (r.approval_status or 'DRAFT') == 'APPROVED' %}badge-editable{% elif (r.approval_status or '') == 'PENDING_APPROVAL' %}badge-pending{% else %}badge-published{% endif %}">
+            {{ hydro_record_status_label(r.approval_status) }}
+          </span>
+        </div>
+  
+        <div class="hydro-mobile-fields">
+          <div><strong>Range:</strong> {{ '%.1f'|format(r.start_length_m) }} → {{ '%.1f'|format(r.end_length_m) }} m</div>
+          <div><strong>Length:</strong> {{ '%.1f'|format(r.tested_length_m) }} m</div>
+          <div><strong>Pressure:</strong> {{ '%.2f'|format(r.hydrotest_pressure_mpa or 0) }} MPa</div>
+          <div><strong>Holding Time:</strong> {{ r.pressure_holding_time_min or r.hold_time_s or '-' }}</div>
+          <div><strong>Result:</strong> {{ r.test_result or '—' }}</div>
+          <div><strong>QA/QC:</strong> {{ r.assigned_qaqc_display_name or r.qaqc_name or '-' }}</div>
+          <div><strong>Date:</strong> {{ r.tested_at }}</div>
+        </div>
+  
+        {% if (r.approval_status or '') == 'APPROVED' and r.approved_by_user_name and r.approved_at %}
+          <div class="hydro-signature-note">
+            <strong>Digitally signed by:</strong> {{ r.approved_by_user_name }}<br>
+            <strong>Date/Time:</strong> {{ format_oman_dt(r.approved_at) }} (Oman)
+          </div>
+        {% elif (r.approval_status or '') == 'PENDING_APPROVAL' %}
+          <div class="hydro-signature-note">
+            Waiting for QA/QC approval
+          </div>
+        {% endif %}
+  
+        <div class="toolbar mt">
+          <a class="btn btn-sm" href="/hydro/record/{{ r.id }}/pdf" target="_blank">PDF</a>
+  
+          {% if (r.approval_status or 'DRAFT') == 'DRAFT' %}
+            <a class="btn btn-sm" href="/hydro/batch/{{ summary.batch_no }}?edit_id={{ r.id }}">Edit</a>
+  
+            <form method="post" action="/hydro/batch/{{ summary.batch_no }}/submit/{{ r.id }}">
+              <button class="btn btn-sm" type="submit">Submit</button>
+            </form>
+  
+            <form method="post" action="/hydro/batch/{{ summary.batch_no }}/delete/{{ r.id }}" onsubmit="return confirm('Delete this hydrotest range?');">
+              <button class="btn btn-sm" type="submit">Delete</button>
+            </form>
+  
+          {% elif (r.approval_status or '') == 'PENDING_APPROVAL' %}
+            {% if can_hydro_approve %}
+              <form method="post" action="/hydro/batch/{{ summary.batch_no }}/approve/{{ r.id }}">
+                <button class="btn btn-sm btn-primary" type="submit">Approve</button>
+              </form>
+            {% else %}
+              <span class="burst-status badge-pending">Pending QA/QC</span>
+            {% endif %}
+  
+          {% else %}
+            <span class="burst-status badge-editable">Approved</span>
+          {% endif %}
+        </div>
       </div>
+    {% else %}
+      <div class="muted">No hydrotest ranges saved yet.</div>
     {% endfor %}
   </div>
 </div>
