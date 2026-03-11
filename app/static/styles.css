@@ -1904,6 +1904,12 @@ Burst search + filters
   }
 }
 
+.toolbar .btn,
+.toolbar button.btn,
+.hydro-mobile-actions .btn,
+.hydro-mobile-actions button.btn{
+  color:#111827 !important;
+}
 
 
 
