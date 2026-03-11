@@ -85,6 +85,8 @@ from .models import (
     BurstAuditLog,
     BurstReportRevision,
     HydroTestRecord,
+    FinalInspectionReel,
+    FinalInspectionBatchNote,
 
 )
 
@@ -2246,7 +2248,16 @@ def get_run_produced_length_m(session: Session, run_id: int) -> float:
     Smart produced length:
     - look at InspectionValue where param_key == 'length_m'
     - return the MAX value recorded for this run
+    - if manager confirmed a larger final actual produced length, use that
     """
+    run = session.get(ProductionRun, run_id)
+    confirmed = 0.0
+    if run:
+        try:
+            confirmed = float(getattr(run, "confirmed_total_length_m", 0.0) or 0.0)
+        except Exception:
+            confirmed = 0.0
+
     q = session.exec(
         select(InspectionValue.value)
         .join(InspectionEntry, InspectionEntry.id == InspectionValue.entry_id)
@@ -2262,7 +2273,8 @@ def get_run_produced_length_m(session: Session, run_id: int) -> float:
         except Exception:
             pass
 
-    return max(vals) if vals else 0.0
+    measured = max(vals) if vals else 0.0
+    return max(measured, confirmed)
 
 def upsert_burst_attachment(
     session: Session,
@@ -2396,9 +2408,91 @@ def _draw_signatures(c, report, y):
     return y
 
 
-# =========================
-# BURST TESTING PAGES
-# =========================
+def _create_run_with_default_params(
+    session: Session,
+    *,
+    process: str,
+    dhtp_batch_no: str,
+    client_name: str,
+    po_number: str,
+    itp_number: str,
+    pipe_specification: str,
+    raw_material_spec: str,
+    total_length_m: float,
+) -> ProductionRun:
+    run = ProductionRun(
+        process=process,
+        dhtp_batch_no=(dhtp_batch_no or "").strip(),
+        client_name=(client_name or "").strip(),
+        po_number=(po_number or "").strip(),
+        itp_number=(itp_number or "").strip(),
+        pipe_specification=(pipe_specification or "").strip(),
+        raw_material_spec=(raw_material_spec or "").strip(),
+        total_length_m=float(total_length_m or 0.0),
+    )
+    session.add(run)
+    session.commit()
+    session.refresh(run)
+
+    for idx, (key, label, unit) in enumerate(PROCESS_PARAMS[process]):
+        session.add(
+            RunParameter(
+                run_id=run.id,
+                param_key=key,
+                label=label,
+                unit=unit,
+                display_order=idx,
+            )
+        )
+    session.commit()
+    return run
+
+
+def _build_final_batch_summary(session: Session, cover_run: ProductionRun) -> dict:
+    batch_no = (cover_run.dhtp_batch_no or "").strip()
+    produced_length_m = float(get_run_produced_length_m(session, cover_run.id) or 0.0)
+
+    burst_ranges = _get_burst_used_ranges(session, batch_no, produced_length_m)
+    burst_used_m = _range_total_length(burst_ranges)
+
+    expected_after_burst_m = max(0.0, produced_length_m - burst_used_m)
+
+    reels = session.exec(
+        select(FinalInspectionReel)
+        .where(FinalInspectionReel.batch_no == batch_no)
+        .order_by(FinalInspectionReel.created_at.desc(), FinalInspectionReel.id.desc())
+    ).all()
+
+    inspected_total_m = 0.0
+    for r in reels:
+        try:
+            inspected_total_m += float(r.reel_length_m or 0.0)
+        except Exception:
+            pass
+
+    remaining_for_final_m = max(0.0, expected_after_burst_m - inspected_total_m)
+    unexplained_loss_m = max(0.0, expected_after_burst_m - inspected_total_m)
+
+    batch_note = session.exec(
+        select(FinalInspectionBatchNote).where(FinalInspectionBatchNote.batch_no == batch_no)
+    ).first()
+
+    return {
+        "batch_no": batch_no,
+        "run": cover_run,
+        "client_name": getattr(cover_run, "client_name", "") or "",
+        "client_po": getattr(cover_run, "po_number", "") or "",
+        "pipe_specification": getattr(cover_run, "pipe_specification", "") or "",
+        "produced_length_m": produced_length_m,
+        "burst_used_m": burst_used_m,
+        "expected_after_burst_m": expected_after_burst_m,
+        "inspected_total_m": inspected_total_m,
+        "remaining_for_final_m": remaining_for_final_m,
+        "unexplained_loss_m": unexplained_loss_m,
+        "reels": reels,
+        "batch_note": batch_note,
+        "burst_ranges": burst_ranges,
+    }
 
 # =========================
 # BURST TESTING ROUTES
@@ -5496,39 +5590,150 @@ def api_hydro_qaqc_users(
     ]
     return JSONResponse(data)
 
-@app.get("/hydro", response_class=HTMLResponse)
-def hydro_dashboard(request: Request, session: Session = Depends(get_session)):
+@app.get("/final", response_class=HTMLResponse)
+def final_dashboard(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
-    cover_runs = get_finished_cover_runs(session)
 
+    cover_runs = get_finished_cover_runs(session)
     summaries = []
+
     for run in cover_runs:
-        summary = _build_hydro_batch_summary(session, run)
+        summary = _build_final_batch_summary(session, run)
         if summary["produced_length_m"] > 0:
             summaries.append(summary)
 
-    summaries.sort(key=lambda x: (x["status"] != "PARTIAL", x["batch_no"]), reverse=False)
-
-    my_pending_approvals = []
-    if _can_hydro_approve(user) and getattr(user, "id", None):
-        my_pending_approvals = session.exec(
-            select(HydroTestRecord)
-            .where(HydroTestRecord.approval_status == "PENDING_APPROVAL")
-            .where(HydroTestRecord.assigned_qaqc_user_id == user.id)
-            .order_by(HydroTestRecord.submitted_at.desc(), HydroTestRecord.id.desc())
-        ).all()
+    summaries.sort(key=lambda x: x["batch_no"])
 
     return templates.TemplateResponse(
-        "hydro_dashboard.html",
+        "final_dashboard.html",
         {
             "request": request,
             "user": user,
             "summaries": summaries,
-            "hydro_status_badge": _hydro_status_badge,
-            "my_pending_approvals": my_pending_approvals,
-            "can_hydro_approve": _can_hydro_approve(user),
         },
     )
+
+
+@app.get("/final/batch/{batch_no}", response_class=HTMLResponse)
+def final_batch_view(batch_no: str, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
+    if not cover:
+        raise HTTPException(404, "Cover run not found for this batch")
+
+    summary = _build_final_batch_summary(session, cover)
+    error = request.query_params.get("error") or ""
+
+    return templates.TemplateResponse(
+        "final_view.html",
+        {
+            "request": request,
+            "user": user,
+            "summary": summary,
+            "error": error,
+        },
+    )
+
+
+@app.post("/final/batch/{batch_no}/save")
+def final_batch_save_reel(
+    batch_no: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    reel_no: str = Form(...),
+    reel_length_m: float = Form(...),
+    od_mm: float = Form(0.0),
+    wall_thickness_mm: float = Form(0.0),
+    secured_ok: str = Form(""),
+    condition_status: str = Form("GOOD"),
+    notes: str = Form(""),
+):
+    user = get_current_user(request, session)
+
+    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
+    if not cover:
+        raise HTTPException(404, "Cover run not found for this batch")
+
+    summary = _build_final_batch_summary(session, cover)
+    reel_len = float(reel_length_m or 0.0)
+
+    if reel_len <= 0:
+        return RedirectResponse(f"/final/batch/{batch_no}?error=Reel length must be greater than zero.", status_code=303)
+
+    next_total = float(summary["inspected_total_m"] or 0.0) + reel_len
+    allowed = float(summary["expected_after_burst_m"] or 0.0)
+
+    if next_total > allowed + 0.0001:
+        return RedirectResponse(
+            f"/final/batch/{batch_no}?error=Total final inspected reels cannot exceed available usable length ({allowed:.1f} m after burst deduction).",
+            status_code=303,
+        )
+
+    reel = FinalInspectionReel(
+        batch_no=(batch_no or "").strip(),
+        linked_cover_run_id=cover.id,
+        reel_no=(reel_no or "").strip(),
+        reel_length_m=reel_len,
+        od_mm=float(od_mm or 0.0),
+        wall_thickness_mm=float(wall_thickness_mm or 0.0),
+        secured_ok=(secured_ok == "1"),
+        condition_status=(condition_status or "GOOD").strip().upper(),
+        notes=(notes or "").strip(),
+        created_by_user_id=getattr(user, "id", None),
+        created_by_user_name=getattr(user, "display_name", "") or "",
+    )
+    session.add(reel)
+    session.commit()
+
+    return RedirectResponse(f"/final/batch/{batch_no}", status_code=303)
+
+
+@app.post("/final/batch/{batch_no}/delete/{reel_id}")
+def final_batch_delete_reel(batch_no: str, reel_id: int, request: Request, session: Session = Depends(get_session)):
+    get_current_user(request, session)
+
+    reel = session.get(FinalInspectionReel, reel_id)
+    if not reel or (reel.batch_no or "").strip() != (batch_no or "").strip():
+        raise HTTPException(404, "Reel not found")
+
+    session.delete(reel)
+    session.commit()
+    return RedirectResponse(f"/final/batch/{batch_no}", status_code=303)
+
+
+@app.post("/final/batch/{batch_no}/note")
+def final_batch_save_note(
+    batch_no: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    extra_loss_note: str = Form(""),
+):
+    user = get_current_user(request, session)
+
+    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
+    if not cover:
+        raise HTTPException(404, "Cover run not found for this batch")
+
+    note = session.exec(
+        select(FinalInspectionBatchNote).where(FinalInspectionBatchNote.batch_no == (batch_no or "").strip())
+    ).first()
+
+    if not note:
+        note = FinalInspectionBatchNote(
+            batch_no=(batch_no or "").strip(),
+            linked_cover_run_id=cover.id,
+        )
+
+    note.extra_loss_note = (extra_loss_note or "").strip()
+    note.updated_by_user_id = getattr(user, "id", None)
+    note.updated_by_user_name = getattr(user, "display_name", "") or ""
+    note.updated_at = datetime.utcnow()
+
+    session.add(note)
+    session.commit()
+
+    return RedirectResponse(f"/final/batch/{batch_no}", status_code=303)
 
 
 @app.get("/hydro/batch/{batch_no}", response_class=HTMLResponse)
@@ -7771,7 +7976,15 @@ def run_new_get(request: Request, session: Session = Depends(get_session)):
     if (user.role or "").upper() not in ["MANAGER", "RUN_CREATOR"]:
         raise HTTPException(403, "Manager only")
 
-    return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": ""})
+    return templates.TemplateResponse(
+        "run_new.html",
+        {
+            "request": request,
+            "user": user,
+            "error": "",
+            "default_processes": ["LINER", "REINFORCEMENT", "COVER"],
+        },
+    )
 
 
 
@@ -7783,7 +7996,8 @@ def old_inspection_redirect(lot_id: int):
 def run_new_post(
     request: Request,
     session: Session = Depends(get_session),
-    process: str = Form(...),
+    process: str = Form(""),
+    selected_processes: List[str] = Form([]),
     dhtp_batch_no: str = Form(...),
     client_name: str = Form(...),
     po_number: str = Form(...),
@@ -7797,49 +8011,68 @@ def run_new_post(
     if (user.role or "").upper() not in ["MANAGER", "RUN_CREATOR"]:
         raise HTTPException(403, "Manager only")
 
-     
+    chosen = [p.upper().strip() for p in selected_processes if (p or "").strip()]
+    if not chosen and (process or "").strip():
+        chosen = [(process or "").upper().strip()]
 
-    process = process.upper().strip()
-    if process not in PROCESS_PARAMS:
-        return templates.TemplateResponse("run_new.html", {"request": request, "user": user, "error": "Invalid process"})
+    chosen = [p for p in chosen if p in PROCESS_PARAMS]
+    # keep order predictable
+    ordered = [p for p in ["LINER", "REINFORCEMENT", "COVER"] if p in chosen]
 
-    existing_open = session.exec(
-        select(ProductionRun).where(
-            ProductionRun.dhtp_batch_no == dhtp_batch_no,
-            ProductionRun.process == process,
-            ProductionRun.status == "OPEN",
-        )
-    ).first()
-    if existing_open and allow_duplicate != "1":
+    if not ordered:
         return templates.TemplateResponse(
             "run_new.html",
             {
                 "request": request,
                 "user": user,
-                "error": f"There is already an OPEN {process} run for Batch {dhtp_batch_no}. If you really need a second line, tick 'Allow duplicate line'."
+                "error": "Select at least one layer/process.",
+                "default_processes": ["LINER", "REINFORCEMENT", "COVER"],
             },
         )
 
-    run = ProductionRun(
-        process=process,
-        dhtp_batch_no=dhtp_batch_no,
-        client_name=client_name,
-        po_number=po_number,
-        itp_number=itp_number,
-        pipe_specification=pipe_specification,
-        raw_material_spec=raw_material_spec,
-        total_length_m=total_length_m or 0.0,
-    )
-    session.add(run)
-    session.commit()
-    session.refresh(run)
+    batch_no = (dhtp_batch_no or "").strip()
 
-    for idx, (key, label, unit) in enumerate(PROCESS_PARAMS[process]):
-        session.add(RunParameter(run_id=run.id, param_key=key, label=label, unit=unit, display_order=idx))
-    session.commit()
+    for proc in ordered:
+        existing_open = session.exec(
+            select(ProductionRun).where(
+                ProductionRun.dhtp_batch_no == batch_no,
+                ProductionRun.process == proc,
+                ProductionRun.status == "OPEN",
+            )
+        ).first()
 
-    return RedirectResponse(f"/runs/{run.id}", status_code=303)
+        if existing_open and allow_duplicate != "1":
+            return templates.TemplateResponse(
+                "run_new.html",
+                {
+                    "request": request,
+                    "user": user,
+                    "error": f"There is already an OPEN {proc} run for Batch {batch_no}. Tick 'Allow duplicate line' only if you really need another line.",
+                    "default_processes": ordered,
+                },
+            )
 
+    created_runs = []
+    for proc in ordered:
+        created_runs.append(
+            _create_run_with_default_params(
+                session,
+                process=proc,
+                dhtp_batch_no=batch_no,
+                client_name=client_name,
+                po_number=po_number,
+                itp_number=itp_number,
+                pipe_specification=pipe_specification,
+                raw_material_spec=raw_material_spec,
+                total_length_m=total_length_m or 0.0,
+            )
+        )
+
+    if len(created_runs) == 1:
+        return RedirectResponse(f"/runs/{created_runs[0].id}", status_code=303)
+
+    return RedirectResponse("/runs", status_code=303)
+    
 @app.get("/mrr/{lot_id}/inspection/id/{inspection_id}", response_class=HTMLResponse)
 def shipment_inspection_form(
     lot_id: int,
@@ -8007,24 +8240,34 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
         )
 
 @app.post("/runs/{run_id}/close")
-def run_close(run_id: int, request: Request, session: Session = Depends(get_session)):
+def run_close(
+    run_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    confirmed_total_length_m: float = Form(0.0),
+    confirmed_length_note: str = Form(""),
+):
     user = get_current_user(request, session)
-    require_manager(user)  # only manager can close
+    require_manager(user)
 
     run = session.get(ProductionRun, run_id)
     if not run:
         raise HTTPException(404, "Run not found")
+
+    measured = float(get_run_produced_length_m(session, run_id) or 0.0)
+    confirmed = float(confirmed_total_length_m or 0.0)
+
+    if confirmed > 0:
+        if confirmed < measured:
+            raise HTTPException(400, f"Confirmed total length cannot be less than measured length ({measured:.1f} m).")
+        run.confirmed_total_length_m = confirmed
+        run.confirmed_length_note = (confirmed_length_note or "").strip()
 
     run.status = "CLOSED"
     session.add(run)
     session.commit()
 
     return RedirectResponse(f"/runs/{run_id}", status_code=302)
-
-from datetime import datetime
-from fastapi import HTTPException
-from starlette.responses import RedirectResponse
-
 @app.post("/runs/{run_id}/approve")
 def run_approve(run_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
