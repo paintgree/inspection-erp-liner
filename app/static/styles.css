@@ -1911,6 +1911,29 @@ Burst search + filters
   color:#111827 !important;
 }
 
+.final-secured-check{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin-top:24px;
+  flex-wrap:wrap;
+}
+
+.final-secured-check input{
+  flex:0 0 auto;
+}
+
+.final-secured-check span{
+  min-width:0;
+  word-break:break-word;
+}
+
+@media (max-width: 767px){
+  .final-secured-check{
+    align-items:flex-start;
+  }
+}
+
 
 
 
