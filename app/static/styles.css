@@ -1675,20 +1675,32 @@ Burst search + filters
 }
 
 .hydro-mobile-card{
-  display:block;
-  text-decoration:none;
-  color:inherit;
+  border:1px solid #dbe2ea;
+  border-radius:18px;
   background:#fff;
-  border:1px solid #e5e7eb;
-  border-radius:16px;
   padding:16px;
-  margin:0 0 14px 0;
-  box-shadow:0 2px 8px rgba(0,0,0,0.04);
+  margin-bottom:14px;
+  box-shadow:0 2px 10px rgba(15,23,42,.04);
 }
 
-.hydro-mobile-card:hover{
-  border-color:#cbd5e1;
-  box-shadow:0 6px 18px rgba(0,0,0,0.08);
+.hydro-mobile-card-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+
+.hydro-mobile-fields{
+  display:grid;
+  gap:8px;
+  font-size:15px;
+  line-height:1.45;
+}
+
+.hydro-mobile-fields strong{
+  font-weight:800;
 }
 
 @media (max-width: 767px){
@@ -1698,7 +1710,6 @@ Burst search + filters
 
   .hydro-mobile-list{
     display:block;
-    margin-top:16px;
   }
 }
 
@@ -1782,6 +1793,7 @@ Burst search + filters
     grid-template-columns:1fr;
   }
 }
+
 
 
 
