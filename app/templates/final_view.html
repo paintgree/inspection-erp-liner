@@ -68,44 +68,37 @@
 
 {% if open_phase %}
   <div class="card mt">
-    <h3 style="margin-top:0">Add Reel to {{ open_phase.title }}</h3>
+    <h3 style="margin-top:0">Bulk Add Reels to {{ open_phase.title }}</h3>
+    <div class="muted" style="margin-bottom:14px;">
+      Use this same screen for 1 reel or many reels. Shared defaults reduce manual typing.
+    </div>
 
-    <form method="post" action="/final/batch/{{ summary.batch_no }}/phase/{{ open_phase.id }}/save-reel">
+    <form method="post" action="/final/batch/{{ summary.batch_no }}/phase/{{ open_phase.id }}/save-bulk">
       <div class="grid2">
-        <label>Reel Number
-          <input class="input" type="text" name="reel_no" required>
-        </label>
-        
-        <label>Reel Length (m)
-          <input class="input" type="number" step="0.01" name="reel_length_m" value="0">
-        </label>
-        
-        <label>Start Length (m)
-          <input class="input" type="number" step="0.01" name="start_length_m" value="0">
-        </label>
-        
-        <label>End Length (m)
-          <input class="input" type="number" step="0.01" name="end_length_m" value="0">
+        <label>How many rows
+          <input class="input" type="number" min="1" max="100" name="row_count" value="10">
         </label>
 
-        <label>OD (mm)
-          <input class="input" type="number" step="0.01" name="od_mm" value="0">
+        <div></div>
+
+        <label>Default OD (mm)
+          <input class="input" type="number" step="0.01" name="default_od_mm" value="0">
         </label>
 
-        <label>Liner Thickness (mm)
-          <input class="input" type="number" step="0.01" name="liner_thickness_mm" value="0">
+        <label>Default Liner Thickness (mm)
+          <input class="input" type="number" step="0.01" name="default_liner_thickness_mm" value="0">
         </label>
 
-        <label>Reinforcement Thickness (mm)
-          <input class="input" type="number" step="0.01" name="reinforcement_thickness_mm" value="0">
+        <label>Default Reinforcement Thickness (mm)
+          <input class="input" type="number" step="0.01" name="default_reinforcement_thickness_mm" value="0">
         </label>
 
-        <label>Cover Thickness (mm)
-          <input class="input" type="number" step="0.01" name="cover_thickness_mm" value="0">
+        <label>Default Cover Thickness (mm)
+          <input class="input" type="number" step="0.01" name="default_cover_thickness_mm" value="0">
         </label>
 
-        <label>Condition
-          <select class="input" name="condition_status">
+        <label>Default Condition
+          <select class="input" name="default_condition_status">
             <option value="GOOD">GOOD</option>
             <option value="HOLD">HOLD</option>
             <option value="DAMAGED">DAMAGED</option>
@@ -113,30 +106,74 @@
         </label>
 
         <label class="final-secured-card">
-          <input type="checkbox" name="secured_ok" value="1">
+          <input type="checkbox" name="default_secured_ok" value="1">
           <span class="final-secured-box"></span>
           <span class="final-secured-text">
-            <strong>Reel secured properly</strong>
-            <small>Confirm the reel is tied, protected, and ready for dispatch</small>
+            <strong>Default secured properly</strong>
+            <small>Applied if the row checkbox is left unticked</small>
+          </span>
+        </label>
+
+        <label class="final-secured-card">
+          <input type="checkbox" name="default_override_burst_conflict" value="1">
+          <span class="final-secured-box"></span>
+          <span class="final-secured-text">
+            <strong>Default override burst conflict</strong>
+            <small>Use only if you intentionally want overlap rows allowed</small>
           </span>
         </label>
       </div>
 
-      <label class="final-secured-card">
-        <input type="checkbox" name="override_burst_conflict" value="1">
-        <span class="final-secured-box"></span>
-        <span class="final-secured-text">
-          <strong>Override burst-length conflict</strong>
-          <small>Use only if you confirmed this reel range is correct</small>
-        </span>
-      </label>
-
-      <label>Notes
-        <textarea class="input" name="notes" rows="3"></textarea>
-      </label>
+      <div class="tablewrap mt">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Reel No</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Length</th>
+              <th>OD</th>
+              <th>Liner</th>
+              <th>Reinf</th>
+              <th>Cover</th>
+              <th>Secured</th>
+              <th>Condition</th>
+              <th>Override</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for i in range(10) %}
+              <tr>
+                <td>{{ i + 1 }}</td>
+                <td><input class="input" type="text" name="reel_no_{{ i }}" placeholder="Reel no"></td>
+                <td><input class="input" type="number" step="0.01" name="start_length_m_{{ i }}" value="0"></td>
+                <td><input class="input" type="number" step="0.01" name="end_length_m_{{ i }}" value="0"></td>
+                <td><input class="input" type="number" step="0.01" name="reel_length_m_{{ i }}" value="0"></td>
+                <td><input class="input" type="number" step="0.01" name="od_mm_{{ i }}" placeholder="default"></td>
+                <td><input class="input" type="number" step="0.01" name="liner_thickness_mm_{{ i }}" placeholder="default"></td>
+                <td><input class="input" type="number" step="0.01" name="reinforcement_thickness_mm_{{ i }}" placeholder="default"></td>
+                <td><input class="input" type="number" step="0.01" name="cover_thickness_mm_{{ i }}" placeholder="default"></td>
+                <td style="text-align:center;"><input type="checkbox" name="secured_ok_{{ i }}" value="1"></td>
+                <td>
+                  <select class="input" name="condition_status_{{ i }}">
+                    <option value="">Default</option>
+                    <option value="GOOD">GOOD</option>
+                    <option value="HOLD">HOLD</option>
+                    <option value="DAMAGED">DAMAGED</option>
+                  </select>
+                </td>
+                <td style="text-align:center;"><input type="checkbox" name="override_burst_conflict_{{ i }}" value="1"></td>
+                <td><input class="input" type="text" name="notes_{{ i }}" placeholder="Optional"></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
 
       <div class="toolbar mt">
-        <button class="btn btn-primary" type="submit">Save Reel</button>
+        <button class="btn btn-primary" type="submit">Save Reels</button>
       </div>
     </form>
   </div>
