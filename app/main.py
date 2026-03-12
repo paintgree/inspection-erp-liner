@@ -5728,6 +5728,7 @@ def final_create_phase(batch_no: str, request: Request, session: Session = Depen
         status="DRAFT",
         created_by_user_id=getattr(user, "id", None),
         created_by_user_name=getattr(user, "display_name", "") or "",
+        "format_oman_dt": format_oman_dt,
     )
     session.add(phase)
     session.commit()
@@ -6033,43 +6034,129 @@ def final_phase_pdf(batch_no: str, phase_id: int, session: Session = Depends(get
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.platypus import (
+        SimpleDocTemplate,
+        Paragraph,
+        Spacer,
+        Table,
+        TableStyle,
+        Image,
+    )
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
     buf = BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=12*mm, rightMargin=12*mm, topMargin=12*mm, bottomMargin=12*mm)
-    styles = getSampleStyleSheet()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        leftMargin=14 * mm,
+        rightMargin=14 * mm,
+        topMargin=12 * mm,
+        bottomMargin=14 * mm,
+    )
 
-    title_style = ParagraphStyle("title", parent=styles["Heading1"], fontName="Helvetica-Bold", fontSize=16, leading=20, spaceAfter=8)
-    body_style = ParagraphStyle("body", parent=styles["BodyText"], fontName="Helvetica", fontSize=9, leading=12)
-    section_style = ParagraphStyle("sec", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=10, leading=12, spaceBefore=8, spaceAfter=6)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        "title",
+        parent=styles["Heading1"],
+        fontName="Helvetica-Bold",
+        fontSize=16,
+        leading=20,
+        alignment=1,
+        spaceAfter=6,
+        textColor=colors.HexColor("#000000"),
+    )
+    body_style = ParagraphStyle(
+        "body",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=10,
+        leading=13,
+        textColor=colors.HexColor("#111827"),
+    )
+    body_bold = ParagraphStyle(
+        "body_bold",
+        parent=body_style,
+        fontName="Helvetica-Bold",
+    )
+    section_style = ParagraphStyle(
+        "sec",
+        parent=styles["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=11,
+        leading=14,
+        textColor=colors.HexColor("#111827"),
+        spaceBefore=8,
+        spaceAfter=6,
+    )
 
     story = []
+
+    # logo
+    logo_candidates = [
+        os.path.join("app", "static", "img", "logo.png"),
+        os.path.join("app", "static", "logo.png"),
+        os.path.join("app", "static", "images", "logo.png"),
+    ]
+    logo_path = next((p for p in logo_candidates if os.path.exists(p)), None)
+
+    if logo_path:
+        try:
+            story.append(Image(logo_path, width=65 * mm, height=20 * mm))
+            story.append(Spacer(1, 2 * mm))
+        except Exception:
+            pass
+
     story.append(Paragraph("Final Inspection Certificate", title_style))
-    story.append(Paragraph(f"Batch: <b>{batch_no}</b>", body_style))
-    story.append(Paragraph(f"Phase: <b>{phase.title or ('Phase ' + str(phase.phase_no))}</b>", body_style))
-    story.append(Paragraph(f"Client: {batch_summary['client_name'] or '-'}", body_style))
-    story.append(Paragraph(f"PO: {batch_summary['client_po'] or '-'}", body_style))
-    story.append(Paragraph(f"Specification: {batch_summary['pipe_specification'] or '-'}", body_style))
-    story.append(Paragraph(f"No. of Reels: {len(reels)}", body_style))
-    story.append(Paragraph(f"Phase Total Length: {phase_total:.1f} m", body_style))
+    story.append(Spacer(1, 2 * mm))
+
+    info_data = [
+        [
+            Paragraph(f"Batch: <b>{batch_no}</b>", body_style),
+            Paragraph(f"Phase: <b>{phase.title or ('Phase ' + str(phase.phase_no))}</b>", body_style),
+        ],
+        [
+            Paragraph(f"Client: {batch_summary['client_name'] or '-'}", body_style),
+            Paragraph(f"No. of Reels: {len(reels)}", body_style),
+        ],
+        [
+            Paragraph(f"PO: {batch_summary['client_po'] or '-'}", body_style),
+            Paragraph(f"Phase Total Length: {phase_total:.1f} m", body_style),
+        ],
+        [
+            Paragraph(f"Specification: {batch_summary['pipe_specification'] or '-'}", body_style),
+            Paragraph("", body_style),
+        ],
+    ]
+
+    info_tbl = Table(info_data, colWidths=[88 * mm, 78 * mm])
+    info_tbl.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+        ("TOPPADDING", (0, 0), (-1, -1), 2),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+    ]))
+    story.append(info_tbl)
+    story.append(Spacer(1, 5 * mm))
 
     if (phase.status or "").upper() == "APPROVED" and phase.approved_by_user_name and phase.approved_at:
-        story.append(Paragraph(f"Digitally signed by: {phase.approved_by_user_name}", body_style))
+        story.append(Paragraph("Approval", section_style))
+        story.append(Paragraph(f"Digitally signed by: <b>{phase.approved_by_user_name}</b>", body_style))
         story.append(Paragraph(f"Date/Time: {format_oman_dt(phase.approved_at)} (Oman)", body_style))
+        story.append(Spacer(1, 4 * mm))
 
-    story.append(Spacer(1, 4 * mm))
     story.append(Paragraph("Reel List", section_style))
 
     rows = [[
         "ID", "Reel No", "Start", "End", "Length", "OD", "Liner", "Reinf", "Cover", "Secured", "Condition"
     ]]
+
     for r in reels:
         rows.append([
             f"#{r.id}",
             r.reel_no or "-",
-            f"{float(r.start_length_m or 0.0):.1f}",
-            f"{float(r.end_length_m or 0.0):.1f}",
+            f"{float(getattr(r, 'start_length_m', 0.0) or 0.0):.1f}",
+            f"{float(getattr(r, 'end_length_m', 0.0) or 0.0):.1f}",
             f"{float(r.reel_length_m or 0.0):.1f}",
             f"{float(r.od_mm or 0.0):.2f}",
             f"{float(r.liner_thickness_mm or 0.0):.2f}",
@@ -6084,24 +6171,33 @@ def final_phase_pdf(batch_no: str, phase_id: int, session: Session = Depends(get
 
     tbl = Table(
         rows,
-        colWidths=[11*mm, 18*mm, 14*mm, 14*mm, 16*mm, 13*mm, 13*mm, 13*mm, 13*mm, 16*mm, 20*mm],
+        colWidths=[12*mm, 20*mm, 14*mm, 14*mm, 16*mm, 14*mm, 13*mm, 13*mm, 13*mm, 16*mm, 21*mm],
         repeatRows=1
     )
     tbl.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#dbeafe")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.black),
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
         ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("FONTSIZE", (0, 0), (-1, -1), 8.5),
         ("ALIGN", (0, 0), (-1, -1), "CENTER"),
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
         ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#cbd5e1")),
         ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
     ]))
     story.append(tbl)
 
-    doc.build(story)
+    def _add_footer(canvas_obj, doc_obj):
+        canvas_obj.saveState()
+        canvas_obj.setFont("Helvetica", 9)
+        canvas_obj.setFillColor(colors.grey)
+        canvas_obj.drawString(14 * mm, 8 * mm, "QAP0700-F03")
+        canvas_obj.drawRightString(A4[0] - 14 * mm, 8 * mm, f"Page {doc_obj.page}")
+        canvas_obj.restoreState()
+
+    doc.build(story, onFirstPage=_add_footer, onLaterPages=_add_footer)
 
     pdf_bytes = buf.getvalue()
     filename = f"final_phase_{batch_no}_p{phase.phase_no}.pdf"
