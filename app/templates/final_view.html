@@ -73,13 +73,18 @@
       Use this same screen for 1 reel or many reels. Shared defaults reduce manual typing.
     </div>
 
-    <form method="post" action="/final/batch/{{ summary.batch_no }}/phase/{{ open_phase.id }}/save-bulk">
-      <div class="grid2">
-        <label>How many rows
-          <input class="input" type="number" min="1" max="100" name="row_count" value="10">
-        </label>
+    <form method="post" action="/final/batch/{{ summary.batch_no }}/phase/{{ open_phase.id }}/save-bulk" id="finalBulkForm">
+      <input type="hidden" name="row_count" id="finalRowCount" value="10">
 
-        <div></div>
+      <div class="grid2">
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Rows ready to save</div>
+          <strong id="finalRowCountLabel">10</strong>
+        </div>
+
+        <div class="toolbar" style="justify-content:flex-end; align-items:end;">
+          <button class="btn" type="button" id="addFinalRowBtn">+ Add Row</button>
+        </div>
 
         <label>Default OD (mm)
           <input class="input" type="number" step="0.01" name="default_od_mm" value="0">
@@ -130,45 +135,20 @@
             <tr>
               <th>#</th>
               <th>Reel No</th>
-              <th>Start</th>
-              <th>End</th>
-              <th>Length</th>
-              <th>OD</th>
-              <th>Liner</th>
-              <th>Reinf</th>
-              <th>Cover</th>
+              <th>Start (m)</th>
+              <th>End (m)</th>
+              <th>Length (m)</th>
+              <th>OD (mm)</th>
+              <th>Liner Thick. (mm)</th>
+              <th>Reinf. Thick. (mm)</th>
+              <th>Cover Thick. (mm)</th>
               <th>Secured</th>
               <th>Condition</th>
               <th>Override</th>
               <th>Notes</th>
             </tr>
           </thead>
-          <tbody>
-            {% for i in range(10) %}
-              <tr>
-                <td>{{ i + 1 }}</td>
-                <td><input class="input" type="text" name="reel_no_{{ i }}" placeholder="Reel no"></td>
-                <td><input class="input" type="number" step="0.01" name="start_length_m_{{ i }}" value="0"></td>
-                <td><input class="input" type="number" step="0.01" name="end_length_m_{{ i }}" value="0"></td>
-                <td><input class="input" type="number" step="0.01" name="reel_length_m_{{ i }}" value="0"></td>
-                <td><input class="input" type="number" step="0.01" name="od_mm_{{ i }}" placeholder="default"></td>
-                <td><input class="input" type="number" step="0.01" name="liner_thickness_mm_{{ i }}" placeholder="default"></td>
-                <td><input class="input" type="number" step="0.01" name="reinforcement_thickness_mm_{{ i }}" placeholder="default"></td>
-                <td><input class="input" type="number" step="0.01" name="cover_thickness_mm_{{ i }}" placeholder="default"></td>
-                <td style="text-align:center;"><input type="checkbox" name="secured_ok_{{ i }}" value="1"></td>
-                <td>
-                  <select class="input" name="condition_status_{{ i }}">
-                    <option value="">Default</option>
-                    <option value="GOOD">GOOD</option>
-                    <option value="HOLD">HOLD</option>
-                    <option value="DAMAGED">DAMAGED</option>
-                  </select>
-                </td>
-                <td style="text-align:center;"><input type="checkbox" name="override_burst_conflict_{{ i }}" value="1"></td>
-                <td><input class="input" type="text" name="notes_{{ i }}" placeholder="Optional"></td>
-              </tr>
-            {% endfor %}
-          </tbody>
+          <tbody id="finalBulkRows"></tbody>
         </table>
       </div>
 
@@ -178,7 +158,6 @@
     </form>
   </div>
 {% endif %}
-
 {% for row in summary.phases %}
   {% set p = row.phase %}
   <div class="card mt">
@@ -205,58 +184,57 @@
       </div>
     {% endif %}
 
-    <div class="tablewrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Reel No</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Length</th>
-            <th>OD</th>
-            <th>Liner</th>
-            <th>Reinf</th>
-            <th>Cover</th>
-            <th>Secured</th>
-            <th>Condition</th>
-            <th>Notes</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in row.reels %}
-            <tr>
-              <td>#{{ r.id }}</td>
-              <td>{{ r.reel_no }}</td>
-              <td>{{ '%.1f'|format(r.start_length_m or 0) }}</td>
-              <td>{{ '%.1f'|format(r.end_length_m or 0) }}</td>
-              <td>{{ '%.1f'|format(r.reel_length_m) }} m</td>
-              <td>{{ '%.2f'|format(r.od_mm or 0) }}</td>
-              <td>{{ '%.2f'|format(r.liner_thickness_mm or 0) }}</td>
-              <td>{{ '%.2f'|format(r.reinforcement_thickness_mm or 0) }}</td>
-              <td>{{ '%.2f'|format(r.cover_thickness_mm or 0) }}</td>
-              <td>{{ 'YES' if r.secured_ok else 'NO' }}</td>
-              <td>{{ r.condition_status }}</td>
-              <td>{{ r.notes or '-' }}</td>
-              <td>
-                {% if (p.status or '') == 'DRAFT' %}
-                  <form method="post" action="/final/batch/{{ summary.batch_no }}/phase/{{ p.id }}/delete-reel/{{ r.id }}" onsubmit="return confirm('Delete this reel?');">
-                    <button class="btn btn-sm" type="submit">Delete</button>
-                  </form>
-                {% else %}
-                  <span class="muted">Locked</span>
-                {% endif %}
-              </td>
-            </tr>
-          {% else %}
-            <tr>
-              <td colspan="11" class="muted">No reels in this phase yet.</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+        <div class="tablewrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Reel No</th>
+                <th>Start (m)</th>
+                <th>End (m)</th>
+                <th>Length (m)</th>
+                <th>OD (mm)</th>
+                <th>Liner Thick. (mm)</th>
+                <th>Reinf. Thick. (mm)</th>
+                <th>Cover Thick. (mm)</th>
+                <th>Secured</th>
+                <th>Condition</th>
+                <th>Notes</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for r in row.reels %}
+                <tr>
+                  <td>#{{ r.id }}</td>
+                  <td>{{ r.reel_no }}</td>
+                  <td>{{ '%.1f'|format(r.start_length_m or 0) }}</td>
+                  <td>{{ '%.1f'|format(r.end_length_m or 0) }}</td>
+                  <td>{{ '%.1f'|format(r.reel_length_m) }} m</td>
+                  <td>{{ '%.2f'|format(r.od_mm or 0) }}</td>
+                  <td>{{ '%.2f'|format(r.liner_thickness_mm or 0) }}</td>
+                  <td>{{ '%.2f'|format(r.reinforcement_thickness_mm or 0) }}</td>
+                  <td>{{ '%.2f'|format(r.cover_thickness_mm or 0) }}</td>
+                  <td>{{ 'YES' if r.secured_ok else 'NO' }}</td>
+                  <td>{{ r.condition_status }}</td>
+                  <td>{{ r.notes or '-' }}</td>
+                  <td>
+                    {% if (p.status or '') == 'DRAFT' %}
+                      <form method="post" action="/final/batch/{{ summary.batch_no }}/phase/{{ p.id }}/delete-reel/{{ r.id }}" onsubmit="return confirm('Delete this reel?');">
+                        <button class="btn btn-sm" type="submit">Delete</button>
+                      </form>
+                    {% else %}
+                      <span class="muted">Locked</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="13" class="muted">No reels in this phase yet.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
 
     <div class="toolbar mt">
       {% if (p.status or '') == 'DRAFT' %}
@@ -287,5 +265,85 @@
     <div class="muted">No final inspection phases yet.</div>
   </div>
 {% endfor %}
+<script>
+(function () {
+  const maxRows = 100;
+  const initialRows = 10;
+  const tbody = document.getElementById("finalBulkRows");
+  const rowCountInput = document.getElementById("finalRowCount");
+  const rowCountLabel = document.getElementById("finalRowCountLabel");
+  const addBtn = document.getElementById("addFinalRowBtn");
 
+  if (!tbody || !rowCountInput || !rowCountLabel || !addBtn) return;
+
+  function updateLength(index) {
+    const startInput = document.querySelector(`[name="start_length_m_${index}"]`);
+    const endInput = document.querySelector(`[name="end_length_m_${index}"]`);
+    const lengthInput = document.querySelector(`[name="reel_length_m_${index}"]`);
+    if (!startInput || !endInput || !lengthInput) return;
+
+    const start = parseFloat(startInput.value || "0");
+    const end = parseFloat(endInput.value || "0");
+    const length = end - start;
+
+    if (!Number.isNaN(length) && length >= 0) {
+      lengthInput.value = length.toFixed(2);
+    } else {
+      lengthInput.value = "0.00";
+    }
+  }
+
+  function syncRowCount() {
+    const count = tbody.querySelectorAll("tr").length;
+    rowCountInput.value = count;
+    rowCountLabel.textContent = count;
+    addBtn.disabled = count >= maxRows;
+  }
+
+  function createRow(index) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>${index + 1}</td>
+      <td><input class="input" type="text" name="reel_no_${index}" placeholder="Reel no"></td>
+      <td><input class="input js-final-start" type="number" step="0.01" name="start_length_m_${index}" value="0"></td>
+      <td><input class="input js-final-end" type="number" step="0.01" name="end_length_m_${index}" value="0"></td>
+      <td><input class="input js-final-length" type="number" step="0.01" name="reel_length_m_${index}" value="0.00" readonly></td>
+      <td><input class="input" type="number" step="0.01" name="od_mm_${index}" placeholder="default"></td>
+      <td><input class="input" type="number" step="0.01" name="liner_thickness_mm_${index}" placeholder="default"></td>
+      <td><input class="input" type="number" step="0.01" name="reinforcement_thickness_mm_${index}" placeholder="default"></td>
+      <td><input class="input" type="number" step="0.01" name="cover_thickness_mm_${index}" placeholder="default"></td>
+      <td style="text-align:center;"><input type="checkbox" name="secured_ok_${index}" value="1"></td>
+      <td>
+        <select class="input" name="condition_status_${index}">
+          <option value="">Default</option>
+          <option value="GOOD">GOOD</option>
+          <option value="HOLD">HOLD</option>
+          <option value="DAMAGED">DAMAGED</option>
+        </select>
+      </td>
+      <td style="text-align:center;"><input type="checkbox" name="override_burst_conflict_${index}" value="1"></td>
+      <td><input class="input" type="text" name="notes_${index}" placeholder="Optional"></td>
+    `;
+
+    const startInput = tr.querySelector(".js-final-start");
+    const endInput = tr.querySelector(".js-final-end");
+    startInput.addEventListener("input", function () { updateLength(index); });
+    endInput.addEventListener("input", function () { updateLength(index); });
+
+    tbody.appendChild(tr);
+    updateLength(index);
+    syncRowCount();
+  }
+
+  addBtn.addEventListener("click", function () {
+    const count = tbody.querySelectorAll("tr").length;
+    if (count >= maxRows) return;
+    createRow(count);
+  });
+
+  for (let i = 0; i < initialRows; i += 1) {
+    createRow(i);
+  }
+})();
+</script>
 {% endblock %}
