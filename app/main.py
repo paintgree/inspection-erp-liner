@@ -6306,7 +6306,7 @@ def final_phase_pdf(batch_no: str, phase_id: int, session: Session = Depends(get
         ("TOPPADDING", (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]))
-        story.append(info_tbl)
+    story.append(info_tbl)
     story.append(Spacer(1, 3 * mm))
 
     report_generated_at = datetime.utcnow()
