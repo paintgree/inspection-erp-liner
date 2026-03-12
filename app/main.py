@@ -5695,6 +5695,7 @@ def final_batch_view(batch_no: str, request: Request, session: Session = Depends
             "error": error,
             "open_phase": open_phase,
             "can_final_approve": _can_final_approve(user),
+            "format_oman_dt": format_oman_dt,
         },
     )
 
@@ -5728,7 +5729,7 @@ def final_create_phase(batch_no: str, request: Request, session: Session = Depen
         status="DRAFT",
         created_by_user_id=getattr(user, "id", None),
         created_by_user_name=getattr(user, "display_name", "") or "",
-        "format_oman_dt": format_oman_dt,
+        
     )
     session.add(phase)
     session.commit()
