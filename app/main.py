@@ -5771,20 +5771,14 @@ def final_batch_save_reel(
         raise HTTPException(404, "Cover run not found for this batch")
 
     summary = _build_final_batch_summary(session, cover)
+
     start_m = float(start_length_m or 0.0)
     end_m = float(end_length_m or 0.0)
     reel_len = float(reel_length_m or 0.0)
 
-    burst_conflict = False
-    if end_m > start_m:
-        for b1, b2 in summary["burst_ranges"]:
-            if _ranges_overlap(start_m, end_m, float(b1), float(b2)):
-                burst_conflict = True
-                break
-
-    if burst_conflict and override_burst_conflict != "1":
+    if end_m > 0 and end_m <= start_m:
         return RedirectResponse(
-            f"/final/batch/{batch_no}?error=This reel range overlaps a burst-used length. Tick override only if you are sure.",
+            f"/final/batch/{batch_no}?error=End length must be greater than start length.",
             status_code=303,
         )
 
@@ -5804,18 +5798,23 @@ def final_batch_save_reel(
             status_code=303,
         )
 
-    if reel_len <= 0:
+    burst_conflict = False
+    if end_m > start_m:
+        for b1, b2 in summary["burst_ranges"]:
+            if _ranges_overlap(start_m, end_m, float(b1), float(b2)):
+                burst_conflict = True
+                break
+
+    if burst_conflict and override_burst_conflict != "1":
         return RedirectResponse(
-            f"/final/batch/{batch_no}?error=Reel length must be greater than zero.",
+            f"/final/batch/{batch_no}?error=This reel range overlaps a burst-used length. Tick override only if you are sure.",
             status_code=303,
         )
 
-    # before final cover closure/confirmation, allow partial dispatch even if over current measured length
     produced_confirmed = float(getattr(cover, "confirmed_total_length_m", 0.0) or 0.0)
     expected_after_burst = float(summary["expected_after_burst_m"] or 0.0)
 
     if produced_confirmed > 0:
-        # hard limit only once cover produced length was confirmed
         current_all = float(summary["all_reels_total_m"] or 0.0)
         if current_all + reel_len > expected_after_burst + 0.0001:
             return RedirectResponse(
@@ -5823,7 +5822,6 @@ def final_batch_save_reel(
                 status_code=303,
             )
 
-    reel_len = float(reel_length_m or 0.0)
     od_val = float(od_mm or 0.0)
     liner_thk = float(liner_thickness_mm or 0.0)
     reinf_thk = float(reinforcement_thickness_mm or 0.0)
@@ -5835,9 +5833,9 @@ def final_batch_save_reel(
         batch_no=(batch_no or "").strip(),
         linked_cover_run_id=cover.id,
         reel_no=(reel_no or "").strip(),
-        reel_length_m=reel_len,
         start_length_m=start_m,
         end_length_m=end_m,
+        reel_length_m=reel_len,
         od_mm=od_val,
         wall_thickness_mm=total_wall_thk,
         liner_thickness_mm=liner_thk,
