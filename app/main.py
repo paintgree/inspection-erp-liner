@@ -5952,12 +5952,11 @@ async def final_batch_save_bulk_reels(
             continue
 
         if start_m > 0 or end_m > 0:
-            calculated_len = round(end_m - start_m, 3)
-            if reel_len <= 0:
-                reel_len = calculated_len
-            elif abs(reel_len - calculated_len) > 0.05:
-                errors.append(f"Row {i+1}: Reel length does not match start/end range.")
-                continue
+            reel_len = round(end_m - start_m, 3)
+
+        if reel_len <= 0:
+            errors.append(f"Row {i+1}: Reel length must be greater than zero.")
+            continue
 
         if reel_len <= 0:
             errors.append(f"Row {i+1}: Reel length must be greater than zero.")
@@ -6307,8 +6306,13 @@ def final_phase_pdf(batch_no: str, phase_id: int, session: Session = Depends(get
         ("TOPPADDING", (0, 0), (-1, -1), 2),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]))
-    story.append(info_tbl)
-    story.append(Spacer(1, 5 * mm))
+        story.append(info_tbl)
+    story.append(Spacer(1, 3 * mm))
+
+    report_generated_at = datetime.utcnow()
+    story.append(Paragraph(f"Phase Created: {format_oman_dt(phase.created_at)} (Oman)", body_style))
+    story.append(Paragraph(f"Report Generated: {format_oman_dt(report_generated_at)} (Oman)", body_style))
+    story.append(Spacer(1, 2 * mm))
 
     if (phase.status or "").upper() == "APPROVED" and phase.approved_by_user_name and phase.approved_at:
         story.append(Paragraph("Approval", section_style))
@@ -6319,7 +6323,7 @@ def final_phase_pdf(batch_no: str, phase_id: int, session: Session = Depends(get
     story.append(Paragraph("Reel List", section_style))
 
     rows = [[
-        "ID", "Reel No", "Start", "End", "Length", "OD", "Liner", "Reinf", "Cover", "Secured", "Condition"
+        "ID", "Reel No", "Start (m)", "End (m)", "Length (m)", "OD (mm)", "Liner Thick. (mm)", "Reinf. Thick. (mm)", "Cover Thick. (mm)", "Secured", "Condition"
     ]]
 
     for r in reels:
@@ -6402,13 +6406,17 @@ def final_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
     body_style = ParagraphStyle("body", parent=styles["BodyText"], fontName="Helvetica", fontSize=9, leading=12)
     section_style = ParagraphStyle("sec", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=10, leading=12, spaceBefore=8, spaceAfter=6)
 
-    story = []
+        story = []
     story.append(Paragraph("Final Inspection Full Batch Summary", title_style))
     story.append(Paragraph(f"Batch: <b>{summary['batch_no']}</b>", body_style))
     story.append(Paragraph(f"Client: {summary['client_name'] or '-'}", body_style))
     story.append(Paragraph(f"PO: {summary['client_po'] or '-'}", body_style))
+    report_generated_at = datetime.utcnow()
+
     story.append(Paragraph(f"Specification: {summary['pipe_specification'] or '-'}", body_style))
+    story.append(Paragraph(f"Report Generated: {format_oman_dt(report_generated_at)} (Oman)", body_style))
     story.append(Spacer(1, 4 * mm))
+
 
     batch_rows = [
         ["Produced Length", f"{float(summary['produced_length_m'] or 0.0):.1f} m"],
