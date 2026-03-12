@@ -2015,5 +2015,17 @@ Burst search + filters
   }
 }
 
+.tablewrap .input{
+  min-width:88px;
+}
+
+.tablewrap td .input,
+.tablewrap th .input{
+  margin:0;
+}
+
+.tablewrap td{
+  vertical-align:middle;
+}
 
 
