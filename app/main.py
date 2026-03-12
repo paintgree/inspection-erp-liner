@@ -5854,6 +5854,176 @@ def final_batch_save_reel(
 
     return RedirectResponse(f"/final/batch/{batch_no}", status_code=303)
 
+@app.post("/final/batch/{batch_no}/phase/{phase_id}/save-bulk")
+async def final_batch_save_bulk_reels(
+    batch_no: str,
+    phase_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+
+    row_count: int = Form(10),
+
+    default_od_mm: float = Form(0.0),
+    default_liner_thickness_mm: float = Form(0.0),
+    default_reinforcement_thickness_mm: float = Form(0.0),
+    default_cover_thickness_mm: float = Form(0.0),
+    default_condition_status: str = Form("GOOD"),
+    default_secured_ok: str = Form(""),
+    default_override_burst_conflict: str = Form(""),
+):
+    user = get_current_user(request, session)
+
+    phase = session.get(FinalInspectionPhase, phase_id)
+    if not phase or (phase.batch_no or "").strip() != (batch_no or "").strip():
+        raise HTTPException(404, "Final inspection phase not found")
+
+    if (phase.status or "").upper() != "DRAFT":
+        return RedirectResponse(
+            f"/final/batch/{batch_no}?error=Only draft phases can be edited.",
+            status_code=303,
+        )
+
+    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
+    if not cover:
+        raise HTTPException(404, "Cover run not found for this batch")
+
+    summary = _build_final_batch_summary(session, cover)
+    produced_confirmed = float(getattr(cover, "confirmed_total_length_m", 0.0) or 0.0)
+    expected_after_burst = float(summary["expected_after_burst_m"] or 0.0)
+
+    try:
+        row_count = max(1, min(int(row_count or 10), 100))
+    except Exception:
+        row_count = 10
+
+    form = await request.form()
+
+    def _f(name: str, default=""):
+        return form.get(name, default)
+
+    def _float(name: str, default=0.0):
+        try:
+            v = _f(name, "")
+            if v in [None, ""]:
+                return float(default)
+            return float(v)
+        except Exception:
+            return float(default)
+
+    def _bool(name: str, default=False):
+        v = _f(name, "")
+        if v in [None, ""]:
+            return default
+        return str(v).strip() in ["1", "true", "True", "on", "yes", "YES"]
+
+    default_od = float(default_od_mm or 0.0)
+    default_liner = float(default_liner_thickness_mm or 0.0)
+    default_reinf = float(default_reinforcement_thickness_mm or 0.0)
+    default_cover = float(default_cover_thickness_mm or 0.0)
+    default_condition = (default_condition_status or "GOOD").strip().upper()
+    default_secured = str(default_secured_ok or "").strip() in ["1", "true", "True", "on", "yes", "YES"]
+    default_override = str(default_override_burst_conflict or "").strip() in ["1", "true", "True", "on", "yes", "YES"]
+
+    current_all = float(summary["all_reels_total_m"] or 0.0)
+    new_reels = []
+    errors = []
+
+    for i in range(row_count):
+        reel_no = str(_f(f"reel_no_{i}", "") or "").strip()
+        if not reel_no:
+            continue
+
+        start_m = _float(f"start_length_m_{i}", 0.0)
+        end_m = _float(f"end_length_m_{i}", 0.0)
+        reel_len = _float(f"reel_length_m_{i}", 0.0)
+
+        od_val = _float(f"od_mm_{i}", default_od)
+        liner_thk = _float(f"liner_thickness_mm_{i}", default_liner)
+        reinf_thk = _float(f"reinforcement_thickness_mm_{i}", default_reinf)
+        cover_thk = _float(f"cover_thickness_mm_{i}", default_cover)
+
+        condition_val = str(_f(f"condition_status_{i}", default_condition) or default_condition).strip().upper()
+        secured_val = _bool(f"secured_ok_{i}", default_secured)
+        override_val = _bool(f"override_burst_conflict_{i}", default_override)
+        notes_val = str(_f(f"notes_{i}", "") or "").strip()
+
+        if end_m > 0 and end_m <= start_m:
+            errors.append(f"Row {i+1}: End length must be greater than start length.")
+            continue
+
+        if start_m > 0 or end_m > 0:
+            calculated_len = round(end_m - start_m, 3)
+            if reel_len <= 0:
+                reel_len = calculated_len
+            elif abs(reel_len - calculated_len) > 0.05:
+                errors.append(f"Row {i+1}: Reel length does not match start/end range.")
+                continue
+
+        if reel_len <= 0:
+            errors.append(f"Row {i+1}: Reel length must be greater than zero.")
+            continue
+
+        burst_conflict = False
+        if end_m > start_m:
+            for b1, b2 in summary["burst_ranges"]:
+                if _ranges_overlap(start_m, end_m, float(b1), float(b2)):
+                    burst_conflict = True
+                    break
+
+        if burst_conflict and not override_val:
+            errors.append(f"Row {i+1}: Reel range overlaps burst-used length. Tick override if confirmed.")
+            continue
+
+        if produced_confirmed > 0:
+            if current_all + reel_len > expected_after_burst + 0.0001:
+                errors.append(
+                    f"Row {i+1}: Total inspected reels exceed confirmed available usable length ({expected_after_burst:.1f} m)."
+                )
+                continue
+
+        total_wall_thk = liner_thk + reinf_thk + cover_thk
+
+        new_reels.append(
+            FinalInspectionReel(
+                phase_id=phase.id,
+                batch_no=(batch_no or "").strip(),
+                linked_cover_run_id=cover.id,
+                reel_no=reel_no,
+                start_length_m=start_m,
+                end_length_m=end_m,
+                reel_length_m=reel_len,
+                od_mm=od_val,
+                wall_thickness_mm=total_wall_thk,
+                liner_thickness_mm=liner_thk,
+                reinforcement_thickness_mm=reinf_thk,
+                cover_thickness_mm=cover_thk,
+                secured_ok=secured_val,
+                condition_status=condition_val,
+                notes=notes_val,
+                created_by_user_id=getattr(user, "id", None),
+                created_by_user_name=getattr(user, "display_name", "") or "",
+            )
+        )
+        current_all += reel_len
+
+    if errors and not new_reels:
+        return RedirectResponse(
+            f"/final/batch/{batch_no}?error={errors[0]}",
+            status_code=303,
+        )
+
+    for reel in new_reels:
+        session.add(reel)
+    session.commit()
+
+    if errors:
+        return RedirectResponse(
+            f"/final/batch/{batch_no}?error=Saved {len(new_reels)} reel(s). First skipped issue: {errors[0]}",
+            status_code=303,
+        )
+
+    return RedirectResponse(f"/final/batch/{batch_no}", status_code=303)
+
 
 @app.post("/final/batch/{batch_no}/phase/{phase_id}/delete-reel/{reel_id}")
 def final_batch_delete_reel(batch_no: str, phase_id: int, reel_id: int, request: Request, session: Session = Depends(get_session)):
