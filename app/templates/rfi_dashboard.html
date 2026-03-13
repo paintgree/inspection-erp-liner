@@ -13,9 +13,16 @@
   <form method="post" action="/rfi/create" class="mt">
     <div class="grid3">
       <div>
-        <label>Batch No</label>
-        <input name="batch_no" required>
+        <label>Link to Production Run</label>
+        <select name="linked_run_id" required>
+          {% for run in available_runs %}
+            <option value="{{ run.id }}">
+              {{ run.dhtp_batch_no or '-' }} · {{ run.process or '-' }} · {{ run.client_name or '-' }} · PO {{ run.po_number or '-' }} · ITP {{ run.itp_number or '-' }}
+            </option>
+          {% endfor %}
+        </select>
       </div>
+  
       <div>
         <label>Inspection Stage</label>
         <select name="inspection_stage" required>
@@ -27,12 +34,13 @@
           <option value="GENERAL">GENERAL</option>
         </select>
       </div>
+  
       <div>
         <label>Requested Date</label>
         <input type="date" name="requested_date">
       </div>
     </div>
-
+  
     <div class="grid2 mt">
       <div>
         <label>TPI Company</label>
@@ -43,10 +51,10 @@
         <input name="tpi_contact_name">
       </div>
     </div>
-
+  
     <label class="mt">Notes</label>
     <textarea name="notes" rows="4"></textarea>
-
+  
     <div class="toolbar mt">
       <button class="btn btn-primary" type="submit">Create RFI</button>
     </div>
