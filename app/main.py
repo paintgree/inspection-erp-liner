@@ -6443,7 +6443,7 @@ def hydro_dashboard(
 ):
     user = get_current_user(request, session)
 
-    summaries = get_finished_cover_runs(session)
+    summaries = build_hydro_dashboard_summaries(session)
 
     can_hydro_approve = bool(
         user and (user.role or "").upper() in ["MANAGER", "BOSS", "QA", "QAQC"]
