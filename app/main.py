@@ -91,6 +91,8 @@ from .models import (
     FinalInspectionPhase,
     FinalInspectionReel,
     FinalInspectionBatchNote,
+    RfiRecord,
+    RfiAttachment,
 
 )
 
