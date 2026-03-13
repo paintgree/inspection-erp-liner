@@ -471,7 +471,7 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE rfirecord ADD COLUMN status TEXT DEFAULT 'DRAFT'",
     )
 
-        _add_column_if_missing(
+    _add_column_if_missing(
         "rfirecord",
         "linked_run_id",
         "ALTER TABLE rfirecord ADD COLUMN IF NOT EXISTS linked_run_id INTEGER",
