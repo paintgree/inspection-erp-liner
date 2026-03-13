@@ -5791,8 +5791,200 @@ def apply_specs_to_template(ws, run: ProductionRun, session: Session):
 
         _set_cell_safe(ws, f"{SPEC_COL}{r}", set_val if set_val is not None else "")
         _set_cell_safe(ws, f"{TOL_COL}{r}", tol_txt)
+-------------------------------------------------------------------
+# =========================
+# RFI
+# =========================
 
 
+def _build_rfi_batch_package(session: Session, batch_no: str) -> dict:
+    batch_no = (batch_no or "").strip()
+
+    runs = session.exec(
+        select(ProductionRun)
+        .where(ProductionRun.dhtp_batch_no == batch_no)
+        .order_by(ProductionRun.created_at.desc())
+    ).all()
+
+    hydro_records = session.exec(
+        select(HydroTestRecord)
+        .where(HydroTestRecord.batch_no == batch_no)
+        .order_by(HydroTestRecord.created_at.desc())
+    ).all()
+
+    burst_reports = session.exec(
+        select(BurstTestReport)
+        .where(BurstTestReport.batch_no == batch_no)
+        .order_by(BurstTestReport.created_at.desc())
+    ).all()
+
+    final_phases = session.exec(
+        select(FinalInspectionPhase)
+        .where(FinalInspectionPhase.batch_no == batch_no)
+        .order_by(FinalInspectionPhase.created_at.desc())
+    ).all()
+
+    material_lots = session.exec(
+        select(MaterialLot)
+        .where(MaterialLot.batch_no == batch_no)
+        .order_by(MaterialLot.created_at.desc())
+    ).all()
+
+    client_name = ""
+    po_number = ""
+    itp_number = ""
+    pipe_specification = ""
+
+    if runs:
+        rep = runs[0]
+        client_name = rep.client_name or ""
+        po_number = rep.po_number or ""
+        itp_number = rep.itp_number or ""
+        pipe_specification = rep.pipe_specification or ""
+
+    return {
+        "batch_no": batch_no,
+        "client_name": client_name,
+        "po_number": po_number,
+        "itp_number": itp_number,
+        "pipe_specification": pipe_specification,
+        "runs": runs,
+        "hydro_records": hydro_records,
+        "burst_reports": burst_reports,
+        "final_phases": final_phases,
+        "material_lots": material_lots,
+    }
+
+
+@app.get("/rfi", response_class=HTMLResponse)
+def rfi_dashboard(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+
+    items = session.exec(
+        select(RfiRecord).order_by(RfiRecord.created_at.desc())
+    ).all()
+
+    return templates.TemplateResponse(
+        "rfi_dashboard.html",
+        {
+            "request": request,
+            "user": user,
+            "items": items,
+        },
+    )
+
+
+@app.post("/rfi/create")
+def rfi_create(
+    request: Request,
+    batch_no: str = Form(...),
+    inspection_stage: str = Form(...),
+    requested_date: str = Form(""),
+    tpi_company: str = Form(""),
+    tpi_contact_name: str = Form(""),
+    notes: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+
+    batch_no = (batch_no or "").strip()
+
+    runs = session.exec(
+        select(ProductionRun).where(ProductionRun.dhtp_batch_no == batch_no)
+    ).all()
+
+    client_name = runs[0].client_name if runs else ""
+    count = session.exec(select(RfiRecord)).all()
+    next_no = len(count) + 1
+    rfi_no = f"RFI-{next_no:04d}"
+
+    requested_dt = None
+    if requested_date:
+        try:
+            requested_dt = datetime.fromisoformat(requested_date)
+        except Exception:
+            requested_dt = None
+
+    rec = RfiRecord(
+        batch_no=batch_no,
+        rfi_no=rfi_no,
+        client_name=client_name or "",
+        inspection_stage=(inspection_stage or "").strip(),
+        status="DRAFT",
+        requested_date=requested_dt,
+        raised_by_user_id=user.id,
+        raised_by_name=user.display_name or user.username,
+        tpi_company=(tpi_company or "").strip(),
+        tpi_contact_name=(tpi_contact_name or "").strip(),
+        notes=(notes or "").strip(),
+    )
+    session.add(rec)
+    session.commit()
+    session.refresh(rec)
+
+    return RedirectResponse(url=f"/rfi/{rec.id}", status_code=302)
+
+
+@app.get("/rfi/{rfi_id}", response_class=HTMLResponse)
+def rfi_detail(
+    rfi_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+
+    rec = session.get(RfiRecord, rfi_id)
+    if not rec:
+        raise HTTPException(404, "RFI not found")
+
+    package = _build_rfi_batch_package(session, rec.batch_no)
+    attachments = session.exec(
+        select(RfiAttachment)
+        .where(RfiAttachment.rfi_id == rfi_id)
+        .order_by(RfiAttachment.uploaded_at.desc())
+    ).all()
+
+    return templates.TemplateResponse(
+        "rfi_detail.html",
+        {
+            "request": request,
+            "user": user,
+            "rfi": rec,
+            "package": package,
+            "attachments": attachments,
+        },
+    )
+
+
+@app.post("/rfi/{rfi_id}/status")
+def rfi_update_status(
+    rfi_id: int,
+    request: Request,
+    status: str = Form(...),
+    result_notes: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+
+    rec = session.get(RfiRecord, rfi_id)
+    if not rec:
+        raise HTTPException(404, "RFI not found")
+
+    rec.status = (status or "").strip().upper()
+    rec.result_notes = (result_notes or "").strip()
+
+    if rec.status == "CLOSED":
+        rec.closed_date = datetime.utcnow()
+    elif rec.status == "VISIT_COMPLETED" and not rec.visit_date:
+        rec.visit_date = datetime.utcnow()
+
+    session.add(rec)
+    session.commit()
+
+    return RedirectResponse(url=f"/rfi/{rfi_id}", status_code=302)
 # =========================
 # HYDRO TESTING
 # =========================
