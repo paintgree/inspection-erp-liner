@@ -3182,3 +3182,8 @@ Burst search + filters
   font-size:13px;
 }
 
+.global-search-bar{
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
