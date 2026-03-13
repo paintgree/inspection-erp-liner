@@ -5169,24 +5169,36 @@ def login_get(request: Request):
 @app.post("/login")
 def login_post(
     request: Request,
-    if user.is_locked:
-    return templates.TemplateResponse(
-        "login.html",
-        {
-            "request": request,
-            "error": "Your account is locked. Please contact the administrator.",
-        },
-    )
-    session: Session = Depends(get_session),
     username: str = Form(...),
     password: str = Form(...),
+    session: Session = Depends(get_session),
 ):
+    username = (username or "").strip().lower()
+    password = password or ""
+
     user = session.exec(select(User).where(User.username == username)).first()
+
     if not user or not verify_password(password, user.password_hash):
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
-    resp = RedirectResponse("/dashboard", status_code=302)
-    resp.set_cookie("user", user.username, httponly=True)
-    return resp
+        return templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "error": "Invalid username or password",
+            },
+        )
+
+    if user.is_locked:
+        return templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "error": "Your account is locked. Please contact the administrator.",
+            },
+        )
+
+    response = RedirectResponse("/dashboard", status_code=302)
+    response.set_cookie("username", user.username, httponly=True)
+    return response
 
 
 @app.get("/logout")
