@@ -5791,7 +5791,7 @@ def apply_specs_to_template(ws, run: ProductionRun, session: Session):
 
         _set_cell_safe(ws, f"{SPEC_COL}{r}", set_val if set_val is not None else "")
         _set_cell_safe(ws, f"{TOL_COL}{r}", tol_txt)
--------------------------------------------------------------------
+
 # =========================
 # RFI
 # =========================
