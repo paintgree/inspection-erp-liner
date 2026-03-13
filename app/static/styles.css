@@ -3100,4 +3100,85 @@ Burst search + filters
   }
 }
 
+/* =========================
+   Global smart search
+========================= */
+.global-search-wrap{
+  position:relative;
+  width:min(560px, 100%);
+  margin-left:auto;
+}
+
+.global-search-input{
+  width:100%;
+  box-sizing:border-box;
+  border-radius:16px;
+  border:1px solid #dbe2ea;
+  background:#fff;
+  padding:14px 16px;
+  font-size:14px;
+  color:#0f172a;
+}
+
+.global-search-input:focus{
+  outline:none;
+  border-color:#8b5cf6;
+  box-shadow:0 0 0 4px rgba(124,58,237,.12);
+}
+
+.global-search-results{
+  position:absolute;
+  top:calc(100% + 8px);
+  left:0;
+  right:0;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:18px;
+  box-shadow:0 18px 50px rgba(15,23,42,.12);
+  overflow:hidden;
+  z-index:1200;
+  max-height:420px;
+  overflow-y:auto;
+}
+
+.global-search-item{
+  display:block;
+  padding:14px 16px;
+  text-decoration:none;
+  border-top:1px solid #f1f5f9;
+}
+
+.global-search-item:first-child{
+  border-top:none;
+}
+
+.global-search-item:hover{
+  background:#fafbff;
+}
+
+.global-search-title{
+  font-weight:800;
+  color:#0f172a;
+}
+
+.global-search-sub{
+  margin-top:4px;
+  font-size:13px;
+  color:#64748b;
+}
+
+.global-search-type{
+  margin-top:6px;
+  font-size:11px;
+  font-weight:800;
+  color:#7c3aed;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+
+.global-search-empty{
+  padding:16px;
+  color:#64748b;
+  font-size:13px;
+}
 
