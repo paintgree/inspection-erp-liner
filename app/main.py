@@ -5124,7 +5124,7 @@ def users_reset_access(
     session.add(target)
     session.commit()
 
-    return RedirectResponse("/users", status_code=302)
+    return RedirectResponse(f"/users/{username}/edit", status_code=302)
     
 
 @app.post("/users/{username}/delete")
