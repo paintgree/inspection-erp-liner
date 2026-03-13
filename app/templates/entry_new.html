@@ -85,7 +85,7 @@
               {% for i in [1,2,3,4,5] %}
                 <div class="barrel">
                   <div class="barrelhead">Barrel {{ i }}</div>
-                  <input type="number" step="0.01" name="v_body_temp_zone_{{ i }}_c">
+                  <input type="number" step="0.01" name="v_body_temp_{{ i }}">
                 </div>
               {% endfor %}
             </div>
@@ -97,7 +97,7 @@
               {% for i in [1,2,3,4,5] %}
                 <div class="barrel">
                   <div class="barrelhead">Barrel {{ i }}</div>
-                  <input type="number" step="0.01" name="v_noising_temp_zone_{{ i }}_c">
+                  <input type="number" step="0.01" name="v_noising_temp_{{ i }}">
                 </div>
               {% endfor %}
             </div>
@@ -220,5 +220,6 @@
   </form>
 </div>
 {% endblock %}
+
 
 
