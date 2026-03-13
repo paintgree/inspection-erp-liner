@@ -438,6 +438,38 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE",
         "ALTER TABLE user ADD COLUMN must_change_password INTEGER DEFAULT 0",
     )
+
+    # --- rfirecord ---
+    _add_column_if_missing(
+        "rfirecord",
+        "batch_no",
+        "ALTER TABLE rfirecord ADD COLUMN IF NOT EXISTS batch_no TEXT DEFAULT ''",
+        "ALTER TABLE rfirecord ADD COLUMN batch_no TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
+        "rfirecord",
+        "rfi_no",
+        "ALTER TABLE rfirecord ADD COLUMN IF NOT EXISTS rfi_no TEXT DEFAULT ''",
+        "ALTER TABLE rfirecord ADD COLUMN rfi_no TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
+        "rfirecord",
+        "client_name",
+        "ALTER TABLE rfirecord ADD COLUMN IF NOT EXISTS client_name TEXT DEFAULT ''",
+        "ALTER TABLE rfirecord ADD COLUMN client_name TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
+        "rfirecord",
+        "inspection_stage",
+        "ALTER TABLE rfirecord ADD COLUMN IF NOT EXISTS inspection_stage TEXT DEFAULT 'GENERAL'",
+        "ALTER TABLE rfirecord ADD COLUMN inspection_stage TEXT DEFAULT 'GENERAL'",
+    )
+    _add_column_if_missing(
+        "rfirecord",
+        "status",
+        "ALTER TABLE rfirecord ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'DRAFT'",
+        "ALTER TABLE rfirecord ADD COLUMN status TEXT DEFAULT 'DRAFT'",
+    )
     
     # =========================
     # PERFORMANCE INDEXES
