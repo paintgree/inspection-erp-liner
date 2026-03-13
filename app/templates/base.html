@@ -7,37 +7,89 @@
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <div class="topbar">
-    <div class="brand">Inspection ERP</div>
-    <div class="userbox">
+  <header class="app-header">
+    <div class="app-header-inner">
+      <div class="app-header-left">
+        <a class="app-brand" href="/dashboard">
+          <span class="app-brand-mark">IE</span>
+          <span class="app-brand-text">
+            <strong>Inspection ERP</strong>
+            <small>Production & Quality System</small>
+          </span>
+        </a>
+      </div>
+
       {% if user %}
-        <span class="muted">{{ user.display_name }} ({{ user.role }})</span>
-        <a class="btn btn-ghost" href="/dashboard">Dashboard</a>
-        <a class="btn btn-ghost" href="/logout">Logout</a>
+      <div class="app-header-right">
+        <a class="app-header-icon" href="/dashboard" title="Dashboard" aria-label="Dashboard">
+          <span>⌂</span>
+        </a>
+
+        <button class="app-header-icon app-bell-btn" type="button" onclick="toggleHeaderNotifications()" title="Notifications" aria-label="Notifications">
+          <span>🔔</span>
+          <span class="app-bell-dot">0</span>
+        </button>
+
+        <div id="headerNotifications" class="app-header-popover" style="display:none;">
+          <div class="app-header-popover-title">Notifications</div>
+          <div class="app-header-popover-body">
+            <div class="app-empty-note">No notifications yet.</div>
+          </div>
+        </div>
+
+        <div class="app-user-menu-wrap">
+          <button class="app-user-btn" type="button" onclick="toggleUserMenu()">
+            <span class="app-user-avatar">
+              {{ (user.display_name or user.username or 'U')[:1] }}
+            </span>
+            <span class="app-user-meta">
+              <strong>{{ user.display_name }}</strong>
+              <small>{{ user.role }}</small>
+            </span>
+            <span class="app-user-caret">▾</span>
+          </button>
+
+          <div id="appUserMenu" class="app-user-menu" style="display:none;">
+            <div class="app-user-menu-head">
+              <div class="app-user-menu-name">{{ user.display_name }}</div>
+              <div class="app-user-menu-role">{{ user.role }}</div>
+            </div>
+
+            <a class="app-user-menu-item" href="/dashboard">Dashboard</a>
+
+            {% if user and user.role and user.role|upper == "MANAGER" %}
+              <a class="app-user-menu-item" href="/users">User Management</a>
+            {% endif %}
+
+            <a class="app-user-menu-item app-user-menu-danger" href="/logout">Logout</a>
+          </div>
+        </div>
+      </div>
       {% endif %}
     </div>
-  </div>
+  </header>
 
   <div class="page">
     {% block content %}{% endblock %}
   </div>
-    <!-- Global popup modal -->
-<div id="globalModal"
-     style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:9999; align-items:center; justify-content:center;">
-  <div style="width:min(520px, 92vw); background:#fff; border-radius:14px; padding:18px;
-              box-shadow:0 20px 60px rgba(0,0,0,.25);">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-      <h3 id="globalModalTitle" style="margin:0;">Notice</h3>
-      <button class="btn btn-ghost" type="button" onclick="hideGlobalModal()">✕</button>
-    </div>
 
-    <div id="globalModalBody" class="alert alert-error mt" style="margin-bottom:0;"></div>
+  <!-- Global popup modal -->
+  <div id="globalModal"
+       style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:9999; align-items:center; justify-content:center;">
+    <div style="width:min(520px, 92vw); background:#fff; border-radius:14px; padding:18px;
+                box-shadow:0 20px 60px rgba(0,0,0,.25);">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <h3 id="globalModalTitle" style="margin:0;">Notice</h3>
+        <button class="btn btn-ghost" type="button" onclick="hideGlobalModal()">✕</button>
+      </div>
 
-    <div class="toolbar mt">
-      <button class="btn btn-primary" type="button" onclick="hideGlobalModal()">OK</button>
+      <div id="globalModalBody" class="alert alert-error mt" style="margin-bottom:0;"></div>
+
+      <div class="toolbar mt">
+        <button class="btn btn-primary" type="button" onclick="hideGlobalModal()">OK</button>
+      </div>
     </div>
   </div>
-</div>
 
 <script>
   function showGlobalModal(title, message) {
@@ -51,7 +103,37 @@
     document.getElementById("globalModal").style.display = "none";
   }
 
-  // ✅ GLOBAL: intercept ALL POST forms (so errors never open JSON pages)
+  function toggleUserMenu() {
+    const el = document.getElementById("appUserMenu");
+    const bell = document.getElementById("headerNotifications");
+    if (bell) bell.style.display = "none";
+    if (!el) return;
+    el.style.display = el.style.display === "block" ? "none" : "block";
+  }
+
+  function toggleHeaderNotifications() {
+    const el = document.getElementById("headerNotifications");
+    const userMenu = document.getElementById("appUserMenu");
+    if (userMenu) userMenu.style.display = "none";
+    if (!el) return;
+    el.style.display = el.style.display === "block" ? "none" : "block";
+  }
+
+  document.addEventListener("click", function(e){
+    const menu = document.getElementById("appUserMenu");
+    const menuWrap = document.querySelector(".app-user-menu-wrap");
+    if (menu && menuWrap && !menuWrap.contains(e.target)) {
+      menu.style.display = "none";
+    }
+
+    const bell = document.getElementById("headerNotifications");
+    const bellBtn = document.querySelector(".app-bell-btn");
+    if (bell && bellBtn && !bell.contains(e.target) && !bellBtn.contains(e.target)) {
+      bell.style.display = "none";
+    }
+  });
+
+  // GLOBAL: intercept ALL POST forms
   document.addEventListener("submit", async function (e) {
     const form = e.target;
     if (!form || form.tagName !== "FORM") return;
@@ -59,11 +141,8 @@
     const method = (form.getAttribute("method") || "get").toLowerCase();
     if (method !== "post") return;
 
-    // allow opt-out: <form data-noajax="1" ...>
     if (form.dataset && form.dataset.noajax === "1") return;
 
-    // If there is an onsubmit confirm(), let it run first.
-    // If user cancels, the submit event won't fire.
     e.preventDefault();
 
     try {
@@ -79,7 +158,6 @@
         credentials: "same-origin"
       });
 
-      // If backend returns JSON error (403/400/500) show popup
       if (!res.ok) {
         let msg = "Action not allowed.";
         const ct = (res.headers.get("content-type") || "").toLowerCase();
@@ -87,21 +165,18 @@
         if (ct.includes("application/json")) {
           const data = await res.json();
           function formatDetail(detail){
-          if(!detail) return "";
-          if(typeof detail === "string") return detail;
-          if(Array.isArray(detail)){
-            // FastAPI validation errors are often: [{loc:..., msg:..., type:...}, ...]
-            return detail.map(e => e.msg || JSON.stringify(e)).join("\n");
+            if(!detail) return "";
+            if(typeof detail === "string") return detail;
+            if(Array.isArray(detail)){
+              return detail.map(e => e.msg || JSON.stringify(e)).join("\n");
+            }
+            if(typeof detail === "object"){
+              return detail.msg || JSON.stringify(detail);
+            }
+            return String(detail);
           }
-          if(typeof detail === "object"){
-            return detail.msg || JSON.stringify(detail);
-          }
-          return String(detail);
-        }
-        
-        msg = formatDetail(data.detail) || data.message || msg;
+          msg = formatDetail(data.detail) || data.message || msg;
         } else {
-          // sometimes backend returns HTML/text; show a short message
           const text = await res.text();
           msg = text ? text.slice(0, 300) : msg;
         }
@@ -110,16 +185,11 @@
         return;
       }
 
-      // Success:
-      // If backend returned a redirect, fetch follows it and res.url becomes the final URL.
-      // Best UX: reload current page so you see updated status.
-      // If backend redirected, go to that URL
-    if (res.redirected && res.url) {
+      if (res.redirected && res.url) {
         window.location.href = res.url;
-    } else {
+      } else {
         window.location.reload();
-    }
-
+      }
 
     } catch (err) {
       showGlobalModal("Error", "Network/server error. Please try again.");
@@ -127,11 +197,5 @@
   }, true);
 </script>
 
-
 </body>
 </html>
-
-
-
-
-
