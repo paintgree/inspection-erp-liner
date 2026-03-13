@@ -7584,7 +7584,6 @@ def my_profile_change_password(
     request: Request,
     current_password: str = Form(""),
     new_password: str = Form(""),
-    user.must_change_password = False
     confirm_password: str = Form(""),
     session: Session = Depends(get_session),
 ):
@@ -7603,6 +7602,7 @@ def my_profile_change_password(
         raise HTTPException(status_code=400, detail="New password and confirmation do not match.")
 
     user.password_hash = _hash_user_password(new_password)
+    user.must_change_password = False
     session.add(user)
     session.commit()
 
