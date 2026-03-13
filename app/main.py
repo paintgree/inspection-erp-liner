@@ -5040,7 +5040,65 @@ def get_progress_percent(session: Session, run: ProductionRun) -> int:
                 max_len = v.value
     return int(min(100.0, (max_len / run.total_length_m) * 100.0))
 
+def get_progress_map_bulk(session: Session, runs: List[ProductionRun]) -> Dict[int, int]:
+    """
+    Faster bulk progress calculation for many runs at once.
 
+    Rule stays the same as get_progress_percent():
+    - look for MAX InspectionValue.value where param_key == 'length_m' per run
+    - compare with run.confirmed_total_length_m
+    - divide by run.total_length_m
+    """
+    run_ids = [r.id for r in runs if getattr(r, "id", None) is not None]
+    if not run_ids:
+        return {}
+
+    # Start from confirmed lengths already stored on run
+    measured_map: Dict[int, float] = {}
+    total_map: Dict[int, float] = {}
+    confirmed_map: Dict[int, float] = {}
+
+    for r in runs:
+        if r.id is None:
+            continue
+        total_map[r.id] = float(getattr(r, "total_length_m", 0.0) or 0.0)
+        confirmed_map[r.id] = float(getattr(r, "confirmed_total_length_m", 0.0) or 0.0)
+
+    # One grouped query instead of query-per-run
+    rows = session.exec(
+        select(
+            InspectionEntry.run_id,
+            func.max(InspectionValue.value),
+        )
+        .join(InspectionValue, InspectionValue.entry_id == InspectionEntry.id)
+        .where(InspectionEntry.run_id.in_(run_ids))
+        .where(InspectionValue.param_key == "length_m")
+        .where(InspectionValue.value != None)  # noqa: E711
+        .group_by(InspectionEntry.run_id)
+    ).all()
+
+    for run_id, max_val in rows:
+        try:
+            measured_map[int(run_id)] = float(max_val or 0.0)
+        except Exception:
+            measured_map[int(run_id)] = 0.0
+
+    progress_map: Dict[int, int] = {}
+    for run_id in run_ids:
+        total_len = total_map.get(run_id, 0.0)
+        if total_len <= 0:
+            progress_map[run_id] = 0
+            continue
+
+        measured = measured_map.get(run_id, 0.0)
+        confirmed = confirmed_map.get(run_id, 0.0)
+        actual = max(measured, confirmed)
+
+        pct = int(min(100.0, (actual / total_len) * 100.0))
+        progress_map[run_id] = pct
+
+    return progress_map
+    
 def get_day_latest_trace(session: Session, run_id: int, day: date) -> dict:
     entries = session.exec(
         select(InspectionEntry)
@@ -7029,7 +7087,8 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
     for r in runs:
         grouped.setdefault(r.dhtp_batch_no, []).append(r)
 
-    progress_map = {r.id: get_progress_percent(session, r) for r in runs}
+    # ✅ bulk progress map instead of query-per-run
+    progress_map = get_progress_map_bulk(session, runs)
 
     # Build "batch cards" for the dashboard UI
     batch_cards = []
@@ -7069,7 +7128,13 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
     batch_cards.sort(key=lambda x: x.get("created_at") or datetime.min, reverse=True)
 
     # ---------- Process tiles stats ----------
-    all_runs = session.exec(select(ProductionRun).order_by(ProductionRun.created_at.desc())).all()
+    # Reuse the already-loaded runs when possible
+    if q_process:
+        all_runs = session.exec(select(ProductionRun).order_by(ProductionRun.created_at.desc())).all()
+        all_progress_map = get_progress_map_bulk(session, all_runs)
+    else:
+        all_runs = runs
+        all_progress_map = progress_map
 
     process_stats = {}
     for proc in ["LINER", "REINFORCEMENT", "COVER"]:
@@ -7081,9 +7146,8 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
         closed_cnt = sum(1 for r in proc_runs if (r.status or "").upper() == "CLOSED")
         approved_cnt = sum(1 for r in proc_runs if (r.status or "").upper() == "APPROVED")
 
-        avg_progress = int(
-            sum(get_progress_percent(session, r) for r in proc_runs) / max(1, len(proc_runs))
-        )
+        proc_pcts = [all_progress_map.get(r.id, 0) for r in proc_runs if r.id is not None]
+        avg_progress = int(sum(proc_pcts) / max(1, len(proc_pcts)))
 
         process_stats[proc] = {
             "open": open_cnt,
@@ -7160,6 +7224,7 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
             "batch_cards": batch_cards,
         },
     )
+    
 @app.get("/batches/{batch_no}", response_class=HTMLResponse)
 def batch_detail(batch_no: str, request: Request, session: Session = Depends(get_session)):
     """Batch detail page: shows all production runs (processes) under the same batch."""
