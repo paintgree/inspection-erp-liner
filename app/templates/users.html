@@ -1,106 +1,190 @@
 {% extends "base.html" %}
 {% block content %}
-<a class="btn btn-ghost" href="/dashboard">← Back</a>
+
+<div class="page-head">
+  <div>
+    <h1 style="margin:0;">User Management</h1>
+    <div class="muted">Manage roles, departments, delegated access, and password resets.</div>
+  </div>
+  <a class="btn" href="/dashboard">⌂ Back</a>
+</div>
+
+{% if error %}
+  <div class="alert mt">{{ error }}</div>
+{% endif %}
 
 <div class="card">
-  <h1>User Management</h1>
+  <h2>Create New User</h2>
 
-  {% if error %}
-    <div class="alert mt">{{ error }}</div>
-  {% endif %}
+  <form method="post" action="/users" class="mt">
+    <div class="grid2">
+      <div>
+        <label>Username</label>
+        <input name="username" required>
+      </div>
+      <div>
+        <label>Display Name</label>
+        <input name="display_name" required>
+      </div>
+    </div>
 
-  <!-- CREATE USER -->
-  <div class="card inner mt">
-    <h2>Create New User</h2>
-    <form method="post" action="/users" class="form">
-      <div class="grid2">
-        <div><label>Username</label><input name="username" required></div>
-        <div><label>Display Name</label><input name="display_name" required></div>
+    <div class="grid3 mt">
+      <div>
+        <label>Role</label>
+        <select name="role" id="create_role" required>
+          {% for r in roles %}
+            <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
+        </select>
       </div>
 
-      <div class="grid2 mt">
+      <div>
+        <label>Department</label>
+        <select name="department" id="create_department" required>
+          {% for d in departments %}
+            <option value="{{ d }}">{{ d }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label>Password</label>
+        <input name="password" type="password" required>
+      </div>
+    </div>
+
+    <div class="mt">
+      <label>Delegated Access / Override</label>
+      <div class="user-access-grid">
+        {% for key in access_options %}
+          <label class="access-chip">
+            <input type="checkbox" name="access_overrides" value="{{ key }}">
+            <span>{{ access_labels[key] }}</span>
+          </label>
+        {% endfor %}
+      </div>
+      <div class="muted mt">Leave all unchecked to use the default access for the selected role and department.</div>
+    </div>
+
+    <div class="toolbar mt">
+      <button class="btn btn-primary" type="submit">Create User</button>
+    </div>
+  </form>
+</div>
+
+<div class="card mt">
+  <h2>Existing Users</h2>
+
+  {% for row in user_rows %}
+    {% set u = row.user_obj %}
+    <div class="user-admin-card mt">
+      <div class="user-admin-head">
         <div>
-          <label>Role</label>
-          <select name="role" required>
-            <option value="INSPECTOR">INSPECTOR</option>
-            <option value="RUN_CREATOR">RUN_CREATOR (can create runs only)</option>
-            <option value="MANAGER">MANAGER</option>
-            <option value="BOSS">BOSS (read-only)</option>
-          </select>
+          <div class="user-admin-title">{{ u.display_name }} <span class="muted">({{ u.username }})</span></div>
+          <div class="user-admin-sub">Role: <b>{{ u.role }}</b> · Department: <b>{{ row.department }}</b></div>
         </div>
-        <div><label>Password</label><input name="password" required></div>
+        {% if user.username == u.username %}
+          <div class="pill info">Current user</div>
+        {% endif %}
       </div>
+
+      <form method="post" action="/users/{{ u.username }}/update" class="mt">
+        <div class="grid3">
+          <div>
+            <label>Display Name</label>
+            <input name="display_name" value="{{ u.display_name }}">
+          </div>
+
+          <div>
+            <label>Role</label>
+            <select name="role">
+              {% for r in roles %}
+                <option value="{{ r }}" {% if u.role == r %}selected{% endif %}>{{ r }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label>Department</label>
+            <select name="department">
+              {% for d in departments %}
+                <option value="{{ d }}" {% if row.department == d %}selected{% endif %}>{{ d }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+
+        <div class="mt">
+          <label>Delegated Access / Override</label>
+          <div class="user-access-grid">
+            {% for key in access_options %}
+              <label class="access-chip">
+                <input type="checkbox" name="access_overrides" value="{{ key }}" {% if key in row.override_access %}checked{% endif %}>
+                <span>{{ access_labels[key] }}</span>
+              </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="mt">
+          <label>Effective Access</label>
+          <div class="effective-access-box">
+            {% for key in row.effective_access %}
+              <span class="effective-badge">{{ access_labels[key] }}</span>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="grid2 mt">
+          <div>
+            <label>Reset Password</label>
+            <input name="password" type="password" placeholder="Leave blank to keep current password">
+          </div>
+          <div>
+            <label>Save</label>
+            <div class="toolbar" style="margin-top:0;">
+              <button class="btn btn-primary" type="submit">Save Changes</button>
+            </div>
+          </div>
+        </div>
+      </form>
 
       <div class="toolbar mt">
-        <button class="btn btn-primary" type="submit">Create User</button>
+        <form method="post" action="/users/{{ u.username }}/reset-access">
+          <button class="btn" type="submit">Reset Access to Default</button>
+        </form>
+
+        {% if user.username != u.username %}
+          <form method="post" action="/users/{{ u.username }}/delete" onsubmit="return confirm('Delete user {{ u.username }}?');">
+            <button class="btn" type="submit">Delete User</button>
+          </form>
+        {% endif %}
       </div>
-    </form>
-  </div>
-
-  <!-- EXISTING USERS -->
-  <div class="card inner mt">
-    <h2>Existing Users</h2>
-    <div class="muted">Edit name/role, reset password, or delete users.</div>
-
-    <div class="tablewrap mt">
-      <table class="table wide">
-        <thead>
-          <tr>
-            <th style="width: 160px;">Username</th>
-            <th style="width: 240px;">Display Name</th>
-            <th style="width: 220px;">Role</th>
-            <th style="width: 220px;">Reset Password</th>
-            <th style="width: 220px;">Actions</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {% for u in users %}
-            <tr>
-              <td><b>{{ u.username }}</b></td>
-
-              <!-- UPDATE FORM -->
-              <form method="post" action="/users/{{ u.username }}/update">
-                <td>
-                  <input name="display_name" value="{{ u.display_name }}" style="width: 100%;">
-                </td>
-
-                <td>
-                  <select name="role" style="width: 100%;">
-                    <option value="INSPECTOR" {% if u.role=="INSPECTOR" %}selected{% endif %}>INSPECTOR</option>
-                    <option value="RUN_CREATOR" {% if u.role=="RUN_CREATOR" %}selected{% endif %}>RUN_CREATOR</option>
-                    <option value="MANAGER" {% if u.role=="MANAGER" %}selected{% endif %}>MANAGER</option>
-                    <option value="BOSS" {% if u.role=="BOSS" %}selected{% endif %}>BOSS</option>
-                  </select>
-                </td>
-
-                <td>
-                  <input name="password" placeholder="Leave blank to keep" style="width: 100%;">
-                </td>
-
-                <td style="display:flex; gap:10px; align-items:center;">
-                  <button class="btn btn-primary" type="submit">Save</button>
-                </td>
-              </form>
-
-              <!-- DELETE FORM -->
-              <td>
-                {% if user.username != u.username %}
-                  <form method="post" action="/users/{{ u.username }}/delete"
-                        onsubmit="return confirm('Delete user {{ u.username }}? This cannot be undone.');">
-                    <button class="btn" type="submit">Delete</button>
-                  </form>
-                {% else %}
-                  <span class="muted">Current user</span>
-                {% endif %}
-              </td>
-
-            </tr>
-          {% endfor %}
-        </tbody>
-
-      </table>
     </div>
-  </div>
+  {% endfor %}
 </div>
+
+<script>
+(function(){
+  const createRole = document.getElementById("create_role");
+  const createDepartment = document.getElementById("create_department");
+
+  function defaultDeptForRole(role){
+    const r = (role || "").toUpperCase();
+    if (r === "INSPECTOR") return "QUALITY";
+    if (r === "COORDINATOR") return "QUALITY";
+    if (r === "RUN_CREATOR") return "PRODUCTION";
+    if (r === "MANAGER") return "QUALITY";
+    if (r === "BOSS") return "ADMIN";
+    return "QUALITY";
+  }
+
+  if (createRole && createDepartment) {
+    createRole.addEventListener("change", function(){
+      createDepartment.value = defaultDeptForRole(createRole.value);
+    });
+  }
+})();
+</script>
+
 {% endblock %}
