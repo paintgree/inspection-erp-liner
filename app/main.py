@@ -2798,151 +2798,37 @@ def burst_new(request: Request, session: Session = Depends(get_session)):
         },
     )
 @app.post("/burst/create")
-async def burst_create(
+def burst_create(
     request: Request,
+    mode: str = Form(...),
+    linked_run_id: Optional[int] = Form(None),
+    purpose: Optional[str] = Form(None),
+    total_samples: Optional[int] = Form(None),
     session: Session = Depends(get_session),
-
-    mode: str = Form("linked"),                 # linked OR manual
-    linked_run_id: Optional[int] = Form(None),  # selected run id when linked
-
-    # keep these for later if you want, but NOT required now
-    manual_batch_no: str = Form(""),
-    manual_total_length_m: float = Form(0.0),
-
-    purpose: str = Form("BATCH_RELEASE"),
-    total_samples: int = Form(0),
 ):
-    
-    """
-    Create a new BurstTestReport.
-    NEW RULE:
-    - Creation page should NOT ask for sample start/length.
-    - We only create the report + create 5 sample rows blank.
-    - User will fill details inside /burst/{id} page بعدين.
-    """
     user = get_current_user(request, session)
 
-    purpose = (purpose or "BATCH_RELEASE").strip().upper()
-    if purpose not in ("BATCH_RELEASE","QUALIFICATION","INTERNAL"):
-        purpose = "BATCH_RELEASE"
-    
-    # Default N based on purpose (but allow override)
-    default_n = 2 if purpose == "BATCH_RELEASE" else (5 if purpose == "QUALIFICATION" else 1)
-    
-    try:
-        n = int(total_samples or 0)
-    except Exception:
-        n = 0
-    
-    if n < 1:
-        n = default_n
-    if n > 50:
-        n = 50
+    if mode == "linked" and not linked_run_id:
+        raise HTTPException(status_code=400, detail="Production run is required.")
 
-    # Prepare linked fields
-    batch_no = ""
-    total_len = 0.0
-    linked_id = None
+    # minimal insert only
+    report = BurstTestRecord(
+        batch_no="",
+        linked_run_id=linked_run_id if mode == "linked" else None,
+        purpose=purpose,
+        total_samples=total_samples or 1,
+        created_by=user.id,
+        created_at=datetime.utcnow(),
+    )
 
-    # Optional autofill values (safe defaults)
-    client_name = ""
-    client_po = ""
-    pipe_spec = ""
-    liner_grade = ""
-    reinf_grade = ""
-    cover_grade = ""
-
-    mode = (mode or "linked").strip().lower()
-    is_manual = (mode == "manual")
-
-    if mode == "manual":
-        # You said: "create now, fill details later"
-        # So we allow empty manual fields for now.
-        batch_no = (manual_batch_no or "").strip()
-        total_len = float(manual_total_length_m or 0.0)
-
-    else:
-        # Linked mode requires choosing a run
-        if not linked_run_id:
-            raise HTTPException(400, detail="Please select a production run")
-
-        cover_run = session.get(ProductionRun, int(linked_run_id))
-        if not cover_run:
-            raise HTTPException(404, detail="Production run not found")
-
-        batch_no = (cover_run.dhtp_batch_no or "").strip()
-        total_len = float(getattr(cover_run, "total_length_m", 0.0) or 0.0)
-        linked_id = cover_run.id
-
-        # optional autofill if these fields exist in your model
-        client_name = getattr(cover_run, "client_name", "") or ""
-        client_po = getattr(cover_run, "po_number", "") or ""
-        pipe_spec = getattr(cover_run, "pipe_specification", "") or ""
-        cover_grade = getattr(cover_run, "raw_material_spec", "") or ""
-
-        liner_run = session.exec(
-            select(ProductionRun).where(
-                (ProductionRun.dhtp_batch_no == batch_no) & (ProductionRun.process == "LINER")
-            )
-        ).first()
-        reinf_run = session.exec(
-            select(ProductionRun).where(
-                (ProductionRun.dhtp_batch_no == batch_no) & (ProductionRun.process == "REINFORCEMENT")
-            )
-        ).first()
-
-        liner_grade = getattr(liner_run, "raw_material_spec", "") if liner_run else ""
-        reinf_grade = getattr(reinf_run, "raw_material_spec", "") if reinf_run else ""
-
-    # Create report
-    rep = BurstTestReport(
-    created_at=datetime.utcnow(),
-    created_by_user_id=user.id,
-    created_by_user_name=user.display_name,
-    technician_name=user.display_name,
-
-    is_unlinked=is_manual,
-    linked_run_id=linked_id,
-
-    batch_no=batch_no,
-    total_length_m=total_len,
-
-    purpose=purpose,
-    total_no_of_specimens=n,
-
-    client_name=client_name,
-    client_po=client_po,
-    pipe_specification=pipe_spec,
-
-    liner_material_grade=liner_grade,
-    reinforcement_material_grade=reinf_grade,
-    cover_material_grade=cover_grade,
-)
-    session.add(rep)
+    session.add(report)
     session.commit()
-    session.refresh(rep)
+    session.refresh(report)
 
-    # Always create 5 sample rows BLANK (no start/length required)
-    for i in range(5):
-        s = BurstSample(
-            report_id=rep.id,
-            sample_start_m=0.0,
-            sample_length_m=0.0,
-        )
-        session.add(s)
-
-    session.commit()
-
-    session.add(BurstAuditLog(
-        report_id=rep.id,
-        action="CREATE",
-        note=f"Created report (samples={n})",
-        user_id=user.id,
-        user_name=user.display_name,
-    ))
-    session.commit()
-
-    return RedirectResponse(f"/burst/{rep.id}", status_code=303)
+    return RedirectResponse(
+        url=f"/burst/{report.id}",
+        status_code=303
+    )
 
 
 from fastapi import UploadFile, File, Form
