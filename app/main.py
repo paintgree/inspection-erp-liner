@@ -8759,7 +8759,7 @@ def run_new_post(
     po_number: str = Form(...),
     itp_number: str = Form(...),
     pipe_specification: str = Form(...),
-    raw_material_spec: str = Form(...),
+    raw_material_spec: str = Form(""),
     total_length_m: float = Form(0.0),
     allow_duplicate: str = Form(""),
 ):
@@ -8787,6 +8787,9 @@ def run_new_post(
         )
 
     batch_no = (dhtp_batch_no or "").strip()
+    raw_material_spec = (raw_material_spec or "").strip()
+    if len(ordered) > 1:
+        raw_material_spec = ""
 
     for proc in ordered:
         existing_open = session.exec(
