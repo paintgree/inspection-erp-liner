@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 style="margin:0;">RFI Dashboard</h1>
+    <div class="muted">Request for Inspection records linked to batch activity packages.</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Create RFI</h2>
+  <form method="post" action="/rfi/create" class="mt">
+    <div class="grid3">
+      <div>
+        <label>Batch No</label>
+        <input name="batch_no" required>
+      </div>
+      <div>
+        <label>Inspection Stage</label>
+        <select name="inspection_stage" required>
+          <option value="DOCUMENT_REVIEW">DOCUMENT REVIEW</option>
+          <option value="IN_PROCESS">IN PROCESS</option>
+          <option value="BURST_TEST">BURST TEST</option>
+          <option value="HYDRO_TEST">HYDRO TEST</option>
+          <option value="FINAL_INSPECTION">FINAL INSPECTION</option>
+          <option value="GENERAL">GENERAL</option>
+        </select>
+      </div>
+      <div>
+        <label>Requested Date</label>
+        <input type="date" name="requested_date">
+      </div>
+    </div>
+
+    <div class="grid2 mt">
+      <div>
+        <label>TPI Company</label>
+        <input name="tpi_company">
+      </div>
+      <div>
+        <label>TPI Contact</label>
+        <input name="tpi_contact_name">
+      </div>
+    </div>
+
+    <label class="mt">Notes</label>
+    <textarea name="notes" rows="4"></textarea>
+
+    <div class="toolbar mt">
+      <button class="btn btn-primary" type="submit">Create RFI</button>
+    </div>
+  </form>
+</div>
+
+<div class="card mt">
+  <h2>Existing RFIs</h2>
+  <div class="tablewrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>RFI No</th>
+          <th>Batch</th>
+          <th>Client</th>
+          <th>Stage</th>
+          <th>Status</th>
+          <th>Requested</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in items %}
+          <tr>
+            <td>{{ r.rfi_no }}</td>
+            <td>{{ r.batch_no }}</td>
+            <td>{{ r.client_name or '-' }}</td>
+            <td>{{ r.inspection_stage }}</td>
+            <td>{{ r.status }}</td>
+            <td>{% if r.requested_date %}{{ r.requested_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</td>
+            <td><a class="btn btn-sm" href="/rfi/{{ r.id }}">Open</a></td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="7" class="muted">No RFI records yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
