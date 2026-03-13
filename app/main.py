@@ -5448,7 +5448,7 @@ def _hydro_overlap_error(start_m: float, end_m: float, used_ranges: list[tuple[f
     return False
 
 
-def _hydro_status_badge(status: str) -> str:
+def hydro_status_badge(status: str) -> str:
     s = (status or "").upper()
     if s == "COMPLETE":
         return "Complete"
