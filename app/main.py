@@ -21,6 +21,7 @@ from collections import defaultdict
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.platypus import Table, TableStyle
+from passlib.context import CryptContext
 
 
 # ======================
@@ -4700,6 +4701,22 @@ def forbid_boss(user: User):
         raise HTTPException(403, "Read-only user")
 
 
+
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+
+
+def _verify_user_password(plain_password: str, password_hash: str) -> bool:
+    try:
+        if not plain_password or not password_hash:
+            return False
+        return pwd_context.verify(plain_password, password_hash)
+    except Exception:
+        return False
+
+
+def _hash_user_password(password: str) -> str:
+    return pwd_context.hash(password or "")
+
 @app.post("/users/{username}/update")
 def users_update(
     username: str,
@@ -7065,7 +7082,76 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
             "batch_cards": batch_cards,
         },
     )
-    
+
+
+@app.get("/me", response_class=HTMLResponse)
+def my_profile(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+
+    return templates.TemplateResponse(
+        "me.html",
+        {
+            "request": request,
+            "user": user,
+            "overtime_summary": {
+                "approved_hours": 0,
+                "pending_hours": 0,
+                "approved_amount": 0,
+                "pending_amount": 0,
+            },
+        },
+    )
+
+
+@app.post("/me/update")
+def my_profile_update(
+    request: Request,
+    display_name: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+
+    clean_name = (display_name or "").strip()
+    if not clean_name:
+        raise HTTPException(status_code=400, detail="Display name is required.")
+
+    user.display_name = clean_name
+    session.add(user)
+    session.commit()
+
+    return RedirectResponse(url="/me", status_code=303)
+
+@app.post("/me/change-password")
+def my_profile_change_password(
+    request: Request,
+    current_password: str = Form(""),
+    new_password: str = Form(""),
+    confirm_password: str = Form(""),
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+
+    if not current_password or not new_password or not confirm_password:
+        raise HTTPException(status_code=400, detail="All password fields are required.")
+
+    if not _verify_user_password(current_password, user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is not correct.")
+
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters.")
+
+    if new_password != confirm_password:
+        raise HTTPException(status_code=400, detail="New password and confirmation do not match.")
+
+    user.password_hash = _hash_user_password(new_password)
+    session.add(user)
+    session.commit()
+
+    return RedirectResponse(url="/me", status_code=303)
+
 @app.get("/batches/{batch_no}", response_class=HTMLResponse)
 def batch_detail(batch_no: str, request: Request, session: Session = Depends(get_session)):
     """Batch detail page: shows all production runs (processes) under the same batch."""
