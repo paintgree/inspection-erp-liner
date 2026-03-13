@@ -55,9 +55,15 @@
         <div class="muted">Real-time monitoring across departments.</div>
       </div>
 
-      <div class="dash-actions">
-        <a class="btn" href="/dashboard">⟳ Refresh</a>
-        <a class="btn btn-primary" href="#" onclick="return false;">✦ AI Insights</a>
+      <div class="global-search-wrap">
+        <input
+          id="globalSearchInput"
+          class="global-search-input"
+          type="text"
+          placeholder="Search batch, client, PO, ITP, hydro, burst, final, MRR, RFI..."
+          autocomplete="off"
+        >
+        <div id="globalSearchResults" class="global-search-results" style="display:none;"></div>
       </div>
     </div>
 
@@ -155,8 +161,87 @@
   </main>
 
 </div>
+<script>
+(function(){
+  const input = document.getElementById("globalSearchInput");
+  const results = document.getElementById("globalSearchResults");
+  let timer = null;
 
+  function hideResults(){
+    if (results) {
+      results.style.display = "none";
+      results.innerHTML = "";
+    }
+  }
+
+  function renderResults(items){
+    if (!results) return;
+
+    if (!items || items.length === 0) {
+      results.innerHTML = '<div class="global-search-empty">No results found.</div>';
+      results.style.display = "block";
+      return;
+    }
+
+    results.innerHTML = items.map(item => `
+      <a class="global-search-item" href="${item.url}">
+        <div class="global-search-title">${item.title}</div>
+        <div class="global-search-sub">${item.subtitle || ""}</div>
+        <div class="global-search-type">${item.type || ""}</div>
+      </a>
+    `).join("");
+
+    results.style.display = "block";
+  }
+
+  async function runSearch(q){
+    if (!q || q.trim().length < 2) {
+      hideResults();
+      return;
+    }
+
+    try {
+      const res = await fetch(`/search?q=${encodeURIComponent(q)}`, {
+        credentials: "same-origin",
+        headers: { "Accept": "application/json" }
+      });
+
+      if (!res.ok) {
+        hideResults();
+        return;
+      }
+
+      const data = await res.json();
+      renderResults(data.results || []);
+    } catch (err) {
+      hideResults();
+    }
+  }
+
+  if (input) {
+    input.addEventListener("input", function(){
+      const q = input.value || "";
+      clearTimeout(timer);
+      timer = setTimeout(() => runSearch(q), 180);
+    });
+
+    input.addEventListener("focus", function(){
+      if (results && results.innerHTML.trim()) {
+        results.style.display = "block";
+      }
+    });
+  }
+
+  document.addEventListener("click", function(e){
+    const wrap = document.querySelector(".global-search-wrap");
+    if (wrap && !wrap.contains(e.target)) {
+      hideResults();
+    }
+  });
+})();
+</script>
 {% endblock %}
+
 
 
 
