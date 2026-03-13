@@ -60,13 +60,16 @@
       </div>
 
       <div class="global-search-wrap">
-        <input
-          id="globalSearchInput"
-          class="global-search-input"
-          type="text"
-          placeholder="Search batch, client, PO, ITP, hydro, burst, final, MRR, RFI..."
-          autocomplete="off"
-        >
+        <div class="global-search-bar">
+          <input
+            id="globalSearchInput"
+            class="global-search-input"
+            type="text"
+            placeholder="Search batch, client, PO, ITP, hydro, burst, final, MRR, RFI..."
+            autocomplete="off"
+          >
+          <button id="globalSearchBtn" class="btn" type="button">Search</button>
+        </div>
         <div id="globalSearchResults" class="global-search-results" style="display:none;"></div>
       </div>
     </div>
@@ -168,14 +171,14 @@
 <script>
 (function(){
   const input = document.getElementById("globalSearchInput");
+  const button = document.getElementById("globalSearchBtn");
   const results = document.getElementById("globalSearchResults");
   let timer = null;
 
   function hideResults(){
-    if (results) {
-      results.style.display = "none";
-      results.innerHTML = "";
-    }
+    if (!results) return;
+    results.style.display = "none";
+    results.innerHTML = "";
   }
 
   function renderResults(items){
@@ -198,8 +201,10 @@
     results.style.display = "block";
   }
 
-  async function runSearch(q){
-    if (!q || q.trim().length < 2) {
+  async function runSearch(){
+    const q = (input?.value || "").trim();
+
+    if (q.length < 2) {
       hideResults();
       return;
     }
@@ -211,22 +216,28 @@
       });
 
       if (!res.ok) {
-        hideResults();
+        renderResults([]);
         return;
       }
 
       const data = await res.json();
       renderResults(data.results || []);
     } catch (err) {
-      hideResults();
+      renderResults([]);
     }
   }
 
   if (input) {
     input.addEventListener("input", function(){
-      const q = input.value || "";
       clearTimeout(timer);
-      timer = setTimeout(() => runSearch(q), 180);
+      timer = setTimeout(runSearch, 180);
+    });
+
+    input.addEventListener("keydown", function(e){
+      if (e.key === "Enter") {
+        e.preventDefault();
+        runSearch();
+      }
     });
 
     input.addEventListener("focus", function(){
@@ -234,6 +245,10 @@
         results.style.display = "block";
       }
     });
+  }
+
+  if (button) {
+    button.addEventListener("click", runSearch);
   }
 
   document.addEventListener("click", function(e){
@@ -245,6 +260,7 @@
 })();
 </script>
 {% endblock %}
+
 
 
 
