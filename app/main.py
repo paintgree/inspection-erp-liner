@@ -4554,6 +4554,7 @@ def ensure_default_users():
                 username="manager",
                 display_name="Manager",
                 role="MANAGER",
+                department="QUALITY",
                 password_hash=hash_password("manager123"),
             ))
 
@@ -4563,6 +4564,7 @@ def ensure_default_users():
                 username="inspector",
                 display_name="Inspector",
                 role="INSPECTOR",
+                department="QUALITY",
                 password_hash=hash_password("inspector"),
             ))
 
@@ -4572,6 +4574,7 @@ def ensure_default_users():
                 username="boss",
                 display_name="Boss",
                 role="BOSS",
+                department="ADMIN",
                 password_hash=hash_password("boss123"),
             ))
 
@@ -4717,13 +4720,183 @@ def _verify_user_password(plain_password: str, password_hash: str) -> bool:
 def _hash_user_password(password: str) -> str:
     return pwd_context.hash(password or "")
 
+USER_DEPARTMENTS = ["QUALITY", "PRODUCTION", "ADMIN"]
+USER_ROLES = ["INSPECTOR", "COORDINATOR", "RUN_CREATOR", "MANAGER", "BOSS"]
+
+ACCESS_OPTIONS = [
+    "dashboard",
+    "runs_view",
+    "runs_create",
+    "runs_edit",
+    "runs_approve",
+    "mrr_view",
+    "mrr_manage",
+    "mrr_approve",
+    "burst_view",
+    "burst_manage",
+    "hydro_view",
+    "hydro_manage",
+    "hydro_approve",
+    "final_view",
+    "final_manage",
+    "final_approve",
+    "users_manage",
+]
+
+def _default_department_for_role(role: str) -> str:
+    r = (role or "").strip().upper()
+    if r == "INSPECTOR":
+        return "QUALITY"
+    if r == "COORDINATOR":
+        return "QUALITY"
+    if r == "RUN_CREATOR":
+        return "PRODUCTION"
+    if r == "MANAGER":
+        return "QUALITY"
+    if r == "BOSS":
+        return "ADMIN"
+    return "QUALITY"
+
+def _default_access_for_user(role: str, department: str) -> list[str]:
+    r = (role or "").strip().upper()
+    d = (department or "").strip().upper()
+
+    if r == "BOSS":
+        return [
+            "dashboard",
+            "runs_view",
+            "mrr_view",
+            "burst_view",
+            "hydro_view",
+            "final_view",
+        ]
+
+    if r == "INSPECTOR":
+        return [
+            "dashboard",
+            "runs_view",
+            "mrr_view",
+            "burst_view",
+            "hydro_view",
+            "hydro_approve",
+            "final_view",
+        ]
+
+    if r == "COORDINATOR":
+        if d == "PRODUCTION":
+            return [
+                "dashboard",
+                "runs_view",
+                "runs_create",
+                "burst_view",
+                "hydro_view",
+                "final_view",
+            ]
+        return [
+            "dashboard",
+            "runs_view",
+            "mrr_view",
+            "burst_view",
+            "hydro_view",
+            "final_view",
+        ]
+
+    if r == "RUN_CREATOR":
+        return [
+            "dashboard",
+            "runs_view",
+            "runs_create",
+        ]
+
+    if r == "MANAGER":
+        if d == "PRODUCTION":
+            return [
+                "dashboard",
+                "runs_view",
+                "runs_create",
+                "runs_edit",
+                "runs_approve",
+                "burst_view",
+                "burst_manage",
+                "final_view",
+            ]
+        if d == "QUALITY":
+            return [
+                "dashboard",
+                "runs_view",
+                "mrr_view",
+                "mrr_manage",
+                "mrr_approve",
+                "burst_view",
+                "burst_manage",
+                "hydro_view",
+                "hydro_manage",
+                "hydro_approve",
+                "final_view",
+                "final_manage",
+                "final_approve",
+                "users_manage",
+            ]
+        return ACCESS_OPTIONS[:]
+
+    return ["dashboard"]
+
+def _load_access_overrides(raw: str) -> list[str]:
+    try:
+        data = json.loads(raw or "[]")
+        if not isinstance(data, list):
+            return []
+        out = []
+        for item in data:
+            key = str(item or "").strip()
+            if key in ACCESS_OPTIONS and key not in out:
+                out.append(key)
+        return out
+    except Exception:
+        return []
+
+def _save_access_overrides(values: list[str]) -> str:
+    out = []
+    for item in values or []:
+        key = str(item or "").strip()
+        if key in ACCESS_OPTIONS and key not in out:
+            out.append(key)
+    return json.dumps(out, ensure_ascii=False)
+
+def _effective_access_for_user(user: User) -> list[str]:
+    department = (getattr(user, "department", "") or "").strip().upper() or _default_department_for_role(user.role)
+    overrides = _load_access_overrides(getattr(user, "access_overrides_json", "") or "")
+    return overrides or _default_access_for_user(user.role, department)
+
+def _access_label_map() -> dict:
+    return {
+        "dashboard": "Dashboard / Overview",
+        "runs_view": "View In-Process Runs",
+        "runs_create": "Create Production Runs",
+        "runs_edit": "Edit Production Runs",
+        "runs_approve": "Approve / Reopen Runs",
+        "mrr_view": "View MRR",
+        "mrr_manage": "Manage MRR",
+        "mrr_approve": "Approve MRR",
+        "burst_view": "View Burst Testing",
+        "burst_manage": "Manage Burst Testing",
+        "hydro_view": "View Hydro Testing",
+        "hydro_manage": "Manage Hydro Testing",
+        "hydro_approve": "Approve Hydro Testing",
+        "final_view": "View Final Inspection",
+        "final_manage": "Manage Final Inspection",
+        "final_approve": "Approve Final Inspection",
+        "users_manage": "User Management",
+    }
+
 @app.post("/users/{username}/update")
-def users_update(
+async def users_update(
     username: str,
     request: Request,
     session: Session = Depends(get_session),
     display_name: str = Form(""),
     role: str = Form(""),
+    department: str = Form(""),
     password: str = Form(""),
 ):
     user = get_current_user(request, session)
@@ -4733,24 +4906,59 @@ def users_update(
     if not target:
         raise HTTPException(404, "User not found")
 
+    form = await request.form()
+
     if display_name.strip():
         target.display_name = display_name.strip()
 
     if role.strip():
         r = role.strip().upper()
-        if r not in ["INSPECTOR", "MANAGER", "BOSS", "RUN_CREATOR"]:
+        if r not in USER_ROLES:
             raise HTTPException(400, "Invalid role")
         target.role = r
+
+    new_department = (department or "").strip().upper()
+    if not new_department:
+        new_department = _default_department_for_role(target.role)
+    if new_department not in USER_DEPARTMENTS:
+        raise HTTPException(400, "Invalid department")
+    target.department = new_department
 
     if password.strip():
         if len(password.strip()) < 4:
             raise HTTPException(400, "Password too short")
         target.password_hash = hash_password(password.strip())
 
+    access_override_values = []
+    for item in form.getlist("access_overrides"):
+        if item in ACCESS_OPTIONS:
+            access_override_values.append(item)
+    target.access_overrides_json = _save_access_overrides(access_override_values)
+
     session.add(target)
     session.commit()
     return RedirectResponse("/users", status_code=302)
 
+
+@app.post("/users/{username}/reset-access")
+def users_reset_access(
+    username: str,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+    require_manager(user)
+
+    target = session.exec(select(User).where(User.username == username)).first()
+    if not target:
+        raise HTTPException(404, "User not found")
+
+    target.access_overrides_json = ""
+    session.add(target)
+    session.commit()
+
+    return RedirectResponse("/users", status_code=302)
+    
 
 @app.post("/users/{username}/delete")
 def users_delete(
@@ -4830,19 +5038,46 @@ def users_get(request: Request, session: Session = Depends(get_session)):
     require_manager(user)
 
     users = session.exec(select(User).order_by(User.username)).all()
+
+    access_labels = _access_label_map()
+    user_rows = []
+
+    for u in users:
+        dept = (getattr(u, "department", "") or "").strip().upper() or _default_department_for_role(u.role)
+        overrides = _load_access_overrides(getattr(u, "access_overrides_json", "") or "")
+        effective = _effective_access_for_user(u)
+
+        user_rows.append({
+            "user_obj": u,
+            "department": dept,
+            "override_access": overrides,
+            "effective_access": effective,
+        })
+
     return templates.TemplateResponse(
         "users.html",
-        {"request": request, "user": user, "users": users, "error": ""},
+        {
+            "request": request,
+            "user": user,
+            "users": users,
+            "user_rows": user_rows,
+            "error": "",
+            "departments": USER_DEPARTMENTS,
+            "roles": USER_ROLES,
+            "access_options": ACCESS_OPTIONS,
+            "access_labels": access_labels,
+        },
     )
 
 
 @app.post("/users")
-def users_post(
+async def users_post(
     request: Request,
     session: Session = Depends(get_session),
     username: str = Form(...),
     display_name: str = Form(...),
     role: str = Form(...),
+    department: str = Form(""),
     password: str = Form(...),
 ):
     user = get_current_user(request, session)
@@ -4851,12 +5086,43 @@ def users_post(
     username = username.strip().lower()
     display_name = display_name.strip()
     role = role.strip().upper()
+    department = (department or "").strip().upper()
 
-    if role not in ["INSPECTOR", "MANAGER", "BOSS"]:
+    if role not in USER_ROLES:
         users = session.exec(select(User).order_by(User.username)).all()
         return templates.TemplateResponse(
             "users.html",
-            {"request": request, "user": user, "users": users, "error": "Invalid role"},
+            {
+                "request": request,
+                "user": user,
+                "users": users,
+                "user_rows": [],
+                "error": "Invalid role",
+                "departments": USER_DEPARTMENTS,
+                "roles": USER_ROLES,
+                "access_options": ACCESS_OPTIONS,
+                "access_labels": _access_label_map(),
+            },
+        )
+
+    if not department:
+        department = _default_department_for_role(role)
+
+    if department not in USER_DEPARTMENTS:
+        users = session.exec(select(User).order_by(User.username)).all()
+        return templates.TemplateResponse(
+            "users.html",
+            {
+                "request": request,
+                "user": user,
+                "users": users,
+                "user_rows": [],
+                "error": "Invalid department",
+                "departments": USER_DEPARTMENTS,
+                "roles": USER_ROLES,
+                "access_options": ACCESS_OPTIONS,
+                "access_labels": _access_label_map(),
+            },
         )
 
     existing = session.exec(select(User).where(User.username == username)).first()
@@ -4864,20 +5130,48 @@ def users_post(
         users = session.exec(select(User).order_by(User.username)).all()
         return templates.TemplateResponse(
             "users.html",
-            {"request": request, "user": user, "users": users, "error": "Username already exists"},
+            {
+                "request": request,
+                "user": user,
+                "users": users,
+                "user_rows": [],
+                "error": "Username already exists",
+                "departments": USER_DEPARTMENTS,
+                "roles": USER_ROLES,
+                "access_options": ACCESS_OPTIONS,
+                "access_labels": _access_label_map(),
+            },
         )
 
     if len(password.strip()) < 4:
         users = session.exec(select(User).order_by(User.username)).all()
         return templates.TemplateResponse(
             "users.html",
-            {"request": request, "user": user, "users": users, "error": "Password too short (min 4)"},
+            {
+                "request": request,
+                "user": user,
+                "users": users,
+                "user_rows": [],
+                "error": "Password too short (min 4)",
+                "departments": USER_DEPARTMENTS,
+                "roles": USER_ROLES,
+                "access_options": ACCESS_OPTIONS,
+                "access_labels": _access_label_map(),
+            },
         )
+
+    form = await request.form()
+    access_override_values = []
+    for item in form.getlist("access_overrides"):
+        if item in ACCESS_OPTIONS:
+            access_override_values.append(item)
 
     session.add(User(
         username=username,
         display_name=display_name,
         role=role,
+        department=department,
+        access_overrides_json=_save_access_overrides(access_override_values),
         password_hash=hash_password(password),
     ))
     session.commit()
