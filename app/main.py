@@ -6436,7 +6436,7 @@ def final_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
     )
 
 
-@app.get("/hydro/dashboard", response_class=HTMLResponse)
+@app.get("/hydro", response_class=HTMLResponse)
 def hydro_dashboard(
     request: Request,
     session: Session = Depends(get_session),
@@ -6445,9 +6445,11 @@ def hydro_dashboard(
 
     summaries = get_finished_cover_runs(session)
 
-    can_hydro_approve = bool(user and (user.role or "").upper() in ["MANAGER", "BOSS", "QA", "QAQC"])
-    my_pending_approvals = []
+    can_hydro_approve = bool(
+        user and (user.role or "").upper() in ["MANAGER", "BOSS", "QA", "QAQC"]
+    )
 
+    my_pending_approvals = []
     if can_hydro_approve and user:
         my_pending_approvals = session.exec(
             select(HydroTestRecord)
@@ -6467,11 +6469,6 @@ def hydro_dashboard(
             "hydro_status_badge": hydro_status_badge,
         },
     )
-    
-
-@app.get("/hydro", response_class=HTMLResponse)
-def hydro_dashboard_redirect():
-    return RedirectResponse(url="/hydro_dashboard", status_code=302)
     
 @app.get("/hydro/batch/{batch_no}", response_class=HTMLResponse)
 def hydro_batch_view(batch_no: str, request: Request, session: Session = Depends(get_session)):
