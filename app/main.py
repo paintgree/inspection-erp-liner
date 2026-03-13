@@ -6435,6 +6435,40 @@ def final_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
         headers={"Content-Disposition": f'inline; filename=\"{filename}\"'},
     )
 
+
+@app.get("/hydro/dashboard", response_class=HTMLResponse)
+def hydro_dashboard(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+
+    summaries = get_finished_cover_runs(session)
+
+    can_hydro_approve = bool(user and (user.role or "").upper() in ["MANAGER", "BOSS", "QA", "QAQC"])
+    my_pending_approvals = []
+
+    if can_hydro_approve and user:
+        my_pending_approvals = session.exec(
+            select(HydroTestRecord)
+            .where(HydroTestRecord.approval_status == "PENDING_APPROVAL")
+            .where(HydroTestRecord.assigned_qaqc_user_id == user.id)
+            .order_by(HydroTestRecord.submitted_at.desc())
+        ).all()
+
+    return templates.TemplateResponse(
+        "hydro_dashboard.html",
+        {
+            "request": request,
+            "user": user,
+            "summaries": summaries,
+            "can_hydro_approve": can_hydro_approve,
+            "my_pending_approvals": my_pending_approvals,
+            "hydro_status_badge": hydro_status_badge,
+        },
+    )
+    
+
 @app.get("/hydro", response_class=HTMLResponse)
 def hydro_dashboard_redirect():
     return RedirectResponse(url="/hydro/dashboard", status_code=302)
