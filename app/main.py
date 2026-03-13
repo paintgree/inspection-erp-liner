@@ -7555,6 +7555,139 @@ def dashboard(request: Request, session: Session = Depends(get_session)):
         },
     )
 
+@app.get("/search")
+def global_search(
+    q: str = "",
+    session: Session = Depends(get_session),
+):
+    q = (q or "").strip()
+    q_lower = q.lower()
+
+    results = []
+    if len(q_lower) < 2:
+        return {"results": results}
+
+    # Production batches / runs
+    runs = session.exec(
+        select(ProductionRun).order_by(ProductionRun.created_at.desc())
+    ).all()
+
+    seen_batches = set()
+
+    for r in runs:
+        batch_no = (r.dhtp_batch_no or "").strip()
+        hay = " ".join([
+            batch_no,
+            r.client_name or "",
+            r.po_number or "",
+            r.itp_number or "",
+            r.process or "",
+            r.pipe_specification or "",
+        ]).lower()
+
+        if q_lower in hay and batch_no and batch_no not in seen_batches:
+            results.append({
+                "type": "batch",
+                "title": f"Batch {batch_no}",
+                "subtitle": f"{r.client_name or '-'} · PO: {r.po_number or '-'} · ITP: {r.itp_number or '-'}",
+                "url": f"/batches/{batch_no}",
+            })
+            seen_batches.add(batch_no)
+
+    # MRR
+    lots = session.exec(
+        select(MaterialLot).order_by(MaterialLot.created_at.desc())
+    ).all()
+    for lot in lots:
+        hay = " ".join([
+            lot.lot_no or "",
+            lot.batch_no or "",
+            lot.material_name or "",
+            lot.vendor_name or "",
+        ]).lower()
+        if q_lower in hay:
+            results.append({
+                "type": "mrr",
+                "title": f"MRR {lot.lot_no or '-'}",
+                "subtitle": f"Batch: {lot.batch_no or '-'} · {lot.material_name or '-'}",
+                "url": f"/mrr",
+            })
+
+    # Hydro
+    hydro_records = session.exec(
+        select(HydroTestRecord).order_by(HydroTestRecord.created_at.desc())
+    ).all()
+    for rec in hydro_records:
+        hay = " ".join([
+            rec.batch_no or "",
+            rec.report_no or "",
+            rec.client_name or "",
+        ]).lower()
+        if q_lower in hay:
+            results.append({
+                "type": "hydro",
+                "title": f"Hydro {rec.batch_no or '-'}",
+                "subtitle": f"Report: {rec.report_no or '-'}",
+                "url": f"/hydro/batch/{rec.batch_no}",
+            })
+
+    # Burst
+    burst_reports = session.exec(
+        select(BurstTestReport).order_by(BurstTestReport.created_at.desc())
+    ).all()
+    for rec in burst_reports:
+        hay = " ".join([
+            rec.batch_no or "",
+            rec.report_no or "",
+            rec.client_name or "",
+        ]).lower()
+        if q_lower in hay:
+            results.append({
+                "type": "burst",
+                "title": f"Burst {rec.batch_no or '-'}",
+                "subtitle": f"Report: {rec.report_no or '-'}",
+                "url": f"/burst/{rec.id}",
+            })
+
+    # Final inspection
+    final_phases = session.exec(
+        select(FinalInspectionPhase).order_by(FinalInspectionPhase.created_at.desc())
+    ).all()
+    for phase in final_phases:
+        hay = " ".join([
+            phase.batch_no or "",
+            phase.title or "",
+            phase.notes or "",
+        ]).lower()
+        if q_lower in hay:
+            results.append({
+                "type": "final",
+                "title": f"Final Inspection {phase.batch_no or '-'}",
+                "subtitle": f"{phase.title or '-'} · {phase.status or '-'}",
+                "url": f"/final/batch/{phase.batch_no}",
+            })
+
+    # RFI
+    rfi_records = session.exec(
+        select(RfiRecord).order_by(RfiRecord.created_at.desc())
+    ).all()
+    for rfi in rfi_records:
+        hay = " ".join([
+            rfi.batch_no or "",
+            rfi.rfi_no or "",
+            rfi.client_name or "",
+            rfi.inspection_stage or "",
+            rfi.status or "",
+        ]).lower()
+        if q_lower in hay:
+            results.append({
+                "type": "rfi",
+                "title": f"RFI {rfi.rfi_no or '-'}",
+                "subtitle": f"Batch: {rfi.batch_no or '-'} · {rfi.inspection_stage or '-'}",
+                "url": f"/rfi/{rfi.id}",
+            })
+
+    return {"results": results[:20]}
 
 @app.get("/me", response_class=HTMLResponse)
 def my_profile(
