@@ -6549,7 +6549,10 @@ def final_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
         headers={"Content-Disposition": f'inline; filename=\"{filename}\"'},
     )
 
-
+@app.get("/hydro", response_class=HTMLResponse)
+def hydro_dashboard_redirect():
+    return RedirectResponse(url="/hydro/dashboard", status_code=302)
+    
 @app.get("/hydro/batch/{batch_no}", response_class=HTMLResponse)
 def hydro_batch_view(batch_no: str, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
