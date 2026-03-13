@@ -57,9 +57,12 @@
         <input name="pipe_specification" required>
       </div>
 
-      <div>
+      <div id="rawMaterialSpecWrap">
         <label>Raw Material Spec</label>
-        <input name="raw_material_spec" required>
+        <input id="raw_material_spec" name="raw_material_spec" required>
+        <div id="rawMaterialSpecHint" class="muted tiny mt" style="display:none;">
+          Hidden when creating more than one layer, because each layer will have its own material later.
+        </div>
       </div>
 
       <div>
@@ -81,4 +84,33 @@
     </div>
   </form>
 </div>
+  <script>
+    (function () {
+      const processBoxes = Array.from(document.querySelectorAll('input[name="selected_processes"]'));
+      const wrap = document.getElementById('rawMaterialSpecWrap');
+      const input = document.getElementById('raw_material_spec');
+      const hint = document.getElementById('rawMaterialSpecHint');
+
+      if (!processBoxes.length || !wrap || !input) return;
+
+      function syncRawMaterialVisibility() {
+        const checkedCount = processBoxes.filter(box => box.checked).length;
+        const multiLayer = checkedCount > 1;
+
+        wrap.style.display = multiLayer ? 'none' : '';
+        input.required = !multiLayer;
+
+        if (multiLayer) {
+          input.value = '';
+          if (hint) hint.style.display = 'block';
+        } else {
+          if (hint) hint.style.display = 'none';
+        }
+      }
+
+      processBoxes.forEach(box => box.addEventListener('change', syncRawMaterialVisibility));
+      syncRawMaterialVisibility();
+    })();
+  </script>
 {% endblock %}
+
