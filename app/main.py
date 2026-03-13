@@ -5187,7 +5187,9 @@ def login_post(
     username = (username or "").strip().lower()
     password = password or ""
 
-    user = session.exec(select(User).where(User.username == username)).first()
+    user = session.exec(
+        select(User).where(User.username == username)
+    ).first()
 
     if not user or not verify_password(password, user.password_hash):
         return templates.TemplateResponse(
@@ -5198,16 +5200,18 @@ def login_post(
             },
         )
 
-    if user.is_locked:
+    if getattr(user, "is_locked", False):
         return templates.TemplateResponse(
             "login.html",
             {
                 "request": request,
-                "error": "Your account is locked. Please contact the administrator.",
+                "error": "Your account is locked.",
             },
         )
 
-    response = RedirectResponse("/dashboard", status_code=302)
+    # successful login
+    response = RedirectResponse(url="/dashboard", status_code=302)
+
     response.set_cookie(
         key="username",
         value=user.username,
@@ -5217,6 +5221,7 @@ def login_post(
         path="/",
         max_age=60 * 60 * 12,
     )
+
     return response
 
 
