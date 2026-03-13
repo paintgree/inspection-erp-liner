@@ -7761,13 +7761,12 @@ def global_search(
     if len(q_lower) < 2:
         return {"results": results}
 
-    # Production batches / runs
+    # Production runs / batches
     runs = session.exec(
         select(ProductionRun).order_by(ProductionRun.created_at.desc())
     ).all()
 
-    seen_batches = set()
-
+    seen_batch_urls = set()
     for r in runs:
         batch_no = (r.dhtp_batch_no or "").strip()
         hay = " ".join([
@@ -7779,33 +7778,16 @@ def global_search(
             r.pipe_specification or "",
         ]).lower()
 
-        if q_lower in hay and batch_no and batch_no not in seen_batches:
-            results.append({
-                "type": "batch",
-                "title": f"Batch {batch_no}",
-                "subtitle": f"{r.client_name or '-'} · PO: {r.po_number or '-'} · ITP: {r.itp_number or '-'}",
-                "url": f"/batches/{batch_no}",
-            })
-            seen_batches.add(batch_no)
-
-    # MRR
-    lots = session.exec(
-        select(MaterialLot).order_by(MaterialLot.created_at.desc())
-    ).all()
-    for lot in lots:
-        hay = " ".join([
-            lot.lot_no or "",
-            lot.batch_no or "",
-            lot.material_name or "",
-            lot.vendor_name or "",
-        ]).lower()
-        if q_lower in hay:
-            results.append({
-                "type": "mrr",
-                "title": f"MRR {lot.lot_no or '-'}",
-                "subtitle": f"Batch: {lot.batch_no or '-'} · {lot.material_name or '-'}",
-                "url": f"/mrr",
-            })
+        if q_lower in hay and batch_no:
+            url = f"/batches/{batch_no}"
+            if url not in seen_batch_urls:
+                results.append({
+                    "type": "batch",
+                    "title": f"Batch {batch_no}",
+                    "subtitle": f"{r.client_name or '-'} · PO: {r.po_number or '-'} · ITP: {r.itp_number or '-'}",
+                    "url": url,
+                })
+                seen_batch_urls.add(url)
 
     # Hydro
     hydro_records = session.exec(
@@ -7815,12 +7797,12 @@ def global_search(
         hay = " ".join([
             rec.batch_no or "",
             rec.report_no or "",
-            rec.client_name or "",
+            getattr(rec, "assigned_qaqc_display_name", "") or "",
         ]).lower()
-        if q_lower in hay:
+        if q_lower in hay and rec.batch_no:
             results.append({
                 "type": "hydro",
-                "title": f"Hydro {rec.batch_no or '-'}",
+                "title": f"Hydro {rec.batch_no}",
                 "subtitle": f"Report: {rec.report_no or '-'}",
                 "url": f"/hydro/batch/{rec.batch_no}",
             })
@@ -7833,7 +7815,7 @@ def global_search(
         hay = " ".join([
             rec.batch_no or "",
             rec.report_no or "",
-            rec.client_name or "",
+            rec.purpose or "",
         ]).lower()
         if q_lower in hay:
             results.append({
@@ -7843,7 +7825,7 @@ def global_search(
                 "url": f"/burst/{rec.id}",
             })
 
-    # Final inspection
+    # Final
     final_phases = session.exec(
         select(FinalInspectionPhase).order_by(FinalInspectionPhase.created_at.desc())
     ).all()
@@ -7851,12 +7833,13 @@ def global_search(
         hay = " ".join([
             phase.batch_no or "",
             phase.title or "",
+            phase.status or "",
             phase.notes or "",
         ]).lower()
-        if q_lower in hay:
+        if q_lower in hay and phase.batch_no:
             results.append({
                 "type": "final",
-                "title": f"Final Inspection {phase.batch_no or '-'}",
+                "title": f"Final Inspection {phase.batch_no}",
                 "subtitle": f"{phase.title or '-'} · {phase.status or '-'}",
                 "url": f"/final/batch/{phase.batch_no}",
             })
@@ -7881,7 +7864,7 @@ def global_search(
                 "url": f"/rfi/{rfi.id}",
             })
 
-    return {"results": results[:20]}
+    return {"results": results[:25]}
 
 @app.get("/me", response_class=HTMLResponse)
 def my_profile(
