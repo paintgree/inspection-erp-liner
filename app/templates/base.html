@@ -54,13 +54,13 @@
               <div class="app-user-menu-name">{{ user.display_name }}</div>
               <div class="app-user-menu-role">{{ user.role }}</div>
             </div>
-
-            <a class="app-user-menu-item" href="/dashboard">Dashboard</a>
-
+            
+            <a class="app-user-menu-item" href="/me">My Profile</a>
+            
             {% if user and user.role and user.role|upper == "MANAGER" %}
               <a class="app-user-menu-item" href="/users">User Management</a>
             {% endif %}
-
+            
             <a class="app-user-menu-item app-user-menu-danger" href="/logout">Logout</a>
           </div>
         </div>
@@ -199,3 +199,4 @@
 
 </body>
 </html>
+
