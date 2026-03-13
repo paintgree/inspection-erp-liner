@@ -6443,11 +6443,17 @@ def hydro_dashboard(
 ):
     user = get_current_user(request, session)
 
-    summaries = build_hydro_dashboard_summaries(session)
+    cover_runs = get_finished_cover_runs(session)
+    summaries = []
 
-    can_hydro_approve = bool(
-        user and (user.role or "").upper() in ["MANAGER", "BOSS", "QA", "QAQC"]
-    )
+    for run in cover_runs:
+        summary = _build_hydro_batch_summary(session, run)
+        if summary["produced_length_m"] > 0 or summary["records"]:
+            summaries.append(summary)
+
+    summaries.sort(key=lambda x: x["batch_no"])
+
+    can_hydro_approve = _can_hydro_approve(user)
 
     my_pending_approvals = []
     if can_hydro_approve and user:
@@ -6496,7 +6502,7 @@ def hydro_batch_view(batch_no: str, request: Request, session: Session = Depends
             "summary": summary,
             "error": error,
             "edit_record": edit_record,
-            "hydro_status_badge": _hydro_status_badge,
+            "hydro_status_badge": hydro_status_badge,
             "hydro_record_status_label": _hydro_record_status_label,
             "format_oman_dt": format_oman_dt,
             "can_hydro_approve": _can_hydro_approve(user),
@@ -6646,91 +6652,6 @@ def hydro_batch_save_record(
     session.commit()
 
     return RedirectResponse(f"/hydro/batch/{batch_no}", status_code=303)
-
-    def _redir(msg: str):
-        if current_id:
-            return RedirectResponse(f"/hydro/batch/{batch_no}?error={msg}&edit_id={current_id}", status_code=303)
-        return RedirectResponse(f"/hydro/batch/{batch_no}?error={msg}", status_code=303)
-
-    if produced <= 0:
-        return _redir("This batch has no finished produced length yet.")
-    if end_m <= start_m:
-        return _redir("End length must be greater than start length.")
-    if start_m < 0 or end_m > produced:
-        return _redir(f"Range must stay inside finished produced length 0.0 to {produced:.1f} m.")
-    if _hydro_overlap_error(start_m, end_m, summary["burst_ranges"]):
-        return _redir("This range overlaps material already consumed by burst testing.")
-
-    existing_hydro_ranges = _get_hydro_tested_ranges(
-        session=session,
-        batch_no=batch_no,
-        finished_length_m=produced,
-        exclude_record_id=current_id,
-    )
-    if _hydro_overlap_error(start_m, end_m, existing_hydro_ranges):
-        return _redir("This range overlaps an already hydrotested range.")
-
-    if current_id:
-        record = session.get(HydroTestRecord, current_id)
-        if not record or (record.batch_no or "").strip() != (batch_no or "").strip():
-            raise HTTPException(404, "Hydrotest record not found")
-    else:
-        record = HydroTestRecord(
-            report_no=_next_hydro_report_no(session),
-            batch_no=(batch_no or "").strip(),
-            linked_run_id=cover.id,
-            created_by_user_id=getattr(user, "id", None),
-            created_by_user_name=getattr(user, "display_name", "") or "",
-        )
-
-    if not (record.report_no or "").strip():
-        record.report_no = _next_hydro_report_no(session)
-
-    record.batch_no = (batch_no or "").strip()
-    record.linked_run_id = cover.id
-    record.client_name = getattr(cover, "client_name", "") or ""
-    record.client_po = getattr(cover, "po_number", "") or ""
-    record.pipe_specification = getattr(cover, "pipe_specification", "") or ""
-    record.finished_length_m = produced
-    record.start_length_m = start_m
-    record.end_length_m = end_m
-    record.tested_length_m = round(end_m - start_m, 3)
-
-    record.hydrotest_pressure_mpa = float(hydrotest_pressure_mpa or 0.0)
-    record.test_medium = (test_medium or "Water").strip()
-    record.laboratory_temperature = (laboratory_temperature or "").strip()
-    record.test_result = (test_result or "PASS").strip().upper()
-    record.notes = (notes or "").strip()
-
-    record.reference_standard = (reference_standard or "API 15S").strip()
-    record.reference_dhtp_procedure = (reference_dhtp_procedure or "QAW2000").strip()
-    record.machine_model = (machine_model or "").strip()
-    record.calibration_status = (calibration_status or "").strip()
-    record.highest_pressure_recorded_mpa = float(highest_pressure_recorded_mpa or 0.0)
-    record.lowest_pressure_recorded_mpa = float(lowest_pressure_recorded_mpa or 0.0)
-    record.pressure_holding_time_min = (pressure_holding_time_min or "").strip()
-    record.qaqc_name = (qaqc_name or "").strip()
-    record.testing_operator_name = (testing_operator_name or "").strip()
-
-    # keep compatibility for any older exports/records that still read technician_name
-    record.technician_name = record.testing_operator_name
-
-    # duplicate field no longer used
-    record.hold_time_s = ""
-
-    if chart_image and getattr(chart_image, "filename", ""):
-        saved = save_hydro_chart_file(chart_image, batch_no)
-        if saved:
-            record.chart_image_path = saved
-
-    record.approval_status = "DRAFT"
-    record.submitted_at = None
-    record.approved_at = None
-    record.approved_by_user_id = None
-    record.approved_by_user_name = ""
-
-    session.add(record)
-    session.commit()
 
     return RedirectResponse(f"/hydro/batch/{batch_no}", status_code=303)
 
