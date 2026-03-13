@@ -406,6 +406,39 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE user ADD COLUMN access_overrides_json TEXT DEFAULT ''",
     )
 
+
+        # --- user: profile / security fields ---
+    _add_column_if_missing(
+        "user",
+        "email",
+        "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS email TEXT DEFAULT ''",
+        "ALTER TABLE user ADD COLUMN email TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
+        "user",
+        "department",
+        "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS department TEXT DEFAULT 'QUALITY'",
+        "ALTER TABLE user ADD COLUMN department TEXT DEFAULT 'QUALITY'",
+    )
+    _add_column_if_missing(
+        "user",
+        "access_overrides_json",
+        "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS access_overrides_json TEXT DEFAULT ''",
+        "ALTER TABLE user ADD COLUMN access_overrides_json TEXT DEFAULT ''",
+    )
+    _add_column_if_missing(
+        "user",
+        "is_locked",
+        "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS is_locked BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE user ADD COLUMN is_locked INTEGER DEFAULT 0",
+    )
+    _add_column_if_missing(
+        "user",
+        "must_change_password",
+        "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE user ADD COLUMN must_change_password INTEGER DEFAULT 0",
+    )
+    
     # =========================
     # PERFORMANCE INDEXES
     # =========================
