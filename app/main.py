@@ -6406,7 +6406,7 @@ def final_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
     body_style = ParagraphStyle("body", parent=styles["BodyText"], fontName="Helvetica", fontSize=9, leading=12)
     section_style = ParagraphStyle("sec", parent=styles["Heading2"], fontName="Helvetica-Bold", fontSize=10, leading=12, spaceBefore=8, spaceAfter=6)
 
-        story = []
+    story = []
     story.append(Paragraph("Final Inspection Full Batch Summary", title_style))
     story.append(Paragraph(f"Batch: <b>{summary['batch_no']}</b>", body_style))
     story.append(Paragraph(f"Client: {summary['client_name'] or '-'}", body_style))
