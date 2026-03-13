@@ -24,6 +24,273 @@
 body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;background:var(--bg);color:var(--text)}
 a{color:inherit}
 
+/* =========================
+   Global app header
+========================= */
+.app-header{
+  position:sticky;
+  top:0;
+  z-index:1000;
+  background:rgba(246,247,251,.92);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid rgba(229,231,235,.9);
+}
+
+.app-header-inner{
+  max-width:min(1680px, calc(100vw - 24px));
+  margin:0 auto;
+  padding:12px 18px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+}
+
+.app-header-left,
+.app-header-right{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.app-brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  text-decoration:none;
+}
+
+.app-brand-mark{
+  width:42px;
+  height:42px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:900;
+  color:#fff;
+  background:linear-gradient(135deg, #0f172a 0%, #7c3aed 100%);
+  box-shadow:0 8px 20px rgba(124,58,237,.22);
+}
+
+.app-brand-text{
+  display:flex;
+  flex-direction:column;
+  line-height:1.1;
+}
+
+.app-brand-text strong{
+  font-size:16px;
+  color:#0f172a;
+}
+
+.app-brand-text small{
+  font-size:11px;
+  color:#64748b;
+  margin-top:3px;
+}
+
+.app-header-icon{
+  position:relative;
+  width:42px;
+  height:42px;
+  border-radius:12px;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-decoration:none;
+  cursor:pointer;
+  font-size:17px;
+  box-shadow:0 1px 0 rgba(0,0,0,.03);
+}
+
+.app-header-icon:hover{
+  background:#f8fafc;
+}
+
+.app-bell-btn{
+  appearance:none;
+  -webkit-appearance:none;
+}
+
+.app-bell-dot{
+  position:absolute;
+  top:-5px;
+  right:-4px;
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  border-radius:999px;
+  background:#ef4444;
+  color:#fff;
+  font-size:10px;
+  font-weight:900;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border:2px solid #fff;
+}
+
+.app-user-menu-wrap{
+  position:relative;
+}
+
+.app-user-btn{
+  appearance:none;
+  -webkit-appearance:none;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  border-radius:14px;
+  padding:8px 12px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  cursor:pointer;
+  min-height:42px;
+}
+
+.app-user-btn:hover{
+  background:#f8fafc;
+}
+
+.app-user-avatar{
+  width:34px;
+  height:34px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  color:#fff;
+  font-weight:900;
+  font-size:14px;
+  flex:0 0 auto;
+}
+
+.app-user-meta{
+  display:flex;
+  flex-direction:column;
+  text-align:left;
+  line-height:1.1;
+}
+
+.app-user-meta strong{
+  font-size:13px;
+  color:#0f172a;
+}
+
+.app-user-meta small{
+  font-size:11px;
+  color:#64748b;
+  margin-top:4px;
+}
+
+.app-user-caret{
+  font-size:12px;
+  color:#64748b;
+}
+
+.app-user-menu,
+.app-header-popover{
+  position:absolute;
+  top:calc(100% + 10px);
+  right:0;
+  min-width:240px;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  box-shadow:0 18px 50px rgba(15,23,42,.12);
+  overflow:hidden;
+}
+
+.app-user-menu-head{
+  padding:14px 16px;
+  border-bottom:1px solid #eef2f7;
+  background:#fafbff;
+}
+
+.app-user-menu-name{
+  font-weight:800;
+  color:#0f172a;
+}
+
+.app-user-menu-role{
+  margin-top:4px;
+  font-size:12px;
+  color:#64748b;
+}
+
+.app-user-menu-item{
+  display:block;
+  padding:12px 16px;
+  text-decoration:none;
+  font-weight:700;
+  color:#0f172a;
+  border-top:1px solid #f8fafc;
+}
+
+.app-user-menu-item:hover{
+  background:#f8fafc;
+}
+
+.app-user-menu-danger{
+  color:#b91c1c;
+}
+
+.app-header-popover-title{
+  padding:14px 16px;
+  font-weight:800;
+  border-bottom:1px solid #eef2f7;
+  background:#fafbff;
+}
+
+.app-header-popover-body{
+  padding:14px 16px;
+}
+
+.app-empty-note{
+  font-size:13px;
+  color:#64748b;
+}
+
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;
+  background:var(--bg);
+  color:var(--text);
+}
+
+.page{
+  max-width:min(1680px, calc(100vw - 24px));
+  margin:0 auto;
+  padding:18px;
+}
+
+@media (max-width:900px){
+  .app-header-inner{
+    padding:10px 14px;
+  }
+
+  .app-brand-text small{
+    display:none;
+  }
+
+  .app-user-meta{
+    display:none;
+  }
+
+  .app-user-btn{
+    padding:6px 10px;
+  }
+
+  .page{
+    max-width:100%;
+    padding:14px;
+  }
+}
+
 .page{max-width:min(1680px, calc(100vw - 24px));margin:0 auto;padding:18px}
 @media (max-width:1200px){ .page{max-width:100%;padding:14px} }
 
@@ -2027,5 +2294,6 @@ Burst search + filters
 .tablewrap td{
   vertical-align:middle;
 }
+
 
 
