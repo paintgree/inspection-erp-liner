@@ -9,7 +9,13 @@ from sqlalchemy import inspect, text
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
-    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+    engine = create_engine(
+        DATABASE_URL,
+        pool_pre_ping=True,
+        pool_recycle=180,
+        pool_size=5,
+        max_overflow=10,
+    )
 else:
     DB_PATH = os.getenv("INSPECTION_DB", "inspection.db")
     engine = create_engine(
@@ -385,6 +391,66 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE finalinspectionreel ADD COLUMN IF NOT EXISTS wall_thickness_mm DOUBLE PRECISION DEFAULT 0",
         "ALTER TABLE finalinspectionreel ADD COLUMN wall_thickness_mm REAL DEFAULT 0",
     )
+
+    # =========================
+    # PERFORMANCE INDEXES
+    # =========================
+    try:
+        with engine.begin() as conn:
+            dialect = engine.dialect.name
+
+            if dialect == "postgresql":
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_inspectionentry_run_date "
+                    "ON inspectionentry (run_id, actual_date)"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_inspectionvalue_entry_param "
+                    "ON inspectionvalue (entry_id, param_key)"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_productionrun_process_status "
+                    "ON productionrun (process, status)"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_mrrreceivinginspection_ticket_flags "
+                    "ON mrrreceivinginspection (ticket_id, inspector_confirmed, manager_approved)"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_finalinspectionphase_batch_status "
+                    "ON finalinspectionphase (batch_no, status)"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_finalinspectionreel_phase_created "
+                    "ON finalinspectionreel (phase_id, created_at)"
+                ))
+            else:
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_inspectionentry_run_date "
+                    "ON inspectionentry (run_id, actual_date)"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_inspectionvalue_entry_param "
+                    "ON inspectionvalue (entry_id, param_key)"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_productionrun_process_status "
+                    "ON productionrun (process, status)"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_mrrreceivinginspection_ticket_flags "
+                    "ON mrrreceivinginspection (ticket_id, inspector_confirmed, manager_approved)"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_finalinspectionphase_batch_status "
+                    "ON finalinspectionphase (batch_no, status)"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_finalinspectionreel_phase_created "
+                    "ON finalinspectionreel (phase_id, created_at)"
+                ))
+    except Exception:
+        pass
 
 def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
