@@ -562,15 +562,31 @@ class RfiRecord(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class RfiAttachment(SQLModel, table=True):
+class RfiRecord(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
-    rfi_id: int = Field(index=True)
-    file_name: str = Field(default="")
-    file_path: str = Field(default="")
-    kind: str = Field(default="GENERAL")
-    uploaded_by: str = Field(default="")
-    uploaded_at: datetime = Field(default_factory=datetime.utcnow)
+    linked_run_id: Optional[int] = Field(default=None, index=True)
+
+    batch_no: str = Field(default="", index=True)
+    rfi_no: str = Field(default="", index=True)
+    client_name: str = Field(default="")
+    inspection_stage: str = Field(default="GENERAL")
+    status: str = Field(default="DRAFT")  # DRAFT / SUBMITTED / SCHEDULED / VISIT_COMPLETED / CLOSED
+
+    requested_date: Optional[datetime] = Field(default=None)
+    visit_date: Optional[datetime] = Field(default=None)
+    closed_date: Optional[datetime] = Field(default=None)
+
+    raised_by_user_id: Optional[int] = Field(default=None)
+    raised_by_name: str = Field(default="")
+
+    tpi_company: str = Field(default="")
+    tpi_contact_name: str = Field(default="")
+
+    notes: str = Field(default="")
+    result_notes: str = Field(default="")
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class FinalInspectionPhase(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
