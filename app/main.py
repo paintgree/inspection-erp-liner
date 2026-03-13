@@ -6471,7 +6471,7 @@ def hydro_dashboard(
 
 @app.get("/hydro", response_class=HTMLResponse)
 def hydro_dashboard_redirect():
-    return RedirectResponse(url="/hydro/dashboard", status_code=302)
+    return RedirectResponse(url="/hydro_dashboard", status_code=302)
     
 @app.get("/hydro/batch/{batch_no}", response_class=HTMLResponse)
 def hydro_batch_view(batch_no: str, request: Request, session: Session = Depends(get_session)):
