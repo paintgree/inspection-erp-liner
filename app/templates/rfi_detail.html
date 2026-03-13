@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <h1 style="margin:0;">RFI {{ rfi.rfi_no }}</h1>
+    <div class="muted">Batch-linked inspection package and supporting records.</div>
+  </div>
+  <a class="btn" href="/rfi">← Back to RFI</a>
+</div>
+
+<div class="card">
+  <div class="grid3">
+    <div><b>Batch:</b> {{ rfi.batch_no }}</div>
+    <div><b>Client:</b> {{ rfi.client_name or '-' }}</div>
+    <div><b>Stage:</b> {{ rfi.inspection_stage }}</div>
+    <div><b>Status:</b> {{ rfi.status }}</div>
+    <div><b>TPI Company:</b> {{ rfi.tpi_company or '-' }}</div>
+    <div><b>TPI Contact:</b> {{ rfi.tpi_contact_name or '-' }}</div>
+  </div>
+
+  <form method="post" action="/rfi/{{ rfi.id }}/status" class="mt">
+    <div class="grid2">
+      <div>
+        <label>Status</label>
+        <select name="status">
+          <option value="DRAFT" {% if rfi.status == "DRAFT" %}selected{% endif %}>DRAFT</option>
+          <option value="SUBMITTED" {% if rfi.status == "SUBMITTED" %}selected{% endif %}>SUBMITTED</option>
+          <option value="SCHEDULED" {% if rfi.status == "SCHEDULED" %}selected{% endif %}>SCHEDULED</option>
+          <option value="VISIT_COMPLETED" {% if rfi.status == "VISIT_COMPLETED" %}selected{% endif %}>VISIT COMPLETED</option>
+          <option value="CLOSED" {% if rfi.status == "CLOSED" %}selected{% endif %}>CLOSED</option>
+        </select>
+      </div>
+      <div>
+        <label>Result Notes</label>
+        <input name="result_notes" value="{{ rfi.result_notes or '' }}">
+      </div>
+    </div>
+
+    <div class="toolbar mt">
+      <button class="btn btn-primary" type="submit">Update RFI</button>
+    </div>
+  </form>
+</div>
+
+<div class="card mt">
+  <h2>Batch Package Summary</h2>
+  <div class="grid2">
+    <div><b>PO:</b> {{ package.po_number or '-' }}</div>
+    <div><b>ITP:</b> {{ package.itp_number or '-' }}</div>
+    <div><b>Pipe Specification:</b> {{ package.pipe_specification or '-' }}</div>
+    <div><b>Batch:</b> {{ package.batch_no }}</div>
+  </div>
+</div>
+
+<div class="card mt">
+  <h2>Linked In-Process Runs</h2>
+  <div class="tablewrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Process</th>
+          <th>Client</th>
+          <th>PO</th>
+          <th>ITP</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in package.runs %}
+          <tr>
+            <td>{{ r.process }}</td>
+            <td>{{ r.client_name or '-' }}</td>
+            <td>{{ r.po_number or '-' }}</td>
+            <td>{{ r.itp_number or '-' }}</td>
+            <td>{{ r.status or '-' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5" class="muted">No runs found for this batch.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mt">
+  <h2>Material Receiving</h2>
+  <div class="tablewrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Lot No</th>
+          <th>Material</th>
+          <th>Vendor</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in package.material_lots %}
+          <tr>
+            <td>{{ m.lot_no or '-' }}</td>
+            <td>{{ m.material_name or '-' }}</td>
+            <td>{{ m.vendor_name or '-' }}</td>
+            <td>{{ m.status or '-' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="4" class="muted">No material records found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mt">
+  <h2>Burst Testing</h2>
+  <div class="tablewrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Report No</th>
+          <th>Purpose</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for b in package.burst_reports %}
+          <tr>
+            <td>{{ b.report_no or '-' }}</td>
+            <td>{{ b.purpose or '-' }}</td>
+            <td>{{ b.status or '-' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="3" class="muted">No burst records found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mt">
+  <h2>Hydro Testing</h2>
+  <div class="tablewrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Report No</th>
+          <th>Tested Length</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for h in package.hydro_records %}
+          <tr>
+            <td>{{ h.report_no or '-' }}</td>
+            <td>{{ h.tested_length_m or 0 }}</td>
+            <td>{{ h.approval_status or '-' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="3" class="muted">No hydro records found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card mt">
+  <h2>Final Inspection</h2>
+  <div class="tablewrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Phase</th>
+          <th>Status</th>
+          <th>Approved By</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in package.final_phases %}
+          <tr>
+            <td>{{ f.title or '-' }}</td>
+            <td>{{ f.status or '-' }}</td>
+            <td>{{ f.approved_by_user_name or '-' }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="3" class="muted">No final inspection records found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
