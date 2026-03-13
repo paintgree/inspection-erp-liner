@@ -392,6 +392,20 @@ def _ensure_schema_patches() -> None:
         "ALTER TABLE finalinspectionreel ADD COLUMN wall_thickness_mm REAL DEFAULT 0",
     )
 
+        # --- user: department + access override json ---
+    _add_column_if_missing(
+        "user",
+        "department",
+        "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS department TEXT DEFAULT 'QUALITY'",
+        "ALTER TABLE user ADD COLUMN department TEXT DEFAULT 'QUALITY'",
+    )
+    _add_column_if_missing(
+        "user",
+        "access_overrides_json",
+        "ALTER TABLE \"user\" ADD COLUMN IF NOT EXISTS access_overrides_json TEXT DEFAULT ''",
+        "ALTER TABLE user ADD COLUMN access_overrides_json TEXT DEFAULT ''",
+    )
+
     # =========================
     # PERFORMANCE INDEXES
     # =========================
