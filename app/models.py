@@ -24,7 +24,12 @@ class User(SQLModel, table=True):
 
     username: str = Field(index=True, unique=True)
     display_name: str = Field(default="")
-    role: str = Field(default="INSPECTOR")  # MANAGER / INSPECTOR / BOSS / RUN_CREATOR
+    role: str = Field(default="INSPECTOR")  # MANAGER / INSPECTOR / BOSS / RUN_CREATOR / COORDINATOR
+
+    # NEW
+    department: str = Field(default="QUALITY")   # QUALITY / PRODUCTION / ADMIN
+    access_overrides_json: str = Field(default="")  # JSON array of delegated permissions
+
     password_hash: str = Field(default="")
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
