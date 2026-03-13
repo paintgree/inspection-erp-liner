@@ -70,6 +70,11 @@
   </header>
 
   <div class="page">
+        {% if user and user.must_change_password %}
+          <div class="alert" style="margin-bottom:14px; border-color:#f59e0b; background:#fff7ed; color:#9a3412;">
+            Your password is still set to the default or was reset by admin. Please update it from <a href="/me" style="font-weight:800; text-decoration:underline;">My Profile</a>.
+          </div>
+        {% endif %}
     {% block content %}{% endblock %}
   </div>
 
@@ -199,4 +204,5 @@
 
 </body>
 </html>
+
 
