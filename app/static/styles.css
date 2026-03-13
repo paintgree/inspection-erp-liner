@@ -291,6 +291,167 @@ body{
   }
 }
 
+/* =========================
+   My profile page
+========================= */
+.profile-shell{
+  max-width:1100px;
+  margin:0 auto;
+}
+
+.profile-hero{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  flex-wrap:wrap;
+  margin-bottom:12px;
+}
+
+.profile-hero-left{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+
+.profile-avatar-lg{
+  width:64px;
+  height:64px;
+  border-radius:999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  color:#fff;
+  font-size:24px;
+  font-weight:900;
+  box-shadow:0 10px 28px rgba(124,58,237,.2);
+}
+
+.profile-hero-text h1{
+  margin:0 0 4px 0;
+}
+
+.profile-hero-text .muted{
+  margin-top:2px;
+}
+
+.profile-grid{
+  display:grid;
+  grid-template-columns:1.1fr .9fr;
+  gap:16px;
+  align-items:start;
+}
+
+.profile-stack{
+  display:grid;
+  gap:16px;
+}
+
+.profile-card{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:18px;
+  padding:18px;
+  box-shadow:0 2px 8px rgba(15,23,42,.04);
+}
+
+.profile-card h3{
+  margin:0 0 6px 0;
+  font-size:18px;
+}
+
+.profile-sub{
+  color:#64748b;
+  font-size:13px;
+  margin-bottom:12px;
+}
+
+.profile-mini-grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:12px;
+}
+
+.profile-stat{
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  background:#fafafa;
+  padding:14px;
+}
+
+.profile-stat-label{
+  font-size:12px;
+  font-weight:800;
+  color:#64748b;
+}
+
+.profile-stat-value{
+  margin-top:8px;
+  font-size:22px;
+  font-weight:900;
+  color:#0f172a;
+}
+
+.profile-info-list{
+  display:grid;
+  gap:12px;
+}
+
+.profile-info-row{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 0;
+  border-bottom:1px solid #f1f5f9;
+}
+
+.profile-info-row:last-child{
+  border-bottom:none;
+}
+
+.profile-info-label{
+  font-size:13px;
+  font-weight:800;
+  color:#64748b;
+}
+
+.profile-info-value{
+  text-align:right;
+  font-weight:700;
+  color:#0f172a;
+}
+
+.profile-note{
+  padding:12px 14px;
+  border-radius:14px;
+  border:1px solid #e5e7eb;
+  background:#fafbff;
+  color:#475569;
+  font-size:13px;
+  line-height:1.5;
+}
+
+@media (max-width: 900px){
+  .profile-grid{
+    grid-template-columns:1fr;
+  }
+
+  .profile-mini-grid{
+    grid-template-columns:1fr;
+  }
+
+  .profile-info-row{
+    flex-direction:column;
+  }
+
+  .profile-info-value{
+    text-align:left;
+  }
+}
+
+-------------------------------------
+
 .page{max-width:min(1680px, calc(100vw - 24px));margin:0 auto;padding:18px}
 @media (max-width:1200px){ .page{max-width:100%;padding:14px} }
 
@@ -2294,6 +2455,7 @@ Burst search + filters
 .tablewrap td{
   vertical-align:middle;
 }
+
 
 
 
