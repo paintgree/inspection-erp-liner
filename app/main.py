@@ -2136,6 +2136,15 @@ os.makedirs(MRR_PHOTO_DIR, exist_ok=True)
 
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+
+
+@app.exception_handler(HTTPException)
+async def app_http_exception_handler(request: Request, exc: HTTPException):
+    if exc.status_code == 401 and str(exc.detail) == "Not logged in":
+        accept = (request.headers.get("accept") or "").lower()
+        if "text/html" in accept:
+            return RedirectResponse(url="/login", status_code=302)
+    raise exc
 # =========================
 # File upload directories
 # =========================
@@ -5197,7 +5206,15 @@ def login_post(
         )
 
     response = RedirectResponse("/dashboard", status_code=302)
-    response.set_cookie("username", user.username, httponly=True)
+    response.set_cookie(
+        key="username",
+        value=user.username,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+        max_age=60 * 60 * 12,
+    )
     return response
 
 
