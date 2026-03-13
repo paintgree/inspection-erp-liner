@@ -5797,14 +5797,24 @@ def apply_specs_to_template(ws, run: ProductionRun, session: Session):
 # =========================
 
 
-def _build_rfi_batch_package(session: Session, batch_no: str) -> dict:
+def _build_rfi_batch_package(session: Session, batch_no: str, linked_run_id: Optional[int] = None) -> dict:
     batch_no = (batch_no or "").strip()
 
-    runs = session.exec(
-        select(ProductionRun)
-        .where(ProductionRun.dhtp_batch_no == batch_no)
-        .order_by(ProductionRun.created_at.desc())
-    ).all()
+    linked_run = None
+    if linked_run_id:
+        linked_run = session.get(ProductionRun, linked_run_id)
+
+    runs = []
+    if linked_run:
+        runs = [linked_run]
+        if not batch_no:
+            batch_no = (linked_run.dhtp_batch_no or "").strip()
+    else:
+        runs = session.exec(
+            select(ProductionRun)
+            .where(ProductionRun.dhtp_batch_no == batch_no)
+            .order_by(ProductionRun.created_at.desc())
+        ).all()
 
     hydro_records = session.exec(
         select(HydroTestRecord)
@@ -5835,12 +5845,12 @@ def _build_rfi_batch_package(session: Session, batch_no: str) -> dict:
     itp_number = ""
     pipe_specification = ""
 
-    if runs:
-        rep = runs[0]
-        client_name = rep.client_name or ""
-        po_number = rep.po_number or ""
-        itp_number = rep.itp_number or ""
-        pipe_specification = rep.pipe_specification or ""
+    ref_run = linked_run or (runs[0] if runs else None)
+    if ref_run:
+        client_name = ref_run.client_name or ""
+        po_number = ref_run.po_number or ""
+        itp_number = ref_run.itp_number or ""
+        pipe_specification = ref_run.pipe_specification or ""
 
     return {
         "batch_no": batch_no,
@@ -5867,20 +5877,24 @@ def rfi_dashboard(
         select(RfiRecord).order_by(RfiRecord.created_at.desc())
     ).all()
 
+    available_runs = session.exec(
+        select(ProductionRun).order_by(ProductionRun.created_at.desc())
+    ).all()
+
     return templates.TemplateResponse(
         "rfi_dashboard.html",
         {
             "request": request,
             "user": user,
             "items": items,
+            "available_runs": available_runs,
         },
     )
-
 
 @app.post("/rfi/create")
 def rfi_create(
     request: Request,
-    batch_no: str = Form(...),
+    linked_run_id: int = Form(...),
     inspection_stage: str = Form(...),
     requested_date: str = Form(""),
     tpi_company: str = Form(""),
@@ -5890,13 +5904,13 @@ def rfi_create(
 ):
     user = get_current_user(request, session)
 
-    batch_no = (batch_no or "").strip()
+    run = session.get(ProductionRun, linked_run_id)
+    if not run:
+        raise HTTPException(400, "Selected production run was not found.")
 
-    runs = session.exec(
-        select(ProductionRun).where(ProductionRun.dhtp_batch_no == batch_no)
-    ).all()
+    batch_no = (run.dhtp_batch_no or "").strip()
+    client_name = run.client_name or ""
 
-    client_name = runs[0].client_name if runs else ""
     count = session.exec(select(RfiRecord)).all()
     next_no = len(count) + 1
     rfi_no = f"RFI-{next_no:04d}"
@@ -5909,9 +5923,10 @@ def rfi_create(
             requested_dt = None
 
     rec = RfiRecord(
+        linked_run_id=run.id,
         batch_no=batch_no,
         rfi_no=rfi_no,
-        client_name=client_name or "",
+        client_name=client_name,
         inspection_stage=(inspection_stage or "").strip(),
         status="DRAFT",
         requested_date=requested_dt,
@@ -5927,7 +5942,6 @@ def rfi_create(
 
     return RedirectResponse(url=f"/rfi/{rec.id}", status_code=302)
 
-
 @app.get("/rfi/{rfi_id}", response_class=HTMLResponse)
 def rfi_detail(
     rfi_id: int,
@@ -5940,7 +5954,7 @@ def rfi_detail(
     if not rec:
         raise HTTPException(404, "RFI not found")
 
-    package = _build_rfi_batch_package(session, rec.batch_no)
+    package = _build_rfi_batch_package(session, rec.batch_no, rec.linked_run_id)
     attachments = session.exec(
         select(RfiAttachment)
         .where(RfiAttachment.rfi_id == rfi_id)
