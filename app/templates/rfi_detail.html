@@ -64,6 +64,7 @@
           <th>PO</th>
           <th>ITP</th>
           <th>Status</th>
+          <th>Open</th>
         </tr>
       </thead>
       <tbody>
@@ -74,13 +75,62 @@
             <td>{{ r.po_number or '-' }}</td>
             <td>{{ r.itp_number or '-' }}</td>
             <td>{{ r.status or '-' }}</td>
+            <td><a class="btn btn-sm" href="/runs/{{ r.id }}">Open</a></td>
           </tr>
         {% else %}
-          <tr><td colspan="5" class="muted">No runs found for this batch.</td></tr>
+          <tr><td colspan="6" class="muted">No runs found for this batch.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+</div>
+
+<div class="card mt">
+  <h2>MRR / Receiving Documents</h2>
+  {% for row in package.mrr_tickets %}
+    <div class="card mt" style="padding:14px; border:1px solid #e5e7eb;">
+      <div class="grid2">
+        <div><b>Ticket ID:</b> {{ row.lot.id }}</div>
+        <div><b>Material:</b> {{ row.lot.material_name or '-' }}</div>
+        <div><b>Supplier:</b> {{ row.lot.supplier_name or '-' }}</div>
+        <div><b>Status:</b> {{ row.lot.status or '-' }}</div>
+      </div>
+
+      <div class="toolbar mt">
+        <a class="btn btn-sm" href="/mrr/{{ row.lot.id }}">Open MRR Ticket</a>
+        <a class="btn btn-sm" href="/mrr/{{ row.lot.id }}/docs">Open Documents</a>
+      </div>
+
+      <div class="tablewrap mt">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Doc Type</th>
+              <th>Doc Name</th>
+              <th>Doc Number</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for d in row.docs %}
+              <tr>
+                <td>{{ d.doc_type or '-' }}</td>
+                <td>{{ d.doc_name or '-' }}</td>
+                <td>{{ d.doc_number or '-' }}</td>
+                <td><a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/view">View</a></td>
+              </tr>
+            {% else %}
+              <tr>
+                <td colspan="4" class="muted">No documents found for this ticket.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% else %}
+    <div class="muted">No linked MRR tickets found from the material used in this batch.</div>
+  {% endfor %}
 </div>
 
 <div class="card mt">
@@ -89,22 +139,26 @@
     <table class="table">
       <thead>
         <tr>
-          <th>Lot No</th>
+          <th>Ticket ID</th>
+          <th>Raw Material Batch</th>
           <th>Material</th>
-          <th>Vendor</th>
+          <th>Supplier</th>
           <th>Status</th>
+          <th>Open</th>
         </tr>
       </thead>
       <tbody>
         {% for m in package.material_lots %}
           <tr>
-            <td>{{ m.lot_no or '-' }}</td>
+            <td>{{ m.id }}</td>
+            <td>{{ m.batch_no or '-' }}</td>
             <td>{{ m.material_name or '-' }}</td>
-            <td>{{ m.vendor_name or '-' }}</td>
+            <td>{{ m.supplier_name or '-' }}</td>
             <td>{{ m.status or '-' }}</td>
+            <td><a class="btn btn-sm" href="/mrr/{{ m.id }}">Open</a></td>
           </tr>
         {% else %}
-          <tr><td colspan="4" class="muted">No material records found.</td></tr>
+          <tr><td colspan="6" class="muted">No material records found.</td></tr>
         {% endfor %}
       </tbody>
     </table>
