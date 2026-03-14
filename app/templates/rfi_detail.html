@@ -1,15 +1,367 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="rfi-detail-page rfi-detail-page-wide">
+<style>
+  .rfi-detail-page{
+    width:100%;
+    max-width:none;
+    margin:0;
+  }
+
+  .rfi-detail-hero{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    flex-wrap:wrap;
+    margin-bottom:20px;
+  }
+
+  .rfi-detail-hero-left{
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+  }
+
+  .rfi-back-link{
+    width:42px;
+    height:42px;
+    border-radius:12px;
+    border:1px solid #e5e7eb;
+    background:#fff;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    text-decoration:none;
+    font-size:20px;
+    font-weight:800;
+    color:#334155;
+  }
+
+  .rfi-title{
+    margin:0;
+    font-size:36px;
+    line-height:1.05;
+    font-weight:900;
+    color:#0f172a;
+  }
+
+  .rfi-subtitle{
+    margin-top:6px;
+    color:#64748b;
+    font-size:15px;
+  }
+
+  .rfi-detail-top-actions{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+
+  .rfi-detail-summary-grid{
+    display:grid;
+    grid-template-columns:minmax(0, 1.25fr) minmax(360px, .75fr);
+    gap:16px;
+    margin-bottom:16px;
+  }
+
+  .rfi-detail-grid-2{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:16px;
+    margin-bottom:16px;
+    align-items:start;
+  }
+
+  .rfi-detail-card{
+    background:#fff;
+    border:1px solid #dbe2ea;
+    border-radius:24px;
+    padding:22px;
+    box-shadow:0 14px 34px rgba(15,23,42,.05);
+  }
+
+  .rfi-detail-card-hero{
+    background:linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  }
+
+  .rfi-detail-card-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+
+  .rfi-detail-chip{
+    display:inline-flex;
+    align-items:center;
+    padding:8px 12px;
+    border-radius:999px;
+    background:#eef2ff;
+    color:#4338ca;
+    border:1px solid #c7d2fe;
+    font-size:12px;
+    font-weight:900;
+  }
+
+  .rfi-mini-label{
+    font-size:11px;
+    font-weight:900;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:#64748b;
+  }
+
+  .rfi-batch-main{
+    font-size:22px;
+    font-weight:900;
+    color:#0f172a;
+    line-height:1.1;
+  }
+
+  .rfi-info-grid{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:12px;
+  }
+
+  .rfi-info-box{
+    border:1px solid #e2e8f0;
+    border-radius:16px;
+    background:#fafcff;
+    padding:14px 16px;
+  }
+
+  .rfi-info-value{
+    margin-top:8px;
+    font-size:15px;
+    font-weight:800;
+    color:#0f172a;
+    line-height:1.4;
+    word-break:break-word;
+  }
+
+  .rfi-scope-grid{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:12px;
+  }
+
+  .rfi-scope-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-height:54px;
+    padding:12px 14px;
+    border:1px solid #dbe2ea;
+    border-radius:16px;
+    background:#fff;
+    font-weight:800;
+    color:#0f172a;
+  }
+
+  .rfi-scope-check{
+    width:22px;
+    height:22px;
+    border-radius:999px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    background:#ecfdf5;
+    border:1px solid #bbf7d0;
+    color:#166534;
+    font-size:12px;
+    font-weight:900;
+    flex:0 0 auto;
+  }
+
+  .rfi-quick-grid{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:12px;
+  }
+
+  .rfi-quick-stat{
+    border:1px solid #e2e8f0;
+    border-radius:16px;
+    background:#fafcff;
+    padding:14px 16px;
+  }
+
+  .rfi-quick-value{
+    margin-top:8px;
+    font-size:28px;
+    font-weight:900;
+    color:#0f172a;
+    line-height:1;
+  }
+
+  .rfi-inner-block{
+    border:1px solid #e2e8f0;
+    border-radius:20px;
+    background:#fcfdff;
+    padding:16px;
+    margin-top:16px;
+  }
+
+  .rfi-table-wrap{
+    width:100%;
+    overflow:auto;
+  }
+
+  .rfi-table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:760px;
+  }
+
+  .rfi-table thead th{
+    padding:16px 18px;
+    background:#f8fafc;
+    color:#64748b;
+    text-transform:uppercase;
+    letter-spacing:.12em;
+    font-size:11px;
+    font-weight:900;
+    border-bottom:1px solid #eaeef4;
+    text-align:left;
+  }
+
+  .rfi-table tbody td{
+    padding:16px 18px;
+    border-bottom:1px solid #eef2f7;
+    vertical-align:middle;
+  }
+
+  .rfi-status-pill{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:8px 14px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:900;
+    border:1px solid transparent;
+  }
+
+  .rfi-status-draft{
+    background:#f8fafc;
+    color:#475569;
+    border-color:#dbe2ea;
+  }
+
+  .rfi-status-submitted{
+    background:#eff6ff;
+    color:#1d4ed8;
+    border-color:#bfdbfe;
+  }
+
+  .rfi-status-scheduled{
+    background:#f5f3ff;
+    color:#6d28d9;
+    border-color:#ddd6fe;
+  }
+
+  .rfi-status-complete{
+    background:#ecfdf5;
+    color:#166534;
+    border-color:#bbf7d0;
+  }
+
+  .rfi-status-closed{
+    background:#ecfeff;
+    color:#0f766e;
+    border-color:#99f6e4;
+  }
+
+  .rfi-reminder-pill{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:8px 14px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:900;
+    border:1px solid transparent;
+  }
+
+  .rfi-reminder-overdue{
+    background:#fef2f2;
+    color:#991b1b;
+    border-color:#fecaca;
+  }
+
+  .rfi-reminder-today{
+    background:#fff7ed;
+    color:#9a3412;
+    border-color:#fed7aa;
+  }
+
+  .rfi-reminder-upcoming{
+    background:#eff6ff;
+    color:#1d4ed8;
+    border-color:#bfdbfe;
+  }
+
+  .rfi-reminder-note{
+    padding:12px 14px;
+    border-radius:14px;
+    border:1px solid #dbeafe;
+    background:#f8fbff;
+    color:#475569;
+    font-size:13px;
+    line-height:1.5;
+  }
+
+  .rfi-open-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    min-width:96px;
+    padding:10px 14px;
+    border-radius:14px;
+    text-decoration:none;
+    font-weight:800;
+    color:#0f172a;
+    background:#fff;
+    border:1px solid #dbe2ea;
+    box-shadow:0 2px 8px rgba(15,23,42,.04);
+  }
+
+  @media (max-width:1100px){
+    .rfi-detail-summary-grid,
+    .rfi-detail-grid-2{
+      grid-template-columns:1fr;
+    }
+  }
+
+  @media (max-width:768px){
+    .rfi-title{
+      font-size:28px;
+    }
+
+    .rfi-info-grid,
+    .rfi-scope-grid,
+    .rfi-quick-grid{
+      grid-template-columns:1fr;
+    }
+
+    .rfi-detail-card{
+      padding:18px;
+      border-radius:20px;
+    }
+  }
+</style>
+
+<div class="rfi-detail-page">
   <div class="rfi-detail-hero">
     <div class="rfi-detail-hero-left">
       <a class="rfi-back-link" href="/rfi">←</a>
       <div>
         <h1 class="rfi-title">RFI {{ rfi.rfi_no }}</h1>
-        <div class="rfi-subtitle">
-          Batch-linked inspection package and supporting records.
-        </div>
+        <div class="rfi-subtitle">Batch-linked inspection package and supporting records.</div>
       </div>
     </div>
 
@@ -137,18 +489,12 @@
 
         <div>
           <label>Requested / Planned Date</label>
-          <input
-            type="datetime-local"
-            name="requested_date"
-            value="{% if rfi.requested_date %}{{ rfi.requested_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+          <input type="datetime-local" name="requested_date" value="{% if rfi.requested_date %}{{ rfi.requested_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
         </div>
 
         <div>
           <label>Actual / Confirmed Visit Date</label>
-          <input
-            type="datetime-local"
-            name="visit_date"
-            value="{% if rfi.visit_date %}{{ rfi.visit_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+          <input type="datetime-local" name="visit_date" value="{% if rfi.visit_date %}{{ rfi.visit_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
         </div>
       </div>
 
@@ -169,13 +515,7 @@
 
   <div class="rfi-detail-grid-2">
     <div class="rfi-detail-card">
-      <div class="rfi-detail-card-head">
-        <div>
-          <h2>Batch Package Summary</h2>
-          <div class="muted">Reference information for the finished product batch.</div>
-        </div>
-      </div>
-
+      <h2>Batch Package Summary</h2>
       <div class="rfi-info-grid mt">
         <div class="rfi-info-box">
           <div class="rfi-mini-label">PO</div>
@@ -197,13 +537,7 @@
     </div>
 
     <div class="rfi-detail-card">
-      <div class="rfi-detail-card-head">
-        <div>
-          <h2>Quick Summary</h2>
-          <div class="muted">Fast count of records already linked to this batch.</div>
-        </div>
-      </div>
-
+      <h2>Quick Summary</h2>
       <div class="rfi-quick-grid mt">
         <div class="rfi-quick-stat">
           <div class="rfi-mini-label">Runs</div>
@@ -225,119 +559,9 @@
     </div>
   </div>
 
-  <div class="rfi-detail-card">
-    <div class="rfi-detail-card-head">
-      <div>
-        <h2>Linked In-Process Runs</h2>
-        <div class="muted">All production runs connected to this finished batch.</div>
-      </div>
-    </div>
-
-    <div class="rfi-table-wrap mt">
-      <table class="rfi-table">
-        <thead>
-          <tr>
-            <th>Process</th>
-            <th>Client</th>
-            <th>PO</th>
-            <th>ITP</th>
-            <th>Status</th>
-            <th>Open</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in package.runs %}
-            <tr>
-              <td>{{ r.process }}</td>
-              <td>{{ r.client_name or '-' }}</td>
-              <td>{{ r.po_number or '-' }}</td>
-              <td>{{ r.itp_number or '-' }}</td>
-              <td>{{ r.status or '-' }}</td>
-              <td><a class="rfi-open-btn" href="/runs/{{ r.id }}">Open</a></td>
-            </tr>
-          {% else %}
-            <tr><td colspan="6" class="muted">No runs found for this batch.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-
-  <div class="rfi-detail-card">
-    <div class="rfi-detail-card-head">
-      <div>
-        <h2>MRR / Receiving Documents</h2>
-        <div class="muted">Documents coming from material lots used by this batch.</div>
-      </div>
-    </div>
-
-    {% for row in package.mrr_tickets %}
-      <div class="rfi-inner-block mt">
-        <div class="rfi-info-grid">
-          <div class="rfi-info-box">
-            <div class="rfi-mini-label">Ticket ID</div>
-            <div class="rfi-info-value">{{ row.lot.id }}</div>
-          </div>
-          <div class="rfi-info-box">
-            <div class="rfi-mini-label">Material</div>
-            <div class="rfi-info-value">{{ row.lot.material_name or '-' }}</div>
-          </div>
-          <div class="rfi-info-box">
-            <div class="rfi-mini-label">Supplier</div>
-            <div class="rfi-info-value">{{ row.lot.supplier_name or '-' }}</div>
-          </div>
-          <div class="rfi-info-box">
-            <div class="rfi-mini-label">Status</div>
-            <div class="rfi-info-value">{{ row.lot.status or '-' }}</div>
-          </div>
-        </div>
-
-        <div class="toolbar mt">
-          <a class="btn btn-secondary" href="/mrr/{{ row.lot.id }}">Open MRR Ticket</a>
-          <a class="btn btn-secondary" href="/mrr/{{ row.lot.id }}/docs">Open Documents</a>
-        </div>
-
-        <div class="rfi-table-wrap mt">
-          <table class="rfi-table">
-            <thead>
-              <tr>
-                <th>Doc Type</th>
-                <th>Doc Name</th>
-                <th>Doc Number</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for d in row.docs %}
-                <tr>
-                  <td>{{ d.doc_type or '-' }}</td>
-                  <td>{{ d.doc_name or '-' }}</td>
-                  <td>{{ d.doc_number or '-' }}</td>
-                  <td><a class="rfi-open-btn" href="/mrr/docs/{{ d.id }}/view">View</a></td>
-                </tr>
-              {% else %}
-                <tr>
-                  <td colspan="4" class="muted">No documents found for this ticket.</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    {% else %}
-      <div class="muted mt">No linked MRR tickets found from the material used in this batch.</div>
-    {% endfor %}
-  </div>
-
-  <div class="rfi-detail-grid-2 rfi-bottom-grid">
+  <div class="rfi-detail-grid-2">
     <div class="rfi-detail-card">
-      <div class="rfi-detail-card-head">
-        <div>
-          <h2>Material Receiving</h2>
-          <div class="muted">Material lots traced from actual usage in this batch.</div>
-        </div>
-      </div>
-
+      <h2>Material Receiving</h2>
       <div class="rfi-table-wrap mt">
         <table class="rfi-table">
           <thead>
@@ -369,13 +593,7 @@
     </div>
 
     <div class="rfi-detail-card">
-      <div class="rfi-detail-card-head">
-        <div>
-          <h2>Burst Testing</h2>
-          <div class="muted">All burst reports linked by batch.</div>
-        </div>
-      </div>
-
+      <h2>Burst Testing</h2>
       <div class="rfi-table-wrap mt">
         <table class="rfi-table">
           <thead>
@@ -401,13 +619,7 @@
     </div>
 
     <div class="rfi-detail-card">
-      <div class="rfi-detail-card-head">
-        <div>
-          <h2>Hydro Testing</h2>
-          <div class="muted">All hydro testing records linked by batch.</div>
-        </div>
-      </div>
-
+      <h2>Hydro Testing</h2>
       <div class="rfi-table-wrap mt">
         <table class="rfi-table">
           <thead>
@@ -433,13 +645,7 @@
     </div>
 
     <div class="rfi-detail-card">
-      <div class="rfi-detail-card-head">
-        <div>
-          <h2>Final Inspection</h2>
-          <div class="muted">Phases already raised for this finished product batch.</div>
-        </div>
-      </div>
-
+      <h2>Final Inspection</h2>
       <div class="rfi-table-wrap mt">
         <table class="rfi-table">
           <thead>
