@@ -2142,10 +2142,13 @@ app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), na
 
 @app.exception_handler(HTTPException)
 async def app_http_exception_handler(request: Request, exc: HTTPException):
-    if exc.status_code == 401 and str(exc.detail) == "Not logged in":
+    if exc.status_code == 401:
         accept = (request.headers.get("accept") or "").lower()
         if "text/html" in accept:
-            return RedirectResponse(url="/login", status_code=302)
+            resp = RedirectResponse(url="/login", status_code=302)
+            resp.delete_cookie("user", path="/")
+            resp.delete_cookie("username", path="/")
+            return resp
     raise exc
 # =========================
 # File upload directories
@@ -4674,12 +4677,17 @@ def stamp_approval_on_pdf(
 
 
 def get_current_user(request: Request, session: Session) -> User:
-    username = request.cookies.get("user")
+    username = (request.cookies.get("user") or "").strip().lower()
     if not username:
         raise HTTPException(401, "Not logged in")
+
     user = session.exec(select(User).where(User.username == username)).first()
     if not user:
         raise HTTPException(401, "Invalid user")
+
+    if getattr(user, "is_locked", False):
+        raise HTTPException(401, "Account locked")
+
     return user
 
 def require_manager(user: User):
