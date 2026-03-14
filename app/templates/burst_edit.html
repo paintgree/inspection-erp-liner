@@ -109,14 +109,6 @@
           <label>Technician</label>
           <input name="technician_name" type="text" value="{{ rep.technician_name or '' }}">
         </div>
-        <div>
-          <label>Overall Result</label>
-          <select name="test_result">
-            <option value="" {% if not rep.test_result %}selected{% endif %}>Select</option>
-            <option value="PASS" {% if rep.test_result == 'PASS' %}selected{% endif %}>PASS</option>
-            <option value="FAIL" {% if rep.test_result == 'FAIL' %}selected{% endif %}>FAIL</option>
-          </select>
-        </div>
       </div>
       <div style="margin-top:12px;">
         <label>Notes</label>
