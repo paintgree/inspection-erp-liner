@@ -3601,16 +3601,16 @@ def _draw_report_info_table(c, report, x, y):
     tbl_h = len(data) * 7 * mm
     tbl.drawOn(c, x, y - tbl_h)
     return y - tbl_h
+    
 def _draw_specimen_blocks(c, report, samples, start_y):
     w, h = A4
     y = start_y
 
     for idx, s in enumerate(samples, start=1):
-        block_h = 38 * mm  # slightly taller to avoid overflow
+        block_h = 42 * mm
         x0 = 20 * mm
         box_w = w - 40 * mm
 
-        # Page break if needed
         if y - block_h < 55 * mm:
             c.showPage()
             y = h - 32 * mm
@@ -3623,21 +3623,42 @@ def _draw_specimen_blocks(c, report, samples, start_y):
 
         c.setFont("Helvetica", 9)
 
-        # keep everything INSIDE box
         line1 = y - 14*mm
         line2 = y - 22*mm
-        line3 = y - 28*mm
-        line4 = y - 34*mm  # last line still inside now (because block_h increased)
+        line3 = y - 30*mm
 
-        c.drawString(x0 + 3*mm,  line1, f"Serial No: {_txt(getattr(s,'sample_serial_number',''))}")
-        c.drawString(x0 + 95*mm, line1, f"Length (mm): {_txt(getattr(s,'sample_length_m',''))}")
+        c.drawString(
+            x0 + 20*mm,
+            line1,
+            f"Serial No: {_txt(getattr(s, 'sample_serial_number', ''))}"
+        )
 
-        c.drawString(x0 + 3*mm, line2,
-                     f"Liner: {_txt(getattr(s,'liner_material_grade',''))} | Thk(mm): {_txt(getattr(s,'liner_thickness_mm',''))}")
-        c.drawString(x0 + 3*mm, line3,
-                     f"Reinf: {_txt(getattr(s,'reinforcement_material_grade',''))} | Thk(mm): {_txt(getattr(s,'reinforcement_thickness_mm',''))}")
-        c.drawString(x0 + 3*mm, line4,
-                     f"Cover: {_txt(getattr(s,'cover_material_grade',''))} | Thk(mm): {_txt(getattr(s,'cover_thickness_mm',''))}")
+        c.drawString(
+            x0 + 3*mm,
+            line2,
+            f"Liner: {_txt(getattr(s,'liner_material_grade',''))} | Thk(mm): {_txt(getattr(s,'liner_thickness_mm',''))}"
+        )
+        c.drawString(
+            x0 + 68*mm,
+            line2,
+            f"Reinf: {_txt(getattr(s,'reinforcement_material_grade',''))} | Thk(mm): {_txt(getattr(s,'reinforcement_thickness_mm',''))}"
+        )
+        c.drawString(
+            x0 + 135*mm,
+            line2,
+            f"Cover: {_txt(getattr(s,'cover_material_grade',''))} | Thk(mm): {_txt(getattr(s,'cover_thickness_mm',''))}"
+        )
+
+        c.drawString(
+            x0 + 3*mm,
+            line3,
+            f"Length (mm): {_txt(getattr(s,'sample_length_m',''))}"
+        )
+        c.drawString(
+            x0 + 70*mm,
+            line3,
+            f"Effective Length (mm): {_txt(getattr(s,'effective_length_m',''))}"
+        )
 
         y = y - block_h - 6*mm
 
@@ -6528,7 +6549,7 @@ def _next_hydro_report_no(session: Session) -> str:
     return f"HT-{max_num + 1:04d}"
 
 def hydro_chart_upload_dir() -> str:
-    path = os.path.join("app", "static", "uploads", "hydro_charts")
+    path = os.path.join(DATA_DIR, "hydro_charts")
     os.makedirs(path, exist_ok=True)
     return path
 
@@ -6549,7 +6570,15 @@ def save_hydro_chart_file(file: UploadFile, batch_no: str) -> str:
     with open(abs_path, "wb") as out:
         shutil.copyfileobj(file.file, out)
 
-    return f"/static/uploads/hydro_charts/{filename}"
+    return f"/hydro/charts/{filename}"
+
+@app.get("/hydro/charts/{filename}")
+def hydro_chart_file(filename: str):
+    real_path = os.path.join(hydro_chart_upload_dir(), os.path.basename(filename))
+    if not os.path.exists(real_path):
+        raise HTTPException(404, "Chart file not found")
+    media_type, _ = mimetypes.guess_type(real_path)
+    return FileResponse(real_path, media_type=media_type or "image/png")
 
 @app.get("/api/hydro/qaqc-users")
 def api_hydro_qaqc_users(
