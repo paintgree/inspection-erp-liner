@@ -52,7 +52,7 @@
             {% set status_key = "pending" %}
             {% set status_label = "Pending Approval" %}
             {% set status_badge_class = "badge-pending" %}
-          {% elif r.edit_window_until and r.edit_window_until > r.tested_at %}
+          {% elif (not r.published_at) or (r.edit_window_until and r.edit_window_until > now_utc) %}
             {% set status_key = "editable" %}
             {% set status_label = "Editable" %}
             {% set status_badge_class = "badge-editable" %}
