@@ -49,38 +49,8 @@
   .burst-report-header-left{
     display:flex;
     gap:14px;
-    align-items:center;
+    align-items:flex-start;
     min-width:0;
-  }
-
-    .burst-logo-box{
-    width:64px;
-    height:64px;
-    border-radius:14px;
-    background:#ffffff;
-    border:1px solid #e5e7eb;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    overflow:hidden;
-    flex:0 0 auto;
-    padding:6px;
-  }
-
-  .burst-logo-box img{
-    max-width:100%;
-    max-height:100%;
-    width:auto;
-    height:auto;
-    object-fit:contain;
-    display:block;
-  }
-
-  .burst-logo-fallback{
-    font-size:11px;
-    font-weight:900;
-    color:#64748b;
-    letter-spacing:.06em;
   }
   
   .burst-report-title{
@@ -476,7 +446,7 @@
     <div class="burst-topbar">
       <div class="burst-topbar-left">
         <a class="btn btn-secondary" href="/burst">← Back</a>
-        <a class="btn btn-secondary" href="/burst/{{ rep.id }}/edit">Edit</a>
+        <a class="btn btn-secondary" href="/burst/{{ rep.id }}">Edit</a>
       </div>
       <div class="burst-topbar-right">
         <a class="btn btn-primary" href="/burst/{{ rep.id }}/pdf" target="_blank">Export PDF</a>
@@ -486,13 +456,6 @@
     <div class="burst-report-card">
       <div class="burst-report-header">
         <div class="burst-report-header-left">
-          <div class="burst-logo-box">
-            <img
-              src="/static/logo.png"
-              alt="Company Logo"
-              onerror="this.style.display='none'; this.parentElement.innerHTML='<span class=&quot;burst-logo-fallback&quot;>LOGO</span>';">
-          </div>
-
           <div>
             <h1 class="burst-report-title">Short-Time Hydrostatic<br>Burst Pressure Test Report</h1>
             <div class="burst-report-subline">
