@@ -2827,7 +2827,7 @@ def burst_create(
         raise HTTPException(status_code=400, detail="Production run is required.")
 
     # minimal insert only
-    report = BurstTestRecord(
+    report = BurstTestReport(
         batch_no="",
         linked_run_id=linked_run_id if mode == "linked" else None,
         purpose=purpose,
@@ -8995,7 +8995,7 @@ def mrr_doc_inline(doc_id: int, request: Request, session: Session = Depends(get
       absolute paths from a different machine, or relative paths.
     """
     user = get_current_user(request, session)
-    forbid_none(user)
+    forbid_boss(user)
 
     doc = session.get(MrrDocument, doc_id)
     if not doc:
