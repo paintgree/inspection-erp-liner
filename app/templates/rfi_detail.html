@@ -1,259 +1,421 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="page-head">
-  <div>
-    <h1 style="margin:0;">RFI {{ rfi.rfi_no }}</h1>
-    <div class="muted">Batch-linked inspection package and supporting records.</div>
-  </div>
-  <a class="btn" href="/rfi">← Back to RFI</a>
-</div>
-
-<div class="card">
-  <div class="grid3">
-    <div><b>Batch:</b> {{ rfi.batch_no }}</div>
-    <div><b>Client:</b> {{ rfi.client_name or '-' }}</div>
-    <div><b>Activities:</b> {{ rfi.inspection_stage.replace('|', ', ') }}</div>
-    <div><b>Status:</b> {{ rfi.status }}</div>
-    <div><b>TPI Company:</b> {{ rfi.tpi_company or '-' }}</div>
-    <div><b>TPI Contact:</b> {{ rfi.tpi_contact_name or '-' }}</div>
-  </div>
-
-  <form method="post" action="/rfi/{{ rfi.id }}/status" class="mt">
-    <div class="grid2">
+<div class="rfi-detail-page">
+  <div class="rfi-detail-hero">
+    <div class="rfi-detail-hero-left">
+      <a class="rfi-back-link" href="/rfi">←</a>
       <div>
-        <label>Status</label>
-        <select name="status">
-          <option value="DRAFT" {% if rfi.status == "DRAFT" %}selected{% endif %}>DRAFT</option>
-          <option value="SUBMITTED" {% if rfi.status == "SUBMITTED" %}selected{% endif %}>SUBMITTED</option>
-          <option value="SCHEDULED" {% if rfi.status == "SCHEDULED" %}selected{% endif %}>SCHEDULED</option>
-          <option value="VISIT_COMPLETED" {% if rfi.status == "VISIT_COMPLETED" %}selected{% endif %}>VISIT COMPLETED</option>
-          <option value="CLOSED" {% if rfi.status == "CLOSED" %}selected{% endif %}>CLOSED</option>
-        </select>
-      </div>
-      <div>
-        <label>Result Notes</label>
-        <input name="result_notes" value="{{ rfi.result_notes or '' }}">
-      </div>
-    </div>
-
-    <div class="toolbar mt">
-      <button class="btn btn-primary" type="submit">Update RFI</button>
-    </div>
-  </form>
-  <div class="card mt">
-    <h2>RFI Activity Scope</h2>
-    <div class="grid2">
-      {% for item in rfi.inspection_stage.split('|') if item.strip() %}
-        <div style="display:flex; align-items:center; gap:10px; border:1px solid #d1d5db; border-radius:10px; padding:10px 12px;">
-          <input type="checkbox" checked disabled>
-          <span>{{ item.replace('_', ' ').title() }}</span>
+        <h1 class="rfi-title">RFI {{ rfi.rfi_no }}</h1>
+        <div class="rfi-subtitle">
+          Batch-linked inspection package and supporting records.
         </div>
-      {% else %}
-        <div class="muted">No activities selected for this RFI.</div>
-      {% endfor %}
+      </div>
+    </div>
+
+    <div class="rfi-detail-top-actions">
+      <span class="rfi-status-pill
+        {% if rfi.status == 'CLOSED' %}
+          rfi-status-closed
+        {% elif rfi.status == 'VISIT_COMPLETED' %}
+          rfi-status-complete
+        {% elif rfi.status == 'SCHEDULED' %}
+          rfi-status-scheduled
+        {% elif rfi.status == 'SUBMITTED' %}
+          rfi-status-submitted
+        {% else %}
+          rfi-status-draft
+        {% endif %}
+      ">
+        {{ (rfi.status or '').replace('_', ' ') }}
+      </span>
     </div>
   </div>
-  
-</div>
 
-<div class="card mt">
-  <h2>Batch Package Summary</h2>
-  <div class="grid2">
-    <div><b>PO:</b> {{ package.po_number or '-' }}</div>
-    <div><b>ITP:</b> {{ package.itp_number or '-' }}</div>
-    <div><b>Pipe Specification:</b> {{ package.pipe_specification or '-' }}</div>
-    <div><b>Batch:</b> {{ package.batch_no }}</div>
-  </div>
-</div>
+  <div class="rfi-detail-summary-grid">
+    <div class="rfi-detail-card rfi-detail-card-hero">
+      <div class="rfi-detail-card-head">
+        <div>
+          <div class="rfi-mini-label">Batch</div>
+          <div class="rfi-batch-main">{{ rfi.batch_no }}</div>
+        </div>
+        <div class="rfi-detail-chip">{{ rfi.client_name or '-' }}</div>
+      </div>
 
-<div class="card mt">
-  <h2>Linked In-Process Runs</h2>
-  <div class="tablewrap">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Process</th>
-          <th>Client</th>
-          <th>PO</th>
-          <th>ITP</th>
-          <th>Status</th>
-          <th>Open</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in package.runs %}
-          <tr>
-            <td>{{ r.process }}</td>
-            <td>{{ r.client_name or '-' }}</td>
-            <td>{{ r.po_number or '-' }}</td>
-            <td>{{ r.itp_number or '-' }}</td>
-            <td>{{ r.status or '-' }}</td>
-            <td><a class="btn btn-sm" href="/runs/{{ r.id }}">Open</a></td>
-          </tr>
+      <div class="rfi-info-grid mt">
+        <div class="rfi-info-box">
+          <div class="rfi-mini-label">Client</div>
+          <div class="rfi-info-value">{{ rfi.client_name or '-' }}</div>
+        </div>
+        <div class="rfi-info-box">
+          <div class="rfi-mini-label">TPI Company</div>
+          <div class="rfi-info-value">{{ rfi.tpi_company or '-' }}</div>
+        </div>
+        <div class="rfi-info-box">
+          <div class="rfi-mini-label">TPI Contact</div>
+          <div class="rfi-info-value">{{ rfi.tpi_contact_name or '-' }}</div>
+        </div>
+        <div class="rfi-info-box">
+          <div class="rfi-mini-label">Requested Date</div>
+          <div class="rfi-info-value">
+            {% if rfi.requested_date %}{{ rfi.requested_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rfi-detail-card">
+      <div class="rfi-detail-card-head">
+        <div>
+          <h2>Activity Scope</h2>
+          <div class="muted">Only selected activities are included in this RFI.</div>
+        </div>
+      </div>
+
+      <div class="rfi-scope-grid mt">
+        {% for item in rfi.inspection_stage.split('|') if item.strip() %}
+          <div class="rfi-scope-item">
+            <span class="rfi-scope-check">✓</span>
+            <span>{{ item.replace('_', ' ').title() }}</span>
+          </div>
         {% else %}
-          <tr><td colspan="6" class="muted">No runs found for this batch.</td></tr>
+          <div class="muted">No activities selected for this RFI.</div>
         {% endfor %}
-      </tbody>
-    </table>
+      </div>
+    </div>
   </div>
-</div>
 
-<div class="card mt">
-  <h2>MRR / Receiving Documents</h2>
-  {% for row in package.mrr_tickets %}
-    <div class="card mt" style="padding:14px; border:1px solid #e5e7eb;">
+  <div class="rfi-detail-card">
+    <div class="rfi-detail-card-head">
+      <div>
+        <h2>Update RFI Status</h2>
+        <div class="muted">Control submission, scheduling, completion, and closeout.</div>
+      </div>
+    </div>
+
+    <form method="post" action="/rfi/{{ rfi.id }}/status" class="mt">
       <div class="grid2">
-        <div><b>Ticket ID:</b> {{ row.lot.id }}</div>
-        <div><b>Material:</b> {{ row.lot.material_name or '-' }}</div>
-        <div><b>Supplier:</b> {{ row.lot.supplier_name or '-' }}</div>
-        <div><b>Status:</b> {{ row.lot.status or '-' }}</div>
+        <div>
+          <label>Status</label>
+          <select name="status">
+            <option value="DRAFT" {% if rfi.status == "DRAFT" %}selected{% endif %}>DRAFT</option>
+            <option value="SUBMITTED" {% if rfi.status == "SUBMITTED" %}selected{% endif %}>SUBMITTED</option>
+            <option value="SCHEDULED" {% if rfi.status == "SCHEDULED" %}selected{% endif %}>SCHEDULED</option>
+            <option value="VISIT_COMPLETED" {% if rfi.status == "VISIT_COMPLETED" %}selected{% endif %}>VISIT COMPLETED</option>
+            <option value="CLOSED" {% if rfi.status == "CLOSED" %}selected{% endif %}>CLOSED</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Result Notes</label>
+          <input name="result_notes" value="{{ rfi.result_notes or '' }}">
+        </div>
       </div>
 
       <div class="toolbar mt">
-        <a class="btn btn-sm" href="/mrr/{{ row.lot.id }}">Open MRR Ticket</a>
-        <a class="btn btn-sm" href="/mrr/{{ row.lot.id }}/docs">Open Documents</a>
+        <button class="btn btn-primary" type="submit">Update RFI</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="rfi-detail-grid-2">
+    <div class="rfi-detail-card">
+      <div class="rfi-detail-card-head">
+        <div>
+          <h2>Batch Package Summary</h2>
+          <div class="muted">Reference information for the finished product batch.</div>
+        </div>
       </div>
 
-      <div class="tablewrap mt">
-        <table class="table">
+      <div class="rfi-info-grid mt">
+        <div class="rfi-info-box">
+          <div class="rfi-mini-label">PO</div>
+          <div class="rfi-info-value">{{ package.po_number or '-' }}</div>
+        </div>
+        <div class="rfi-info-box">
+          <div class="rfi-mini-label">ITP</div>
+          <div class="rfi-info-value">{{ package.itp_number or '-' }}</div>
+        </div>
+        <div class="rfi-info-box">
+          <div class="rfi-mini-label">Pipe Specification</div>
+          <div class="rfi-info-value">{{ package.pipe_specification or '-' }}</div>
+        </div>
+        <div class="rfi-info-box">
+          <div class="rfi-mini-label">Batch</div>
+          <div class="rfi-info-value">{{ package.batch_no }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rfi-detail-card">
+      <div class="rfi-detail-card-head">
+        <div>
+          <h2>Quick Summary</h2>
+          <div class="muted">Fast count of records already linked to this batch.</div>
+        </div>
+      </div>
+
+      <div class="rfi-quick-grid mt">
+        <div class="rfi-quick-stat">
+          <div class="rfi-mini-label">Runs</div>
+          <div class="rfi-quick-value">{{ package.runs|length }}</div>
+        </div>
+        <div class="rfi-quick-stat">
+          <div class="rfi-mini-label">MRR Lots</div>
+          <div class="rfi-quick-value">{{ package.material_lots|length }}</div>
+        </div>
+        <div class="rfi-quick-stat">
+          <div class="rfi-mini-label">Burst Reports</div>
+          <div class="rfi-quick-value">{{ package.burst_reports|length }}</div>
+        </div>
+        <div class="rfi-quick-stat">
+          <div class="rfi-mini-label">Hydro Records</div>
+          <div class="rfi-quick-value">{{ package.hydro_records|length }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rfi-detail-card">
+    <div class="rfi-detail-card-head">
+      <div>
+        <h2>Linked In-Process Runs</h2>
+        <div class="muted">All production runs connected to this finished batch.</div>
+      </div>
+    </div>
+
+    <div class="rfi-table-wrap mt">
+      <table class="rfi-table">
+        <thead>
+          <tr>
+            <th>Process</th>
+            <th>Client</th>
+            <th>PO</th>
+            <th>ITP</th>
+            <th>Status</th>
+            <th>Open</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in package.runs %}
+            <tr>
+              <td>{{ r.process }}</td>
+              <td>{{ r.client_name or '-' }}</td>
+              <td>{{ r.po_number or '-' }}</td>
+              <td>{{ r.itp_number or '-' }}</td>
+              <td>{{ r.status or '-' }}</td>
+              <td><a class="rfi-open-btn" href="/runs/{{ r.id }}">Open</a></td>
+            </tr>
+          {% else %}
+            <tr><td colspan="6" class="muted">No runs found for this batch.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="rfi-detail-card">
+    <div class="rfi-detail-card-head">
+      <div>
+        <h2>MRR / Receiving Documents</h2>
+        <div class="muted">Documents coming from material lots used by this batch.</div>
+      </div>
+    </div>
+
+    {% for row in package.mrr_tickets %}
+      <div class="rfi-inner-block mt">
+        <div class="rfi-info-grid">
+          <div class="rfi-info-box">
+            <div class="rfi-mini-label">Ticket ID</div>
+            <div class="rfi-info-value">{{ row.lot.id }}</div>
+          </div>
+          <div class="rfi-info-box">
+            <div class="rfi-mini-label">Material</div>
+            <div class="rfi-info-value">{{ row.lot.material_name or '-' }}</div>
+          </div>
+          <div class="rfi-info-box">
+            <div class="rfi-mini-label">Supplier</div>
+            <div class="rfi-info-value">{{ row.lot.supplier_name or '-' }}</div>
+          </div>
+          <div class="rfi-info-box">
+            <div class="rfi-mini-label">Status</div>
+            <div class="rfi-info-value">{{ row.lot.status or '-' }}</div>
+          </div>
+        </div>
+
+        <div class="toolbar mt">
+          <a class="btn btn-secondary" href="/mrr/{{ row.lot.id }}">Open MRR Ticket</a>
+          <a class="btn btn-secondary" href="/mrr/{{ row.lot.id }}/docs">Open Documents</a>
+        </div>
+
+        <div class="rfi-table-wrap mt">
+          <table class="rfi-table">
+            <thead>
+              <tr>
+                <th>Doc Type</th>
+                <th>Doc Name</th>
+                <th>Doc Number</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for d in row.docs %}
+                <tr>
+                  <td>{{ d.doc_type or '-' }}</td>
+                  <td>{{ d.doc_name or '-' }}</td>
+                  <td>{{ d.doc_number or '-' }}</td>
+                  <td><a class="rfi-open-btn" href="/mrr/docs/{{ d.id }}/view">View</a></td>
+                </tr>
+              {% else %}
+                <tr>
+                  <td colspan="4" class="muted">No documents found for this ticket.</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% else %}
+      <div class="muted mt">No linked MRR tickets found from the material used in this batch.</div>
+    {% endfor %}
+  </div>
+
+  <div class="rfi-detail-grid-2">
+    <div class="rfi-detail-card">
+      <div class="rfi-detail-card-head">
+        <div>
+          <h2>Material Receiving</h2>
+          <div class="muted">Material lots traced from actual usage in this batch.</div>
+        </div>
+      </div>
+
+      <div class="rfi-table-wrap mt">
+        <table class="rfi-table">
           <thead>
             <tr>
-              <th>Doc Type</th>
-              <th>Doc Name</th>
-              <th>Doc Number</th>
-              <th>Action</th>
+              <th>Ticket ID</th>
+              <th>Raw Material Batch</th>
+              <th>Material</th>
+              <th>Supplier</th>
+              <th>Status</th>
+              <th>Open</th>
             </tr>
           </thead>
           <tbody>
-            {% for d in row.docs %}
+            {% for m in package.material_lots %}
               <tr>
-                <td>{{ d.doc_type or '-' }}</td>
-                <td>{{ d.doc_name or '-' }}</td>
-                <td>{{ d.doc_number or '-' }}</td>
-                <td><a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/view">View</a></td>
+                <td>{{ m.id }}</td>
+                <td>{{ m.batch_no or '-' }}</td>
+                <td>{{ m.material_name or '-' }}</td>
+                <td>{{ m.supplier_name or '-' }}</td>
+                <td>{{ m.status or '-' }}</td>
+                <td><a class="rfi-open-btn" href="/mrr/{{ m.id }}">Open</a></td>
               </tr>
             {% else %}
-              <tr>
-                <td colspan="4" class="muted">No documents found for this ticket.</td>
-              </tr>
+              <tr><td colspan="6" class="muted">No material records found.</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
     </div>
-  {% else %}
-    <div class="muted">No linked MRR tickets found from the material used in this batch.</div>
-  {% endfor %}
-</div>
 
-<div class="card mt">
-  <h2>Material Receiving</h2>
-  <div class="tablewrap">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Ticket ID</th>
-          <th>Raw Material Batch</th>
-          <th>Material</th>
-          <th>Supplier</th>
-          <th>Status</th>
-          <th>Open</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for m in package.material_lots %}
-          <tr>
-            <td>{{ m.id }}</td>
-            <td>{{ m.batch_no or '-' }}</td>
-            <td>{{ m.material_name or '-' }}</td>
-            <td>{{ m.supplier_name or '-' }}</td>
-            <td>{{ m.status or '-' }}</td>
-            <td><a class="btn btn-sm" href="/mrr/{{ m.id }}">Open</a></td>
-          </tr>
-        {% else %}
-          <tr><td colspan="6" class="muted">No material records found.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="rfi-detail-card">
+      <div class="rfi-detail-card-head">
+        <div>
+          <h2>Burst Testing</h2>
+          <div class="muted">All burst reports linked by batch.</div>
+        </div>
+      </div>
+
+      <div class="rfi-table-wrap mt">
+        <table class="rfi-table">
+          <thead>
+            <tr>
+              <th>Report No</th>
+              <th>Purpose</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for b in package.burst_reports %}
+              <tr>
+                <td>{{ b.report_no or '-' }}</td>
+                <td>{{ b.purpose or '-' }}</td>
+                <td>{{ b.status or '-' }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="3" class="muted">No burst records found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
-</div>
 
-<div class="card mt">
-  <h2>Burst Testing</h2>
-  <div class="tablewrap">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Report No</th>
-          <th>Purpose</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for b in package.burst_reports %}
-          <tr>
-            <td>{{ b.report_no or '-' }}</td>
-            <td>{{ b.purpose or '-' }}</td>
-            <td>{{ b.status or '-' }}</td>
-          </tr>
-        {% else %}
-          <tr><td colspan="3" class="muted">No burst records found.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+  <div class="rfi-detail-grid-2">
+    <div class="rfi-detail-card">
+      <div class="rfi-detail-card-head">
+        <div>
+          <h2>Hydro Testing</h2>
+          <div class="muted">All hydro testing records linked by batch.</div>
+        </div>
+      </div>
 
-<div class="card mt">
-  <h2>Hydro Testing</h2>
-  <div class="tablewrap">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Report No</th>
-          <th>Tested Length</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for h in package.hydro_records %}
-          <tr>
-            <td>{{ h.report_no or '-' }}</td>
-            <td>{{ h.tested_length_m or 0 }}</td>
-            <td>{{ h.approval_status or '-' }}</td>
-          </tr>
-        {% else %}
-          <tr><td colspan="3" class="muted">No hydro records found.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-</div>
+      <div class="rfi-table-wrap mt">
+        <table class="rfi-table">
+          <thead>
+            <tr>
+              <th>Report No</th>
+              <th>Tested Length</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for h in package.hydro_records %}
+              <tr>
+                <td>{{ h.report_no or '-' }}</td>
+                <td>{{ h.tested_length_m or 0 }}</td>
+                <td>{{ h.approval_status or '-' }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="3" class="muted">No hydro records found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-<div class="card mt">
-  <h2>Final Inspection</h2>
-  <div class="tablewrap">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Phase</th>
-          <th>Status</th>
-          <th>Approved By</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for f in package.final_phases %}
-          <tr>
-            <td>{{ f.title or '-' }}</td>
-            <td>{{ f.status or '-' }}</td>
-            <td>{{ f.approved_by_user_name or '-' }}</td>
-          </tr>
-        {% else %}
-          <tr><td colspan="3" class="muted">No final inspection records found.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="rfi-detail-card">
+      <div class="rfi-detail-card-head">
+        <div>
+          <h2>Final Inspection</h2>
+          <div class="muted">Phases already raised for this finished product batch.</div>
+        </div>
+      </div>
+
+      <div class="rfi-table-wrap mt">
+        <table class="rfi-table">
+          <thead>
+            <tr>
+              <th>Phase</th>
+              <th>Status</th>
+              <th>Approved By</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in package.final_phases %}
+              <tr>
+                <td>{{ f.title or '-' }}</td>
+                <td>{{ f.status or '-' }}</td>
+                <td>{{ f.approved_by_user_name or '-' }}</td>
+              </tr>
+            {% else %}
+              <tr><td colspan="3" class="muted">No final inspection records found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
   </div>
 </div>
 
