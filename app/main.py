@@ -2869,7 +2869,7 @@ def burst_create(
     session.commit()
     session.refresh(report)
 
-    ensure_burst_samples(session, report.id, desired=max(5, specimen_count))
+    ensure_burst_samples(session, report.id, desired=50)
     session.commit()
 
     return RedirectResponse(
@@ -3091,7 +3091,7 @@ def burst_edit(report_id: int, request: Request, session: Session = Depends(get_
     if not rep:
         raise HTTPException(404, "Burst report not found")
 
-    ensure_burst_samples(session, report_id, desired=max(5, int(rep.total_no_of_specimens or 1)))
+    ensure_burst_samples(session, report_id, desired=50)
 
     run = None
     produced_len = 0.0
