@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="rfi-detail-page">
+<div class="rfi-detail-page rfi-detail-page-wide">
   <div class="rfi-detail-hero">
     <div class="rfi-detail-hero-left">
       <a class="rfi-back-link" href="/rfi">←</a>
@@ -29,6 +29,20 @@
       ">
         {{ (rfi.status or '').replace('_', ' ') }}
       </span>
+
+      {% if rfi_due_info and rfi_due_info.label %}
+        <span class="rfi-reminder-pill
+          {% if rfi_due_info.is_overdue %}
+            rfi-reminder-overdue
+          {% elif rfi_due_info.is_due_today %}
+            rfi-reminder-today
+          {% else %}
+            rfi-reminder-upcoming
+          {% endif %}
+        ">
+          {{ rfi_due_info.label }}
+        </span>
+      {% endif %}
     </div>
   </div>
 
@@ -58,8 +72,18 @@
         <div class="rfi-info-box">
           <div class="rfi-mini-label">Requested Date</div>
           <div class="rfi-info-value">
-            {% if rfi.requested_date %}{{ rfi.requested_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}
+            {% if rfi.requested_date %}{{ rfi.requested_date.strftime('%Y-%m-%d %H:%M') }}{% else %}-{% endif %}
           </div>
+        </div>
+        <div class="rfi-info-box">
+          <div class="rfi-mini-label">Visit Date</div>
+          <div class="rfi-info-value">
+            {% if rfi.visit_date %}{{ rfi.visit_date.strftime('%Y-%m-%d %H:%M') }}{% else %}-{% endif %}
+          </div>
+        </div>
+        <div class="rfi-info-box">
+          <div class="rfi-mini-label">Raised By</div>
+          <div class="rfi-info-value">{{ rfi.raised_by_name or '-' }}</div>
         </div>
       </div>
     </div>
@@ -88,8 +112,8 @@
   <div class="rfi-detail-card">
     <div class="rfi-detail-card-head">
       <div>
-        <h2>Update RFI Status</h2>
-        <div class="muted">Control submission, scheduling, completion, and closeout.</div>
+        <h2>Update RFI Status & Schedule</h2>
+        <div class="muted">You can submit, schedule, postpone, reschedule, complete, or close this RFI here.</div>
       </div>
     </div>
 
@@ -110,6 +134,31 @@
           <label>Result Notes</label>
           <input name="result_notes" value="{{ rfi.result_notes or '' }}">
         </div>
+
+        <div>
+          <label>Requested / Planned Date</label>
+          <input
+            type="datetime-local"
+            name="requested_date"
+            value="{% if rfi.requested_date %}{{ rfi.requested_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+        </div>
+
+        <div>
+          <label>Actual / Confirmed Visit Date</label>
+          <input
+            type="datetime-local"
+            name="visit_date"
+            value="{% if rfi.visit_date %}{{ rfi.visit_date.strftime('%Y-%m-%dT%H:%M') }}{% endif %}">
+        </div>
+      </div>
+
+      <div class="mt">
+        <label>General Notes / Reschedule Notes</label>
+        <textarea name="notes">{{ rfi.notes or '' }}</textarea>
+      </div>
+
+      <div class="rfi-reminder-note mt">
+        The system will show reminders in the top notification bell when the RFI date is overdue, due today, or coming soon.
       </div>
 
       <div class="toolbar mt">
@@ -280,7 +329,7 @@
     {% endfor %}
   </div>
 
-  <div class="rfi-detail-grid-2">
+  <div class="rfi-detail-grid-2 rfi-bottom-grid">
     <div class="rfi-detail-card">
       <div class="rfi-detail-card-head">
         <div>
@@ -350,9 +399,7 @@
         </table>
       </div>
     </div>
-  </div>
 
-  <div class="rfi-detail-grid-2">
     <div class="rfi-detail-card">
       <div class="rfi-detail-card-head">
         <div>
