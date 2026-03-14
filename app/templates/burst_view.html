@@ -294,17 +294,17 @@
     </div>
   </div>
 
-  <div class="section">
+    <div class="section">
     <h3>Specimens Details</h3>
 
     {% for s in samples[:rep.total_no_of_specimens] %}
       <div class="spec-card">
         <div class="spec-head">
           <div class="tag">Specimen #{{ loop.index }}</div>
-          <div class="hint">Materials auto-fill from batch defaults</div>
+          <div class="hint">Detailed specimen construction for report output</div>
         </div>
 
-        <div class="grid-2">
+        <div class="grid-3">
           <div>
             <label>Serial No</label>
             <input name="sample_serial_number_{{ s.id }}" id="spec_serial_{{ s.id }}" value="{{ s.sample_serial_number }}">
@@ -313,9 +313,13 @@
             <label>Length (mm)</label>
             <input name="sample_length_m_{{ s.id }}" type="number" step="0.01" value="{{ s.sample_length_m }}">
           </div>
+          <div>
+            <label>Effective Length (mm)</label>
+            <input name="effective_length_m_{{ s.id }}" type="number" step="0.01" value="{{ s.effective_length_m }}">
+          </div>
         </div>
 
-        <div style="margin-top:10px; font-weight:700;">Construction</div>
+        <div style="margin-top:12px; font-weight:700;">Construction</div>
 
         <div class="grid-3" style="margin-top:8px;">
           <div>
