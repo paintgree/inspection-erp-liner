@@ -13,7 +13,7 @@
   <div class="grid3">
     <div><b>Batch:</b> {{ rfi.batch_no }}</div>
     <div><b>Client:</b> {{ rfi.client_name or '-' }}</div>
-    <div><b>Stage:</b> {{ rfi.inspection_stage }}</div>
+    <div><b>Activities:</b> {{ rfi.inspection_stage.replace('|', ', ') }}</div>
     <div><b>Status:</b> {{ rfi.status }}</div>
     <div><b>TPI Company:</b> {{ rfi.tpi_company or '-' }}</div>
     <div><b>TPI Contact:</b> {{ rfi.tpi_contact_name or '-' }}</div>
@@ -41,6 +41,20 @@
       <button class="btn btn-primary" type="submit">Update RFI</button>
     </div>
   </form>
+  <div class="card mt">
+    <h2>RFI Activity Scope</h2>
+    <div class="grid2">
+      {% for item in rfi.inspection_stage.split('|') if item.strip() %}
+        <div style="display:flex; align-items:center; gap:10px; border:1px solid #d1d5db; border-radius:10px; padding:10px 12px;">
+          <input type="checkbox" checked disabled>
+          <span>{{ item.replace('_', ' ').title() }}</span>
+        </div>
+      {% else %}
+        <div class="muted">No activities selected for this RFI.</div>
+      {% endfor %}
+    </div>
+  </div>
+  
 </div>
 
 <div class="card mt">
