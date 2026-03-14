@@ -7611,7 +7611,7 @@ def hydro_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
     )
     
 @app.get("/dashboard", response_class=HTMLResponse)
-def dashboard(request: Request, session: Session = Depends(get_session)):
+def dashboard(
     request: Request,
     session: Session = Depends(get_session),
 ):
