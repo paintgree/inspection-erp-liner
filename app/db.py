@@ -188,6 +188,12 @@ def _ensure_schema_patches() -> None:
         # burstsample
         (
             "burstsample",
+            "effective_length_m",
+            "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS effective_length_m DOUBLE PRECISION DEFAULT 0",
+            "ALTER TABLE burstsample ADD COLUMN effective_length_m REAL DEFAULT 0",
+        ),
+        (
+            "burstsample",
             "liner_material_grade",
             "ALTER TABLE burstsample ADD COLUMN IF NOT EXISTS liner_material_grade TEXT DEFAULT ''",
             "ALTER TABLE burstsample ADD COLUMN liner_material_grade TEXT DEFAULT ''",
