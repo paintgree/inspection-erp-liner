@@ -2836,13 +2836,32 @@ def burst_create(
     if mode == "linked" and not linked_run_id:
         raise HTTPException(status_code=400, detail="Production run is required.")
 
-    # minimal insert only
+    purpose_value = (purpose or "BATCH_RELEASE").strip() or "BATCH_RELEASE"
+
+    try:
+        specimen_count = int(total_samples or 1)
+    except Exception:
+        specimen_count = 1
+    specimen_count = max(1, min(50, specimen_count))
+
+    linked_run = None
+    if mode == "linked" and linked_run_id:
+        linked_run = session.get(ProductionRun, linked_run_id)
+        if not linked_run:
+            raise HTTPException(status_code=404, detail="Production run not found.")
+
     report = BurstTestReport(
-        batch_no="",
+        batch_no=(getattr(linked_run, "dhtp_batch_no", "") or "") if linked_run else "",
         linked_run_id=linked_run_id if mode == "linked" else None,
-        purpose=purpose,
-        total_samples=total_samples or 1,
-        created_by=user.id,
+        is_unlinked=(mode != "linked"),
+        purpose=purpose_value,
+        total_no_of_specimens=specimen_count,
+        client_name=(getattr(linked_run, "client_name", "") or "") if linked_run else "",
+        client_po=(getattr(linked_run, "po_number", "") or "") if linked_run else "",
+        pipe_specification=(getattr(linked_run, "pipe_specification", "") or "") if linked_run else "",
+        total_length_m=float(getattr(linked_run, "total_length_m", 0.0) or 0.0) if linked_run else 0.0,
+        created_by_user_id=user.id,
+        created_by_user_name=getattr(user, "display_name", "") or getattr(user, "username", ""),
         created_at=datetime.utcnow(),
     )
 
@@ -2850,11 +2869,13 @@ def burst_create(
     session.commit()
     session.refresh(report)
 
+    ensure_burst_samples(session, report.id, desired=max(5, specimen_count))
+    session.commit()
+
     return RedirectResponse(
-        url=f"/burst/{report.id}",
+        url=f"/burst/{report.id}/edit",
         status_code=303
     )
-
 
 from fastapi import UploadFile, File, Form
 from starlette.responses import RedirectResponse
@@ -3059,18 +3080,61 @@ async def burst_upload_attachments(
     _save_one(chart, "CHART", crop_chart)
 
     session.commit()
-    return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
+    return RedirectResponse(url=f"/burst/{report_id}/edit", status_code=303)
 
 
-@app.get("/burst/{report_id}/edit")
-def burst_edit_redirect(report_id: int, request: Request, session: Session = Depends(get_session)):
+@app.get("/burst/{report_id}/edit", response_class=HTMLResponse)
+def burst_edit(report_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
 
     rep = session.get(BurstTestReport, report_id)
     if not rep:
         raise HTTPException(404, "Burst report not found")
 
-    return RedirectResponse(url=f"/burst/{report_id}", status_code=302)
+    ensure_burst_samples(session, report_id, desired=max(5, int(rep.total_no_of_specimens or 1)))
+
+    run = None
+    produced_len = 0.0
+    if (not rep.is_unlinked) and rep.linked_run_id:
+        run = session.get(ProductionRun, rep.linked_run_id)
+        if run:
+            produced_len = get_run_produced_length_m(session, run.id)
+
+    samples = session.exec(
+        select(BurstSample)
+        .where(BurstSample.report_id == rep.id)
+        .order_by(BurstSample.id.asc())
+    ).all()
+
+    att_rows = session.exec(
+        select(BurstAttachment).where(BurstAttachment.report_id == rep.id)
+    ).all()
+
+    att_map = defaultdict(dict)
+    crop_meta = defaultdict(dict)
+    for a in att_rows:
+        sid = getattr(a, "sample_id", None)
+        kind = (getattr(a, "kind", "") or "").strip().upper()
+        if sid is None or not kind:
+            continue
+        att_map[sid][kind] = a
+        real_path = resolve_burst_file_path(getattr(a, "file_path", "") or "")
+        if real_path:
+            crop_meta[sid][kind] = _load_burst_image_meta(real_path)
+
+    return templates.TemplateResponse(
+        "burst_edit.html",
+        {
+            "request": request,
+            "user": user,
+            "rep": rep,
+            "run": run,
+            "produced_len": produced_len,
+            "samples": samples,
+            "att_map": att_map,
+            "crop_meta": crop_meta,
+        },
+    )
     
 @app.get("/burst/{report_id}")
 def burst_view(report_id: int, request: Request, session: Session = Depends(get_session)):
