@@ -1,133 +1,277 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="page-head">
-  <div>
-    <h1 style="margin:0;">RFI Dashboard</h1>
-    <div class="muted">Request for Inspection records linked to batch activity packages.</div>
-  </div>
-</div>
-
-<div class="card">
-  <h2>Create RFI</h2>
-  <form method="post" action="/rfi/create" class="mt">
-    <div class="grid3">
+<div class="rfi-page">
+  <div class="rfi-hero">
+    <div class="rfi-hero-left">
+      <a class="rfi-back-link" href="/dashboard">←</a>
       <div>
-        <label>Link to Finished Product Batch</label>
-        <select name="linked_run_id" id="linked_run_id" required onchange="syncRfiChecklist()">
-          {% for row in batch_cards %}
-            <option
-              value="{{ row.run.id }}"
-              data-batch="{{ row.batch_no }}"
-              data-remaining="{{ '|'.join(row.remaining) }}"
-              {% if row.is_complete %}disabled{% endif %}
-            >
-              {{ row.run.dhtp_batch_no or '-' }} · FINISHED PRODUCT · {{ row.run.client_name or '-' }} · PO {{ row.run.po_number or '-' }} · ITP {{ row.run.itp_number or '-' }}{% if row.is_complete %} · COMPLETED{% endif %}
-            </option>
-          {% endfor %}
-        </select>
-        <div class="muted mt">Only remaining activities are selectable. Completed batches are disabled.</div>
-      </div>
-  
-      <div>
-        <label>Requested Date</label>
-        <input type="date" name="requested_date">
-      </div>
-  
-      <div>
-        <label>RFI Mode</label>
-        <div class="muted" style="padding-top:10px;">
-          Leave all remaining checked for full RFI, or uncheck some for partial RFI.
+        <h1 class="rfi-title">RFI Dashboard</h1>
+        <div class="rfi-subtitle">
+          Request for inspection records linked to batch activity packages.
         </div>
       </div>
     </div>
-  
-    <div class="mt">
-      <label>Inspection Activities</label>
-      <div id="rfiChecklist" class="grid2" style="gap:10px;">
-        {% for code, label in activity_labels.items() %}
-          <label style="display:flex; align-items:center; gap:10px; border:1px solid #d1d5db; border-radius:10px; padding:10px 12px;">
-            <input type="checkbox" name="inspection_stage" value="{{ code }}" class="rfi-stage-checkbox">
-            <span>{{ label }}</span>
-          </label>
-        {% endfor %}
-      </div>
-      <div class="muted mt">The system will only include the checked activities in this RFI.</div>
-    </div>
-  
-    <div class="grid2 mt">
-      <div>
-        <label>TPI Company</label>
-        <input name="tpi_company">
-      </div>
-      <div>
-        <label>TPI Contact</label>
-        <input name="tpi_contact_name">
-      </div>
-    </div>
-  
-    <label class="mt">Notes</label>
-    <textarea name="notes" rows="4"></textarea>
-  
-    <div class="toolbar mt">
-      <button class="btn btn-primary" type="submit">Create RFI</button>
-    </div>
-  </form>
-  
-  <script>
-    function syncRfiChecklist() {
-      const select = document.getElementById("linked_run_id");
-      if (!select) return;
-  
-      const opt = select.options[select.selectedIndex];
-      const remainingRaw = (opt.getAttribute("data-remaining") || "").trim();
-      const remaining = remainingRaw ? remainingRaw.split("|") : [];
-  
-      document.querySelectorAll(".rfi-stage-checkbox").forEach(function(cb){
-        const allowed = remaining.includes(cb.value);
-        cb.disabled = !allowed;
-        cb.checked = allowed;
-      });
-    }
-  
-    document.addEventListener("DOMContentLoaded", syncRfiChecklist);
-  </script>
-</div>
 
-<div class="card mt">
-  <h2>Existing RFIs</h2>
-  <div class="tablewrap">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>RFI No</th>
-          <th>Batch</th>
-          <th>Client</th>
-          <th>Stage</th>
-          <th>Status</th>
-          <th>Requested</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in items %}
+    <button class="btn btn-primary rfi-create-btn" type="button" onclick="toggleRfiCreatePanel()">
+      + Create New RFI
+    </button>
+  </div>
+
+  <div class="rfi-kpi-grid">
+    <div class="rfi-kpi-card">
+      <div class="rfi-kpi-top">
+        <div class="rfi-kpi-icon">📄</div>
+        <div class="rfi-kpi-live">LIVE</div>
+      </div>
+      <div class="rfi-kpi-value">{{ items|length }}</div>
+      <div class="rfi-kpi-label">Total Requests</div>
+    </div>
+
+    <div class="rfi-kpi-card">
+      <div class="rfi-kpi-top">
+        <div class="rfi-kpi-icon">🕒</div>
+        <div class="rfi-kpi-live">LIVE</div>
+      </div>
+      <div class="rfi-kpi-value">
+        {{ items | selectattr("status", "equalto", "SUBMITTED") | list | length
+           + items | selectattr("status", "equalto", "SCHEDULED") | list | length }}
+      </div>
+      <div class="rfi-kpi-label">Pending Review</div>
+    </div>
+
+    <div class="rfi-kpi-card">
+      <div class="rfi-kpi-top">
+        <div class="rfi-kpi-icon">✅</div>
+        <div class="rfi-kpi-live">LIVE</div>
+      </div>
+      <div class="rfi-kpi-value">
+        {{ items | selectattr("status", "equalto", "CLOSED") | list | length }}
+      </div>
+      <div class="rfi-kpi-label">Completed</div>
+    </div>
+
+    <div class="rfi-kpi-card">
+      <div class="rfi-kpi-top">
+        <div class="rfi-kpi-icon">🗂️</div>
+        <div class="rfi-kpi-live">LIVE</div>
+      </div>
+      <div class="rfi-kpi-value">
+        {{ items | selectattr("status", "equalto", "DRAFT") | list | length }}
+      </div>
+      <div class="rfi-kpi-label">Drafts</div>
+    </div>
+  </div>
+
+  <div id="rfiCreatePanel" class="rfi-create-panel" style="display:none;">
+    <div class="rfi-panel-head">
+      <div>
+        <h2>Create RFI</h2>
+        <div class="muted">Create by finished product batch and choose only the required activities.</div>
+      </div>
+      <button class="btn btn-secondary" type="button" onclick="toggleRfiCreatePanel()">Close</button>
+    </div>
+
+    <form method="post" action="/rfi/create" class="mt">
+      <div class="grid3">
+        <div>
+          <label>Link to Finished Product Batch</label>
+          <select name="linked_run_id" id="linked_run_id" required onchange="syncRfiChecklist()">
+            {% for row in batch_cards %}
+              <option
+                value="{{ row.run.id }}"
+                data-batch="{{ row.batch_no }}"
+                data-remaining="{{ '|'.join(row.remaining) }}"
+                {% if row.is_complete %}disabled{% endif %}
+              >
+                {{ row.run.dhtp_batch_no or '-' }} · FINISHED PRODUCT · {{ row.run.client_name or '-' }} · PO {{ row.run.po_number or '-' }} · ITP {{ row.run.itp_number or '-' }}{% if row.is_complete %} · COMPLETED{% endif %}
+              </option>
+            {% endfor %}
+          </select>
+          <div class="muted mt">Only remaining activities are selectable.</div>
+        </div>
+
+        <div>
+          <label>Requested Date</label>
+          <input type="date" name="requested_date">
+        </div>
+
+        <div>
+          <label>RFI Mode</label>
+          <div class="rfi-mode-help">
+            Keep all checked for full RFI, or uncheck some activities for partial RFI.
+          </div>
+        </div>
+      </div>
+
+      <div class="mt">
+        <label>Inspection Activities</label>
+        <div id="rfiChecklist" class="rfi-check-grid">
+          {% for code, label in activity_labels.items() %}
+            <label class="rfi-check-card">
+              <input type="checkbox" name="inspection_stage" value="{{ code }}" class="rfi-stage-checkbox">
+              <span class="rfi-check-mark"></span>
+              <span class="rfi-check-text">{{ label }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="grid2 mt">
+        <div>
+          <label>TPI Company</label>
+          <input name="tpi_company">
+        </div>
+        <div>
+          <label>TPI Contact</label>
+          <input name="tpi_contact_name">
+        </div>
+      </div>
+
+      <label class="mt">Notes</label>
+      <textarea name="notes" rows="4"></textarea>
+
+      <div class="toolbar mt">
+        <button class="btn btn-primary" type="submit">Create RFI</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="rfi-list-shell">
+    <div class="rfi-list-head">
+      <div class="rfi-list-head-left">
+        <h2>Existing RFIs</h2>
+        <span class="rfi-count-badge">{{ items|length }} RECORD{% if items|length != 1 %}S{% endif %}</span>
+      </div>
+
+      <div class="rfi-list-tools">
+        <input
+          id="rfiSearchInput"
+          class="rfi-search-input"
+          type="text"
+          placeholder="Search RFI or Batch..."
+          oninput="filterRfiRows()"
+        >
+      </div>
+    </div>
+
+    <div class="rfi-table-wrap">
+      <table class="rfi-table">
+        <thead>
           <tr>
-            <td>{{ r.rfi_no }}</td>
-            <td>{{ r.batch_no }}</td>
-            <td>{{ r.client_name or '-' }}</td>
-            <td>{{ format_rfi_activity_text(r.inspection_stage) }}</td>
-            <td>{{ r.status }}</td>
-            <td>{% if r.requested_date %}{{ r.requested_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</td>
-            <td><a class="btn btn-sm" href="/rfi/{{ r.id }}">Open</a></td>
+            <th>RFI Number</th>
+            <th>Batch Details</th>
+            <th>Inspection Scope</th>
+            <th>Status</th>
+            <th>Requested Date</th>
+            <th>Action</th>
           </tr>
-        {% else %}
-          <tr>
-            <td colspan="7" class="muted">No RFI records yet.</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody id="rfiTableBody">
+          {% for r in items %}
+            <tr class="rfi-row"
+                data-search="{{ (r.rfi_no or '')|lower }} {{ (r.batch_no or '')|lower }} {{ (r.client_name or '')|lower }} {{ (r.status or '')|lower }} {{ (r.inspection_stage or '')|lower }}">
+              <td>
+                <div class="rfi-number-cell">
+                  <div class="rfi-number-badge">#</div>
+                  <div class="rfi-number-text">{{ r.rfi_no }}</div>
+                </div>
+              </td>
+
+              <td>
+                <div class="rfi-batch-main">{{ r.batch_no }}</div>
+                <div class="rfi-batch-sub">Client: {{ r.client_name or '-' }}</div>
+              </td>
+
+              <td>
+                <div class="rfi-stage-text">{{ format_rfi_activity_text(r.inspection_stage) }}</div>
+              </td>
+
+              <td>
+                {% set st = (r.status or '').upper() %}
+                <span class="rfi-status-pill
+                  {% if st == 'CLOSED' %}
+                    rfi-status-closed
+                  {% elif st == 'VISIT_COMPLETED' %}
+                    rfi-status-complete
+                  {% elif st == 'SCHEDULED' %}
+                    rfi-status-scheduled
+                  {% elif st == 'SUBMITTED' %}
+                    rfi-status-submitted
+                  {% else %}
+                    rfi-status-draft
+                  {% endif %}
+                ">
+                  {{ st.replace('_', ' ') }}
+                </span>
+              </td>
+
+              <td>
+                <div class="rfi-date-cell">
+                  {% if r.requested_date %}
+                    {{ r.requested_date.strftime('%Y-%m-%d') }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </div>
+              </td>
+
+              <td>
+                <a class="rfi-open-btn" href="/rfi/{{ r.id }}">Open</a>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="6" class="muted" style="padding:18px;">No RFI records yet.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
+
+<script>
+  function toggleRfiCreatePanel() {
+    const panel = document.getElementById("rfiCreatePanel");
+    if (!panel) return;
+    panel.style.display = panel.style.display === "none" ? "block" : "none";
+  }
+
+  function syncRfiChecklist() {
+    const select = document.getElementById("linked_run_id");
+    if (!select) return;
+
+    const opt = select.options[select.selectedIndex];
+    const remainingRaw = (opt.getAttribute("data-remaining") || "").trim();
+    const remaining = remainingRaw ? remainingRaw.split("|") : [];
+
+    document.querySelectorAll(".rfi-stage-checkbox").forEach(function(cb){
+      const allowed = remaining.includes(cb.value);
+      cb.disabled = !allowed;
+      cb.checked = allowed;
+
+      const card = cb.closest(".rfi-check-card");
+      if (card) {
+        if (allowed) {
+          card.classList.remove("is-disabled");
+        } else {
+          card.classList.add("is-disabled");
+        }
+      }
+    });
+  }
+
+  function filterRfiRows() {
+    const input = document.getElementById("rfiSearchInput");
+    const q = (input.value || "").trim().toLowerCase();
+    document.querySelectorAll("#rfiTableBody .rfi-row").forEach(function(row){
+      const hay = row.getAttribute("data-search") || "";
+      row.style.display = !q || hay.includes(q) ? "" : "none";
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", syncRfiChecklist);
+</script>
 
 {% endblock %}
