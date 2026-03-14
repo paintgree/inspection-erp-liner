@@ -3061,6 +3061,17 @@ async def burst_upload_attachments(
     session.commit()
     return RedirectResponse(url=f"/burst/{report_id}", status_code=303)
 
+
+@app.get("/burst/{report_id}/edit")
+def burst_edit_redirect(report_id: int, request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    rep = session.get(BurstTestReport, report_id)
+    if not rep:
+        raise HTTPException(404, "Burst report not found")
+
+    return RedirectResponse(url=f"/burst/{report_id}", status_code=302)
+    
 @app.get("/burst/{report_id}")
 def burst_view(report_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
