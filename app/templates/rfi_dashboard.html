@@ -13,11 +13,11 @@
   <form method="post" action="/rfi/create" class="mt">
     <div class="grid3">
       <div>
-        <label>Link to Production Run</label>
+        <label>Link to Finished Product Batch</label>
         <select name="linked_run_id" required>
-          {% for run in available_runs %}
+          {% for run in available_batches %}
             <option value="{{ run.id }}">
-              {{ run.dhtp_batch_no or '-' }} · {{ run.process or '-' }} · {{ run.client_name or '-' }} · PO {{ run.po_number or '-' }} · ITP {{ run.itp_number or '-' }}
+              {{ run.dhtp_batch_no or '-' }} · FINISHED PRODUCT · {{ run.client_name or '-' }} · PO {{ run.po_number or '-' }} · ITP {{ run.itp_number or '-' }}
             </option>
           {% endfor %}
         </select>
