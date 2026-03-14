@@ -5213,10 +5213,10 @@ def login_post(
     response = RedirectResponse(url="/dashboard", status_code=302)
 
     response.set_cookie(
-        key="username",
+        key="user",
         value=user.username,
         httponly=True,
-        secure=True,
+        secure=False,   # change to True only when you are sure the site is running on HTTPS
         samesite="lax",
         path="/",
         max_age=60 * 60 * 12,
@@ -5228,7 +5228,8 @@ def login_post(
 @app.get("/logout")
 def logout():
     resp = RedirectResponse("/login", status_code=302)
-    resp.delete_cookie("user")
+    resp.delete_cookie("user", path="/")
+    resp.delete_cookie("username", path="/")
     return resp
 
 
