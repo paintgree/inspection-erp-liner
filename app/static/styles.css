@@ -517,7 +517,9 @@ body{
   }
 }
 
--------------------------------------
+/* -------------------------------------
+   Legacy layout section
+------------------------------------- */
 
 .page{max-width:min(1680px, calc(100vw - 24px));margin:0 auto;padding:18px}
 @media (max-width:1200px){ .page{max-width:100%;padding:14px} }
@@ -3407,4 +3409,5 @@ Burst search + filters
     border-radius:20px;
   }
 }
+
 
