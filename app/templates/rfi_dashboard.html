@@ -14,31 +14,45 @@
     <div class="grid3">
       <div>
         <label>Link to Finished Product Batch</label>
-        <select name="linked_run_id" required>
-          {% for run in available_batches %}
-            <option value="{{ run.id }}">
-              {{ run.dhtp_batch_no or '-' }} · FINISHED PRODUCT · {{ run.client_name or '-' }} · PO {{ run.po_number or '-' }} · ITP {{ run.itp_number or '-' }}
+        <select name="linked_run_id" id="linked_run_id" required onchange="syncRfiChecklist()">
+          {% for row in batch_cards %}
+            <option
+              value="{{ row.run.id }}"
+              data-batch="{{ row.batch_no }}"
+              data-remaining="{{ '|'.join(row.remaining) }}"
+              {% if row.is_complete %}disabled{% endif %}
+            >
+              {{ row.run.dhtp_batch_no or '-' }} · FINISHED PRODUCT · {{ row.run.client_name or '-' }} · PO {{ row.run.po_number or '-' }} · ITP {{ row.run.itp_number or '-' }}{% if row.is_complete %} · COMPLETED{% endif %}
             </option>
           {% endfor %}
         </select>
-      </div>
-  
-      <div>
-        <label>Inspection Stage</label>
-        <select name="inspection_stage" required>
-          <option value="DOCUMENT_REVIEW">DOCUMENT REVIEW</option>
-          <option value="IN_PROCESS">IN PROCESS</option>
-          <option value="BURST_TEST">BURST TEST</option>
-          <option value="HYDRO_TEST">HYDRO TEST</option>
-          <option value="FINAL_INSPECTION">FINAL INSPECTION</option>
-          <option value="GENERAL">GENERAL</option>
-        </select>
+        <div class="muted mt">Only remaining activities are selectable. Completed batches are disabled.</div>
       </div>
   
       <div>
         <label>Requested Date</label>
         <input type="date" name="requested_date">
       </div>
+  
+      <div>
+        <label>RFI Mode</label>
+        <div class="muted" style="padding-top:10px;">
+          Leave all remaining checked for full RFI, or uncheck some for partial RFI.
+        </div>
+      </div>
+    </div>
+  
+    <div class="mt">
+      <label>Inspection Activities</label>
+      <div id="rfiChecklist" class="grid2" style="gap:10px;">
+        {% for code, label in activity_labels.items() %}
+          <label style="display:flex; align-items:center; gap:10px; border:1px solid #d1d5db; border-radius:10px; padding:10px 12px;">
+            <input type="checkbox" name="inspection_stage" value="{{ code }}" class="rfi-stage-checkbox">
+            <span>{{ label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+      <div class="muted mt">The system will only include the checked activities in this RFI.</div>
     </div>
   
     <div class="grid2 mt">
@@ -59,6 +73,25 @@
       <button class="btn btn-primary" type="submit">Create RFI</button>
     </div>
   </form>
+  
+  <script>
+    function syncRfiChecklist() {
+      const select = document.getElementById("linked_run_id");
+      if (!select) return;
+  
+      const opt = select.options[select.selectedIndex];
+      const remainingRaw = (opt.getAttribute("data-remaining") || "").trim();
+      const remaining = remainingRaw ? remainingRaw.split("|") : [];
+  
+      document.querySelectorAll(".rfi-stage-checkbox").forEach(function(cb){
+        const allowed = remaining.includes(cb.value);
+        cb.disabled = !allowed;
+        cb.checked = allowed;
+      });
+    }
+  
+    document.addEventListener("DOMContentLoaded", syncRfiChecklist);
+  </script>
 </div>
 
 <div class="card mt">
