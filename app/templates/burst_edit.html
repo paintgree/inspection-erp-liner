@@ -89,7 +89,7 @@
         </div>
         <div>
           <label>Total No. of Specimens</label>
-          <input name="total_no_of_specimens" type="number" min="1" max="50" value="{{ rep.total_no_of_specimens or 1 }}">
+          <input id="specimen-count-input" name="total_no_of_specimens" type="number" min="1" max="50" value="{{ rep.total_no_of_specimens or 1 }}">
         </div>
         <div>
           <label>Total Produced Length</label>
@@ -128,8 +128,8 @@
       <h2 class="burst-section-title">Specimens</h2>
       <div class="hint">Only the first {{ rep.total_no_of_specimens or 1 }} specimen cards are shown on the final report and in the export.</div>
 
-      {% for s in samples[:(rep.total_no_of_specimens or 1)] %}
-      <div class="burst-sample-card">
+      {% for s in samples %}
+      <div class="burst-sample-card" data-sample-card data-sample-index="{{ loop.index }}">
         <div class="burst-sample-head">
           <h3 style="margin:0;">Specimen {{ loop.index }}</h3>
           <span class="hint">Sample ID: {{ s.id }}</span>
@@ -211,8 +211,8 @@
     <h2 class="burst-section-title">Photos & Chart Uploads</h2>
     <div class="hint">Each specimen can store one chart, one full-length photo, and two side photos. These files are used in the PDF export pages.</div>
 
-    {% for s in samples[:(rep.total_no_of_specimens or 1)] %}
-    <div class="burst-sample-card">
+    {% for s in samples %}
+    <div class="burst-sample-card" data-sample-upload-card data-sample-index="{{ loop.index }}">
       <div class="burst-sample-head">
         <h3 style="margin:0;">Uploads for Specimen {{ loop.index }}</h3>
       </div>
@@ -256,5 +256,38 @@
     {% endfor %}
   </div>
 </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const countInput = document.getElementById("specimen-count-input");
+  if (!countInput) return;
+
+  const specimenCards = Array.from(document.querySelectorAll("[data-sample-card]"));
+  const uploadCards = Array.from(document.querySelectorAll("[data-sample-upload-card]"));
+
+  function refreshSpecimenCards() {
+    let count = parseInt(countInput.value || "1", 10);
+
+    if (isNaN(count)) count = 1;
+    if (count < 1) count = 1;
+    if (count > 50) count = 50;
+
+    specimenCards.forEach(card => {
+      const idx = parseInt(card.getAttribute("data-sample-index"), 10);
+      card.style.display = idx <= count ? "" : "none";
+    });
+
+    uploadCards.forEach(card => {
+      const idx = parseInt(card.getAttribute("data-sample-index"), 10);
+      card.style.display = idx <= count ? "" : "none";
+    });
+  }
+
+  countInput.addEventListener("input", refreshSpecimenCards);
+  countInput.addEventListener("change", refreshSpecimenCards);
+
+  refreshSpecimenCards();
+});
+</script>
 
 {% endblock %}
