@@ -3525,7 +3525,7 @@ async def burst_update(
     # ---------------------------
     form = await request.form()
 
-        db_samples = db_samples[:n]
+    db_samples = db_samples[:n]
 
     for s in db_samples:
 
