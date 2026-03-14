@@ -320,6 +320,7 @@ class BurstTestReport(SQLModel, table=True):
     # Sample: start & length
     sample_start_m: float = Field(default=0.0)
     sample_length_m: float = Field(default=0.0)
+    effective_length_m: float = Field(default=0.0)
 
     # -------------------------
     # TEMPLATE: TEST DETAILS (auto-filled when linked)
