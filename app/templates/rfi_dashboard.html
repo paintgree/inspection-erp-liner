@@ -115,7 +115,7 @@
             <td>{{ r.rfi_no }}</td>
             <td>{{ r.batch_no }}</td>
             <td>{{ r.client_name or '-' }}</td>
-            <td>{{ r.inspection_stage }}</td>
+            <td>{{ format_rfi_activity_text(r.inspection_stage) }}</td>
             <td>{{ r.status }}</td>
             <td>{% if r.requested_date %}{{ r.requested_date.strftime('%Y-%m-%d') }}{% else %}-{% endif %}</td>
             <td><a class="btn btn-sm" href="/rfi/{{ r.id }}">Open</a></td>
