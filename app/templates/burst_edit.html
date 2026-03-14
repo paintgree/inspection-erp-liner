@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  .burst-edit-wrap{max-width:1200px;margin:0 auto;display:grid;gap:18px}
+  .burst-edit-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+  .burst-edit-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:18px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .burst-edit-title{margin:0 0 4px 0;font-size:24px;font-weight:900}
+  .burst-edit-sub{color:#6b7280}
+  .burst-grid-2,.burst-grid-3,.burst-grid-4{display:grid;gap:12px}
+  .burst-grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .burst-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .burst-grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .burst-section-title{margin:0 0 14px 0;font-size:18px;font-weight:900}
+  .burst-sample-card{border:1px solid #e5e7eb;border-radius:14px;padding:14px;background:#f9fafb;margin-top:14px}
+  .burst-sample-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .burst-attachment-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .burst-attachment-box{border:1px dashed #cbd5e1;border-radius:12px;padding:12px;background:#fff}
+  .burst-attachment-label{font-size:12px;font-weight:800;color:#475569;margin-bottom:8px;text-transform:uppercase}
+  .burst-file-link{font-size:12px;word-break:break-all}
+  .burst-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+  .hint{font-size:12px;color:#6b7280;margin-top:6px}
+  @media (max-width: 900px){
+    .burst-grid-2,.burst-grid-3,.burst-grid-4,.burst-attachment-grid{grid-template-columns:1fr}
+  }
+</style>
+
+<div class="burst-edit-wrap">
+  <div class="burst-edit-top">
+    <div>
+      <h1 class="burst-edit-title">Edit Burst Test</h1>
+      <div class="burst-edit-sub">Save your data here, then review the final report page after saving.</div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a class="btn btn-secondary" href="/burst">Back</a>
+      <a class="btn btn-secondary" href="/burst/{{ rep.id }}">Final Report</a>
+    </div>
+  </div>
+
+  <form method="post" action="/burst/{{ rep.id }}/update">
+    <div class="burst-edit-card">
+      <h2 class="burst-section-title">Report Information</h2>
+      <div class="burst-grid-4">
+        <div>
+          <label>Batch No</label>
+          <input type="text" value="{{ rep.batch_no or '' }}" disabled>
+        </div>
+        <div>
+          <label>Client</label>
+          <input type="text" value="{{ rep.client_name or '' }}" disabled>
+        </div>
+        <div>
+          <label>Client PO</label>
+          <input name="client_po" type="text" value="{{ rep.client_po or '' }}">
+        </div>
+        <div>
+          <label>Purpose</label>
+          <input type="text" value="{{ rep.purpose or '' }}" disabled>
+        </div>
+      </div>
+
+      <div class="burst-grid-4" style="margin-top:12px;">
+        <div>
+          <label>Pipe Specification</label>
+          <input name="pipe_specification" type="text" value="{{ rep.pipe_specification or '' }}">
+        </div>
+        <div>
+          <label>Reference Standard</label>
+          <input name="reference_standard" type="text" value="{{ rep.reference_standard or '' }}">
+        </div>
+        <div>
+          <label>Procedure</label>
+          <input name="reference_dhtp_procedure" type="text" value="{{ rep.reference_dhtp_procedure or '' }}">
+        </div>
+        <div>
+          <label>System Max Pressure</label>
+          <input name="system_max_pressure" type="text" value="{{ rep.system_max_pressure or '' }}">
+        </div>
+      </div>
+
+      <div class="burst-grid-4" style="margin-top:12px;">
+        <div>
+          <label>Laboratory Temperature</label>
+          <input name="laboratory_temperature" type="text" value="{{ rep.laboratory_temperature or '' }}">
+        </div>
+        <div>
+          <label>Testing Medium</label>
+          <input name="testing_medium" type="text" value="{{ rep.testing_medium or '' }}">
+        </div>
+        <div>
+          <label>Total No. of Specimens</label>
+          <input name="total_no_of_specimens" type="number" min="1" max="50" value="{{ rep.total_no_of_specimens or 1 }}">
+        </div>
+        <div>
+          <label>Total Produced Length</label>
+          <input type="text" value="{{ produced_len or rep.total_length_m or 0 }}" disabled>
+        </div>
+      </div>
+    </div>
+
+    <div class="burst-edit-card">
+      <h2 class="burst-section-title">Signatures & Notes</h2>
+      <div class="burst-grid-3">
+        <div>
+          <label>QA/QC Officer</label>
+          <input name="qa_qc_officer_name" type="text" value="{{ rep.qa_qc_officer_name or '' }}">
+        </div>
+        <div>
+          <label>Technician</label>
+          <input name="technician_name" type="text" value="{{ rep.technician_name or '' }}">
+        </div>
+        <div>
+          <label>Overall Result</label>
+          <select name="test_result">
+            <option value="" {% if not rep.test_result %}selected{% endif %}>Select</option>
+            <option value="PASS" {% if rep.test_result == 'PASS' %}selected{% endif %}>PASS</option>
+            <option value="FAIL" {% if rep.test_result == 'FAIL' %}selected{% endif %}>FAIL</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label>Notes</label>
+        <textarea name="notes" rows="3">{{ rep.notes or '' }}</textarea>
+      </div>
+    </div>
+
+    <div class="burst-edit-card">
+      <h2 class="burst-section-title">Specimens</h2>
+      <div class="hint">Only the first {{ rep.total_no_of_specimens or 1 }} specimen cards are shown on the final report and in the export.</div>
+
+      {% for s in samples[:(rep.total_no_of_specimens or 1)] %}
+      <div class="burst-sample-card">
+        <div class="burst-sample-head">
+          <h3 style="margin:0;">Specimen {{ loop.index }}</h3>
+          <span class="hint">Sample ID: {{ s.id }}</span>
+        </div>
+
+        <div class="burst-grid-4">
+          <div>
+            <label>Serial Number</label>
+            <input name="sample_serial_number_{{ s.id }}" type="text" value="{{ s.sample_serial_number or '' }}">
+          </div>
+          <div>
+            <label>Sample Length (m)</label>
+            <input name="sample_length_m_{{ s.id }}" type="number" step="0.001" value="{{ s.sample_length_m or 0 }}">
+          </div>
+          <div>
+            <label>Effective Length (mm)</label>
+            <input name="effective_length_m_{{ s.id }}" type="number" step="0.001" value="{{ s.effective_length_m or 0 }}">
+          </div>
+          <div>
+            <label>Actual Burst (MPa)</label>
+            <input name="actual_burst_MPa_{{ s.id }}" type="number" step="0.001" value="{{ s.actual_burst_psi or 0 }}">
+          </div>
+        </div>
+
+        <div class="burst-grid-4" style="margin-top:12px;">
+          <div>
+            <label>Pressurization Time (s)</label>
+            <input name="pressurization_time_s_{{ s.id }}" type="text" value="{{ s.pressurization_time_s or '' }}">
+          </div>
+          <div>
+            <label>Result</label>
+            <select name="test_result_{{ s.id }}">
+              <option value="" {% if not s.test_result %}selected{% endif %}>Select</option>
+              <option value="PASS" {% if s.test_result == 'PASS' %}selected{% endif %}>PASS</option>
+              <option value="FAIL" {% if s.test_result == 'FAIL' %}selected{% endif %}>FAIL</option>
+            </select>
+          </div>
+          <div>
+            <label>Liner Material</label>
+            <input name="liner_material_grade_{{ s.id }}" type="text" value="{{ s.liner_material_grade or rep.liner_material_grade or '' }}">
+          </div>
+          <div>
+            <label>Liner Thickness (mm)</label>
+            <input name="liner_thickness_mm_{{ s.id }}" type="number" step="0.001" value="{{ s.liner_thickness_mm or 0 }}">
+          </div>
+        </div>
+
+        <div class="burst-grid-4" style="margin-top:12px;">
+          <div>
+            <label>Reinforcement Material</label>
+            <input name="reinforcement_material_grade_{{ s.id }}" type="text" value="{{ s.reinforcement_material_grade or rep.reinforcement_material_grade or '' }}">
+          </div>
+          <div>
+            <label>Reinforcement Thickness (mm)</label>
+            <input name="reinforcement_thickness_mm_{{ s.id }}" type="number" step="0.001" value="{{ s.reinforcement_thickness_mm or 0 }}">
+          </div>
+          <div>
+            <label>Cover Material</label>
+            <input name="cover_material_grade_{{ s.id }}" type="text" value="{{ s.cover_material_grade or rep.cover_material_grade or '' }}">
+          </div>
+          <div>
+            <label>Cover Thickness (mm)</label>
+            <input name="cover_thickness_mm_{{ s.id }}" type="number" step="0.001" value="{{ s.cover_thickness_mm or 0 }}">
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="burst-edit-card">
+      <div class="burst-actions">
+        <button class="btn btn-secondary" type="submit" name="action" value="save">Save</button>
+        <button class="btn btn-primary" type="submit" name="action" value="lock">Save & Lock</button>
+      </div>
+    </div>
+  </form>
+
+  <div class="burst-edit-card">
+    <h2 class="burst-section-title">Photos & Chart Uploads</h2>
+    <div class="hint">Each specimen can store one chart, one full-length photo, and two side photos. These files are used in the PDF export pages.</div>
+
+    {% for s in samples[:(rep.total_no_of_specimens or 1)] %}
+    <div class="burst-sample-card">
+      <div class="burst-sample-head">
+        <h3 style="margin:0;">Uploads for Specimen {{ loop.index }}</h3>
+      </div>
+
+      <form method="post" action="/burst/{{ rep.id }}/sample/{{ s.id }}/upload_attachments" enctype="multipart/form-data">
+        <div class="burst-attachment-grid">
+          <div class="burst-attachment-box">
+            <div class="burst-attachment-label">Chart</div>
+            <input type="file" name="chart" accept=".png,.jpg,.jpeg,.webp">
+            {% set att = att_map.get(s.id, {}).get('CHART') %}
+            {% if att %}<div class="hint">Current: <a class="burst-file-link" target="_blank" href="/burst/files/{{ att.id }}/view">view file</a></div>{% endif %}
+          </div>
+          <div class="burst-attachment-box">
+            <div class="burst-attachment-label">Full Length</div>
+            <input type="file" name="photo_full" accept=".png,.jpg,.jpeg,.webp">
+            {% set att = att_map.get(s.id, {}).get('PHOTO_FULL') %}
+            {% if att %}<div class="hint">Current: <a class="burst-file-link" target="_blank" href="/burst/files/{{ att.id }}/view">view file</a></div>{% endif %}
+          </div>
+          <div class="burst-attachment-box">
+            <div class="burst-attachment-label">Side A</div>
+            <input type="file" name="photo_a" accept=".png,.jpg,.jpeg,.webp">
+            {% set att = att_map.get(s.id, {}).get('PHOTO_A') %}
+            {% if att %}<div class="hint">Current: <a class="burst-file-link" target="_blank" href="/burst/files/{{ att.id }}/view">view file</a></div>{% endif %}
+          </div>
+          <div class="burst-attachment-box">
+            <div class="burst-attachment-label">Side B</div>
+            <input type="file" name="photo_b" accept=".png,.jpg,.jpeg,.webp">
+            {% set att = att_map.get(s.id, {}).get('PHOTO_B') %}
+            {% if att %}<div class="hint">Current: <a class="burst-file-link" target="_blank" href="/burst/files/{{ att.id }}/view">view file</a></div>{% endif %}
+          </div>
+        </div>
+        <input type="hidden" name="crop_chart" value='{{ crop_meta.get(s.id, {}).get("CHART", {})|tojson }}'>
+        <input type="hidden" name="crop_photo_full" value='{{ crop_meta.get(s.id, {}).get("PHOTO_FULL", {})|tojson }}'>
+        <input type="hidden" name="crop_photo_a" value='{{ crop_meta.get(s.id, {}).get("PHOTO_A", {})|tojson }}'>
+        <input type="hidden" name="crop_photo_b" value='{{ crop_meta.get(s.id, {}).get("PHOTO_B", {})|tojson }}'>
+        <div class="burst-actions" style="margin-top:12px;">
+          <button class="btn btn-secondary" type="submit">Upload Files</button>
+        </div>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endblock %}
