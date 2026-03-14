@@ -27,13 +27,13 @@
 
         <button class="app-header-icon app-bell-btn" type="button" onclick="toggleHeaderNotifications()" title="Notifications" aria-label="Notifications">
           <span>🔔</span>
-          <span class="app-bell-dot">0</span>
+          <span id="appBellDot" class="app-bell-dot" style="display:none;">0</span>
         </button>
 
         <div id="headerNotifications" class="app-header-popover" style="display:none;">
           <div class="app-header-popover-title">Notifications</div>
-          <div class="app-header-popover-body">
-            <div class="app-empty-note">No notifications yet.</div>
+          <div id="headerNotificationsBody" class="app-header-popover-body">
+            <div class="app-empty-note">Loading notifications...</div>
           </div>
         </div>
 
@@ -124,6 +124,59 @@
     el.style.display = el.style.display === "block" ? "none" : "block";
   }
 
+  async function loadHeaderNotifications() {
+    try {
+      const res = await fetch("/api/header-notifications", {
+        credentials: "same-origin"
+      });
+
+      if (!res.ok) return;
+
+      const data = await res.json();
+      const body = document.getElementById("headerNotificationsBody");
+      const dot = document.getElementById("appBellDot");
+
+      if (!body || !dot) return;
+
+      const items = Array.isArray(data.items) ? data.items : [];
+      const count = Number(data.count || 0);
+
+      if (count > 0) {
+        dot.style.display = "flex";
+        dot.innerText = String(count);
+      } else {
+        dot.style.display = "none";
+      }
+
+      if (!items.length) {
+        body.innerHTML = '<div class="app-empty-note">No notifications yet.</div>';
+        return;
+      }
+
+      body.innerHTML = items.map(function(item) {
+        let badgeClass = "notif-badge-upcoming";
+        if (item.level === "overdue") badgeClass = "notif-badge-overdue";
+        if (item.level === "today") badgeClass = "notif-badge-today";
+
+        return `
+          <a class="notif-item" href="${item.url || '#'}">
+            <div class="notif-item-top">
+              <div class="notif-item-title">${item.title || 'Notification'}</div>
+              <span class="notif-badge ${badgeClass}">${item.message || ''}</span>
+            </div>
+            <div class="notif-item-sub">${item.date_text || ''}</div>
+          </a>
+        `;
+      }).join("");
+    } catch (err) {
+      const body = document.getElementById("headerNotificationsBody");
+      if (body) {
+        body.innerHTML = '<div class="app-empty-note">Could not load notifications.</div>';
+      }
+    }
+  }
+
+  
   document.addEventListener("click", function(e){
     const menu = document.getElementById("appUserMenu");
     const menuWrap = document.querySelector(".app-user-menu-wrap");
@@ -204,5 +257,6 @@
 
 </body>
 </html>
+
 
 
