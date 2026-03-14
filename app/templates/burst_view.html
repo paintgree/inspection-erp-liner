@@ -2,911 +2,695 @@
 {% block content %}
 
 <style>
-  .burst-header {
-    display:flex; gap:12px; align-items:flex-start; justify-content:space-between;
-    padding:14px; border:1px solid #e5e7eb; border-radius:12px; background:#fff;
+  .burst-report-page{
+    background:#ffffff;
+    padding:18px;
   }
-  .burst-title h2 { margin:0; }
-  .burst-meta { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:10px; margin-top:10px; }
-  .meta-item { padding:10px; border:1px solid #eef2f7; border-radius:10px; background:#fafbfc; }
-  .meta-item .k { font-size:12px; color:#6b7280; }
-  .meta-item .v { font-weight:600; margin-top:4px; word-break:break-word; }
-  .section {
-    margin-top:14px; padding:14px; border:1px solid #e5e7eb; border-radius:12px; background:#fff;
-  }
-  .section h3 { margin:0 0 10px 0; }
-  .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-  .grid-3 { display:grid; grid-template-columns: 2fr 1fr 1fr; gap:12px; }
-  .spec-card {
-    border:1px solid #e5e7eb; border-radius:12px; padding:12px; background:#fff;
-    margin-top:10px;
-  }
-  .spec-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px; }
-  .spec-head .tag { font-weight:700; }
-  .hint { color:#6b7280; font-size:12px; margin-top:6px; }
-  .btn-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
-  table.table { width:100%; border-collapse:collapse; }
-  table.table th, table.table td { border-bottom:1px solid #eee; padding:10px; text-align:left; vertical-align:top; }
-  table.table th { font-size:13px; color:#374151; background:#fafafa; }
-  input, select, textarea { width:100%; }
 
-  .attach-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:12px; }
-  .attach-card {
-    border:1px solid #e5e7eb; border-radius:12px; padding:12px; background:#fff;
+  .burst-report-wrap{
+    max-width:1200px;
+    margin:0 auto;
   }
-  .attach-thumb-wrap {
-    margin:10px 0;
-    border:1px solid #ddd;
-    border-radius:10px;
-    background:#f8fafc;
-    overflow:hidden;
-    height:180px;
+
+  .burst-topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+    margin-bottom:18px;
+    flex-wrap:wrap;
+  }
+
+  .burst-topbar-left,
+  .burst-topbar-right{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+
+  .burst-report-card{
+    background:#f3f4f6;
+    border:1px solid #e5e7eb;
+    border-radius:20px;
+    padding:18px;
+    box-shadow:0 1px 2px rgba(0,0,0,.03);
+    margin-bottom:18px;
+  }
+
+  .burst-report-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:18px;
+    flex-wrap:wrap;
+  }
+
+  .burst-report-header-left{
+    display:flex;
+    gap:14px;
+    align-items:center;
+    min-width:0;
+  }
+
+  .burst-logo-box{
+    width:56px;
+    height:56px;
+    border-radius:12px;
+    background:#ffffff;
+    border:1px solid #e5e7eb;
     display:flex;
     align-items:center;
     justify-content:center;
-  }
-    .attach-preview {
-    width:100%;
-    height:100%;
-    object-fit:contain;
-    display:block;
-    background:#fafafa;
-    transform:
-      translate(var(--move-x, 0px), var(--move-y, 0px))
-      rotate(var(--rotation, 0deg))
-      scale(var(--zoom, 1));
-    transform-origin:center center;
-  }
-  .attach-actions {
-    display:grid;
-    grid-template-columns: 1fr 1fr;
-    gap:8px;
-    margin-top:8px;
-  }
-  .save-row {
-    margin-top:12px; display:flex; justify-content:flex-end;
+    overflow:hidden;
+    flex:0 0 auto;
   }
 
-  .editor-modal {
-    position: fixed;
-    inset: 0;
-    background: rgba(15, 23, 42, 0.72);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 9999;
-    padding: 12px;
-  }
-  .editor-modal.open {
-    display: flex;
-  }
-  .editor-sheet {
-    width: min(100%, 720px);
-    max-height: 100%;
-    background: #fff;
-    border-radius: 16px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-  }
-  .editor-head {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:8px;
-    padding:12px 14px;
-    border-bottom:1px solid #e5e7eb;
-  }
-  .editor-title {
-    font-weight:700;
-  }
-  .editor-body {
-    padding:12px;
-    display:flex;
-    flex-direction:column;
-    gap:12px;
-  }
-  .editor-frame {
-    position: relative;
-    width: 100%;
-    height: min(62vh, 420px);
-    border-radius: 12px;
-    overflow: hidden;
-    background: #f1f5f9;
-    border: 1px dashed #94a3b8;
-    touch-action: none;
-  }
-  .editor-frame::before,
-  .editor-frame::after {
-    content:"";
-    position:absolute;
-    z-index:2;
-    pointer-events:none;
-    opacity:.45;
-  }
-  .editor-frame::before {
-    left:50%;
-    top:0;
-    bottom:0;
-    border-left:1px dashed #94a3b8;
-  }
-  .editor-frame::after {
-    top:50%;
-    left:0;
-    right:0;
-    border-top:1px dashed #94a3b8;
-  }
-  .editor-image {
-    position:absolute;
-    left:50%;
-    top:50%;
-    max-width:100%;
-    max-height:100%;
+  .burst-logo-box img{
+    max-width:44px;
+    max-height:44px;
     width:auto;
     height:auto;
-    transform:
-      translate(-50%, -50%)
-      translate(var(--move-x, 0px), var(--move-y, 0px))
-      rotate(var(--rotation, 0deg))
-      scale(var(--zoom, 1));
-    transform-origin:center center;
-    user-select:none;
-    -webkit-user-drag:none;
-    touch-action:none;
+    object-fit:contain;
+    display:block;
   }
-  .editor-empty {
-    height:100%;
+
+  .burst-report-title{
+    margin:0;
+    font-size:20px;
+    line-height:1.25;
+    font-weight:900;
+    color:#111827;
+  }
+
+  .burst-report-subline{
+    margin-top:8px;
     display:flex;
+    gap:14px;
+    flex-wrap:wrap;
+    align-items:center;
+  }
+
+  .burst-company{
+    font-size:12px;
+    color:#6b7280;
+    font-weight:600;
+  }
+
+  .burst-doc-badge{
+    font-size:11px;
+    font-weight:800;
+    color:#4338ca;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+
+  .burst-report-id-box{
+    text-align:right;
+    min-width:140px;
+  }
+
+  .burst-meta-label{
+    font-size:10px;
+    font-weight:800;
+    color:#94a3b8;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+  }
+
+  .burst-meta-value{
+    margin-top:8px;
+    font-size:16px;
+    font-weight:900;
+    color:#111827;
+  }
+
+  .burst-result-badge{
+    margin-top:10px;
+    display:inline-flex;
     align-items:center;
     justify-content:center;
-    color:#64748b;
-    padding:20px;
-    text-align:center;
+    padding:7px 12px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:900;
+    border:1px solid transparent;
   }
-  .editor-toolbar {
+
+  .burst-result-pass{
+    background:#dcfce7;
+    color:#166534;
+    border-color:#bbf7d0;
+  }
+
+  .burst-result-fail{
+    background:#fee2e2;
+    color:#991b1b;
+    border-color:#fecaca;
+  }
+
+  .burst-result-neutral{
+    background:#e5e7eb;
+    color:#374151;
+    border-color:#d1d5db;
+  }
+
+  .burst-section{
+    margin-bottom:18px;
+  }
+
+  .burst-section-title{
+    margin:0 0 12px 0;
+    font-size:26px;
+    line-height:1.1;
+    font-weight:900;
+    color:#111827;
+  }
+
+  .burst-info-grid{
     display:grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap:8px;
+    grid-template-columns:repeat(4, minmax(0, 1fr));
+    gap:12px;
   }
-  .editor-toolbar button,
-  .editor-head button,
-  .attach-actions .btn,
-  .attach-actions label.btn {
-    min-height: 44px;
+
+  .burst-info-item{
+    background:#f3f4f6;
+    border:1px solid #e5e7eb;
+    border-radius:14px;
+    padding:14px 14px 12px;
   }
-  .editor-foot {
+
+  .burst-info-label{
+    font-size:10px;
+    font-weight:800;
+    color:#94a3b8;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    margin-bottom:8px;
+  }
+
+  .burst-info-value{
+    font-size:15px;
+    font-weight:800;
+    color:#111827;
+    line-height:1.35;
+    word-break:break-word;
+  }
+
+  .burst-spec-card{
+    background:#f3f4f6;
+    border:1px solid #e5e7eb;
+    border-radius:18px;
+    padding:16px;
+    margin-bottom:14px;
+  }
+
+  .burst-spec-top{
     display:flex;
-    gap:8px;
-    justify-content:flex-end;
+    gap:14px;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    margin-bottom:14px;
+  }
+
+  .burst-spec-badge{
+    min-width:34px;
+    height:30px;
+    border-radius:10px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    background:#ede9fe;
+    color:#4f46e5;
+    font-size:12px;
+    font-weight:900;
+  }
+
+  .burst-serial-wrap{
+    min-width:180px;
+  }
+
+  .burst-mini-label{
+    font-size:10px;
+    font-weight:800;
+    color:#94a3b8;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    margin-bottom:6px;
+  }
+
+  .burst-serial-value{
+    font-size:16px;
+    font-weight:900;
+    color:#111827;
+  }
+
+  .burst-layer-grid{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:16px;
+    margin-top:8px;
+  }
+
+  .burst-layer{
+    min-width:0;
+  }
+
+  .burst-layer-title{
+    font-size:11px;
+    font-weight:900;
+    color:#4338ca;
+    text-transform:uppercase;
+    margin-bottom:8px;
+    padding-bottom:6px;
+    border-bottom:1px solid #cbd5e1;
+  }
+
+  .burst-layer-meta{
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:8px 12px;
+  }
+
+  .burst-layer-k{
+    font-size:10px;
+    font-weight:800;
+    color:#94a3b8;
+    text-transform:uppercase;
+  }
+
+  .burst-layer-v{
+    font-size:14px;
+    font-weight:800;
+    color:#111827;
+  }
+
+  .burst-length-row{
+    margin-top:14px;
+    padding-top:12px;
+    border-top:1px solid #cbd5e1;
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:14px;
+  }
+
+  .burst-length-box{
+    display:flex;
+    gap:10px;
+    align-items:flex-start;
+  }
+
+  .burst-length-icon{
+    width:22px;
+    height:22px;
+    border-radius:999px;
+    background:#ffffff;
+    border:1px solid #d1d5db;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    font-size:11px;
+    color:#6b7280;
+    flex:0 0 auto;
+    margin-top:2px;
+  }
+
+  .burst-results-table{
+    width:100%;
+    border-collapse:separate;
+    border-spacing:0;
+    overflow:hidden;
+    border-radius:16px;
+  }
+
+  .burst-results-table thead th{
+    background:#eef0f3;
+    color:#94a3b8;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    font-weight:900;
     padding:12px 14px;
+    text-align:left;
     border-top:1px solid #e5e7eb;
+    border-bottom:1px solid #e5e7eb;
   }
 
-  @media (max-width: 900px) {
-    .burst-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .grid-2, .grid-3, .attach-grid { grid-template-columns: 1fr; }
-    .burst-header { flex-direction: column; }
-    .btn-row { justify-content: stretch; width:100%; }
-    .btn-row .btn { flex:1; text-align:center; }
+  .burst-results-table thead th:first-child{
+    border-left:1px solid #e5e7eb;
+    border-top-left-radius:14px;
   }
 
-  @media (max-width: 640px) {
-    .section, .spec-card, .attach-card { padding:10px; }
-    table.table, table.table thead, table.table tbody, table.table tr, table.table th, table.table td {
-      display:block;
-      width:100%;
+  .burst-results-table thead th:last-child{
+    border-right:1px solid #e5e7eb;
+    border-top-right-radius:14px;
+  }
+
+  .burst-results-table tbody td{
+    background:#f3f4f6;
+    padding:14px;
+    border-bottom:1px solid #e5e7eb;
+    font-size:14px;
+    font-weight:700;
+    color:#111827;
+  }
+
+  .burst-results-table tbody td:first-child{
+    border-left:1px solid #e5e7eb;
+  }
+
+  .burst-results-table tbody td:last-child{
+    border-right:1px solid #e5e7eb;
+  }
+
+  .burst-results-table tbody tr:last-child td:first-child{
+    border-bottom-left-radius:14px;
+  }
+
+  .burst-results-table tbody tr:last-child td:last-child{
+    border-bottom-right-radius:14px;
+  }
+
+  .burst-pass{
+    color:#2563eb;
+    font-weight:900;
+  }
+
+  .burst-status-pill{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    padding:6px 10px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:900;
+    border:1px solid transparent;
+  }
+
+  .burst-status-pill.pass{
+    background:#dcfce7;
+    color:#166534;
+    border-color:#bbf7d0;
+  }
+
+  .burst-status-pill.fail{
+    background:#fee2e2;
+    color:#991b1b;
+    border-color:#fecaca;
+  }
+
+  .burst-sign-grid{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:28px;
+    margin-top:28px;
+  }
+
+  .burst-sign-box{
+    padding-top:10px;
+  }
+
+  .burst-sign-title{
+    font-size:18px;
+    font-style:italic;
+    color:#64748b;
+    margin-bottom:10px;
+  }
+
+  .burst-sign-line{
+    border-top:1px solid #cbd5e1;
+    margin-bottom:14px;
+  }
+
+  .burst-sign-meta{
+    display:grid;
+    grid-template-columns:1fr auto;
+    gap:10px;
+  }
+
+  .burst-actions{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+
+  @media (max-width: 1024px){
+    .burst-info-grid{
+      grid-template-columns:repeat(2, minmax(0, 1fr));
     }
-    table.table thead { display:none; }
-    table.table tr {
-      border:1px solid #eee;
-      border-radius:10px;
-      padding:8px;
-      margin-bottom:10px;
-      background:#fff;
+
+    .burst-layer-grid{
+      grid-template-columns:1fr;
     }
-    table.table td {
-      border:0;
-      padding:6px 0;
+  }
+
+  @media (max-width: 700px){
+    .burst-info-grid,
+    .burst-sign-grid,
+    .burst-length-row{
+      grid-template-columns:1fr;
     }
-    .attach-actions {
-      grid-template-columns: 1fr;
+
+    .burst-report-header{
+      flex-direction:column;
+      align-items:stretch;
     }
-    .editor-toolbar {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    .burst-report-id-box{
+      text-align:left;
     }
   }
 </style>
-<div class="burst-header">
-  <div class="section">
-    {% if rep.edit_window_until and not edit_direct_allowed and user.role not in ["MANAGER", "BOSS"] %}
-      <div class="hint" style="color:#92400e; font-weight:600;">
-        This report is past the 24-hour edit window. Your changes will be saved as a pending draft and require manager approval.
-      </div>
-    {% elif rep.edit_window_until %}
-      <div class="hint" style="color:#166534; font-weight:600;">
-        Direct editing is allowed until {{ rep.edit_window_until }} UTC.
-      </div>
-    {% endif %}
-  </div>
-  <div class="burst-title">
-    <h2>Short-Term Hydrostatic Burst Pressure Test Report #{{ rep.id }}</h2>
-    <div class="hint">
-      Batch: <b>{{ rep.batch_no }}</b>
-      {% if rep.is_unlinked %} • Manual/Unlinked {% else %} • Linked to Cover Run {% endif %}
-    </div>
 
-    <div class="burst-meta">
-      <div class="meta-item"><div class="k">Client</div><div class="v">{{ live.client_name }}</div></div>
-      <div class="meta-item"><div class="k">Client PO</div><div class="v">{{ live.client_po }}</div></div>
-      <div class="meta-item"><div class="k">Pipe Spec</div><div class="v">{{ live.pipe_specification }}</div></div>
-      <div class="meta-item"><div class="k">Specimens</div><div class="v">{{ rep.total_no_of_specimens }}</div></div>
-    </div>
-  </div>
+<div class="burst-report-page">
+  <div class="burst-report-wrap">
 
-  <div class="btn-row">
-    <a class="btn" href="/burst">Back</a>
-    <a class="btn btn-primary" href="/burst/{{ rep.id }}/pdf" target="_blank">Download PDF</a>
-  </div>
-</div>
-
-<div class="section">
-  <h3>Specimens Control</h3>
-  <form method="post" action="/burst/{{ rep.id }}/set_specimen_count" id="specCountForm">
-    <div style="display:flex; gap:8px; align-items:center; max-width:360px;">
-      <button type="button" class="btn" id="btnMinus">–</button>
-      <input name="total_no_of_specimens" id="specCountInput" type="number" min="1" max="50" step="1"
-             value="{{ rep.total_no_of_specimens }}" style="width:120px;">
-      <button type="button" class="btn" id="btnPlus">+</button>
-      <button class="btn btn-primary" type="submit">Apply</button>
-    </div>
-    <div class="hint">Use + / – to add or remove specimens. (No data is deleted; extra specimens are just hidden.)</div>
-  </form>
-</div>
-
-<form method="post" action="/burst/{{ rep.id }}/update">
-  <div class="section">
-    <h3>Test Details</h3>
-    <div class="grid-2">
-      <div>
-        <label>Reference Standard</label>
-        <input name="reference_standard" value="{{ rep.reference_standard }}">
+    <div class="burst-topbar">
+      <div class="burst-topbar-left">
+        <a class="btn btn-secondary" href="/burst">← Back</a>
+        <a class="btn btn-secondary" href="/burst/{{ rep.id }}/edit">Edit</a>
       </div>
-      <div>
-        <label>Reference DHTP Procedure</label>
-        <input name="reference_dhtp_procedure" value="{{ rep.reference_dhtp_procedure }}">
-      </div>
-      <div>
-        <label>System Max Pressure (MPa)</label>
-        <input name="system_max_pressure" value="{{ rep.system_max_pressure }}">
-      </div>
-      <div>
-        <label>Laboratory Temperature</label>
-        <input name="laboratory_temperature" value="{{ rep.laboratory_temperature }}">
-      </div>
-      <div>
-        <label>Testing Medium</label>
-        <input name="testing_medium" value="{{ rep.testing_medium }}">
-      </div>
-      <div>
-        <label>Total Length (mm)</label>
-        <input name="total_length_m" type="number" step="0.01" value="{{ live.total_length_m }}">
+      <div class="burst-topbar-right">
+        <a class="btn btn-primary" href="/burst/{{ rep.id }}/pdf" target="_blank">Export PDF</a>
       </div>
     </div>
-  </div>
 
-    <div class="section">
-    <h3>Specimens Details</h3>
-
-    {% for s in samples[:rep.total_no_of_specimens] %}
-      <div class="spec-card">
-        <div class="spec-head">
-          <div class="tag">Specimen #{{ loop.index }}</div>
-          <div class="hint">Detailed specimen construction for report output</div>
-        </div>
-
-        <div class="grid-3">
-          <div>
-            <label>Serial No</label>
-            <input name="sample_serial_number_{{ s.id }}" id="spec_serial_{{ s.id }}" value="{{ s.sample_serial_number }}">
+    <div class="burst-report-card">
+      <div class="burst-report-header">
+        <div class="burst-report-header-left">
+          <div class="burst-logo-box">
+            <img src="/static/logo.png" alt="Company Logo">
           </div>
+
           <div>
-            <label>Length (mm)</label>
-            <input name="sample_length_m_{{ s.id }}" type="number" step="0.01" value="{{ s.sample_length_m }}">
-          </div>
-          <div>
-            <label>Effective Length (mm)</label>
-            <input name="effective_length_m_{{ s.id }}" type="number" step="0.01" value="{{ s.effective_length_m }}">
-          </div>
-        </div>
-
-        <div style="margin-top:12px; font-weight:700;">Construction</div>
-
-        <div class="grid-3" style="margin-top:8px;">
-          <div>
-            <label>Liner Material</label>
-            <input name="liner_material_grade_{{ s.id }}"
-                   value="{{ s.liner_material_grade if s.liner_material_grade else live.liner_material_grade }}">
-          </div>
-          <div></div>
-          <div>
-            <label>Liner Thickness (mm)</label>
-            <input name="liner_thickness_mm_{{ s.id }}" type="number" step="0.01" value="{{ s.liner_thickness_mm }}">
-          </div>
-        </div>
-
-        <div class="grid-3">
-          <div>
-            <label>Reinforcement Material</label>
-            <input name="reinforcement_material_grade_{{ s.id }}"
-                   value="{{ s.reinforcement_material_grade if s.reinforcement_material_grade else live.reinforcement_material_grade }}">
-          </div>
-          <div></div>
-          <div>
-            <label>Reinforcement Thickness (mm)</label>
-            <input name="reinforcement_thickness_mm_{{ s.id }}" type="number" step="0.01" value="{{ s.reinforcement_thickness_mm }}">
-          </div>
-        </div>
-
-        <div class="grid-3">
-          <div>
-            <label>Cover Material</label>
-            <input name="cover_material_grade_{{ s.id }}"
-                   value="{{ s.cover_material_grade if s.cover_material_grade else live.cover_material_grade }}">
-          </div>
-          <div></div>
-          <div>
-            <label>Cover Thickness (mm)</label>
-            <input name="cover_thickness_mm_{{ s.id }}" type="number" step="0.01" value="{{ s.cover_thickness_mm }}">
-          </div>
-        </div>
-      </div>
-    {% endfor %}
-  </div>
-
-  <div class="section">
-    <h3>Results (Per Specimen)</h3>
-    <table class="table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Serial No</th>
-          <th>Actual Burst (MPa)</th>
-          <th>Pressurization Time (s)</th>
-          <th>Result</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for s in samples[:rep.total_no_of_specimens] %}
-        <tr>
-          <td>{{ loop.index }}</td>
-          <td><input id="result_serial_{{ s.id }}" value="{{ s.sample_serial_number }}" readonly></td>
-          <td><input name="actual_burst_MPa_{{ s.id }}" type="number" step="0.01" value="{{ s.actual_burst_MPa }}"></td>
-          <td><input name="pressurization_time_s_{{ s.id }}" value="{{ s.pressurization_time_s }}"></td>
-          <td>
-            <select name="test_result_{{ s.id }}">
-              <option value="" {% if not s.test_result %}selected{% endif %}></option>
-              <option value="PASS" {% if s.test_result=="PASS" %}selected{% endif %}>PASS</option>
-              <option value="FAIL" {% if s.test_result=="FAIL" %}selected{% endif %}>FAIL</option>
-            </select>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-
-    <div style="margin-top:12px;">
-      <label>Technician Name</label>
-      <input name="technician_name" value="{{ rep.technician_name }}">
-    </div>
-
-    <div class="hint">Serial No mirrors what you type in the specimen section.</div>
-  </div>
-
-  <div class="section">
-    <h3>Notes</h3>
-    <textarea name="notes" rows="3">{{ rep.notes }}</textarea>
-
-    {% if pending_revisions %}
-    <div class="section">
-      <h3>Pending Revisions</h3>
-    
-      {% for rev in pending_revisions %}
-        <div class="spec-card">
-          <div><b>Revision #{{ rev.id }}</b></div>
-          <div class="hint">Submitted by {{ rev.submitted_by_user_name }} at {{ rev.submitted_at }}</div>
-    
-          {% if user.role in ["MANAGER", "BOSS"] %}
-            <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
-              <form method="post" action="/burst/revision/{{ rev.id }}/approve">
-                <button class="btn btn-primary" type="submit">Approve</button>
-              </form>
-    
-              <form method="post" action="/burst/revision/{{ rev.id }}/reject">
-                <input type="text" name="review_comment" placeholder="Reject reason">
-                <button class="btn" type="submit">Reject</button>
-              </form>
+            <h1 class="burst-report-title">Short-Time Hydrostatic<br>Burst Pressure Test Report</h1>
+            <div class="burst-report-subline">
+              <span class="burst-company">DUQM HONGTONG PIPING LLC</span>
+              <span class="burst-doc-badge">Official Document</span>
             </div>
-          {% else %}
-            <div class="hint" style="margin-top:8px;">Waiting for manager review.</div>
-          {% endif %}
+          </div>
+        </div>
+
+        <div class="burst-report-id-box">
+          <div class="burst-meta-label">Report ID</div>
+          <div class="burst-meta-value">{{ rep.report_no or '-' }}</div>
+
+          {% set rep_result = (rep.test_result or '')|upper %}
+          <div class="burst-result-badge {% if rep_result == 'PASS' %}burst-result-pass{% elif rep_result == 'FAIL' %}burst-result-fail{% else %}burst-result-neutral{% endif %}">
+            {{ rep_result or 'NO RESULT' }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="burst-section">
+      <h2 class="burst-section-title">Report Information</h2>
+      <div class="burst-info-grid">
+        <div class="burst-info-item">
+          <div class="burst-info-label">Batch No</div>
+          <div class="burst-info-value">{{ rep.batch_no or '-' }}</div>
+        </div>
+        <div class="burst-info-item">
+          <div class="burst-info-label">Client</div>
+          <div class="burst-info-value">{{ rep.client_name or '-' }}</div>
+        </div>
+        <div class="burst-info-item">
+          <div class="burst-info-label">Client PO</div>
+          <div class="burst-info-value">{{ rep.client_po or '-' }}</div>
+        </div>
+        <div class="burst-info-item">
+          <div class="burst-info-label">Pipe Spec</div>
+          <div class="burst-info-value">{{ rep.pipe_specification or '-' }}</div>
+        </div>
+
+        <div class="burst-info-item">
+          <div class="burst-info-label">Test Medium</div>
+          <div class="burst-info-value">{{ rep.testing_medium or '-' }}</div>
+        </div>
+        <div class="burst-info-item">
+          <div class="burst-info-label">Lab Temp</div>
+          <div class="burst-info-value">{{ rep.laboratory_temperature or '-' }}</div>
+        </div>
+        <div class="burst-info-item">
+          <div class="burst-info-label">Standard</div>
+          <div class="burst-info-value">{{ rep.reference_standard or '-' }}</div>
+        </div>
+        <div class="burst-info-item">
+          <div class="burst-info-label">Procedure</div>
+          <div class="burst-info-value">{{ rep.reference_dhtp_procedure or '-' }}</div>
+        </div>
+
+        <div class="burst-info-item">
+          <div class="burst-info-label">System Max</div>
+          <div class="burst-info-value">{{ rep.system_max_pressure or '-' }}</div>
+        </div>
+        <div class="burst-info-item">
+          <div class="burst-info-label">Specimens</div>
+          <div class="burst-info-value">{{ rep.total_no_of_specimens or '-' }}</div>
+        </div>
+        <div class="burst-info-item">
+          <div class="burst-info-label">Test Date</div>
+          <div class="burst-info-value">{{ rep.tested_at or rep.created_at or '-' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="burst-section">
+      <h2 class="burst-section-title">Specimens</h2>
+
+      {% for s in samples[:rep.total_no_of_specimens] %}
+        <div class="burst-spec-card">
+          <div class="burst-spec-top">
+            <div class="burst-spec-badge">#{{ loop.index }}</div>
+
+            <div class="burst-serial-wrap">
+              <div class="burst-mini-label">Serial Number</div>
+              <div class="burst-serial-value">{{ s.sample_serial_number or '-' }}</div>
+            </div>
+          </div>
+
+          <div class="burst-layer-grid">
+            <div class="burst-layer">
+              <div class="burst-layer-title">Liner Layer</div>
+              <div class="burst-layer-meta">
+                <div class="burst-layer-k">Material</div>
+                <div class="burst-layer-k">Thickness</div>
+                <div class="burst-layer-v">{{ s.liner_material_grade or live.liner_material_grade or '-' }}</div>
+                <div class="burst-layer-v">{{ s.liner_thickness_mm or '-' }} mm</div>
+              </div>
+            </div>
+
+            <div class="burst-layer">
+              <div class="burst-layer-title">Reinforcement</div>
+              <div class="burst-layer-meta">
+                <div class="burst-layer-k">Material</div>
+                <div class="burst-layer-k">Thickness</div>
+                <div class="burst-layer-v">{{ s.reinforcement_material_grade or live.reinforcement_material_grade or '-' }}</div>
+                <div class="burst-layer-v">{{ s.reinforcement_thickness_mm or '-' }} mm</div>
+              </div>
+            </div>
+
+            <div class="burst-layer">
+              <div class="burst-layer-title">Cover Layer</div>
+              <div class="burst-layer-meta">
+                <div class="burst-layer-k">Material</div>
+                <div class="burst-layer-k">Thickness</div>
+                <div class="burst-layer-v">{{ s.cover_material_grade or live.cover_material_grade or '-' }}</div>
+                <div class="burst-layer-v">{{ s.cover_thickness_mm or '-' }} mm</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="burst-length-row">
+            <div class="burst-length-box">
+              <div class="burst-length-icon">🏷</div>
+              <div>
+                <div class="burst-mini-label">Total Length</div>
+                <div class="burst-serial-value">{{ s.sample_length_m or '-' }} m</div>
+              </div>
+            </div>
+
+            <div class="burst-length-box">
+              <div class="burst-length-icon">🏷</div>
+              <div>
+                <div class="burst-mini-label">Effective Length</div>
+                <div class="burst-serial-value">{{ s.effective_length_m or '-' }} mm</div>
+              </div>
+            </div>
+          </div>
         </div>
       {% endfor %}
     </div>
-    {% endif %}
 
-    <div class="save-row">
-      <button class="btn btn-primary" type="submit">
-        {% if edit_direct_allowed or user.role in ["MANAGER", "BOSS"] %}
-          Save Report Data
-        {% else %}
-          Submit Draft For Approval
-        {% endif %}
-      </button>
+    <div class="burst-section">
+      <h2 class="burst-section-title">Results</h2>
+
+      <table class="burst-results-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Serial No</th>
+            <th>Actual Burst</th>
+            <th>Pressurization Time</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in samples[:rep.total_no_of_specimens] %}
+            {% set s_result = (s.test_result or '')|upper %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ s.sample_serial_number or '-' }}</td>
+              <td class="burst-pass">{{ s.actual_burst_psi or '-' }} MPa</td>
+              <td>{{ s.pressurization_time_s or '-' }} s</td>
+              <td>
+                <span class="burst-status-pill {% if s_result == 'PASS' %}pass{% else %}fail{% endif %}">
+                  {{ s_result or '-' }}
+                </span>
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="5">No specimen results found.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-  </div>
-</form>
 
-<div class="section">
-  <h3>Attachments</h3>
-
-  {% for s in samples[:rep.total_no_of_specimens] %}
-    <div class="spec-card">
-      <div class="spec-head">
-        <div class="tag">Specimen #{{ loop.index }}{% if s.sample_serial_number %} - {{ s.sample_serial_number }}{% endif %}</div>
-        <div class="hint">Tap Edit to adjust image on any device</div>
+    <div class="burst-sign-grid">
+      <div class="burst-sign-box">
+        <div class="burst-sign-title">Digital Signature</div>
+        <div class="burst-sign-line"></div>
+        <div class="burst-sign-meta">
+          <div>
+            <div class="burst-mini-label">Technician</div>
+            <div class="burst-info-value">{{ rep.technician_name or '-' }}</div>
+          </div>
+          <div>
+            <div class="burst-mini-label">Date</div>
+            <div class="burst-info-value">{{ rep.tested_at or rep.created_at or '-' }}</div>
+          </div>
+        </div>
       </div>
 
-      <form method="POST"
-            action="/burst/{{ rep.id }}/sample/{{ s.id }}/upload_attachments"
-            enctype="multipart/form-data">
-
-        <div class="attach-grid">
-
-          {% set meta_full = crop_meta.get(s.id, {}).get("PHOTO_FULL", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
-          <div class="attach-card">
-            <label><b>Full Pipe Photo</b></label>
-            <div class="attach-thumb-wrap">
-              {% if att_map.get(s.id, {}).get("PHOTO_FULL") %}
-                <img
-                  src="/burst/files/{{ att_map[s.id]['PHOTO_FULL'].id }}/view"
-                  alt="Full Pipe"
-                  class="attach-preview">
-              {% else %}
-                <div class="hint">Not uploaded yet</div>
-              {% endif %}
-            </div>
-            <input type="hidden" name="crop_photo_full" class="js-crop-hidden" value='{{ meta_full|tojson|safe }}'>
-            <div class="attach-actions">
-              <button type="button"
-                      class="btn js-open-editor"
-                      data-label="Full Pipe Photo"
-                      data-input-name="photo_full"
-                      data-hidden-name="crop_photo_full"
-                      data-preview-src="{% if att_map.get(s.id, {}).get('PHOTO_FULL') %}/burst/files/{{ att_map[s.id]['PHOTO_FULL'].id }}/view{% endif %}">
-                Edit Photo
-              </button>
-              <label class="btn" style="display:flex; align-items:center; justify-content:center; cursor:pointer;">
-                Choose File
-                <input type="file" name="photo_full" accept="image/*" class="js-file-input" style="display:none;">
-              </label>
-            </div>
+      <div class="burst-sign-box">
+        <div class="burst-sign-title">Digital Signature</div>
+        <div class="burst-sign-line"></div>
+        <div class="burst-sign-meta">
+          <div>
+            <div class="burst-mini-label">Inspector</div>
+            <div class="burst-info-value">{{ rep.created_by_user_name or '-' }}</div>
           </div>
-
-          {% set meta_a = crop_meta.get(s.id, {}).get("PHOTO_A", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
-          <div class="attach-card">
-            <label><b>Side A Photo</b></label>
-            <div class="attach-thumb-wrap">
-              {% if att_map.get(s.id, {}).get("PHOTO_A") %}
-                <img
-                  src="/burst/files/{{ att_map[s.id]['PHOTO_A'].id }}/view"
-                  alt="Side A"
-                  class="attach-preview">
-              {% else %}
-                <div class="hint">Not uploaded yet</div>
-              {% endif %}
-            </div>
-            <input type="hidden" name="crop_photo_a" class="js-crop-hidden" value='{{ meta_a|tojson|safe }}'>
-            <div class="attach-actions">
-              <button type="button"
-                      class="btn js-open-editor"
-                      data-label="Side A Photo"
-                      data-input-name="photo_a"
-                      data-hidden-name="crop_photo_a"
-                      data-preview-src="{% if att_map.get(s.id, {}).get('PHOTO_A') %}/burst/files/{{ att_map[s.id]['PHOTO_A'].id }}/view{% endif %}">
-                Edit Photo
-              </button>
-              <label class="btn" style="display:flex; align-items:center; justify-content:center; cursor:pointer;">
-                Choose File
-                <input type="file" name="photo_a" accept="image/*" class="js-file-input" style="display:none;">
-              </label>
-            </div>
+          <div>
+            <div class="burst-mini-label">Date</div>
+            <div class="burst-info-value">{{ rep.tested_at or rep.created_at or '-' }}</div>
           </div>
-
-          {% set meta_b = crop_meta.get(s.id, {}).get("PHOTO_B", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
-          <div class="attach-card">
-            <label><b>Side B Photo</b></label>
-            <div class="attach-thumb-wrap">
-              {% if att_map.get(s.id, {}).get("PHOTO_B") %}
-                <img
-                  src="/burst/files/{{ att_map[s.id]['PHOTO_B'].id }}/view"
-                  alt="Side B"
-                  class="attach-preview">
-              {% else %}
-                <div class="hint">Not uploaded yet</div>
-              {% endif %}
-            </div>
-            <input type="hidden" name="crop_photo_b" class="js-crop-hidden" value='{{ meta_b|tojson|safe }}'>
-            <div class="attach-actions">
-              <button type="button"
-                      class="btn js-open-editor"
-                      data-label="Side B Photo"
-                      data-input-name="photo_b"
-                      data-hidden-name="crop_photo_b"
-                      data-preview-src="{% if att_map.get(s.id, {}).get('PHOTO_B') %}/burst/files/{{ att_map[s.id]['PHOTO_B'].id }}/view{% endif %}">
-                Edit Photo
-              </button>
-              <label class="btn" style="display:flex; align-items:center; justify-content:center; cursor:pointer;">
-                Choose File
-                <input type="file" name="photo_b" accept="image/*" class="js-file-input" style="display:none;">
-              </label>
-            </div>
-          </div>
-
-          {% set meta_chart = crop_meta.get(s.id, {}).get("CHART", {"zoom":1.0,"offset_x":0.0,"offset_y":0.0,"rotation":0}) %}
-          <div class="attach-card">
-            <label><b>Chart</b></label>
-            <div class="attach-thumb-wrap">
-              {% if att_map.get(s.id, {}).get("CHART") %}
-                <img
-                  src="/burst/files/{{ att_map[s.id]['CHART'].id }}/view"
-                  alt="Chart"
-                  class="attach-preview">
-              {% else %}
-                <div class="hint">Not uploaded yet</div>
-              {% endif %}
-            </div>
-            <input type="hidden" name="crop_chart" class="js-crop-hidden" value='{{ meta_chart|tojson|safe }}'>
-            <div class="attach-actions">
-              <button type="button"
-                      class="btn js-open-editor"
-                      data-label="Chart"
-                      data-input-name="chart"
-                      data-hidden-name="crop_chart"
-                      data-preview-src="{% if att_map.get(s.id, {}).get('CHART') %}/burst/files/{{ att_map[s.id]['CHART'].id }}/view{% endif %}">
-                Edit Photo
-              </button>
-              <label class="btn" style="display:flex; align-items:center; justify-content:center; cursor:pointer;">
-                Choose File
-                <input type="file" name="chart" accept="image/*" class="js-file-input" style="display:none;">
-              </label>
-            </div>
-          </div>
-
         </div>
-
-        <div class="save-row">
-          <button class="btn btn-primary" type="submit">Upload Attachments</button>
-        </div>
-
-        <div class="hint">
-          On phone: choose file, tap Edit Photo, drag with finger, then use big buttons to zoom or rotate.
-        </div>
-      </form>
-    </div>
-  {% endfor %}
-</div>
-
-<div class="editor-modal" id="imageEditorModal">
-  <div class="editor-sheet">
-    <div class="editor-head">
-      <div class="editor-title" id="editorTitle">Edit Photo</div>
-      <button type="button" class="btn" id="editorCloseBtn">Close</button>
-    </div>
-
-    <div class="editor-body">
-      <div class="editor-frame" id="editorFrame">
-        <div class="editor-empty" id="editorEmpty">Choose an image first</div>
-        <img id="editorImage" class="editor-image" style="display:none;">
-      </div>
-
-      <div class="editor-toolbar">
-        <button type="button" class="btn" id="btnZoomOut">Zoom Out</button>
-        <button type="button" class="btn" id="btnZoomIn">Zoom In</button>
-        <button type="button" class="btn" id="btnReset">Reset</button>
-        <button type="button" class="btn" id="btnRotateLeft">Rotate Left</button>
-        <button type="button" class="btn" id="btnRotateRight">Rotate Right</button>
-        <button type="button" class="btn" id="btnFit">Fit</button>
       </div>
     </div>
 
-    <div class="editor-foot">
-      <button type="button" class="btn" id="editorCancelBtn">Cancel</button>
-      <button type="button" class="btn btn-primary" id="editorSaveBtn">Save</button>
-    </div>
   </div>
 </div>
-
-<script>
-(function(){
-  const inp = document.getElementById("specCountInput");
-  const form = document.getElementById("specCountForm");
-  const plus = document.getElementById("btnPlus");
-  const minus = document.getElementById("btnMinus");
-
-  function clamp(v){
-    v = parseInt(v || "1", 10);
-    if (isNaN(v) || v < 1) v = 1;
-    if (v > 50) v = 50;
-    return v;
-  }
-
-  plus && plus.addEventListener("click", () => {
-    inp.value = clamp(parseInt(inp.value || "1", 10) + 1);
-    form.submit();
-  });
-
-  minus && minus.addEventListener("click", () => {
-    inp.value = clamp(parseInt(inp.value || "1", 10) - 1);
-    form.submit();
-  });
-
-  const specInputs = document.querySelectorAll('input[id^="spec_serial_"]');
-  specInputs.forEach(inp => {
-    inp.addEventListener("input", () => {
-      const id = inp.id.replace("spec_serial_", "");
-      const r = document.getElementById("result_serial_" + id);
-      if (r) r.value = inp.value;
-    });
-  });
-
-  const modal = document.getElementById("imageEditorModal");
-  const editorTitle = document.getElementById("editorTitle");
-  const editorFrame = document.getElementById("editorFrame");
-  const editorImg = document.getElementById("editorImage");
-  const editorEmpty = document.getElementById("editorEmpty");
-
-  const btnZoomOut = document.getElementById("btnZoomOut");
-  const btnZoomIn = document.getElementById("btnZoomIn");
-  const btnRotateLeft = document.getElementById("btnRotateLeft");
-  const btnRotateRight = document.getElementById("btnRotateRight");
-  const btnReset = document.getElementById("btnReset");
-  const btnFit = document.getElementById("btnFit");
-  const btnSave = document.getElementById("editorSaveBtn");
-  const btnClose = document.getElementById("editorCloseBtn");
-  const btnCancel = document.getElementById("editorCancelBtn");
-
-  let activeCard = null;
-  let state = { zoom: 1, offset_x: 0, offset_y: 0, rotation: 0 };
-  let startPoint = null;
-  let startOffset = null;
-
-  function applyEditorState(){
-    editorImg.style.setProperty("--zoom", state.zoom);
-    editorImg.style.setProperty("--move-x", (state.offset_x * 160) + "px");
-    editorImg.style.setProperty("--move-y", (-state.offset_y * 160) + "px");
-    editorImg.style.setProperty("--rotation", state.rotation + "deg");
-  }
-
-  function clampState(){
-    if (state.zoom < 0.2) state.zoom = 0.2;
-    if (state.zoom > 4) state.zoom = 4;
-    if (state.offset_x < -1.5) state.offset_x = -1.5;
-    if (state.offset_x > 1.5) state.offset_x = 1.5;
-    if (state.offset_y < -1.5) state.offset_y = -1.5;
-    if (state.offset_y > 1.5) state.offset_y = 1.5;
-    state.rotation = ((state.rotation % 360) + 360) % 360;
-  }
-
-  function openEditor(card, label, src){
-    activeCard = card;
-    editorTitle.textContent = label || "Edit Photo";
-
-    const hidden = card.querySelector(".js-crop-hidden");
-    try {
-      state = JSON.parse(hidden?.value || "{}");
-    } catch(e) {
-      state = {};
-    }
-
-    state = {
-      zoom: parseFloat(state.zoom || 0.8) || 0.8,
-      offset_x: parseFloat(state.offset_x || 0) || 0,
-      offset_y: parseFloat(state.offset_y || 0) || 0,
-      rotation: parseInt(state.rotation || 0, 10) || 0
-    };
-    clampState();
-
-    if (src) {
-      editorImg.src = src;
-      editorImg.style.display = "block";
-      editorEmpty.style.display = "none";
-    } else {
-      editorImg.removeAttribute("src");
-      editorImg.style.display = "none";
-      editorEmpty.style.display = "flex";
-    }
-
-    applyEditorState();
-    modal.classList.add("open");
-    document.body.style.overflow = "hidden";
-  }
-
-  function closeEditor(){
-    modal.classList.remove("open");
-    document.body.style.overflow = "";
-    activeCard = null;
-    startPoint = null;
-    startOffset = null;
-  }
-
-  function syncCardPreview(card, src){
-  const wrap = card.querySelector(".attach-thumb-wrap");
-  const hidden = card.querySelector(".js-crop-hidden");
-  let meta = { zoom: 1, offset_x: 0, offset_y: 0, rotation: 0 };
-
-  try {
-    meta = JSON.parse(hidden?.value || "{}") || meta;
-  } catch(e) {}
-
-  let img = wrap.querySelector(".attach-preview");
-
-  if (!img) {
-    wrap.innerHTML = "";
-    img = document.createElement("img");
-    img.className = "attach-preview";
-    wrap.appendChild(img);
-  }
-
-  img.src = src;
-  img.style.setProperty("--zoom", meta.zoom || 1);
-  img.style.setProperty("--move-x", ((meta.offset_x || 0) * 40) + "px");
-  img.style.setProperty("--move-y", (-(meta.offset_y || 0) * 40) + "px");
-  img.style.setProperty("--rotation", ((meta.rotation || 0)) + "deg");
-}
-
-  document.querySelectorAll(".attach-card").forEach(card => {
-    const choose = card.querySelector(".js-file-input");
-    const openBtn = card.querySelector(".js-open-editor");
-    const hidden = card.querySelector(".js-crop-hidden");
-
-    choose && choose.addEventListener("change", function(){
-      const file = this.files && this.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = function(e){
-        const src = e.target.result;
-        syncCardPreview(card, src);
-
-        hidden.value = JSON.stringify({
-          zoom: 0.8,
-          offset_x: 0,
-          offset_y: 0,
-          rotation: 0
-        });
-
-        openBtn.dataset.previewSrc = src;
-        openEditor(card, openBtn.dataset.label, src);
-      };
-      reader.readAsDataURL(file);
-    });
-
-    openBtn && openBtn.addEventListener("click", function(){
-      openEditor(card, this.dataset.label, this.dataset.previewSrc || "");
-    });
-  });
-
-  btnZoomOut && btnZoomOut.addEventListener("click", () => {
-    state.zoom = Math.max(0.2, +(state.zoom - 0.1).toFixed(2));
-    clampState();
-    applyEditorState();
-  });
-
-  btnZoomIn && btnZoomIn.addEventListener("click", () => {
-    state.zoom = Math.min(4, +(state.zoom + 0.1).toFixed(2));
-    clampState();
-    applyEditorState();
-  });
-
-  btnRotateLeft && btnRotateLeft.addEventListener("click", () => {
-    state.rotation = (state.rotation + 270) % 360;
-    applyEditorState();
-  });
-
-  btnRotateRight && btnRotateRight.addEventListener("click", () => {
-    state.rotation = (state.rotation + 90) % 360;
-    applyEditorState();
-  });
-
-  btnReset && btnReset.addEventListener("click", () => {
-    state.zoom = 1;
-    state.offset_x = 0;
-    state.offset_y = 0;
-    state.rotation = 0;
-    applyEditorState();
-  });
-
-  btnFit && btnFit.addEventListener("click", () => {
-    state.zoom = 0.8;
-    state.offset_x = 0;
-    state.offset_y = 0;
-    applyEditorState();
-  });
-
-  btnSave && btnSave.addEventListener("click", () => {
-  if (!activeCard) return;
-
-  const hidden = activeCard.querySelector(".js-crop-hidden");
-  const openBtn = activeCard.querySelector(".js-open-editor");
-  const src = openBtn?.dataset.previewSrc || "";
-
-  if (hidden) {
-    hidden.value = JSON.stringify({
-      zoom: state.zoom,
-      offset_x: state.offset_x,
-      offset_y: state.offset_y,
-      rotation: state.rotation
-    });
-  }
-
-  if (src) {
-    syncCardPreview(activeCard, src);
-  }
-
-  closeEditor();
-});
-
-  btnClose && btnClose.addEventListener("click", closeEditor);
-  btnCancel && btnCancel.addEventListener("click", closeEditor);
-
-  modal && modal.addEventListener("click", function(e){
-    if (e.target === modal) closeEditor();
-  });
-
-  function getPoint(e){
-    if (e.touches && e.touches[0]) {
-      return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    }
-    return { x: e.clientX, y: e.clientY };
-  }
-
-  function startDrag(e){
-    if (editorImg.style.display === "none") return;
-    e.preventDefault();
-    const p = getPoint(e);
-    startPoint = p;
-    startOffset = { x: state.offset_x, y: state.offset_y };
-  }
-
-  function moveDrag(e){
-    if (!startPoint || !startOffset) return;
-    e.preventDefault();
-
-    const p = getPoint(e);
-    const dx = p.x - startPoint.x;
-    const dy = p.y - startPoint.y;
-
-    state.offset_x = startOffset.x + (dx / 160);
-    state.offset_y = startOffset.y - (dy / 160);
-
-    clampState();
-    applyEditorState();
-  }
-
-  function endDrag(){
-    startPoint = null;
-    startOffset = null;
-  }
-
-  editorFrame.addEventListener("mousedown", startDrag);
-  window.addEventListener("mousemove", moveDrag);
-  window.addEventListener("mouseup", endDrag);
-
-  editorFrame.addEventListener("touchstart", startDrag, { passive:false });
-  window.addEventListener("touchmove", moveDrag, { passive:false });
-  window.addEventListener("touchend", endDrag);
-
-})();
-</script>
 
 {% endblock %}
