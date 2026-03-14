@@ -4552,11 +4552,11 @@ def health():
 def on_startup():
     try:
         create_db_and_tables()
+        ensure_default_users()
         print("✅ DB ready")
     except Exception as e:
         # Do NOT kill the server if DB is temporarily unavailable
         print("⚠️ DB startup failed (server will still run). Error:", repr(e))
-        ensure_default_users()
 
 
 def ensure_default_users():
@@ -5941,6 +5941,96 @@ RFI_ACTIVITY_LABELS = {
     "FINAL_INSPECTION": "Final Inspection",
 }
 
+def _parse_html_datetime_local(value: str) -> Optional[datetime]:
+    raw = (value or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw)
+    except Exception:
+        return None
+
+
+def _rfi_due_info(rfi: RfiRecord) -> dict:
+    now = datetime.utcnow()
+    due_at = getattr(rfi, "visit_date", None) or getattr(rfi, "requested_date", None)
+    status = (getattr(rfi, "status", "") or "").upper()
+
+    info = {
+        "due_at": due_at,
+        "is_closed": status == "CLOSED",
+        "is_due_today": False,
+        "is_overdue": False,
+        "is_upcoming": False,
+        "days_delta": None,
+        "label": "",
+    }
+
+    if not due_at or status == "CLOSED":
+        return info
+
+    due_date = due_at.date()
+    today = now.date()
+    delta_days = (due_date - today).days
+    info["days_delta"] = delta_days
+
+    if delta_days < 0:
+        info["is_overdue"] = True
+        info["label"] = f"Overdue by {abs(delta_days)} day(s)"
+    elif delta_days == 0:
+        info["is_due_today"] = True
+        info["label"] = "Due today"
+    elif delta_days <= 2:
+        info["is_upcoming"] = True
+        info["label"] = f"Due in {delta_days} day(s)"
+
+    return info
+
+
+def _build_rfi_notifications(session: Session) -> list[dict]:
+    rows = session.exec(
+        select(RfiRecord)
+        .where(RfiRecord.status != "CLOSED")
+        .order_by(RfiRecord.requested_date.asc(), RfiRecord.created_at.desc())
+    ).all()
+
+    items = []
+    for rfi in rows:
+        info = _rfi_due_info(rfi)
+        if not (info["is_overdue"] or info["is_due_today"] or info["is_upcoming"]):
+            continue
+
+        due_at = info["due_at"]
+        if info["is_overdue"]:
+            level = "overdue"
+        elif info["is_due_today"]:
+            level = "today"
+        else:
+            level = "upcoming"
+
+        items.append({
+            "title": f"{rfi.rfi_no or 'RFI'} - {rfi.batch_no or '-'}",
+            "message": info["label"],
+            "date_text": due_at.strftime("%Y-%m-%d %H:%M") if due_at else "-",
+            "url": f"/rfi/{rfi.id}",
+            "level": level,
+        })
+
+    return items[:12]
+
+
+@app.get("/api/header-notifications")
+def header_notifications_api(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    get_current_user(request, session)
+
+    items = _build_rfi_notifications(session)
+    return JSONResponse({
+        "count": len(items),
+        "items": items,
+    })
 
 def _split_rfi_activities(value: str) -> list[str]:
     raw = (value or "").strip()
@@ -6125,6 +6215,7 @@ def rfi_detail(
             "rfi": rec,
             "package": package,
             "attachments": attachments,
+            "rfi_due_info": _rfi_due_info(rec),
         },
     )
 
@@ -6135,6 +6226,9 @@ def rfi_update_status(
     request: Request,
     status: str = Form(...),
     result_notes: str = Form(""),
+    requested_date: str = Form(""),
+    visit_date: str = Form(""),
+    notes: str = Form(""),
     session: Session = Depends(get_session),
 ):
     user = get_current_user(request, session)
@@ -6149,6 +6243,13 @@ def rfi_update_status(
         raise HTTPException(400, "Invalid RFI status.")
 
     rfi.result_notes = (result_notes or "").strip()
+    rfi.notes = (notes or "").strip()
+
+    parsed_requested = _parse_html_datetime_local(requested_date)
+    parsed_visit = _parse_html_datetime_local(visit_date)
+
+    rfi.requested_date = parsed_requested
+    rfi.visit_date = parsed_visit
 
     # If inspector marks visit completed, system checks whether all batch activities
     # are now covered. If yes, close this RFI automatically.
@@ -6171,6 +6272,8 @@ def rfi_update_status(
 
     else:
         rfi.status = new_status
+        if new_status != "CLOSED":
+            rfi.closed_date = None
 
     session.add(rfi)
     session.commit()
