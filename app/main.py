@@ -5817,18 +5817,14 @@ def _build_rfi_batch_package(session: Session, batch_no: str, linked_run_id: Opt
     linked_run = None
     if linked_run_id:
         linked_run = session.get(ProductionRun, linked_run_id)
-
-    runs = []
-    if linked_run:
-        runs = [linked_run]
-        if not batch_no:
+        if linked_run and not batch_no:
             batch_no = (linked_run.dhtp_batch_no or "").strip()
-    else:
-        runs = session.exec(
-            select(ProductionRun)
-            .where(ProductionRun.dhtp_batch_no == batch_no)
-            .order_by(ProductionRun.created_at.desc())
-        ).all()
+
+    runs = session.exec(
+        select(ProductionRun)
+        .where(ProductionRun.dhtp_batch_no == batch_no)
+        .order_by(ProductionRun.created_at.asc())
+    ).all()
 
     hydro_records = session.exec(
         select(HydroTestRecord)
@@ -5848,18 +5844,66 @@ def _build_rfi_batch_package(session: Session, batch_no: str, linked_run_id: Opt
         .order_by(FinalInspectionPhase.created_at.desc())
     ).all()
 
-    material_lots = session.exec(
-        select(MaterialLot)
-        .where(MaterialLot.batch_no == batch_no)
-        .order_by(MaterialLot.created_at.desc())
-    ).all()
+    # IMPORTANT:
+    # Material lots must be collected through MaterialUseEvent from all runs in this batch.
+    # They are not supposed to match the finished-product batch number directly.
+    run_ids = [r.id for r in runs if getattr(r, "id", None) is not None]
+    material_lots = []
+    mrr_tickets = []
+
+    if run_ids:
+        use_events = session.exec(
+            select(MaterialUseEvent)
+            .where(MaterialUseEvent.run_id.in_(run_ids))
+            .order_by(MaterialUseEvent.created_at.desc())
+        ).all()
+
+        lot_ids = []
+        seen_lot_ids = set()
+        for ev in use_events:
+            if ev.lot_id and ev.lot_id not in seen_lot_ids:
+                seen_lot_ids.add(ev.lot_id)
+                lot_ids.append(ev.lot_id)
+
+        if lot_ids:
+            material_lots = session.exec(
+                select(MaterialLot)
+                .where(MaterialLot.id.in_(lot_ids))
+                .order_by(MaterialLot.created_at.desc())
+            ).all()
+
+            for lot in material_lots:
+                docs = session.exec(
+                    select(MrrDocument)
+                    .where(
+                        (MrrDocument.ticket_id == lot.id) &
+                        (MrrDocument.is_deleted == False)
+                    )
+                    .order_by(MrrDocument.created_at.desc())
+                ).all()
+
+                inspections = session.exec(
+                    select(MrrReceivingInspection)
+                    .where(MrrReceivingInspection.ticket_id == lot.id)
+                    .order_by(MrrReceivingInspection.created_at.desc())
+                ).all()
+
+                mrr_tickets.append({
+                    "lot": lot,
+                    "docs": docs,
+                    "inspections": inspections,
+                })
 
     client_name = ""
     po_number = ""
     itp_number = ""
     pipe_specification = ""
 
-    ref_run = linked_run or (runs[0] if runs else None)
+    ref_run = linked_run
+    if not ref_run:
+        _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
+        ref_run = cover or (runs[0] if runs else None)
+
     if ref_run:
         client_name = ref_run.client_name or ""
         po_number = ref_run.po_number or ""
@@ -5877,8 +5921,8 @@ def _build_rfi_batch_package(session: Session, batch_no: str, linked_run_id: Opt
         "burst_reports": burst_reports,
         "final_phases": final_phases,
         "material_lots": material_lots,
+        "mrr_tickets": mrr_tickets,
     }
-
 
 @app.get("/rfi", response_class=HTMLResponse)
 def rfi_dashboard(
@@ -5891,9 +5935,9 @@ def rfi_dashboard(
         select(RfiRecord).order_by(RfiRecord.created_at.desc())
     ).all()
 
-    available_runs = session.exec(
-        select(ProductionRun).order_by(ProductionRun.created_at.desc())
-    ).all()
+    # RFI for finished product must be batch-based, not per separate layer run.
+    # We use finished COVER runs as the representative record for each batch.
+    available_batches = get_finished_cover_runs(session)
 
     return templates.TemplateResponse(
         "rfi_dashboard.html",
@@ -5901,7 +5945,7 @@ def rfi_dashboard(
             "request": request,
             "user": user,
             "items": items,
-            "available_runs": available_runs,
+            "available_batches": available_batches,
         },
     )
 
@@ -5918,12 +5962,20 @@ def rfi_create(
 ):
     user = get_current_user(request, session)
 
-    run = session.get(ProductionRun, linked_run_id)
-    if not run:
-        raise HTTPException(400, "Selected production run was not found.")
+    selected_run = session.get(ProductionRun, linked_run_id)
+    if not selected_run:
+        raise HTTPException(400, "Selected batch was not found.")
 
-    batch_no = (run.dhtp_batch_no or "").strip()
-    client_name = run.client_name or ""
+    batch_no = (selected_run.dhtp_batch_no or "").strip()
+    if not batch_no:
+        raise HTTPException(400, "Selected record has no batch number.")
+
+    # Normalize RFI to the finished-product batch.
+    # Prefer the COVER run as the representative linked run for this batch.
+    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
+    main_run = cover or selected_run
+
+    client_name = (getattr(main_run, "client_name", "") or "").strip()
 
     count = session.exec(select(RfiRecord)).all()
     next_no = len(count) + 1
@@ -5937,7 +5989,7 @@ def rfi_create(
             requested_dt = None
 
     rec = RfiRecord(
-        linked_run_id=run.id,
+        linked_run_id=main_run.id,
         batch_no=batch_no,
         rfi_no=rfi_no,
         client_name=client_name,
@@ -5955,7 +6007,7 @@ def rfi_create(
     session.refresh(rec)
 
     return RedirectResponse(url=f"/rfi/{rec.id}", status_code=302)
-
+    
 @app.get("/rfi/{rfi_id}", response_class=HTMLResponse)
 def rfi_detail(
     rfi_id: int,
