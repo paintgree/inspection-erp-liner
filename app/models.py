@@ -444,6 +444,7 @@ class BurstSample(SQLModel, table=True):
 
     sample_start_m: float = Field(default=0.0)
     sample_length_m: float = Field(default=0.0)
+    effective_length_m: float = Field(default=0.0)
 
     sample_serial_number: str = Field(default="")
     actual_burst_psi: float = Field(default=0.0)
