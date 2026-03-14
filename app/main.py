@@ -5924,6 +5924,68 @@ def _build_rfi_batch_package(session: Session, batch_no: str, linked_run_id: Opt
         "mrr_tickets": mrr_tickets,
     }
 
+
+RFI_ACTIVITY_OPTIONS = [
+    "DOCUMENT_REVIEW",
+    "IN_PROCESS",
+    "BURST_TEST",
+    "HYDRO_TEST",
+    "FINAL_INSPECTION",
+]
+
+RFI_ACTIVITY_LABELS = {
+    "DOCUMENT_REVIEW": "Document Review",
+    "IN_PROCESS": "In-Process Inspection",
+    "BURST_TEST": "Burst Test",
+    "HYDRO_TEST": "Hydro Test",
+    "FINAL_INSPECTION": "Final Inspection",
+}
+
+
+def _split_rfi_activities(value: str) -> list[str]:
+    raw = (value or "").strip()
+    if not raw:
+        return []
+    return [x.strip() for x in raw.split("|") if x.strip()]
+
+
+def _join_rfi_activities(values: list[str]) -> str:
+    clean = []
+    seen = set()
+    for v in values or []:
+        key = (v or "").strip().upper()
+        if key and key in RFI_ACTIVITY_OPTIONS and key not in seen:
+            seen.add(key)
+            clean.append(key)
+    return "|".join(clean)
+
+
+def _get_batch_completed_rfi_activities(session: Session, batch_no: str) -> set[str]:
+    rows = session.exec(
+        select(RfiRecord)
+        .where(RfiRecord.batch_no == batch_no)
+        .where(RfiRecord.status.in_(["VISIT_COMPLETED", "CLOSED"]))
+        .order_by(RfiRecord.created_at.asc())
+    ).all()
+
+    covered = set()
+    for row in rows:
+        for item in _split_rfi_activities(row.inspection_stage):
+            covered.add(item)
+    return covered
+
+
+def _get_batch_remaining_rfi_activities(session: Session, batch_no: str) -> list[str]:
+    covered = _get_batch_completed_rfi_activities(session, batch_no)
+    return [x for x in RFI_ACTIVITY_OPTIONS if x not in covered]
+
+
+def _format_rfi_activity_text(value: str) -> str:
+    items = _split_rfi_activities(value)
+    if not items:
+        return "-"
+    return ", ".join(RFI_ACTIVITY_LABELS.get(x, x.replace("_", " ").title()) for x in items)
+    
 @app.get("/rfi", response_class=HTMLResponse)
 def rfi_dashboard(
     request: Request,
@@ -5935,9 +5997,23 @@ def rfi_dashboard(
         select(RfiRecord).order_by(RfiRecord.created_at.desc())
     ).all()
 
-    # RFI for finished product must be batch-based, not per separate layer run.
-    # We use finished COVER runs as the representative record for each batch.
     available_batches = get_finished_cover_runs(session)
+
+    batch_cards = []
+    for run in available_batches:
+        batch_no = (run.dhtp_batch_no or "").strip()
+        remaining = _get_batch_remaining_rfi_activities(session, batch_no)
+        covered = [x for x in RFI_ACTIVITY_OPTIONS if x not in remaining]
+
+        batch_cards.append(
+            {
+                "run": run,
+                "batch_no": batch_no,
+                "remaining": remaining,
+                "covered": covered,
+                "is_complete": len(remaining) == 0,
+            }
+        )
 
     return templates.TemplateResponse(
         "rfi_dashboard.html",
@@ -5946,6 +6022,9 @@ def rfi_dashboard(
             "user": user,
             "items": items,
             "available_batches": available_batches,
+            "batch_cards": batch_cards,
+            "activity_labels": RFI_ACTIVITY_LABELS,
+            "format_rfi_activity_text": _format_rfi_activity_text,
         },
     )
 
@@ -5953,7 +6032,7 @@ def rfi_dashboard(
 def rfi_create(
     request: Request,
     linked_run_id: int = Form(...),
-    inspection_stage: str = Form(...),
+    inspection_stage: list[str] = Form([]),
     requested_date: str = Form(""),
     tpi_company: str = Form(""),
     tpi_contact_name: str = Form(""),
@@ -5968,17 +6047,28 @@ def rfi_create(
 
     batch_no = (selected_run.dhtp_batch_no or "").strip()
     if not batch_no:
-        raise HTTPException(400, "Selected record has no batch number.")
+        raise HTTPException(400, "Selected batch has no batch number.")
 
-    # Normalize RFI to the finished-product batch.
-    # Prefer the COVER run as the representative linked run for this batch.
-    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch_no)
-    main_run = cover or selected_run
+    liner_run, reinf_run, cover_run = _find_related_runs_by_batch(session, batch_no)
+    main_run = cover_run or selected_run
 
-    client_name = (getattr(main_run, "client_name", "") or "").strip()
+    remaining = _get_batch_remaining_rfi_activities(session, batch_no)
 
-    count = session.exec(select(RfiRecord)).all()
-    next_no = len(count) + 1
+    selected_activities = []
+    for item in inspection_stage or []:
+        key = (item or "").strip().upper()
+        if key in remaining and key not in selected_activities:
+            selected_activities.append(key)
+
+    # If user submits no manual selection, auto-use all remaining activities.
+    if not selected_activities:
+        selected_activities = remaining
+
+    if not selected_activities:
+        raise HTTPException(400, "All RFI activities for this batch are already covered.")
+
+    existing_count = session.exec(select(RfiRecord)).all()
+    next_no = len(existing_count) + 1
     rfi_no = f"RFI-{next_no:04d}"
 
     requested_dt = None
@@ -5992,8 +6082,8 @@ def rfi_create(
         linked_run_id=main_run.id,
         batch_no=batch_no,
         rfi_no=rfi_no,
-        client_name=client_name,
-        inspection_stage=(inspection_stage or "").strip(),
+        client_name=(main_run.client_name or "").strip(),
+        inspection_stage=_join_rfi_activities(selected_activities),
         status="DRAFT",
         requested_date=requested_dt,
         raised_by_user_id=user.id,
@@ -6049,19 +6139,40 @@ def rfi_update_status(
 ):
     user = get_current_user(request, session)
 
-    rec = session.get(RfiRecord, rfi_id)
-    if not rec:
-        raise HTTPException(404, "RFI not found")
+    rfi = session.get(RfiRecord, rfi_id)
+    if not rfi:
+        raise HTTPException(404, "RFI not found.")
 
-    rec.status = (status or "").strip().upper()
-    rec.result_notes = (result_notes or "").strip()
+    new_status = (status or "").strip().upper()
+    allowed = {"DRAFT", "SUBMITTED", "SCHEDULED", "VISIT_COMPLETED", "CLOSED"}
+    if new_status not in allowed:
+        raise HTTPException(400, "Invalid RFI status.")
 
-    if rec.status == "CLOSED":
-        rec.closed_date = datetime.utcnow()
-    elif rec.status == "VISIT_COMPLETED" and not rec.visit_date:
-        rec.visit_date = datetime.utcnow()
+    rfi.result_notes = (result_notes or "").strip()
 
-    session.add(rec)
+    # If inspector marks visit completed, system checks whether all batch activities
+    # are now covered. If yes, close this RFI automatically.
+    if new_status == "VISIT_COMPLETED":
+        rfi.status = "VISIT_COMPLETED"
+        session.add(rfi)
+        session.commit()
+        session.refresh(rfi)
+
+        covered = _get_batch_completed_rfi_activities(session, rfi.batch_no)
+        remaining = [x for x in RFI_ACTIVITY_OPTIONS if x not in covered]
+
+        if not remaining:
+            rfi.status = "CLOSED"
+            rfi.closed_date = datetime.utcnow()
+
+    elif new_status == "CLOSED":
+        rfi.status = "CLOSED"
+        rfi.closed_date = datetime.utcnow()
+
+    else:
+        rfi.status = new_status
+
+    session.add(rfi)
     session.commit()
 
     return RedirectResponse(url=f"/rfi/{rfi_id}", status_code=302)
