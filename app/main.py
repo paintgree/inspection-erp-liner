@@ -3303,7 +3303,14 @@ async def burst_update(
     for s in db_samples[:n]:
 
         s.sample_serial_number = (form.get(f"sample_serial_number_{s.id}") or "").strip()
-        s.actual_burst_psi = float(form.get(f"actual_burst_MPa_{s.id}") or form.get(f"actual_burst_psi_{s.id}") or 0.0)
+        s.sample_length_m = float(form.get(f"sample_length_m_{s.id}") or 0.0)
+        s.effective_length_m = float(form.get(f"effective_length_m_{s.id}") or 0.0)
+
+        s.actual_burst_psi = float(
+            form.get(f"actual_burst_MPa_{s.id}") or
+            form.get(f"actual_burst_psi_{s.id}") or
+            0.0
+        )
         s.pressurization_time_s = (form.get(f"pressurization_time_s_{s.id}") or "").strip()
         s.test_result = (form.get(f"test_result_{s.id}") or "").strip()
 
