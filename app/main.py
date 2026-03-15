@@ -2662,17 +2662,18 @@ def _burst_report_is_complete(rep: BurstTestReport, samples: list["BurstSample"]
     return True
 
 
-def _burst_snapshot(rep: BurstTestReport, samples: list["BurstSample"]) -> dict:
+def _build_burst_snapshot(rep, samples):
     return {
         "report": {
-            "client_po": rep.client_po,
-            "pipe_specification": rep.pipe_specification,
             "reference_standard": rep.reference_standard,
             "reference_dhtp_procedure": rep.reference_dhtp_procedure,
             "system_max_pressure": rep.system_max_pressure,
             "laboratory_temperature": rep.laboratory_temperature,
             "testing_medium": rep.testing_medium,
             "total_no_of_specimens": rep.total_no_of_specimens,
+            "pipe_specification": rep.pipe_specification,
+            "client_po": rep.client_po,
+            "client_name": rep.client_name,
             "effective_length_m": rep.effective_length_m,
             "liner_thickness": rep.liner_thickness,
             "reinforcement_thickness": rep.reinforcement_thickness,
@@ -2683,10 +2684,11 @@ def _burst_snapshot(rep: BurstTestReport, samples: list["BurstSample"]) -> dict:
             "test_result": rep.test_result,
             "failure_mode": rep.failure_mode,
             "notes": rep.notes,
+            "qa_qc_officer_name": rep.qa_qc_officer_name,
             "technician_name": rep.technician_name,
         },
         "samples": [
-           {
+            {
                 "id": s.id,
                 "sample_serial_number": s.sample_serial_number,
                 "sample_length_m": s.sample_length_m,
@@ -4154,6 +4156,63 @@ def _make_burst_chart_png(samples) -> bytes | None:
         return None
 
 
+
+@app.post("/burst/{report_id}/submit-approval")
+def burst_submit_approval(
+    report_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+
+    rep = session.get(BurstTestReport, report_id)
+    if not rep:
+        raise HTTPException(404, "Burst report not found")
+
+    samples = ensure_burst_samples(session, report_id, desired=rep.total_no_of_specimens or 1)
+
+    payload = _build_burst_snapshot(rep, samples)
+
+    existing_pending = session.exec(
+        select(BurstReportRevision)
+        .where(BurstReportRevision.report_id == report_id)
+        .where(BurstReportRevision.status == "PENDING")
+        .order_by(BurstReportRevision.id.desc())
+    ).first()
+
+    now_utc = datetime.utcnow()
+
+    if existing_pending:
+        existing_pending.payload_json = json.dumps(payload)
+        existing_pending.submitted_by_user_id = user.id
+        existing_pending.submitted_by_user_name = user.display_name
+        existing_pending.submitted_at = now_utc
+        session.add(existing_pending)
+    else:
+        rev = BurstReportRevision(
+            report_id=report_id,
+            status="PENDING",
+            payload_json=json.dumps(payload),
+            submitted_by_user_id=user.id,
+            submitted_by_user_name=user.display_name,
+            submitted_at=now_utc,
+        )
+        session.add(rev)
+
+    rep.current_revision_status = "PENDING_APPROVAL"
+
+    session.add(rep)
+    session.add(BurstAuditLog(
+        report_id=rep.id,
+        action="SUBMIT_FOR_APPROVAL",
+        note="Report submitted for approval",
+        user_id=user.id,
+        user_name=user.display_name,
+    ))
+    session.commit()
+
+    return RedirectResponse(f"/burst/{rep.id}?msg=submitted_for_approval", status_code=303)
+
 @app.post("/burst/revision/{revision_id}/approve")
 def burst_revision_approve(
     revision_id: int,
@@ -4178,7 +4237,11 @@ def burst_revision_approve(
     payload = json.loads(rev.payload_json or "{}")
     _apply_burst_snapshot(rep, samples, payload)
 
-    rep.current_revision_status = "LIVE"
+    rep.current_revision_status = "APPROVED"
+    rep.is_locked = True
+    rep.locked_at = datetime.utcnow()
+    rep.locked_by_user_id = user.id
+    rep.locked_by_user_name = user.display_name
 
     rev.status = "APPROVED"
     rev.reviewed_by_user_id = user.id
