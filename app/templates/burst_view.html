@@ -505,19 +505,19 @@
       </div>
     </div>
 
-        {% if not edit_direct_allowed %}
+    {% if rep.published_at and (not edit_direct_allowed) %}
       <div class="burst-alert">
         You are outside the 24-hour edit window. Any new changes must go through QAQC approval before they become live.
       </div>
     {% endif %}
-
+    
     {% if latest_pending_revision %}
       <div class="burst-approval-box">
         <div class="burst-approval-title">Pending QAQC Approval</div>
         <div class="burst-approval-sub">
           This report has a pending revision waiting for approval.
         </div>
-
+    
         {% if can_approve_burst %}
           <div class="burst-approval-actions">
             <form method="post"
@@ -526,7 +526,7 @@
                   onsubmit="return confirm('You are approving this burst test with burst value {{ approval_burst_value }} MPa in {{ approval_press_time }} seconds. Continue?');">
               <button class="btn btn-primary" type="submit">Approve</button>
             </form>
-
+    
             <form method="post"
                   action="/burst/revision/{{ latest_pending_revision.id }}/reject"
                   class="burst-inline-form"
