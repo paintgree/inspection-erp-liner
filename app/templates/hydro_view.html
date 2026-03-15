@@ -4,11 +4,16 @@
 <div class="hydro-page-wide">
   <a href="/hydro" class="burst-back-btn">← Back to Hydro Dashboard</a>
 
-  <div class="page-head burst-head">
+  <div class="hydro-hero-head">
     <div>
-      <h2>Hydro Testing • Batch {{ summary.batch_no }}</h2>
+      <div class="hydro-hero-kicker">Hydro Testing Module</div>
+      <h2 class="hydro-hero-title">Batch {{ summary.batch_no }}</h2>
+      <div class="hydro-hero-subtitle">
+        {{ summary.client_name or '—' }}
+        {% if summary.pipe_specification %} • {{ summary.pipe_specification }}{% endif %}
+      </div>
     </div>
-
+  
     <div class="toolbar">
       {% if summary.records %}
         <a class="btn" href="/hydro/batch/{{ summary.batch_no }}/pdf" target="_blank">Export All Records</a>
@@ -44,14 +49,32 @@
   </style>
 
   <div class="hydro-detail-grid">
-    <div class="card">
-      <div class="kpi-grid hydro-kpi-grid">
-        <div class="kpi-card"><div class="kpi-label">Total Order</div><div class="kpi-value">{{ '%.1f'|format(summary.total_order_m) }} m</div></div>
-        <div class="kpi-card"><div class="kpi-label">Finished Produced</div><div class="kpi-value">{{ '%.1f'|format(summary.produced_length_m) }} m</div></div>
-        <div class="kpi-card"><div class="kpi-label">Burst Excluded</div><div class="kpi-value">{{ '%.1f'|format(summary.burst_used_m) }} m</div></div>
-        <div class="kpi-card"><div class="kpi-label">Hydrotested</div><div class="kpi-value">{{ '%.1f'|format(summary.hydro_tested_m) }} m</div></div>
-        <div class="kpi-card"><div class="kpi-label">Remaining</div><div class="kpi-value">{{ '%.1f'|format(summary.hydro_remaining_m) }} m</div></div>
-        <div class="kpi-card"><div class="kpi-label">Coverage</div><div class="kpi-value">{{ summary.coverage_pct }}%</div></div>
+    <div class="card hydro-overview-card">
+      <div class="kpi-grid hydro-kpi-grid hydro-kpi-grid-strong">
+        <div class="kpi-card hydro-kpi-card">
+          <div class="kpi-label">Total Order</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.total_order_m) }} m</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Finished Produced</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.produced_length_m) }} m</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Burst Excluded</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.burst_used_m) }} m</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Hydrotested</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.hydro_tested_m) }} m</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Remaining</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.hydro_remaining_m) }} m</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Coverage</div>
+          <div class="kpi-value">{{ summary.coverage_pct }}%</div>
+        </div>
       </div>
 
       <div class="hydro-legend mt">
@@ -60,8 +83,13 @@
         <span class="legend-chip legend-remaining">Remaining for Hydrotest</span>
       </div>
 
-      <div class="hydro-progress-head mt">
-        <span>Finished produced length visual</span>
+      <div class="hydro-visual-head mt">
+        <div>
+          <div class="hydro-section-title">Production Line Visual</div>
+          <div class="hydro-section-note">
+            Spatial distribution of testing status across the finished produced length.
+          </div>
+        </div>
         <strong>0 — {{ '%.1f'|format(summary.produced_length_m) }} m</strong>
       </div>
 
@@ -76,16 +104,23 @@
       </div>
     </div>
 
-    <div class="card">
-      <h3 style="margin-top:0">
-        {% if edit_record %}Edit Hydrotest Report #{{ edit_record.id }}{% else %}Add Hydrotest Report{% endif %}
-      </h3>
+    <div class="card hydro-form-card">
+      <div class="hydro-form-head">
+        <div class="hydro-form-icon">＋</div>
+        <div>
+          <h3 class="hydro-form-title">
+            {% if edit_record %}Edit Hydrotest Report #{{ edit_record.id }}{% else %}Add Hydrotest Report{% endif %}
+          </h3>
+          <div class="hydro-form-subtitle">Submit new test data for certification.</div>
+        </div>
+      </div>
 
       <form method="post" action="/hydro/batch/{{ summary.batch_no }}/save" enctype="multipart/form-data">
         <input type="hidden" name="record_id" value="{{ edit_record.id if edit_record else '' }}">
         <input type="hidden" name="assigned_qaqc_user_id" id="assigned_qaqc_user_id" value="{{ edit_record.assigned_qaqc_user_id if edit_record and edit_record.assigned_qaqc_user_id else '' }}">
 
         <div class="grid2">
+          <div class="grid2 hydro-form-grid">
           <label>Reference Standard
             <input class="input" type="text" name="reference_standard" value="{{ edit_record.reference_standard if edit_record else 'API 15S' }}">
           </label>
@@ -167,9 +202,14 @@
             <input class="input" type="text" name="technician_name" value="{{ edit_record.technician_name if edit_record else '' }}">
           </label>
 
-          <label>Pressure Curve Chart
-            <input class="input" type="file" name="chart_image" accept=".png,.jpg,.jpeg,.webp">
-          </label>
+          <div class="hydro-upload-block">
+            <label>Pressure Curve Chart</label>
+            <div class="hydro-upload-box">
+              <input class="input" type="file" name="chart_image" accept=".png,.jpg,.jpeg,.webp">
+              <div class="hydro-upload-text">Upload CSV or Image</div>
+              <div class="hydro-upload-note">Max file size 10MB</div>
+            </div>
+          </div>
         </div>
 
         {% if edit_record and edit_record.chart_image_path %}
@@ -197,8 +237,8 @@
   </div>
 
   <div class="hydro-detail-grid mt">
-    <div class="card">
-      <h3 style="margin-top:0">Remaining Hydrotest Ranges</h3>
+    <div class="card hydro-range-card">
+      <h3 class="hydro-range-title">Remaining Hydrotest Ranges</h3>
       {% if summary.hydro_remaining_ranges %}
         <ul class="simple-list">
           {% for a, b in summary.hydro_remaining_ranges %}
@@ -210,8 +250,8 @@
       {% endif %}
     </div>
 
-    <div class="card">
-      <h3 style="margin-top:0">Burst-Test Excluded Ranges</h3>
+    <div class="card hydro-range-card hydro-range-card-warn">
+      <h3 class="hydro-range-title">Burst-Test Excluded Ranges</h3>
       {% if summary.burst_ranges %}
         <ul class="simple-list">
           {% for a, b in summary.burst_ranges %}
@@ -224,8 +264,10 @@
     </div>
   </div>
 
-  <div class="card mt">
-    <h3 style="margin-top:0">Hydrotest Records</h3>
+  <div class="card mt hydro-records-card">
+    <div class="hydro-records-head">
+      <h3 class="hydro-range-title">Hydrotest Records</h3>
+    </div>
 
     <div class="tablewrap hydro-tablewrap">
       <table class="table">
