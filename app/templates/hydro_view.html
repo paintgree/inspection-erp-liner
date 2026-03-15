@@ -49,78 +49,108 @@
   </style>
 
  <div class="hydro-detail-grid hydro-detail-grid-compact">
-  <div class="card hydro-overview-card hydro-overview-card-compact">
-    <div class="kpi-grid hydro-kpi-grid hydro-kpi-grid-strong">
-      <div class="kpi-card hydro-kpi-card">
-        <div class="kpi-label">Total Order</div>
-        <div class="kpi-value">{{ '%.1f'|format(summary.total_order_m) }} m</div>
+  <div class="hydro-left-stack">
+    <div class="card hydro-overview-card hydro-overview-card-compact">
+      <div class="kpi-grid hydro-kpi-grid hydro-kpi-grid-strong">
+        <div class="kpi-card hydro-kpi-card">
+          <div class="kpi-label">Total Order</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.total_order_m) }} m</div>
+        </div>
+        <div class="kpi-card hydro-kpi-card">
+          <div class="kpi-label">Finished Produced</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.produced_length_m) }} m</div>
+        </div>
+        <div class="kpi-card hydro-kpi-card">
+          <div class="kpi-label">Burst Excluded</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.burst_used_m) }} m</div>
+        </div>
+        <div class="kpi-card hydro-kpi-card">
+          <div class="kpi-label">Hydrotested</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.hydro_tested_m) }} m</div>
+        </div>
+        <div class="kpi-card hydro-kpi-card">
+          <div class="kpi-label">Remaining</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.hydro_remaining_m) }} m</div>
+        </div>
+        <div class="kpi-card hydro-kpi-card">
+          <div class="kpi-label">Coverage</div>
+          <div class="kpi-value">{{ summary.coverage_pct }}%</div>
+        </div>
       </div>
-      <div class="kpi-card hydro-kpi-card">
-        <div class="kpi-label">Finished Produced</div>
-        <div class="kpi-value">{{ '%.1f'|format(summary.produced_length_m) }} m</div>
-      </div>
-      <div class="kpi-card hydro-kpi-card">
-        <div class="kpi-label">Burst Excluded</div>
-        <div class="kpi-value">{{ '%.1f'|format(summary.burst_used_m) }} m</div>
-      </div>
-      <div class="kpi-card hydro-kpi-card">
-        <div class="kpi-label">Hydrotested</div>
-        <div class="kpi-value">{{ '%.1f'|format(summary.hydro_tested_m) }} m</div>
-      </div>
-      <div class="kpi-card hydro-kpi-card">
-        <div class="kpi-label">Remaining</div>
-        <div class="kpi-value">{{ '%.1f'|format(summary.hydro_remaining_m) }} m</div>
-      </div>
-      <div class="kpi-card hydro-kpi-card">
-        <div class="kpi-label">Coverage</div>
-        <div class="kpi-value">{{ summary.coverage_pct }}%</div>
+
+      <div class="hydro-visual-compact mt">
+        <div class="hydro-legend hydro-legend-compact">
+          <span class="legend-chip legend-tested">Hydrotested</span>
+          <span class="legend-chip legend-burst">Used in Burst Test</span>
+          <span class="legend-chip legend-remaining">Remaining</span>
+        </div>
+
+        <div class="hydro-visual-head hydro-visual-head-compact">
+          <div class="hydro-section-title">Production Line Visual</div>
+          <strong>0 — {{ '%.1f'|format(summary.produced_length_m) }} m</strong>
+        </div>
+
+        <div class="hydro-scale-wrap">
+          <div class="hydro-scale-top">
+            <span>0</span>
+            <span>{{ '%.1f'|format(summary.produced_length_m * 0.25) }} m</span>
+            <span>{{ '%.1f'|format(summary.produced_length_m * 0.50) }} m</span>
+            <span>{{ '%.1f'|format(summary.produced_length_m * 0.75) }} m</span>
+            <span>{{ '%.1f'|format(summary.produced_length_m) }} m</span>
+          </div>
+
+          <div class="hydro-track hydro-track-lg hydro-track-scaled">
+            <div class="hydro-scale-mark hydro-scale-mark-0"></div>
+            <div class="hydro-scale-mark hydro-scale-mark-25"></div>
+            <div class="hydro-scale-mark hydro-scale-mark-50"></div>
+            <div class="hydro-scale-mark hydro-scale-mark-75"></div>
+            <div class="hydro-scale-mark hydro-scale-mark-100"></div>
+
+            {% for seg in summary.segments %}
+              <span
+                class="hydro-seg hydro-seg-{{ seg.kind }}"
+                title="{{ seg.kind }}: {{ '%.1f'|format(seg.start) }} to {{ '%.1f'|format(seg.end) }} m"
+                style="left: {{ '%.4f'|format(seg.left_pct) }}%; width: {{ '%.4f'|format(seg.width_pct) }}%;"
+              ></span>
+            {% endfor %}
+          </div>
+
+          <div class="hydro-scale-bottom">
+            <span>Start</span>
+            <span>1/4</span>
+            <span>1/2</span>
+            <span>3/4</span>
+            <span>End</span>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="hydro-visual-compact mt">
-      <div class="hydro-legend hydro-legend-compact">
-        <span class="legend-chip legend-tested">Hydrotested</span>
-        <span class="legend-chip legend-burst">Used in Burst Test</span>
-        <span class="legend-chip legend-remaining">Remaining</span>
+    <div class="hydro-range-grid hydro-range-grid-under">
+      <div class="card hydro-range-card">
+        <h3 class="hydro-range-title">Remaining Hydrotest Ranges</h3>
+        {% if summary.hydro_remaining_ranges %}
+          <ul class="simple-list hydro-simple-list">
+            {% for a, b in summary.hydro_remaining_ranges %}
+              <li>{{ '%.1f'|format(a) }} m → {{ '%.1f'|format(b) }} m <span>({{ '%.1f'|format(b-a) }} m)</span></li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="muted">No remaining hydrotest range inside finished produced material.</div>
+        {% endif %}
       </div>
 
-      <div class="hydro-visual-head hydro-visual-head-compact">
-        <div class="hydro-section-title">Production Line Visual</div>
-        <strong>0 — {{ '%.1f'|format(summary.produced_length_m) }} m</strong>
-      </div>
-
-      <div class="hydro-scale-wrap">
-        <div class="hydro-scale-top">
-          <span>0</span>
-          <span>{{ '%.1f'|format(summary.produced_length_m * 0.25) }} m</span>
-          <span>{{ '%.1f'|format(summary.produced_length_m * 0.50) }} m</span>
-          <span>{{ '%.1f'|format(summary.produced_length_m * 0.75) }} m</span>
-          <span>{{ '%.1f'|format(summary.produced_length_m) }} m</span>
-        </div>
-
-        <div class="hydro-track hydro-track-lg hydro-track-scaled">
-          <div class="hydro-scale-mark hydro-scale-mark-0"></div>
-          <div class="hydro-scale-mark hydro-scale-mark-25"></div>
-          <div class="hydro-scale-mark hydro-scale-mark-50"></div>
-          <div class="hydro-scale-mark hydro-scale-mark-75"></div>
-          <div class="hydro-scale-mark hydro-scale-mark-100"></div>
-
-          {% for seg in summary.segments %}
-            <span
-              class="hydro-seg hydro-seg-{{ seg.kind }}"
-              title="{{ seg.kind }}: {{ '%.1f'|format(seg.start) }} to {{ '%.1f'|format(seg.end) }} m"
-              style="left: {{ '%.4f'|format(seg.left_pct) }}%; width: {{ '%.4f'|format(seg.width_pct) }}%;"
-            ></span>
-          {% endfor %}
-        </div>
-
-        <div class="hydro-scale-bottom">
-          <span>Start</span>
-          <span>1/4</span>
-          <span>1/2</span>
-          <span>3/4</span>
-          <span>End</span>
-        </div>
+      <div class="card hydro-range-card hydro-range-card-warn">
+        <h3 class="hydro-range-title">Burst-Test Excluded Ranges</h3>
+        {% if summary.burst_ranges %}
+          <ul class="simple-list hydro-simple-list">
+            {% for a, b in summary.burst_ranges %}
+              <li>{{ '%.1f'|format(a) }} m → {{ '%.1f'|format(b) }} m <span>({{ '%.1f'|format(b-a) }} m)</span></li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="muted">No burst-tested consumed length found for this batch.</div>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -250,36 +280,6 @@
     </form>
   </div>
 </div>
-
-<div class="hydro-range-grid mt">
-  <div class="card hydro-range-card">
-    <h3 class="hydro-range-title">Remaining Hydrotest Ranges</h3>
-    {% if summary.hydro_remaining_ranges %}
-      <ul class="simple-list hydro-simple-list">
-        {% for a, b in summary.hydro_remaining_ranges %}
-          <li>{{ '%.1f'|format(a) }} m → {{ '%.1f'|format(b) }} m <span>({{ '%.1f'|format(b-a) }} m)</span></li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <div class="muted">No remaining hydrotest range inside finished produced material.</div>
-    {% endif %}
-  </div>
-
-  <div class="card hydro-range-card hydro-range-card-warn">
-    <h3 class="hydro-range-title">Burst-Test Excluded Ranges</h3>
-    {% if summary.burst_ranges %}
-      <ul class="simple-list hydro-simple-list">
-        {% for a, b in summary.burst_ranges %}
-          <li>{{ '%.1f'|format(a) }} m → {{ '%.1f'|format(b) }} m <span>({{ '%.1f'|format(b-a) }} m)</span></li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <div class="muted">No burst-tested consumed length found for this batch.</div>
-    {% endif %}
-  </div>
-</div>
-
-<div class="card mt hydro-records-card">
   <div class="hydro-records-head">
     <h3 class="hydro-range-title">Hydrotest Records</h3>
   </div>
