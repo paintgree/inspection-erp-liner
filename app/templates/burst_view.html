@@ -571,7 +571,9 @@
       <div class="burst-info-grid">
         <div class="burst-info-item">
           <div class="burst-info-label">Batch No</div>
-          <div class="burst-info-value">{{ rep.batch_no or '-' }}</div>
+          <div class="burst-info-value">
+            {{ rep.batch_no or (run.batch_no if run else '-') or '-' }}
+          </div>
         </div>
         <div class="burst-info-item">
           <div class="burst-info-label">Client</div>
@@ -686,6 +688,20 @@
                 <div class="burst-serial-value">
                   {% if s.sample_length_m is not none and (s.sample_length_m|float) > 0 %}
                     {{ ((s.sample_length_m|float) * 1000)|round(1) }} mm
+                  {% else %}
+                    -
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            
+            <div class="burst-length-box">
+              <div class="burst-length-icon">🏷</div>
+              <div>
+                <div class="burst-mini-label">Effective Length</div>
+                <div class="burst-serial-value">
+                  {% if s.effective_length_m is not none and (s.effective_length_m|float) > 0 %}
+                    {{ ((s.effective_length_m|float) * 1000)|round(1) }} mm
                   {% else %}
                     -
                   {% endif %}
