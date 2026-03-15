@@ -1982,6 +1982,310 @@ Burst search + filters
 /* =========================
    Hydro testing
 ========================= */
+.hydro-hero-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:16px;
+  margin-bottom:18px;
+  flex-wrap:wrap;
+}
+
+.hydro-hero-kicker{
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:#64748b;
+  margin-bottom:6px;
+}
+
+.hydro-hero-title{
+  margin:0;
+  font-size:30px;
+  line-height:1.1;
+  font-weight:900;
+  color:#0f172a;
+}
+
+.hydro-hero-subtitle{
+  margin-top:8px;
+  font-size:15px;
+  font-weight:600;
+  color:#475569;
+}
+
+.hydro-overview-card{
+  padding:18px;
+  border-radius:24px;
+}
+
+.hydro-kpi-grid-strong{
+  gap:14px;
+}
+
+.hydro-kpi-card{
+  border:1px solid #dbe2ea;
+  border-radius:18px;
+  padding:16px 18px;
+  background:linear-gradient(180deg,#ffffff 0%, #f8fafc 100%);
+  box-shadow:0 2px 10px rgba(15,23,42,.04);
+}
+
+.hydro-kpi-card .kpi-label{
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.05em;
+  text-transform:uppercase;
+  color:#64748b;
+}
+
+.hydro-kpi-card .kpi-value{
+  margin-top:8px;
+  font-size:28px;
+  line-height:1.1;
+  font-weight:900;
+  color:#0f172a;
+}
+
+.hydro-visual-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:14px;
+  margin:18px 0 10px;
+  flex-wrap:wrap;
+}
+
+.hydro-section-title{
+  font-size:20px;
+  font-weight:900;
+  color:#0f172a;
+  margin-bottom:4px;
+}
+
+.hydro-section-note{
+  font-size:13px;
+  color:#64748b;
+  font-weight:500;
+}
+
+.hydro-track{
+  height:28px;
+  border-radius:999px;
+  background:#e2e8f0;
+  border:1px solid #cbd5e1;
+  box-shadow:inset 0 1px 3px rgba(15,23,42,.08);
+}
+
+.hydro-track-lg{
+  height:32px;
+}
+
+.hydro-seg-tested{
+  background:linear-gradient(180deg,#10b981 0%, #059669 100%);
+}
+
+.hydro-seg-burst{
+  background:linear-gradient(180deg,#f59e0b 0%, #d97706 100%);
+}
+
+.hydro-seg-remaining{
+  background:linear-gradient(180deg,#94a3b8 0%, #64748b 100%);
+}
+
+.hydro-form-card{
+  border-radius:26px;
+  padding:20px;
+}
+
+.hydro-form-head{
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+  margin-bottom:18px;
+}
+
+.hydro-form-icon{
+  width:42px;
+  height:42px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:24px;
+  font-weight:900;
+  color:#4f46e5;
+  background:#eef2ff;
+  flex:0 0 42px;
+}
+
+.hydro-form-title{
+  margin:0;
+  font-size:24px;
+  line-height:1.15;
+  font-weight:900;
+  color:#0f172a;
+}
+
+.hydro-form-subtitle{
+  margin-top:6px;
+  font-size:13px;
+  color:#64748b;
+  font-weight:500;
+}
+
+.hydro-form-grid label{
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:#64748b;
+}
+
+.hydro-form-grid .input,
+.hydro-upload-box .input,
+.hydro-form-card textarea.input,
+.hydro-form-card select.input{
+  margin-top:6px;
+  min-height:46px;
+  border-radius:14px;
+  border:1px solid #cbd5e1;
+  background:#fff;
+  color:#0f172a;
+  font-size:15px;
+  font-weight:600;
+}
+
+.hydro-form-card .input::placeholder{
+  color:#94a3b8;
+  font-weight:500;
+}
+
+.hydro-upload-block{
+  grid-column:1 / -1;
+}
+
+.hydro-upload-box{
+  margin-top:6px;
+  border:1px dashed #cbd5e1;
+  border-radius:18px;
+  padding:18px;
+  background:#f8fafc;
+}
+
+.hydro-upload-text{
+  margin-top:10px;
+  font-size:14px;
+  font-weight:800;
+  color:#334155;
+}
+
+.hydro-upload-note{
+  margin-top:4px;
+  font-size:12px;
+  color:#94a3b8;
+}
+
+.hydro-range-card{
+  border-radius:22px;
+}
+
+.hydro-range-title{
+  margin:0 0 14px;
+  font-size:18px;
+  font-weight:900;
+  color:#0f172a;
+}
+
+.hydro-range-card .simple-list{
+  list-style:none;
+  padding:0;
+  margin:0;
+}
+
+.hydro-range-card .simple-list li{
+  margin:0 0 10px;
+  padding:12px 14px;
+  border:1px solid #dbe2ea;
+  border-radius:14px;
+  background:#fff;
+  font-size:14px;
+  font-weight:700;
+  color:#334155;
+}
+
+.hydro-range-card-warn .simple-list li{
+  border-color:#fde68a;
+  background:#fffbeb;
+}
+
+.hydro-records-card{
+  border-radius:24px;
+}
+
+.hydro-records-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.hydro-page-wide .table th{
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:#64748b;
+}
+
+.hydro-page-wide .table td{
+  font-size:14px;
+  font-weight:600;
+  color:#0f172a;
+}
+
+@media (max-width: 767px){
+  .hydro-hero-title{
+    font-size:24px;
+  }
+
+  .hydro-kpi-card .kpi-value{
+    font-size:22px;
+  }
+
+  .hydro-form-title{
+    font-size:20px;
+  }
+
+  .hydro-range-title{
+    font-size:16px;
+  }
+
+  .hydro-mobile-card{
+    border-radius:22px;
+    padding:18px;
+  }
+
+  .hydro-mobile-title{
+    font-size:20px;
+    font-weight:900;
+  }
+
+  .hydro-mobile-label{
+    font-size:12px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+
+  .hydro-mobile-value{
+    font-size:15px;
+    font-weight:700;
+  }
+}
+
 
 .hydro-note-card{
   padding:12px 16px;
