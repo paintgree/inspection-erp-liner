@@ -7848,7 +7848,7 @@ def final_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
     buf = BytesIO()
@@ -7934,7 +7934,76 @@ def final_batch_pdf(batch_no: str, session: Session = Depends(get_session)):
         body_style
     ))
 
-    doc.build(story)
+    # -------------------------
+    # Page 2: Full reel details
+    # -------------------------
+    story.append(PageBreak())
+    story.append(Paragraph("Detailed Reel List", section_style))
+
+    detail_rows = [[
+        "Phase",
+        "Reel No",
+        "Start (m)",
+        "End (m)",
+        "Length (m)",
+        "OD",
+        "Liner",
+        "Reinf.",
+        "Cover",
+        "Status",
+        "Approved By",
+    ]]
+
+    for row in summary["phases"]:
+        p = row["phase"]
+        phase_title = p.title or f"Phase {p.phase_no}"
+
+        for r in row["reels"]:
+            detail_rows.append([
+                phase_title,
+                r.reel_no or "-",
+                f"{float(getattr(r, 'start_length_m', 0.0) or 0.0):.1f}",
+                f"{float(getattr(r, 'end_length_m', 0.0) or 0.0):.1f}",
+                f"{float(r.reel_length_m or 0.0):.1f}",
+                f"{float(r.od_mm or 0.0):.2f}",
+                f"{float(r.liner_thickness_mm or 0.0):.2f}",
+                f"{float(r.reinforcement_thickness_mm or 0.0):.2f}",
+                f"{float(r.cover_thickness_mm or 0.0):.2f}",
+                p.status or "-",
+                p.approved_by_user_name or "-",
+            ])
+
+    if len(detail_rows) == 1:
+        detail_rows.append(["-", "-", "-", "-", "-", "-", "-", "-", "-", "-", "-"])
+
+    detail_tbl = Table(
+        detail_rows,
+        colWidths=[24*mm, 22*mm, 15*mm, 15*mm, 17*mm, 13*mm, 13*mm, 13*mm, 13*mm, 22*mm, 33*mm],
+        repeatRows=1
+    )
+    detail_tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 7.5),
+        ("BOX", (0, 0), (-1, -1), 0.75, colors.HexColor("#cbd5e1")),
+        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0, 0), (-1, -1), 4),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+    ]))
+    story.append(detail_tbl)
+
+    def _add_footer(canvas_obj, doc_obj):
+        canvas_obj.saveState()
+        canvas_obj.setFont("Helvetica", 9)
+        canvas_obj.setFillColor(colors.grey)
+        canvas_obj.drawString(12 * mm, 8 * mm, "QAP0700-F03")
+        canvas_obj.drawRightString(A4[0] - 12 * mm, 8 * mm, f"Page {doc_obj.page}")
+        canvas_obj.restoreState()
+
+    doc.build(story, onFirstPage=_add_footer, onLaterPages=_add_footer)
 
     pdf_bytes = buf.getvalue()
     filename = f"final_batch_{batch_no}.pdf"
