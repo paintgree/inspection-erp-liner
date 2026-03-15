@@ -689,27 +689,9 @@
             <div class="burst-length-box">
               <div class="burst-length-icon">🏷</div>
               <div>
-                <div class="burst-mini-label">Total Length</div>
+                <div class="burst-mini-label">EFFECTIVE LENGTH</div>
                 <div class="burst-serial-value">
-                  {% if s.sample_length_m is not none and (s.sample_length_m|float) > 0 %}
-                    {{ ((s.sample_length_m|float) * 1000)|round(1) }} mm
-                  {% else %}
-                    -
-                  {% endif %}
-                </div>
-              </div>
-            </div>
-            
-            <div class="burst-length-box">
-              <div class="burst-length-icon">🏷</div>
-              <div>
-                <div class="burst-mini-label">Effective Length</div>
-                <div class="burst-serial-value">
-                  {% if s.effective_length_m is not none and (s.effective_length_m|float) > 0 %}
-                    {{ ((s.effective_length_m|float) * 1000)|round(1) }} mm
-                  {% else %}
-                    -
-                  {% endif %}
+                  {{ (s.effective_length_m|float)|round(1) }} mm
                 </div>
               </div>
             </div>
