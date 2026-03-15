@@ -631,21 +631,20 @@
       </table>
     </div>
 
-    <div class="burst-sign-grid">
-      <div class="burst-sign-box">
-        <div class="burst-sign-title">Digital Signature</div>
-        <div class="burst-sign-line"></div>
-        <div class="burst-sign-meta">
-          <div>
-            <div class="burst-mini-label">Technician</div>
-            <div class="burst-info-value">{{ rep.technician_name or '-' }}</div>
-          </div>
-          <div>
-            <div class="burst-mini-label">Date</div>
-            <div class="burst-info-value">{{ rep.tested_at or rep.created_at or '-' }}</div>
-          </div>
+    <div class="burst-sign-box">
+      <div class="burst-sign-title">Digital Signature</div>
+      <div class="burst-sign-line"></div>
+      <div class="burst-sign-meta">
+        <div>
+          <div class="burst-mini-label">Inspector / QAQC</div>
+          <div class="burst-info-value">{{ inspector_signature_name or rep.qa_qc_officer_name or '-' }}</div>
+        </div>
+        <div>
+          <div class="burst-mini-label">Date</div>
+          <div class="burst-info-value">{{ inspector_signature_date or rep.tested_at or rep.created_at or '-' }}</div>
         </div>
       </div>
+    </div>
 
       <div class="burst-sign-box">
         <div class="burst-sign-title">Digital Signature</div>
