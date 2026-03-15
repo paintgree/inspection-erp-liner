@@ -3966,3 +3966,33 @@ Burst search + filters
   }
 }
 
+/* Hydro layout - move range cards under visual bar */
+.hydro-left-stack{
+  display:grid;
+  gap:16px;
+  min-width:0;
+}
+
+.hydro-range-grid-under{
+  margin-top:0;
+}
+
+.hydro-range-grid-under .hydro-range-card{
+  margin:0;
+}
+
+.hydro-range-grid-under{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:16px;
+}
+
+.hydro-range-grid-under .hydro-range-card{
+  min-height:220px;
+}
+
+@media (max-width: 767px){
+  .hydro-range-grid-under{
+    grid-template-columns:1fr;
+  }
+}
