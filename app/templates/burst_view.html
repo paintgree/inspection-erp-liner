@@ -579,7 +579,13 @@
               <div class="burst-length-icon">🏷</div>
               <div>
                 <div class="burst-mini-label">Total Length</div>
-                <div class="burst-serial-value">{{ s.sample_length_m or '-' }} m</div>
+                <div class="burst-serial-value">
+                  {% if s.sample_length_m is not none and (s.sample_length_m|float) > 0 %}
+                    {{ ((s.sample_length_m|float) * 1000)|round(1) }} mm
+                  {% else %}
+                    -
+                  {% endif %}
+                </div>
               </div>
             </div>
 
