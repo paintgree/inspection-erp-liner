@@ -26,7 +26,7 @@
 </style>
 
 <div class="burst-edit-wrap">
-  {% if not edit_direct_allowed %}
+  {% if rep.published_at and (not edit_direct_allowed) %}
     <div class="burst-alert">
       You are outside the 24-hour edit window. Saving this report will create a pending approval draft. It will only go live after QAQC approval.
     </div>
