@@ -4356,26 +4356,15 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     w, h = A4
     y = _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1, report=report)
 
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(20 * mm, y, "Report Information")
-    y -= 6 * mm
     y = _draw_report_info_table(c, report, 20 * mm, y)
     y -= 8 * mm
-    
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(20 * mm, y, "Specimens")
-    y -= 7 * mm
+
     y = _draw_specimen_blocks(c, report, samples, y)
-
-
 
     if y < 85 * mm:
         c.showPage()
         y = _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1, report=report)
 
-    c.setFont("Helvetica-Bold", 11)
-    c.drawString(20 * mm, y, "Results")
-    y -= 7 * mm
     y = _draw_results_table(c, samples, y)
     _draw_signatures(c, report, y)
 
