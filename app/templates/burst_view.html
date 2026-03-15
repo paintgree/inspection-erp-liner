@@ -437,6 +437,58 @@
     .burst-report-id-box{
       text-align:left;
     }
+
+
+    .burst-alert{
+      border-radius:14px;
+      padding:14px 16px;
+      margin-bottom:16px;
+      border:1px solid #facc15;
+      background:#fef9c3;
+      color:#854d0e;
+      font-weight:700;
+    }
+  
+    .burst-approval-box{
+      border:1px solid #cbd5e1;
+      background:#fff;
+      border-radius:16px;
+      padding:16px;
+      margin-bottom:18px;
+    }
+  
+    .burst-approval-title{
+      font-size:18px;
+      font-weight:900;
+      margin-bottom:8px;
+    }
+  
+    .burst-approval-sub{
+      color:#475569;
+      margin-bottom:12px;
+    }
+  
+    .burst-approval-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+  
+    .burst-inline-form{
+      display:inline-flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+  
+    .burst-note-box{
+      border:1px solid #e2e8f0;
+      background:#f8fafc;
+      border-radius:12px;
+      padding:12px;
+      margin-bottom:16px;
+    }
   }
 </style>
 
@@ -452,6 +504,44 @@
         <a class="btn btn-primary" href="/burst/{{ rep.id }}/pdf" target="_blank">Export PDF</a>
       </div>
     </div>
+
+        {% if not edit_direct_allowed %}
+      <div class="burst-alert">
+        You are outside the 24-hour edit window. Any new changes must go through QAQC approval before they become live.
+      </div>
+    {% endif %}
+
+    {% if latest_pending_revision %}
+      <div class="burst-approval-box">
+        <div class="burst-approval-title">Pending QAQC Approval</div>
+        <div class="burst-approval-sub">
+          This report has a pending revision waiting for approval.
+        </div>
+
+        {% if can_approve_burst %}
+          <div class="burst-approval-actions">
+            <form method="post"
+                  action="/burst/revision/{{ latest_pending_revision.id }}/approve"
+                  class="burst-inline-form"
+                  onsubmit="return confirm('You are approving this burst test with burst value {{ approval_burst_value }} MPa in {{ approval_press_time }} seconds. Continue?');">
+              <button class="btn btn-primary" type="submit">Approve</button>
+            </form>
+
+            <form method="post"
+                  action="/burst/revision/{{ latest_pending_revision.id }}/reject"
+                  class="burst-inline-form"
+                  onsubmit="return confirm('Reject this pending burst revision?');">
+              <input type="text" name="review_comment" placeholder="Reason (optional)">
+              <button class="btn btn-secondary" type="submit">Reject</button>
+            </form>
+          </div>
+        {% else %}
+          <div class="burst-note-box">
+            This revision can be approved by an Inspector or Manager after reviewing the report.
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
 
     <div class="burst-report-card">
       <div class="burst-report-header">
@@ -477,7 +567,7 @@
     </div>
 
     <div class="burst-section">
-      <h2 class="burst-section-title">Report Information</h2>
+      
       <div class="burst-info-grid">
         <div class="burst-info-item">
           <div class="burst-info-label">Batch No</div>
@@ -518,7 +608,7 @@
           <div class="burst-info-value">{{ rep.system_max_pressure or '-' }}</div>
         </div>
         <div class="burst-info-item">
-          <div class="burst-info-label">Specimens</div>
+          
           <div class="burst-info-value">{{ rep.total_no_of_specimens or '-' }}</div>
         </div>
         <div class="burst-info-item">
@@ -592,17 +682,22 @@
             <div class="burst-length-box">
               <div class="burst-length-icon">🏷</div>
               <div>
-                <div class="burst-mini-label">Effective Length</div>
-                <div class="burst-serial-value">{{ s.effective_length_m or '-' }} mm</div>
+                <div class="burst-mini-label">Total Length</div>
+                <div class="burst-serial-value">
+                  {% if s.sample_length_m is not none and (s.sample_length_m|float) > 0 %}
+                    {{ ((s.sample_length_m|float) * 1000)|round(1) }} mm
+                  {% else %}
+                    -
+                  {% endif %}
+                </div>
               </div>
             </div>
-          </div>
         </div>
       {% endfor %}
     </div>
 
     <div class="burst-section">
-      <h2 class="burst-section-title">Results</h2>
+      
 
       <table class="burst-results-table">
         <thead>
@@ -637,17 +732,32 @@
       </table>
     </div>
 
-    <div class="burst-sign-box">
-      <div class="burst-sign-title">Digital Signature</div>
-      <div class="burst-sign-line"></div>
-      <div class="burst-sign-meta">
-        <div>
-          <div class="burst-mini-label">Inspector / QAQC</div>
-          <div class="burst-info-value">{{ inspector_signature_name or rep.qa_qc_officer_name or '-' }}</div>
+    <div class="burst-sign-grid">
+      <div class="burst-sign-box">
+        <div class="burst-sign-line"></div>
+        <div class="burst-sign-meta">
+          <div>
+            <div class="burst-mini-label">Technician</div>
+            <div class="burst-info-value">{{ rep.technician_name or '-' }}</div>
+          </div>
+          <div>
+            <div class="burst-mini-label">Date</div>
+            <div class="burst-info-value">{{ rep.tested_at or rep.created_at or '-' }}</div>
+          </div>
         </div>
-        <div>
-          <div class="burst-mini-label">Date</div>
-          <div class="burst-info-value">{{ inspector_signature_date or rep.tested_at or rep.created_at or '-' }}</div>
+      </div>
+
+      <div class="burst-sign-box">
+        <div class="burst-sign-line"></div>
+        <div class="burst-sign-meta">
+          <div>
+            <div class="burst-mini-label">QAQC Review</div>
+            <div class="burst-info-value">{{ qaqc_review_name or '-' }}</div>
+          </div>
+          <div>
+            <div class="burst-mini-label">Date</div>
+            <div class="burst-info-value">{{ qaqc_review_date or '-' }}</div>
+          </div>
         </div>
       </div>
     </div>
