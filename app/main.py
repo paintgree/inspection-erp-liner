@@ -2393,7 +2393,8 @@ def get_finished_cover_runs(session: Session) -> list[ProductionRun]:
     return finished
 
 
-def _draw_signatures(c, report, y):
+def _draw_signatures(c, report, y, qaqc_name=None, qaqc_date=None):
+
     w, h = A4
 
     if y < 38 * mm:
@@ -2413,8 +2414,10 @@ def _draw_signatures(c, report, y):
     c.line(right_x, top_y - 2 * mm, right_x + 62 * mm, top_y - 2 * mm)
 
     tech_name = _txt(getattr(report, "technician_name", "")) or "-"
-    qaqc_name = _txt(getattr(report, "qa_qc_officer_name", "")) or "-"
+    qaqc_name = _txt(qaqc_name or getattr(report, "qa_qc_officer_name", "")) or "-"
     dt_text = _txt(getattr(report, "tested_at", "") or getattr(report, "created_at", ""))[:10] or "-"
+    qaqc_dt_text = _txt(qaqc_date)[:10] if qaqc_date else dt_text
+
 
     y2 = top_y - 12 * mm
 
@@ -2430,7 +2433,8 @@ def _draw_signatures(c, report, y):
     c.drawString(left_x, y2 - 5 * mm, tech_name)
     c.drawString(left_x + 52 * mm, y2 - 5 * mm, dt_text)
     c.drawString(right_x, y2 - 5 * mm, qaqc_name)
-    c.drawString(right_x + 52 * mm, y2 - 5 * mm, dt_text)
+    c.drawString(right_x + 52 * mm, y2 - 5 * mm, qaqc_dt_text)
+
 
     return y2 - 10 * mm
 
@@ -4265,6 +4269,21 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         .order_by(BurstAttachment.sample_id.asc(), BurstAttachment.uploaded_at.asc())
     ).all()
 
+    latest_approved_revision = session.exec(
+        select(BurstReportRevision)
+        .where(BurstReportRevision.report_id == report.id)
+        .where(BurstReportRevision.status == "APPROVED")
+        .order_by(BurstReportRevision.id.desc())
+    ).first()
+
+    pdf_qaqc_name = (getattr(report, "qa_qc_officer_name", "") or "").strip()
+    pdf_qaqc_date = getattr(report, "tested_at", None) or getattr(report, "created_at", None)
+
+    if latest_approved_revision and (latest_approved_revision.reviewed_by_user_name or "").strip():
+        pdf_qaqc_name = latest_approved_revision.reviewed_by_user_name.strip()
+        pdf_qaqc_date = latest_approved_revision.reviewed_at or pdf_qaqc_date
+
+
     doc_no = _txt(getattr(report, "doc_control_no", "")) or "QAW1401-F01"
     pages: list[bytes] = []
 
@@ -4366,7 +4385,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         y = _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1, report=report)
 
     y = _draw_results_table(c, samples, y)
-    _draw_signatures(c, report, y)
+    _draw_signatures(c, report, y, pdf_qaqc_name, pdf_qaqc_date)
 
     c.showPage()
     c.save()
