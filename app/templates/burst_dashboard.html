@@ -19,9 +19,9 @@
 
   <div class="burst-filters">
     <button type="button" class="burst-filter-btn active" onclick="setBurstFilter('all', this)">All</button>
-    <button type="button" class="burst-filter-btn" onclick="setBurstFilter('published', this)">Published</button>
+    <button type="button" class="burst-filter-btn" onclick="setBurstFilter('approved', this)">Approved</button>
+    <button type="button" class="burst-filter-btn" onclick="setBurstFilter('pending', this)">Waiting</button>
     <button type="button" class="burst-filter-btn" onclick="setBurstFilter('editable', this)">Editable</button>
-    <button type="button" class="burst-filter-btn" onclick="setBurstFilter('pending', this)">Pending</button>
     <button type="button" class="burst-filter-btn" onclick="setBurstFilter('pass', this)">Pass</button>
     <button type="button" class="burst-filter-btn" onclick="setBurstFilter('fail', this)">Fail</button>
   </div>
@@ -48,18 +48,18 @@
           {% set burst_value = burst_map.get(r.id, 0) or 0 %}
           {% set result_value = result_map.get(r.id, "") %}
 
-          {% if r.current_revision_status == "PENDING_APPROVAL" %}
-            {% set status_key = "pending" %}
-            {% set status_label = "Pending Approval" %}
-            {% set status_badge_class = "badge-pending" %}
+            {% if r.is_locked or r.current_revision_status == "APPROVED" %}
+            {% set status_key = "approved" %}
+            {% set status_label = "Approved" %}
+            {% set status_badge_class = "badge-published" %}
           {% elif (not r.published_at) or (r.edit_window_until and r.edit_window_until > now_utc) %}
             {% set status_key = "editable" %}
             {% set status_label = "Editable" %}
             {% set status_badge_class = "badge-editable" %}
           {% else %}
-            {% set status_key = "published" %}
-            {% set status_label = "Published" %}
-            {% set status_badge_class = "badge-published" %}
+            {% set status_key = "pending" %}
+            {% set status_label = "Waiting for Approval" %}
+            {% set status_badge_class = "badge-pending" %}
           {% endif %}
 
           <tr
@@ -97,18 +97,18 @@
     {% set burst_value = burst_map.get(r.id, 0) or 0 %}
     {% set result_value = result_map.get(r.id, "") %}
 
-    {% if r.current_revision_status == "PENDING_APPROVAL" %}
-      {% set status_key = "pending" %}
-      {% set status_label = "Pending Approval" %}
-      {% set status_badge_class = "badge-pending" %}
-    {% elif r.edit_window_until and r.edit_window_until > r.tested_at %}
+      {% if r.is_locked or r.current_revision_status == "APPROVED" %}
+      {% set status_key = "approved" %}
+      {% set status_label = "Approved" %}
+      {% set status_badge_class = "badge-published" %}
+    {% elif (not r.published_at) or (r.edit_window_until and r.edit_window_until > now_utc) %}
       {% set status_key = "editable" %}
       {% set status_label = "Editable" %}
       {% set status_badge_class = "badge-editable" %}
     {% else %}
-      {% set status_key = "published" %}
-      {% set status_label = "Published" %}
-      {% set status_badge_class = "badge-published" %}
+      {% set status_key = "pending" %}
+      {% set status_label = "Waiting for Approval" %}
+      {% set status_badge_class = "badge-pending" %}
     {% endif %}
 
     <a
