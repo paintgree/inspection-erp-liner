@@ -3336,6 +3336,35 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
         .order_by(BurstReportRevision.id.desc())
     ).all()
 
+    latest_pending_revision = pending_revisions[0] if pending_revisions else None
+
+    latest_approved_revision = session.exec(
+        select(BurstReportRevision)
+        .where(BurstReportRevision.report_id == report_id)
+        .where(BurstReportRevision.status == "APPROVED")
+        .order_by(BurstReportRevision.id.desc())
+    ).first()
+
+    qaqc_review_name = "-"
+    qaqc_review_date = rep.tested_at or rep.created_at
+
+    if latest_approved_revision and (latest_approved_revision.reviewed_by_user_name or "").strip():
+        qaqc_review_name = latest_approved_revision.reviewed_by_user_name.strip()
+        qaqc_review_date = latest_approved_revision.reviewed_at or qaqc_review_date
+
+    can_approve_burst = (getattr(user, "role", "") or "").strip().upper() in ["INSPECTOR", "MANAGER"]
+
+    approval_burst_value = "-"
+    approval_press_time = "-"
+
+    preview_samples = samples[: max(1, int(rep.total_no_of_specimens or 1))]
+    if preview_samples:
+        s0 = preview_samples[0]
+        if float(getattr(s0, "actual_burst_psi", 0.0) or 0.0) > 0:
+            approval_burst_value = f"{float(getattr(s0, 'actual_burst_psi', 0.0) or 0.0):.1f}"
+        if (getattr(s0, "pressurization_time_s", "") or "").strip():
+            approval_press_time = (getattr(s0, "pressurization_time_s", "") or "").strip()
+    
     latest_approved_revision = session.exec(
         select(BurstReportRevision)
         .where(BurstReportRevision.report_id == report_id)
@@ -3392,9 +3421,13 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             "att_map": att_map,
             "crop_meta": crop_meta,
             "pending_revisions": pending_revisions,
+            "latest_pending_revision": latest_pending_revision,
             "edit_direct_allowed": edit_direct_allowed,
-            "inspector_signature_name": inspector_signature_name,
-            "inspector_signature_date": inspector_signature_date,
+            "qaqc_review_name": qaqc_review_name,
+            "qaqc_review_date": qaqc_review_date,
+            "can_approve_burst": can_approve_burst,
+            "approval_burst_value": approval_burst_value,
+            "approval_press_time": approval_press_time,
         },
     )
 
