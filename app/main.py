@@ -3290,9 +3290,29 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
     # -----------------------------
     # Attachments for template
     # -----------------------------
-    samples = session.exec(
-        select(BurstSample).where(BurstSample.report_id == rep.id)
+    raw_samples = session.exec(
+        select(BurstSample)
+        .where(BurstSample.report_id == rep.id)
+        .order_by(BurstSample.id.asc())
     ).all()
+
+    def _sample_has_data(s):
+        return any([
+            bool((getattr(s, "sample_serial_number", "") or "").strip()),
+            float(getattr(s, "sample_length_m", 0.0) or 0.0) > 0,
+            float(getattr(s, "effective_length_m", 0.0) or 0.0) > 0,
+            float(getattr(s, "actual_burst_psi", 0.0) or 0.0) > 0,
+            bool((getattr(s, "pressurization_time_s", "") or "").strip()),
+            bool((getattr(s, "test_result", "") or "").strip()),
+            bool((getattr(s, "liner_material_grade", "") or "").strip()),
+            bool((getattr(s, "reinforcement_material_grade", "") or "").strip()),
+            bool((getattr(s, "cover_material_grade", "") or "").strip()),
+        ])
+
+    samples = sorted(
+        raw_samples,
+        key=lambda s: (0 if _sample_has_data(s) else 1, s.id or 0)
+    )
 
     audit = session.exec(
         select(BurstAuditLog)
