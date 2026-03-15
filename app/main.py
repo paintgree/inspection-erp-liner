@@ -2679,7 +2679,6 @@ def _burst_snapshot(rep: BurstTestReport, samples: list["BurstSample"]) -> dict:
             "test_result": rep.test_result,
             "failure_mode": rep.failure_mode,
             "notes": rep.notes,
-            "qa_qc_officer_name": rep.qa_qc_officer_name,
             "technician_name": rep.technician_name,
         },
         "samples": [
@@ -2775,7 +2774,6 @@ def _build_burst_snapshot_from_form(rep: BurstTestReport, samples: list["BurstSa
             "test_result": "",
             "failure_mode": (form.get("failure_mode") or "").strip(),
             "notes": (form.get("notes") or "").strip(),
-            "qa_qc_officer_name": (form.get("qa_qc_officer_name") or "").strip(),
             "technician_name": (form.get("technician_name") or "").strip(),
         },
         "samples": [],
@@ -3212,6 +3210,13 @@ def burst_edit(report_id: int, request: Request, session: Session = Depends(get_
         if real_path:
             crop_meta[sid][kind] = _load_burst_image_meta(real_path)
 
+    edit_direct_allowed = (
+        not rep.published_at
+        or not rep.edit_window_until
+        or datetime.utcnow() <= rep.edit_window_until
+        or _is_manager_or_boss(user)
+    )
+
     return templates.TemplateResponse(
         "burst_edit.html",
         {
@@ -3223,6 +3228,7 @@ def burst_edit(report_id: int, request: Request, session: Session = Depends(get_
             "samples": samples,
             "att_map": att_map,
             "crop_meta": crop_meta,
+            "edit_direct_allowed": edit_direct_allowed,
         },
     )
     
@@ -3423,7 +3429,6 @@ async def burst_update(
     notes: str = Form(""),
 
     # signatures
-    qa_qc_officer_name: str = Form(""),
     testing_operator_name: str = Form(""),
 
     # NEW: control behavior from UI buttons (default: save only)
