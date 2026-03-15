@@ -3087,6 +3087,8 @@ async def burst_upload_attachments(
     crop_chart: str = Form(""),
     session: Session = Depends(get_session),
 ):
+
+    user = get_current_user(request, session)
     rep = session.get(BurstTestReport, report_id)
     if not rep:
         raise HTTPException(404, "Burst report not found")
