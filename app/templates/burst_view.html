@@ -503,6 +503,11 @@
       <div class="burst-topbar-right">
         <a class="btn btn-primary" href="/burst/{{ rep.id }}/pdf" target="_blank">Export PDF</a>
       </div>
+      {% if not latest_pending_revision and not rep.is_locked %}
+        <form method="post" action="/burst/{{ rep.id }}/submit-approval" class="burst-inline-form">
+          <button class="btn btn-primary" type="submit">Submit for Approval</button>
+        </form>
+      {% endif %}
     </div>
 
     {% if rep.published_at and (not edit_direct_allowed) %}
@@ -610,7 +615,7 @@
           <div class="burst-info-value">{{ rep.system_max_pressure or '-' }}</div>
         </div>
         <div class="burst-info-item">
-          
+          <div class="burst-info-label">Specimens</div>
           <div class="burst-info-value">{{ rep.total_no_of_specimens or '-' }}</div>
         </div>
         <div class="burst-info-item">
