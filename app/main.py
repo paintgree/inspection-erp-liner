@@ -3332,6 +3332,20 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
         .order_by(BurstReportRevision.id.desc())
     ).all()
 
+    latest_approved_revision = session.exec(
+        select(BurstReportRevision)
+        .where(BurstReportRevision.report_id == report_id)
+        .where(BurstReportRevision.status == "APPROVED")
+        .order_by(BurstReportRevision.id.desc())
+    ).first()
+
+    inspector_signature_name = (rep.qa_qc_officer_name or "").strip()
+    inspector_signature_date = rep.tested_at or rep.created_at
+
+    if latest_approved_revision and (latest_approved_revision.reviewed_by_user_name or "").strip():
+        inspector_signature_name = latest_approved_revision.reviewed_by_user_name.strip()
+        inspector_signature_date = latest_approved_revision.reviewed_at or inspector_signature_date
+
     edit_direct_allowed = (
         not rep.published_at
         or not rep.edit_window_until
@@ -3375,6 +3389,8 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
             "crop_meta": crop_meta,
             "pending_revisions": pending_revisions,
             "edit_direct_allowed": edit_direct_allowed,
+            "inspector_signature_name": inspector_signature_name,
+            "inspector_signature_date": inspector_signature_date,
         },
     )
 
@@ -3989,7 +4005,8 @@ def _draw_specimen_blocks(c, report, samples, start_y):
 
         c.setFont("Helvetica-Bold", 7)
         c.setFillColor(colors.black)
-        c.drawString(x0 + 10 * mm, row_y - 3 * mm, f"{_txt(getattr(s, 'sample_length_m', ''))} m")
+        sample_len_mm = float(getattr(s, "sample_length_m", 0.0) or 0.0) * 1000.0
+        c.drawString(x0 + 10 * mm, row_y - 3 * mm, f"{sample_len_mm:.1f} mm" if sample_len_mm > 0 else "-")
         c.drawString(x0 + 78 * mm, row_y - 3 * mm, f"{_txt(getattr(s, 'effective_length_m', ''))} mm")
 
         y = y - block_h - 8 * mm
@@ -4102,7 +4119,7 @@ def burst_revision_approve(
     session: Session = Depends(get_session),
 ):
     user = get_current_user(request, session)
-    require_manager(user)
+    require_burst_approver(user)
 
     rev = session.get(BurstReportRevision, revision_id)
     if not rev:
@@ -4148,7 +4165,7 @@ async def burst_revision_reject(
     review_comment: str = Form(""),
 ):
     user = get_current_user(request, session)
-    require_manager(user)
+    require_burst_approver(user)
 
     rev = session.get(BurstReportRevision, revision_id)
     if not rev:
@@ -5087,6 +5104,10 @@ def get_current_user(request: Request, session: Session) -> User:
 def require_manager(user: User):
     if (getattr(user, "role", "") or "").strip().upper() != "MANAGER":
         raise HTTPException(403, "Manager only")
+
+def require_burst_approver(user: User):
+    if (getattr(user, "role", "") or "").strip().upper() not in ["INSPECTOR", "MANAGER"]:
+        raise HTTPException(403, "Inspector or Manager only")
 
 def _can_hydro_approve(user: User) -> bool:
     return (getattr(user, "role", "") or "").strip().upper() in ["INSPECTOR", "MANAGER"]
