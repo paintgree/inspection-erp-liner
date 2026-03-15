@@ -2405,9 +2405,7 @@ def _draw_signatures(c, report, y):
     top_y = y
 
     c.setFont("Helvetica-Oblique", 9)
-    c.setFillColor(colors.HexColor("#64748b"))
-    c.drawString(left_x, top_y, "Digital Signature")
-    c.drawString(right_x, top_y, "Digital Signature")
+    
 
     c.setStrokeColor(colors.HexColor("#cbd5e1"))
     c.setLineWidth(0.5)
@@ -2415,7 +2413,7 @@ def _draw_signatures(c, report, y):
     c.line(right_x, top_y - 2 * mm, right_x + 62 * mm, top_y - 2 * mm)
 
     tech_name = _txt(getattr(report, "technician_name", "")) or "-"
-    insp_name = _txt(getattr(report, "created_by_user_name", "")) or "-"
+    qaqc_name = _txt(getattr(report, "qa_qc_officer_name", "")) or "-"
     dt_text = _txt(getattr(report, "tested_at", "") or getattr(report, "created_at", ""))[:10] or "-"
 
     y2 = top_y - 12 * mm
@@ -2424,14 +2422,14 @@ def _draw_signatures(c, report, y):
     c.setFillColor(colors.HexColor("#94a3b8"))
     c.drawString(left_x, y2, "TECHNICIAN")
     c.drawString(left_x + 52 * mm, y2, "DATE")
-    c.drawString(right_x, y2, "INSPECTOR")
+    c.drawString(right_x, y2, "QAQC REVIEW")
     c.drawString(right_x + 52 * mm, y2, "DATE")
 
     c.setFont("Helvetica-Bold", 7)
     c.setFillColor(colors.black)
     c.drawString(left_x, y2 - 5 * mm, tech_name)
     c.drawString(left_x + 52 * mm, y2 - 5 * mm, dt_text)
-    c.drawString(right_x, y2 - 5 * mm, insp_name)
+    c.drawString(right_x, y2 - 5 * mm, qaqc_name)
     c.drawString(right_x + 52 * mm, y2 - 5 * mm, dt_text)
 
     return y2 - 10 * mm
