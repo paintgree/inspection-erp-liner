@@ -4992,19 +4992,12 @@ def mrr_export_inspection_package(
 
     # Documents: include both shipment-specific and ticket-level (PO usually ticket-level)
     all_docs = session.exec(
-        select(MrrDocument)
-        .where(MrrDocument.ticket_id == lot_id)
-        .order_by(MrrDocument.created_at.asc())
+        select(MrrUploadedDoc)
+        .where(MrrUploadedDoc.ticket_id == lot_id)
+        .order_by(MrrUploadedDoc.created_at.asc())
     ).all()
 
-   # Filter docs relevant to this shipment package:
-    # 1) Always include shipment-attached docs for this inspection_id
-    # 2) Always include ticket-level PO
-    # 3) ALSO include ticket-level docs that match this shipment DN by doc_number
     shipment_dn = (getattr(insp, "delivery_note_no", "") or "").strip()
-    
-    docs_for_package = []
-        shipment_dn = (getattr(insp, "delivery_note_no", "") or "").strip()
 
     docs_for_package = []
     seen_ids = set()
@@ -5018,7 +5011,7 @@ def mrr_export_inspection_package(
         dt = (getattr(d, "doc_type", "") or "").upper().strip()
         dn = (getattr(d, "doc_number", "") or "").strip()
 
-        # 1) directly attached to this shipment
+        # 1) directly attached to this inspection
         if d_insp == inspection_id:
             if d_id not in seen_ids:
                 docs_for_package.append(d)
@@ -5032,19 +5025,20 @@ def mrr_export_inspection_package(
                 seen_ids.add(d_id)
             continue
 
-        # 3) ticket-level DN that matches this shipment DN
+        # 3) ticket-level delivery note matching this shipment
         if d_insp is None and dt == "DELIVERY_NOTE" and shipment_dn and dn == shipment_dn:
             if d_id not in seen_ids:
                 docs_for_package.append(d)
                 seen_ids.add(d_id)
             continue
 
-        # 4) quality docs should be included for the shipment package
+        # 4) other supporting quality documents
         if d_insp is None and dt in ["COA", "MTC", "INSPECTION_REPORT", "RELATED", "GENERAL"]:
             if d_id not in seen_ids:
                 docs_for_package.append(d)
                 seen_ids.add(d_id)
-            continue
+
+    pdf_parts = []
 
     # Photos for this shipment
     photos = session.exec(
