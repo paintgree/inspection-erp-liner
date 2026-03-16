@@ -4806,6 +4806,25 @@ def _try_convert_xlsx_to_pdf_bytes(xlsx_bytes: bytes) -> bytes:
 
 
 
+def _merge_pdf_bytes_in_order(pdf_parts: list[bytes]) -> bytes:
+    writer = PdfWriter()
+
+    for part in pdf_parts or []:
+        if not part:
+            continue
+        try:
+            reader = PdfReader(BytesIO(part))
+            for page in reader.pages:
+                writer.add_page(page)
+        except Exception:
+            continue
+
+    out = BytesIO()
+    writer.write(out)
+    out.seek(0)
+    return out.read()
+    
+
 @app.get("/mrr/{lot_id}/inspection/id/{inspection_id}/export/pdf")
 def mrr_export_inspection_pdf(
     lot_id: int,
@@ -10623,6 +10642,20 @@ def shipment_inspection_form(
     if not isinstance(data, dict):
         data = {}
 
+    photo_rows = session.exec(
+        select(MrrInspectionPhoto)
+        .where(MrrInspectionPhoto.ticket_id == lot_id)
+        .where(MrrInspectionPhoto.inspection_id == inspection_id)
+        .order_by(MrrInspectionPhoto.created_at.asc())
+    ).all()
+
+    photo_groups = {}
+    for p in photo_rows:
+        g = (p.group_name or "General").strip() or "General"
+        photo_groups.setdefault(g, []).append(p)
+
+    photo_error = request.query_params.get("photo_error", "")
+    
     # ✅ IMPORTANT: read query messages so reviewer understands what happened
     error = request.query_params.get("error", "")
     success = request.query_params.get("success", "")
@@ -10639,6 +10672,8 @@ def shipment_inspection_form(
             "user": user,
             "ticket": lot,
             "inspection": inspection,
+            "photo_groups": photo_groups,
+            "photo_error": photo_error,
 
             # ✅ IMPORTANT: give template the name it actually uses
             "inspection_data": data,
@@ -12669,7 +12704,6 @@ async def mrr_photo_upload(
     if not insp or insp.ticket_id != lot_id:
         raise HTTPException(404, "Shipment inspection not found")
 
-    # Prevent edits after approval (manager lock)
     if insp.manager_approved:
         return RedirectResponse(
             f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=Inspection%20is%20approved.%20Photos%20cannot%20be%20changed.",
@@ -12679,45 +12713,63 @@ async def mrr_photo_upload(
     g = (group_name or "General").strip() or "General"
     cap = (caption or "").strip()
 
-    if not photos or len(photos) == 0:
+    if not photos:
         return RedirectResponse(
             f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=Please%20select%20at%20least%20one%20photo",
             status_code=303,
         )
 
-    # Store under: DATA_DIR/mrr_photos/<ticket>/<inspection>/
     base = os.path.join(MRR_PHOTO_DIR, f"ticket_{lot_id}", f"insp_{inspection_id}")
     os.makedirs(base, exist_ok=True)
 
+    saved_any = False
+
     for f in photos:
-        # basic image validation
+        if not f or not getattr(f, "filename", ""):
+            continue
+
         ct = (f.content_type or "").lower()
         if not ct.startswith("image/"):
             continue
 
         ext = _safe_ext(f.filename)
         ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
-        out_path = os.path.join(base, f"{ts}{ext}")
+        filename = f"{ts}{ext}"
+        abs_path = os.path.join(base, filename)
 
         content = await f.read()
-        with open(out_path, "wb") as w:
+        if not content:
+            continue
+
+        with open(abs_path, "wb") as w:
             w.write(content)
+
+        rel_path = os.path.relpath(abs_path, MRR_PHOTO_DIR)
 
         photo = MrrInspectionPhoto(
             ticket_id=lot.id,
-            inspection_id=inspection.id,
-            group_name=group_name,
-            caption=caption or "",
-            file_path=file_path,
+            inspection_id=insp.id,
+            group_name=g,
+            caption=cap,
+            file_path=rel_path,
             uploaded_by_user_id=user.id,
             uploaded_by_user_name=user.display_name,
         )
-
-        session.add(rec)
+        session.add(photo)
+        saved_any = True
 
     session.commit()
 
-    return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}", status_code=303)
+    if not saved_any:
+        return RedirectResponse(
+            f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=No%20valid%20image%20files%20were%20uploaded",
+            status_code=303,
+        )
+
+    return RedirectResponse(
+        f"/mrr/{lot_id}/inspection/id/{inspection_id}?success=Photos%20uploaded",
+        status_code=303,
+    )
 
 
 @app.post("/mrr/{lot_id}/inspection/id/{inspection_id}/photos/{photo_id}/delete")
