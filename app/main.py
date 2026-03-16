@@ -586,8 +586,8 @@ def fill_mrr_f01_xlsx_bytes(
         pass
 
     _apply_excel_print_fit_settings_f01(wb)
-    
-        return _xlsx_bytes_from_wb(wb)
+    return _xlsx_bytes_from_wb(wb)
+        
 
     # ---- VISUAL + DOC REVIEW (use fixed row mapping; match Jinja keys exactly) ----
 
