@@ -2163,6 +2163,57 @@ IMAGE_MAP = {
     "COVER": "/static/images/cover.png",
 }
 
+LAYER_USE_CHOICES = ["LINER", "REINFORCEMENT", "COVER"]
+
+def _normalize_layer_use(value: str) -> str:
+    v = (value or "").strip().upper()
+    return v if v in LAYER_USE_CHOICES else ""
+
+def _csv_to_list(value: str) -> list[str]:
+    return [x.strip() for x in (value or "").split("|") if x.strip()]
+
+def _list_to_csv(values: list[str]) -> str:
+    seen = []
+    for v in values or []:
+        t = (v or "").strip()
+        if t and t not in seen:
+            seen.append(t)
+    return "|".join(seen)
+
+def _approved_raw_material_names_by_layer(session: Session, layer_use: str) -> list[str]:
+    layer_use = _normalize_layer_use(layer_use)
+    if not layer_use:
+        return []
+
+    rows = session.exec(
+        select(MaterialLot.material_name)
+        .where(MaterialLot.status == "APPROVED")
+        .where(MaterialLot.lot_type == "RAW")
+        .where(MaterialLot.layer_use == layer_use)
+        .where(MaterialLot.material_name != "")
+        .distinct()
+        .order_by(MaterialLot.material_name)
+    ).all()
+
+    return [r for r in rows if (r or "").strip()]
+
+def _approved_raw_lots_for_run(session: Session, run: ProductionRun) -> list[MaterialLot]:
+    q = (
+        select(MaterialLot)
+        .where(MaterialLot.status == "APPROVED")
+        .where(MaterialLot.lot_type == "RAW")
+        .where(MaterialLot.layer_use == (run.process or "").strip().upper())
+        .order_by(MaterialLot.material_name, MaterialLot.batch_no)
+    )
+
+    lots = session.exec(q).all()
+    allowed_names = _csv_to_list(getattr(run, "allowed_material_names_csv", ""))
+
+    if allowed_names:
+        lots = [lot for lot in lots if (lot.material_name or "").strip() in allowed_names]
+
+    return lots
+
 PAPER_BG_MAP = {
     "LINER": os.path.join(BASE_DIR, "static", "papers", "liner_bg.pdf"),
     "REINFORCEMENT": os.path.join(BASE_DIR, "static", "papers", "reinforcement_bg.pdf"),
