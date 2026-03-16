@@ -586,7 +586,7 @@ def fill_mrr_f01_xlsx_bytes(
         pass
 
     _apply_excel_print_fit_settings_f01(wb)
-    return _xlsx_bytes_from_wb(wb)
+    
 
 
     # ---- VISUAL + DOC REVIEW (use fixed row mapping; match Jinja keys exactly) ----
@@ -669,10 +669,14 @@ def fill_mrr_f01_xlsx_bytes(
     v_text = "Verified and Confirmed"
     h_text = "On Hold (Specify Reason Below)"
     n_text = "Non-Conformity"
-
-    _ws_set_value_safe(ws, "A44", f"✓ {v_text}" if status == "VERIFIED" else v_text)
-    _ws_set_value_safe(ws, "D44", f"✓ {h_text}" if status == "HOLD" else h_text)
-    _ws_set_value_safe(ws, "G44", f"✓ {n_text}" if status == "NONCONFORM" else n_text)
+    
+    status = ""
+    if status_raw in ["VERIFIED", "VERIFIED_CONFIRMED", "VERIFIED AND CONFIRMED"]:
+        status = "VERIFIED"
+    elif status_raw in ["HOLD", "ON_HOLD", "ON HOLD"]:
+        status = "HOLD"
+    elif status_raw in ["NONCONFORM", "NON_CONFORMITY", "NON-CONFORMITY", "NON CONFORMITY"]:
+        status = "NONCONFORM"
 
     # ---- COMMENTS BOX (A46:J48 merged) ----
     remarks = (data.get("remarks") or "").strip()
@@ -5000,26 +5004,47 @@ def mrr_export_inspection_package(
     shipment_dn = (getattr(insp, "delivery_note_no", "") or "").strip()
     
     docs_for_package = []
+        shipment_dn = (getattr(insp, "delivery_note_no", "") or "").strip()
+
+    docs_for_package = []
+    seen_ids = set()
+
     for d in all_docs:
+        if getattr(d, "is_deleted", False):
+            continue
+
+        d_id = getattr(d, "id", None)
         d_insp = getattr(d, "inspection_id", None)
         dt = (getattr(d, "doc_type", "") or "").upper().strip()
         dn = (getattr(d, "doc_number", "") or "").strip()
-    
-        # exact shipment link
+
+        # 1) directly attached to this shipment
         if d_insp == inspection_id:
-            docs_for_package.append(d)
+            if d_id not in seen_ids:
+                docs_for_package.append(d)
+                seen_ids.add(d_id)
             continue
-    
-        # ticket-level docs: include PO always
-        if d_insp is None:
-            if dt == "PO":
+
+        # 2) ticket-level PO always include
+        if d_insp is None and dt == "PO":
+            if d_id not in seen_ids:
                 docs_for_package.append(d)
-                continue
-    
-            # include shipment-related docs if doc_number matches shipment DN
-            if shipment_dn and dn and dn == shipment_dn:
+                seen_ids.add(d_id)
+            continue
+
+        # 3) ticket-level DN that matches this shipment DN
+        if d_insp is None and dt == "DELIVERY_NOTE" and shipment_dn and dn == shipment_dn:
+            if d_id not in seen_ids:
                 docs_for_package.append(d)
-                continue
+                seen_ids.add(d_id)
+            continue
+
+        # 4) quality docs should be included for the shipment package
+        if d_insp is None and dt in ["COA", "MTC", "INSPECTION_REPORT", "RELATED", "GENERAL"]:
+            if d_id not in seen_ids:
+                docs_for_package.append(d)
+                seen_ids.add(d_id)
+            continue
 
     # Photos for this shipment
     photos = session.exec(
