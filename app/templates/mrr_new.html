@@ -30,10 +30,23 @@
     </select>
 
     <label>Lot Type</label>
-    <select name="lot_type">
+    <select name="lot_type" id="lot_type">
       <option value="RAW">RAW</option>
       <option value="OUTSOURCED">OUTSOURCED</option>
     </select>
+
+    <div id="layerUseWrap">
+      <label>Layer Use</label>
+      <select name="layer_use" id="layer_use">
+        <option value="">-- select layer --</option>
+        <option value="LINER">LINER</option>
+        <option value="REINFORCEMENT">REINFORCEMENT</option>
+        <option value="COVER">COVER</option>
+      </select>
+      <div class="muted tiny mt">
+        Only RAW material with a layer assignment can be used in production runs.
+      </div>
+    </div>
 
     <div class="mt">
       <button class="btn btn-primary" type="submit">
@@ -44,6 +57,25 @@
 
   </form>
 </div>
+
+<script>
+  (function () {
+    const lotType = document.getElementById("lot_type");
+    const wrap = document.getElementById("layerUseWrap");
+    const layer = document.getElementById("layer_use");
+    if (!lotType || !wrap || !layer) return;
+
+    function syncLayerUse() {
+      const isRaw = lotType.value === "RAW";
+      wrap.style.display = isRaw ? "" : "none";
+      layer.required = isRaw;
+      if (!isRaw) layer.value = "";
+    }
+
+    lotType.addEventListener("change", syncLayerUse);
+    syncLayerUse();
+  })();
+</script>
 
 {% endblock %}
 
