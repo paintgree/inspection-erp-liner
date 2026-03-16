@@ -587,7 +587,7 @@ def fill_mrr_f01_xlsx_bytes(
 
     _apply_excel_print_fit_settings_f01(wb)
     
-
+        return _xlsx_bytes_from_wb(wb)
 
     # ---- VISUAL + DOC REVIEW (use fixed row mapping; match Jinja keys exactly) ----
 
@@ -664,7 +664,7 @@ def fill_mrr_f01_xlsx_bytes(
             _ws_set_value_safe(ws, f"I{r}", rm)
 
     # ---- APPROVAL STATUS (do NOT overwrite text; keep text + add ✓) ----
-    status = (data.get("approval_status") or "").strip().upper()
+    status_raw = (data.get("approval_status") or "").strip().upper()
 
     v_text = "Verified and Confirmed"
     h_text = "On Hold (Specify Reason Below)"
@@ -4847,8 +4847,8 @@ def mrr_export_inspection_pdf(
         raise HTTPException(404, "MRR Inspection not found")
 
     # Only allow export if submitted OR manager approved
-    if not (getattr(insp, "inspector_confirmed", False) or getattr(insp, "manager_approved", False)):
-        raise HTTPException(400, "Inspection must be submitted before export")
+    if not getattr(insp, "inspection_json", None):
+        raise HTTPException(400, "Inspection has no saved data yet")
 
     docs = session.exec(
         select(MrrDocument)
