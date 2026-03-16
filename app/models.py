@@ -52,6 +52,7 @@ class ProductionRun(SQLModel, table=True):
     itp_number: str = Field(default="")
     pipe_specification: str = Field(default="")
     raw_material_spec: str = Field(default="")
+    allowed_material_names_csv: str = Field(default="")
 
     total_length_m: float = Field(default=0.0)
 
@@ -163,6 +164,7 @@ class MaterialLot(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
     lot_type: str = Field(default="RAW", index=True)  # RAW / OUTSOURCED
+    layer_use: str = Field(default="", index=True)    # LINER / REINFORCEMENT / COVER / ""
 
     batch_no: str = Field(default="", index=True)
     material_name: str = Field(default="")
