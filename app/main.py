@@ -10521,7 +10521,7 @@ def run_new_post(
     # keep order predictable
     ordered = [p for p in ["LINER", "REINFORCEMENT", "COVER"] if p in chosen]
 
-        selected_processes = [p.strip().upper() for p in (selected_processes or []) if p.strip()]
+    selected_processes = [p.strip().upper() for p in (selected_processes or []) if p.strip()]
     selected_processes = [p for p in selected_processes if p in LAYER_USE_CHOICES]
 
     material_map = {
