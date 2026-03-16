@@ -2508,7 +2508,8 @@ def _create_run_with_default_params(
         po_number=(po_number or "").strip(),
         itp_number=(itp_number or "").strip(),
         pipe_specification=(pipe_specification or "").strip(),
-        raw_material_spec=(raw_material_spec or "").strip(),
+        raw_material_spec=", ".join(material_map.get(process, [])),
+        allowed_material_names_csv=_list_to_csv(material_map.get(process, [])),
         total_length_m=float(total_length_m or 0.0),
     )
     session.add(run)
@@ -9137,6 +9138,7 @@ def mrr_new_get(request: Request, session: Session = Depends(get_session)):
             "request": request,
             "user": user,
             "error": "",
+            
         },
     )
 
@@ -9149,6 +9151,7 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
 
     material_name = str(form.get("material_name", "")).strip()
     supplier_name = str(form.get("supplier_name", "")).strip()
+    layer_use: str = Form(""),
 
     lot_type = str(form.get("lot_type", "RAW")).strip().upper()
     if lot_type not in ["RAW", "OUTSOURCED"]:
@@ -9168,6 +9171,13 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
     if quantity_unit not in ["KG", "T", "PCS"]:
         quantity_unit = "KG"
 
+
+    lot_type = (lot_type or "RAW").strip().upper()
+    layer_use = _normalize_layer_use(layer_use)
+
+    if lot_type != "RAW":
+        layer_use = ""
+    
     lot = MaterialLot(
         lot_type=lot_type,
         batch_no="",  # ✅ DO NOT auto-generate batch here
@@ -9178,6 +9188,7 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
         quantity_unit=quantity_unit,
         received_total=0.0,
         status="PENDING",
+        layer_use=layer_use,
     )
 
     session.add(lot)
@@ -10456,6 +10467,11 @@ def run_new_get(request: Request, session: Session = Depends(get_session)):
     if (user.role or "").upper() not in ["MANAGER", "RUN_CREATOR"]:
         raise HTTPException(403, "Manager only")
 
+
+    liner_materials = _approved_raw_material_names_by_layer(session, "LINER")
+    reinforcement_materials = _approved_raw_material_names_by_layer(session, "REINFORCEMENT")
+    cover_materials = _approved_raw_material_names_by_layer(session, "COVER")
+    
     return templates.TemplateResponse(
         "run_new.html",
         {
@@ -10463,6 +10479,9 @@ def run_new_get(request: Request, session: Session = Depends(get_session)):
             "user": user,
             "error": "",
             "default_processes": ["LINER", "REINFORCEMENT", "COVER"],
+            "liner_materials": liner_materials,
+            "reinforcement_materials": reinforcement_materials,
+            "cover_materials": cover_materials,
         },
     )
 
@@ -10486,6 +10505,9 @@ def run_new_post(
     raw_material_spec: str = Form(""),
     total_length_m: float = Form(0.0),
     allow_duplicate: str = Form(""),
+    liner_material_names: list[str] = Form([]),
+    reinforcement_material_names: list[str] = Form([]),
+    cover_material_names: list[str] = Form([]),
 ):
     user = get_current_user(request, session)
     if (user.role or "").upper() not in ["MANAGER", "RUN_CREATOR"]:
@@ -10498,6 +10520,29 @@ def run_new_post(
     chosen = [p for p in chosen if p in PROCESS_PARAMS]
     # keep order predictable
     ordered = [p for p in ["LINER", "REINFORCEMENT", "COVER"] if p in chosen]
+
+        selected_processes = [p.strip().upper() for p in (selected_processes or []) if p.strip()]
+    selected_processes = [p for p in selected_processes if p in LAYER_USE_CHOICES]
+
+    material_map = {
+        "LINER": [x.strip() for x in (liner_material_names or []) if x.strip()],
+        "REINFORCEMENT": [x.strip() for x in (reinforcement_material_names or []) if x.strip()],
+        "COVER": [x.strip() for x in (cover_material_names or []) if x.strip()],
+    }
+
+    for process in selected_processes:
+        if not material_map.get(process):
+            msg = f"Please select at least one approved material for {process}."
+            return templates.TemplateResponse(
+                "run_new.html",
+                {
+                    "request": request,
+                    "error": msg,
+                    "liner_materials": _approved_raw_material_names_by_layer(session, "LINER"),
+                    "reinforcement_materials": _approved_raw_material_names_by_layer(session, "REINFORCEMENT"),
+                    "cover_materials": _approved_raw_material_names_by_layer(session, "COVER"),
+                },
+            )
 
     if not ordered:
         return templates.TemplateResponse(
@@ -10924,11 +10969,8 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
     has_any = session.exec(select(InspectionEntry.id).where(InspectionEntry.run_id == run_id)).first() is not None
     error = request.query_params.get("error", "")
 
-    approved_lots = session.exec(
-        select(MaterialLot)
-        .where(MaterialLot.status == "APPROVED", MaterialLot.lot_type == "RAW")
-        .order_by(MaterialLot.batch_no)
-    ).all()
+    approved_lots = _approved_raw_lots_for_run(session, run)
+    allowed_material_names = _csv_to_list(getattr(run, "allowed_material_names_csv", ""))
 
     # ✅ TRUE check: does the run already have any batch event?
     has_any_event = session.exec(
@@ -10950,6 +10992,7 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
             "approved_lots": approved_lots,
             "has_any_event": has_any_event,
             "current_lot_preview": today_lot,
+            "allowed_material_names": allowed_material_names,
         },
     )
 
@@ -11094,8 +11137,18 @@ async def entry_new_post(
             return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
 
         lot = session.get(MaterialLot, int(start_lot_id))
+        allowed_material_names = _csv_to_list(getattr(run, "allowed_material_names_csv", ""))
+
         if (not lot) or (lot.status != "APPROVED") or (getattr(lot, "lot_type", "RAW") != "RAW"):
             msg = "Selected starting batch is not an APPROVED RAW batch."
+            return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+
+        if (lot.layer_use or "").strip().upper() != (run.process or "").strip().upper():
+            msg = f"Selected batch is not allowed for {run.process}."
+            return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+
+        if allowed_material_names and (lot.material_name or "").strip() not in allowed_material_names:
+            msg = f"Selected batch material is not assigned to this run."
             return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
             
 
@@ -11140,8 +11193,18 @@ async def entry_new_post(
             return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
 
         new_lot = session.get(MaterialLot, int(new_lot_id_raw))
+        allowed_material_names = _csv_to_list(getattr(run, "allowed_material_names_csv", ""))
+
         if (not new_lot) or (new_lot.status != "APPROVED") or (getattr(new_lot, "lot_type", "RAW") != "RAW"):
             msg = "Selected NEW batch is not an APPROVED RAW batch."
+            return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+
+        if (new_lot.layer_use or "").strip().upper() != (run.process or "").strip().upper():
+            msg = f"Selected NEW batch is not allowed for {run.process}."
+            return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
+
+        if allowed_material_names and (new_lot.material_name or "").strip() not in allowed_material_names:
+            msg = f"Selected NEW batch material is not assigned to this run."
             return RedirectResponse(f"/runs/{run_id}/entry/new?error={msg}", status_code=302)
 
         session.add(MaterialUseEvent(
