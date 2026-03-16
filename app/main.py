@@ -12703,15 +12703,16 @@ async def mrr_photo_upload(
         with open(out_path, "wb") as w:
             w.write(content)
 
-        rec = MrrInspectionPhoto(
-            ticket_id=lot_id,
-            inspection_id=inspection_id,
-            group_name=g,
-            caption=cap,
-            file_path=os.path.relpath(out_path, MRR_PHOTO_DIR),
+        photo = MrrInspectionPhoto(
+            ticket_id=lot.id,
+            inspection_id=inspection.id,
+            group_name=group_name,
+            caption=caption or "",
+            file_path=file_path,
             uploaded_by_user_id=user.id,
             uploaded_by_user_name=user.display_name,
         )
+
         session.add(rec)
 
     session.commit()
