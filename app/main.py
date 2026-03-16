@@ -12684,22 +12684,26 @@ def _safe_ext(filename: str) -> str:
 
 
 @app.get("/mrr/photos/{photo_id}/view")
-def mrr_photo_view(photo_id: int, request: Request, session: Session = Depends(get_session)):
-    user = get_current_user(request, session)
-
-    p = session.get(MrrInspectionPhoto, photo_id)
-    if not p:
+def mrr_photo_view(photo_id: int, session: Session = Depends(get_session)):
+    photo = session.get(MrrInspectionPhoto, photo_id)
+    if not photo:
         raise HTTPException(404, "Photo not found")
 
-    # (optional) basic permission gate: any logged-in user can view
-    # You can tighten later by checking ticket access rules if needed.
-
-    resolved = resolve_mrr_photo_path(p.file_path)
-    if not resolved or not os.path.exists(resolved):
+    rel_path = (photo.file_path or "").strip()
+    if not rel_path:
         raise HTTPException(404, "Photo file missing")
 
-    mt, _ = mimetypes.guess_type(resolved)
-    return FileResponse(resolved, media_type=mt or "image/jpeg")
+    abs_path = os.path.normpath(os.path.join(MRR_PHOTO_DIR, rel_path))
+
+    # safety: keep path inside MRR_PHOTO_DIR
+    base_norm = os.path.normpath(MRR_PHOTO_DIR)
+    if not abs_path.startswith(base_norm):
+        raise HTTPException(400, "Invalid photo path")
+
+    if not os.path.isfile(abs_path):
+        raise HTTPException(404, "Photo file missing")
+
+    return FileResponse(abs_path)
 
 
 @app.post("/mrr/{lot_id}/inspection/id/{inspection_id}/photos/upload")
