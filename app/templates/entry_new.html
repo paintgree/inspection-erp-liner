@@ -121,9 +121,123 @@
       </div>
     {% endif %}
 
-    <!-- ✅ Raw Material selection = ONLY APPROVED RAW lots -->
     <div class="card inner mt">
-      <div class="sectiontitle accent-purple">Raw Material (MRR Approved)</div>
+      <div class="sectiontitle accent-purple">Raw Material (Run Assigned)</div>
+
+      <div class="muted">
+        Inspector can only select approved RAW batches for the material(s) assigned to this {{ run.process }} run.
+      </div>
+
+      {% if allowed_material_names|length == 1 %}
+        <div class="mt">
+          <label>Assigned Material</label>
+          <input value="{{ allowed_material_names[0] }}" disabled>
+        </div>
+      {% elif allowed_material_names|length > 1 %}
+        <div class="mt">
+          <label>Assigned Material</label>
+          <select id="selected_material_name" name="selected_material_name" required>
+            <option value="">-- select material --</option>
+            {% for name in allowed_material_names %}
+              <option value="{{ name }}">{{ name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% else %}
+        <div class="alert mt">No material is assigned to this run yet. Ask manager to edit the run materials first.</div>
+      {% endif %}
+
+      {% if not current_lot_preview %}
+        <div class="mt">
+          <label>Starting approved batch (required for first entry)</label>
+          <select name="start_lot_id" id="start_lot_id" {% if allowed_material_names|length > 0 %}required{% endif %}>
+            <option value="">-- select approved RAW batch --</option>
+            {% for lot in approved_lots %}
+              <option value="{{ lot.id }}" data-material="{{ lot.material_name }}">{{ lot.batch_no }} — {{ lot.material_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      {% endif %}
+
+      <div class="mt">
+        <label style="display:flex; gap:10px; align-items:center;">
+          <input id="batch_changed" type="checkbox" name="batch_changed" value="1">
+          Batch changed during this inspection?
+        </label>
+
+        <div id="batchSelectWrap" style="display:none; margin-top:10px;">
+          <label>Select NEW approved RAW batch</label>
+          <select id="new_lot_id" name="new_lot_id">
+            <option value="">-- select approved RAW batch --</option>
+            {% for lot in approved_lots %}
+              <option value="{{ lot.id }}" data-material="{{ lot.material_name }}">{{ lot.batch_no }} — {{ lot.material_name }}</option>
+            {% endfor %}
+          </select>
+          <div class="muted" style="margin-top:6px;">
+            This records the new approved batch for the same run-assigned material.
+          </div>
+        </div>
+      </div>
+
+      <script>
+        (function(){
+          const materialSel = document.getElementById("selected_material_name");
+          const batchChk = document.getElementById("batch_changed");
+          const batchWrap = document.getElementById("batchSelectWrap");
+          const startLotSel = document.getElementById("start_lot_id");
+          const newLotSel = document.getElementById("new_lot_id");
+          const singleMaterial = {{ 'true' if allowed_material_names|length == 1 else 'false' }};
+          const fixedMaterial = {% if allowed_material_names|length == 1 %}"{{ allowed_material_names[0] }}"{% else %}""{% endif %};
+
+          function currentMaterial() {
+            if (singleMaterial) return fixedMaterial;
+            if (materialSel) return materialSel.value || "";
+            return "";
+          }
+
+          function filterOptions(selectEl, materialName) {
+            if (!selectEl) return;
+            Array.from(selectEl.options).forEach((opt, idx) => {
+              if (idx === 0) {
+                opt.hidden = false;
+                return;
+              }
+              const optMaterial = opt.getAttribute("data-material") || "";
+              opt.hidden = materialName && optMaterial !== materialName;
+            });
+
+            if (selectEl.value) {
+              const selected = selectEl.options[selectEl.selectedIndex];
+              if (selected && selected.hidden) selectEl.value = "";
+            }
+          }
+
+          function syncBatchChange() {
+            if (!batchChk || !batchWrap || !newLotSel) return;
+            if (batchChk.checked) {
+              batchWrap.style.display = "block";
+              newLotSel.setAttribute("required","required");
+            } else {
+              batchWrap.style.display = "none";
+              newLotSel.removeAttribute("required");
+              newLotSel.value = "";
+            }
+          }
+
+          function syncMaterialFilters() {
+            const materialName = currentMaterial();
+            filterOptions(startLotSel, materialName);
+            filterOptions(newLotSel, materialName);
+          }
+
+          if (materialSel) materialSel.addEventListener("change", syncMaterialFilters);
+          if (batchChk) batchChk.addEventListener("change", syncBatchChange);
+
+          syncMaterialFilters();
+          syncBatchChange();
+        })();
+      </script>
+    </div>
 
       {% if not has_any_event %}
       <div class="muted">
