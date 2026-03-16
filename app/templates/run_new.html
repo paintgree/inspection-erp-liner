@@ -57,11 +57,41 @@
         <input name="pipe_specification" required>
       </div>
 
-      <div id="rawMaterialSpecWrap">
-        <label>Raw Material Spec</label>
-        <input id="raw_material_spec" name="raw_material_spec" required>
-        <div id="rawMaterialSpecHint" class="muted tiny mt" style="display:none;">
-          Hidden when creating more than one layer, because each layer will have its own material later.
+      <div style="grid-column:1 / -1;">
+        <div class="card inner mt">
+          <div class="sectiontitle accent-purple">Allowed Materials Per Layer</div>
+
+          <div class="grid3 mt">
+            <div id="linerMaterialsWrap">
+              <label>LINER Materials</label>
+              <select name="liner_material_names" multiple size="5">
+                {% for name in liner_materials %}
+                  <option value="{{ name }}">{{ name }}</option>
+                {% endfor %}
+              </select>
+              <div class="muted tiny mt">Select one or more approved RAW materials for LINER.</div>
+            </div>
+
+            <div id="reinforcementMaterialsWrap">
+              <label>REINFORCEMENT Materials</label>
+              <select name="reinforcement_material_names" multiple size="5">
+                {% for name in reinforcement_materials %}
+                  <option value="{{ name }}">{{ name }}</option>
+                {% endfor %}
+              </select>
+              <div class="muted tiny mt">Select one or more approved RAW materials for REINFORCEMENT.</div>
+            </div>
+
+            <div id="coverMaterialsWrap">
+              <label>COVER Materials</label>
+              <select name="cover_material_names" multiple size="5">
+                {% for name in cover_materials %}
+                  <option value="{{ name }}">{{ name }}</option>
+                {% endfor %}
+              </select>
+              <div class="muted tiny mt">Select one or more approved RAW materials for COVER.</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -87,29 +117,23 @@
   <script>
     (function () {
       const processBoxes = Array.from(document.querySelectorAll('input[name="selected_processes"]'));
-      const wrap = document.getElementById('rawMaterialSpecWrap');
-      const input = document.getElementById('raw_material_spec');
-      const hint = document.getElementById('rawMaterialSpecHint');
+      const linerWrap = document.getElementById('linerMaterialsWrap');
+      const reinforcementWrap = document.getElementById('reinforcementMaterialsWrap');
+      const coverWrap = document.getElementById('coverMaterialsWrap');
 
-      if (!processBoxes.length || !wrap || !input) return;
-
-      function syncRawMaterialVisibility() {
-        const checkedCount = processBoxes.filter(box => box.checked).length;
-        const multiLayer = checkedCount > 1;
-
-        wrap.style.display = multiLayer ? 'none' : '';
-        input.required = !multiLayer;
-
-        if (multiLayer) {
-          input.value = '';
-          if (hint) hint.style.display = 'block';
-        } else {
-          if (hint) hint.style.display = 'none';
-        }
+      function checked(name) {
+        const el = processBoxes.find(x => x.value === name);
+        return !!(el && el.checked);
       }
 
-      processBoxes.forEach(box => box.addEventListener('change', syncRawMaterialVisibility));
-      syncRawMaterialVisibility();
+      function syncLayerMaterialVisibility() {
+        if (linerWrap) linerWrap.style.display = checked('LINER') ? '' : 'none';
+        if (reinforcementWrap) reinforcementWrap.style.display = checked('REINFORCEMENT') ? '' : 'none';
+        if (coverWrap) coverWrap.style.display = checked('COVER') ? '' : 'none';
+      }
+
+      processBoxes.forEach(box => box.addEventListener('change', syncLayerMaterialVisibility));
+      syncLayerMaterialVisibility();
     })();
   </script>
 {% endblock %}
