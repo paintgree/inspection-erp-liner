@@ -4992,9 +4992,9 @@ def mrr_export_inspection_package(
 
     # Documents: include both shipment-specific and ticket-level (PO usually ticket-level)
     all_docs = session.exec(
-        select(MrrUploadedDoc)
-        .where(MrrUploadedDoc.ticket_id == lot_id)
-        .order_by(MrrUploadedDoc.created_at.asc())
+        select(MrrInspectionDocument)
+        .where(MrrInspectionDocument.ticket_id == lot_id)
+        .order_by(MrrInspectionDocument.created_at.asc())
     ).all()
 
     shipment_dn = (getattr(insp, "delivery_note_no", "") or "").strip()
