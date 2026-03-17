@@ -478,7 +478,7 @@ def fill_mrr_f01_xlsx_bytes(
         _ws_set_value_safe(ws, "A11", "")
         _ws_set_value_safe(ws, "A24", "")
 
-    # -------------------------
+        # -------------------------
     # PROPERTIES TABLE FILL
     # -------------------------
     def _build_prop_map(items):
@@ -505,12 +505,10 @@ def fill_mrr_f01_xlsx_bytes(
             return
         cell.value = value
 
-    # If UI didn’t send a ready "properties" list, we convert from form keys
     prop_items = data.get("properties")
     if not isinstance(prop_items, list) or len(prop_items) == 0:
         converted = []
 
-        # Labels MUST match Excel Column A exactly
         pe_rows = [
             ("density", "Density"),
             ("mfr", "Melt Flow Rate (MFR) -190°C / 5kg"),
@@ -539,7 +537,6 @@ def fill_mrr_f01_xlsx_bytes(
                 rm = (data.get(f"pe_{k}_remarks") or "").strip()
                 if r or rm:
                     converted.append({"name": label, "result": r, "remarks": rm})
-
         elif fam_ui == "FIBER":
             for k, label in fb_rows:
                 r = (data.get(f"fb_{k}_result") or "").strip()
@@ -551,22 +548,19 @@ def fill_mrr_f01_xlsx_bytes(
 
     prop_map = _build_prop_map(prop_items)
 
-    # Allowed rows by family (based on your template)
     if fam_ui == "PE":
         allowed_row_min, allowed_row_max = 13, 23
     elif fam_ui == "FIBER":
         allowed_row_min, allowed_row_max = 26, 30
     else:
-        # If unknown, don’t write into table area
         allowed_row_min, allowed_row_max = 0, -1
 
-    # Columns: results at G (7), remarks at I (9)
-    RESULTS_COL = 7  # G
-    REMARKS_COL = 9  # I
+    RESULTS_COL = 7
+    REMARKS_COL = 9
 
     if allowed_row_min <= allowed_row_max:
         for r in range(allowed_row_min, allowed_row_max + 1):
-            label = ws.cell(r, 1).value  # Column A
+            label = ws.cell(r, 1).value
             if not isinstance(label, str):
                 continue
             key = _normalize_key(label)
@@ -574,6 +568,97 @@ def fill_mrr_f01_xlsx_bytes(
                 it = prop_map[key]
                 _write_cell_safe(ws, r, RESULTS_COL, it.get("result") or it.get("value") or "")
                 _write_cell_safe(ws, r, REMARKS_COL, it.get("remarks") or "")
+
+    # -------------------------
+    # VISUAL + DOCUMENTATION REVIEW
+    # -------------------------
+    def _slug_visual_jinja(s: str) -> str:
+        s = (s or "").strip().lower()
+        s = s.replace(" ", "_")
+        s = s.replace("/", "_")
+        s = s.replace("(", "").replace(")", "")
+        s = s.replace(".", "")
+        return s
+
+    def _slug_doc_jinja(s: str) -> str:
+        s = (s or "").strip().lower()
+        s = s.replace("’", "").replace("'", "")
+        s = s.replace(" ", "_")
+        s = s.replace("/", "_")
+        s = s.replace("(", "").replace(")", "")
+        s = s.replace(".", "")
+        return s
+
+    def _get_any(d: dict, keys: list[str]) -> str:
+        for k in keys:
+            v = d.get(k)
+            if v is not None and str(v).strip() != "":
+                return str(v).strip()
+        return ""
+
+    visual_items = [
+        "Physical Condition of Material",
+        "Identification/Marking as per specifications",
+        "Confirm that the packaging is undamaged, sealed, and properly labeled.",
+        "Ensure there are no signs of chemical exposure that might degrade the material.",
+    ]
+    visual_rows = [33, 34, 35, 36]
+
+    for item, r in zip(visual_items, visual_rows):
+        k1 = _slug_visual_jinja(item)
+        k2 = k1.replace(",", "")
+        yn = _get_any(data, [f"vc_{k1}_yn", f"vc_{k2}_yn"]).upper()
+        rm = _get_any(data, [f"vc_{k1}_remarks", f"vc_{k2}_remarks"])
+        if yn in ["YES", "NO"]:
+            _ws_set_value_safe(ws, f"G{r}", yn)
+        if rm:
+            _ws_set_value_safe(ws, f"I{r}", rm)
+
+    doc_items = [
+        "Ensure the material’s quantity, type, and specification match the Purchase Order (PO)",
+        "Confirm the availability of Certificate of Analysis (COA).",
+        "Review the Delivery Note to verify correct Delivery.",
+    ]
+    doc_rows = [39, 40, 41]
+
+    for item, r in zip(doc_items, doc_rows):
+        k1 = _slug_doc_jinja(item)
+        k2 = k1.replace(",", "")
+        yn = _get_any(data, [f"dr_{k1}_yn", f"dr_{k2}_yn"]).upper()
+        rm = _get_any(data, [f"dr_{k1}_remarks", f"dr_{k2}_remarks"])
+        if yn in ["YES", "NO"]:
+            _ws_set_value_safe(ws, f"G{r}", yn)
+        if rm:
+            _ws_set_value_safe(ws, f"I{r}", rm)
+
+    # -------------------------
+    # COMMENTS / STATUS / SIGNATURES
+    # -------------------------
+    status_raw = (data.get("approval_status") or "").strip().upper()
+    status = ""
+    if status_raw in ["VERIFIED", "VERIFIED_CONFIRMED", "VERIFIED AND CONFIRMED"]:
+        status = "VERIFIED"
+    elif status_raw in ["HOLD", "ON_HOLD", "ON HOLD"]:
+        status = "HOLD"
+    elif status_raw in ["NONCONFORM", "NON_CONFORMITY", "NON-CONFORMITY", "NON CONFORMITY"]:
+        status = "NONCONFORM"
+
+    remarks = (data.get("remarks") or "").strip()
+    on_hold_reason = (data.get("on_hold_reason") or "").strip()
+
+    lines = []
+    if status == "HOLD" and on_hold_reason:
+        lines.append(f"On Hold Reason: {on_hold_reason}")
+    if remarks:
+        lines.append(f"Remarks: {remarks}")
+
+    _ws_set_value_safe(ws, "A46", "\n".join(lines).strip())
+    _ws_set_value_safe(ws, "B51", getattr(inspection, "inspector_name", "") or "")
+    _ws_set_value_safe(ws, "B52", _as_date_str(datetime.utcnow()))
+
+    if bool(getattr(inspection, "manager_approved", False)):
+        _ws_set_value_safe(ws, "D51", "MANAGER")
+        _ws_set_value_safe(ws, "D52", _as_date_str(datetime.utcnow()))
 
     # -------------------------
     # FOOTER / PRINT SETTINGS
@@ -10185,10 +10270,14 @@ async def mrr_inspection_submit(
     current_name = (getattr(user, "display_name", "") or "").strip()
     current_id = getattr(user, "id", None)
 
-    # If draft save: do not sign anything
+    # If draft save: save the latest values, but NEVER revert a submitted inspection back to draft.
     if action == "draft":
         insp.inspection_json = json.dumps(data, ensure_ascii=False)
-        insp.inspector_confirmed = False
+
+        already_submitted = bool(getattr(insp, "inspector_confirmed", False))
+        if not already_submitted:
+            insp.inspector_confirmed = False
+
         session.add(insp)
         session.commit()
         return RedirectResponse(f"/mrr/{lot_id}/inspection/id/{inspection_id}?saved=draft", status_code=303)
