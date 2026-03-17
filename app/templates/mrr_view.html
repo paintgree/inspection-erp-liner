@@ -7,12 +7,10 @@
   .mrr-hero{
     border-radius: 24px;
     padding: 18px;
-    background:
-      radial-gradient(circle at top left, rgba(59,130,246,.12), transparent 28%),
-      linear-gradient(135deg, #0b1733 0%, #101a36 45%, #121d3b 100%);
-    border: 1px solid rgba(255,255,255,.08);
-    color: #e5eefc;
-    box-shadow: 0 12px 36px rgba(0,0,0,.18);
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    color: #0f172a;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
   }
 
   .mrr-topbar{
@@ -27,13 +25,13 @@
     margin:0;
     font-size:34px;
     line-height:1.05;
-    color:#fff;
+    color:#0f172a;
     letter-spacing:-.03em;
   }
 
   .mrr-subtitle{
     margin-top:6px;
-    color:#b8c7e6;
+    color:#475569;
     font-size:14px;
   }
 
@@ -51,14 +49,15 @@
     border-radius:12px;
     display:grid;
     place-items:center;
-    background:rgba(255,255,255,.05);
-    border:1px solid rgba(255,255,255,.10);
-    color:#fff;
+    background:#ffffff;
+    border:1px solid rgba(15, 23, 42, 0.10);
+    color:#0f172a;
     text-decoration:none;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.05);
   }
 
   .mrr-icon-btn:hover{
-    background:rgba(255,255,255,.10);
+    background:#f8fafc;
   }
 
   .mrr-menu{
@@ -72,10 +71,11 @@
     border-radius:12px;
     display:grid;
     place-items:center;
-    background:rgba(255,255,255,.05);
-    border:1px solid rgba(255,255,255,.10);
-    color:#fff;
+    background:#ffffff;
+    border:1px solid rgba(15, 23, 42, 0.10);
+    color:#0f172a;
     cursor:pointer;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.05);
   }
 
   .mrr-menu-content{
@@ -84,11 +84,11 @@
     right:0;
     top:48px;
     min-width:240px;
-    background:#16213f;
-    border:1px solid rgba(255,255,255,.10);
+    background:#ffffff;
+    border:1px solid rgba(15,23,42,.10);
     border-radius:16px;
     padding:8px;
-    box-shadow:0 16px 40px rgba(0,0,0,.30);
+    box-shadow:0 16px 40px rgba(15,23,42,.16);
     z-index:50;
   }
 
@@ -109,7 +109,7 @@
     gap:10px;
     padding:11px 12px;
     border-radius:12px;
-    color:#e7eefb;
+    color:#0f172a;
     background:transparent;
     border:none;
     text-decoration:none;
@@ -119,7 +119,7 @@
 
   .mrr-menu-link:hover,
   .mrr-menu-submit:hover{
-    background:rgba(255,255,255,.06);
+    background:#f8fafc;
   }
 
   .mrr-approve-btn{
@@ -132,12 +132,12 @@
     border-radius:14px;
     padding:12px 18px;
     font-weight:700;
-    box-shadow:0 10px 26px rgba(79,70,229,.35);
+    box-shadow:0 10px 20px rgba(79,70,229,.20);
     cursor:pointer;
   }
 
   .mrr-approve-btn:hover{
-    filter:brightness(1.05);
+    filter:brightness(1.04);
   }
 
   .mrr-grid{
@@ -149,10 +149,9 @@
 
   .mrr-panel{
     border-radius:22px;
-    background:rgba(255,255,255,.05);
-    border:1px solid rgba(255,255,255,.09);
+    background:#ffffff;
+    border:1px solid rgba(15,23,42,.08);
     padding:18px;
-    backdrop-filter: blur(10px);
   }
 
   .mrr-panel-title{
@@ -161,7 +160,7 @@
     gap:10px;
     font-size:19px;
     font-weight:700;
-    color:#fff;
+    color:#0f172a;
     margin:0 0 16px 0;
   }
 
@@ -177,8 +176,8 @@
     align-items:flex-start;
     padding:12px 10px;
     border-radius:16px;
-    background:rgba(255,255,255,.03);
-    border:1px solid rgba(255,255,255,.05);
+    background:#f8fbff;
+    border:1px solid rgba(59,130,246,.10);
   }
 
   .mrr-stat-icon{
@@ -187,8 +186,8 @@
     border-radius:10px;
     display:grid;
     place-items:center;
-    background:rgba(255,255,255,.05);
-    color:#bcd1ff;
+    background:#eef4ff;
+    color:#3157c7;
     flex:0 0 34px;
   }
 
@@ -196,18 +195,18 @@
     font-size:11px;
     text-transform:uppercase;
     letter-spacing:.08em;
-    color:#8ea4cf;
+    color:#64748b;
     margin-bottom:4px;
   }
 
   .mrr-stat-value{
-    color:#fff;
+    color:#0f172a;
     font-weight:700;
     line-height:1.25;
   }
 
   .mrr-stat-help{
-    color:#7ea0ff;
+    color:#64748b;
     font-size:11px;
     margin-top:3px;
   }
@@ -224,8 +223,8 @@
     align-items:flex-start;
     padding:12px;
     border-radius:16px;
-    background:rgba(255,255,255,.03);
-    border:1px solid rgba(255,255,255,.06);
+    background:#f8fbff;
+    border:1px solid rgba(59,130,246,.10);
   }
 
   .mrr-status-icon{
@@ -239,18 +238,18 @@
     flex:0 0 28px;
   }
 
-  .mrr-status-icon.ok{ background:rgba(16,185,129,.18); color:#34d399; }
-  .mrr-status-icon.wait{ background:rgba(245,158,11,.18); color:#fbbf24; }
-  .mrr-status-icon.bad{ background:rgba(148,163,184,.14); color:#94a3b8; }
+  .mrr-status-icon.ok{ background:rgba(16,185,129,.14); color:#059669; }
+  .mrr-status-icon.wait{ background:rgba(245,158,11,.16); color:#b45309; }
+  .mrr-status-icon.bad{ background:rgba(148,163,184,.16); color:#64748b; }
 
   .mrr-status-title{
-    color:#fff;
+    color:#0f172a;
     font-weight:700;
     font-size:14px;
   }
 
   .mrr-status-note{
-    color:#9eb1d7;
+    color:#64748b;
     font-size:12px;
     margin-top:2px;
   }
@@ -258,17 +257,18 @@
   .mrr-status-side{
     margin-left:auto;
     text-align:right;
-    color:#b7c8ea;
+    color:#334155;
     font-size:12px;
     white-space:nowrap;
+    font-weight:700;
   }
 
   .mrr-doc-card{
     margin-top:18px;
     border-radius:22px;
     overflow:hidden;
-    border:1px solid rgba(255,255,255,.08);
-    background:rgba(255,255,255,.04);
+    border:1px solid rgba(15,23,42,.08);
+    background:#ffffff;
   }
 
   .mrr-doc-head{
@@ -277,17 +277,17 @@
     align-items:center;
     gap:14px;
     padding:18px;
-    border-bottom:1px solid rgba(255,255,255,.08);
+    border-bottom:1px solid rgba(15,23,42,.08);
   }
 
   .mrr-doc-title{
     margin:0;
     font-size:20px;
-    color:#fff;
+    color:#0f172a;
   }
 
   .mrr-doc-sub{
-    color:#9eb1d7;
+    color:#475569;
     font-size:13px;
     margin-top:4px;
   }
@@ -300,25 +300,30 @@
   .mrr-doc-table th,
   .mrr-doc-table td{
     padding:16px 18px;
-    border-bottom:1px solid rgba(255,255,255,.07);
+    border-bottom:1px solid rgba(15,23,42,.07);
     text-align:left;
-    color:#e7eefb;
-    font-size:14px;
     vertical-align:middle;
+    font-size:14px;
   }
 
   .mrr-doc-table th{
     font-size:11px;
     text-transform:uppercase;
     letter-spacing:.08em;
-    color:#8ea4cf;
+    color:#475569;
+    font-weight:800;
+  }
+
+  .mrr-doc-table td{
+    color:#0f172a;
+    font-weight:600;
   }
 
   .mrr-doc-table tr:last-child td{ border-bottom:none; }
 
   .mrr-doc-type{
     font-weight:800;
-    color:#fff;
+    color:#0f172a;
   }
 
   .mrr-doc-status{
@@ -329,9 +334,9 @@
     border-radius:999px;
     font-size:12px;
     font-weight:800;
-    border:1px solid rgba(16,185,129,.35);
-    background:rgba(16,185,129,.12);
-    color:#34d399;
+    border:1px solid rgba(16,185,129,.28);
+    background:rgba(16,185,129,.10);
+    color:#059669;
   }
 
   .mrr-doc-actions{
@@ -348,18 +353,19 @@
     display:grid;
     place-items:center;
     text-decoration:none;
-    color:#dbe7ff;
-    border:1px solid rgba(255,255,255,.10);
-    background:rgba(255,255,255,.04);
+    color:#334155;
+    border:1px solid rgba(15,23,42,.10);
+    background:#ffffff;
   }
 
   .mrr-doc-action:hover{
-    background:rgba(255,255,255,.10);
+    background:#f8fafc;
   }
 
   .mrr-doc-empty{
     padding:20px 18px;
-    color:#9eb1d7;
+    color:#475569;
+    font-weight:600;
   }
 
   @media (max-width: 980px){
