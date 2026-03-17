@@ -3,62 +3,601 @@
 
 <a class="btn btn-ghost" href="/mrr/tickets">← Back</a>
 
-<div class="card">
+<style>
+  .mrr-hero{
+    border-radius: 24px;
+    padding: 18px;
+    background:
+      radial-gradient(circle at top left, rgba(59,130,246,.12), transparent 28%),
+      linear-gradient(135deg, #0b1733 0%, #101a36 45%, #121d3b 100%);
+    border: 1px solid rgba(255,255,255,.08);
+    color: #e5eefc;
+    box-shadow: 0 12px 36px rgba(0,0,0,.18);
+  }
 
-  <div class="runheader">
+  .mrr-topbar{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:18px;
+    flex-wrap:wrap;
+  }
+
+  .mrr-title{
+    margin:0;
+    font-size:34px;
+    line-height:1.05;
+    color:#fff;
+    letter-spacing:-.03em;
+  }
+
+  .mrr-subtitle{
+    margin-top:6px;
+    color:#b8c7e6;
+    font-size:14px;
+  }
+
+  .mrr-top-actions{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+
+  .mrr-icon-btn{
+    width:42px;
+    height:42px;
+    border-radius:12px;
+    display:grid;
+    place-items:center;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.10);
+    color:#fff;
+    text-decoration:none;
+  }
+
+  .mrr-icon-btn:hover{
+    background:rgba(255,255,255,.10);
+  }
+
+  .mrr-menu{
+    position:relative;
+    display:inline-block;
+  }
+
+  .mrr-menu-btn{
+    width:42px;
+    height:42px;
+    border-radius:12px;
+    display:grid;
+    place-items:center;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.10);
+    color:#fff;
+    cursor:pointer;
+  }
+
+  .mrr-menu-content{
+    display:none;
+    position:absolute;
+    right:0;
+    top:48px;
+    min-width:240px;
+    background:#16213f;
+    border:1px solid rgba(255,255,255,.10);
+    border-radius:16px;
+    padding:8px;
+    box-shadow:0 16px 40px rgba(0,0,0,.30);
+    z-index:50;
+  }
+
+  .mrr-menu.open .mrr-menu-content{ display:block; }
+
+  .mrr-menu-item,
+  .mrr-menu-content form{
+    display:block;
+    width:100%;
+  }
+
+  .mrr-menu-link,
+  .mrr-menu-submit{
+    width:100%;
+    text-align:left;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:11px 12px;
+    border-radius:12px;
+    color:#e7eefb;
+    background:transparent;
+    border:none;
+    text-decoration:none;
+    cursor:pointer;
+    font-size:14px;
+  }
+
+  .mrr-menu-link:hover,
+  .mrr-menu-submit:hover{
+    background:rgba(255,255,255,.06);
+  }
+
+  .mrr-approve-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    background:linear-gradient(135deg, #4f46e5 0%, #6d28d9 100%);
+    color:#fff;
+    border:none;
+    border-radius:14px;
+    padding:12px 18px;
+    font-weight:700;
+    box-shadow:0 10px 26px rgba(79,70,229,.35);
+    cursor:pointer;
+  }
+
+  .mrr-approve-btn:hover{
+    filter:brightness(1.05);
+  }
+
+  .mrr-grid{
+    display:grid;
+    grid-template-columns: 1.9fr .95fr;
+    gap:18px;
+    margin-top:18px;
+  }
+
+  .mrr-panel{
+    border-radius:22px;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.09);
+    padding:18px;
+    backdrop-filter: blur(10px);
+  }
+
+  .mrr-panel-title{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:19px;
+    font-weight:700;
+    color:#fff;
+    margin:0 0 16px 0;
+  }
+
+  .mrr-basic-grid{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:14px 18px;
+  }
+
+  .mrr-stat{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    padding:12px 10px;
+    border-radius:16px;
+    background:rgba(255,255,255,.03);
+    border:1px solid rgba(255,255,255,.05);
+  }
+
+  .mrr-stat-icon{
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    display:grid;
+    place-items:center;
+    background:rgba(255,255,255,.05);
+    color:#bcd1ff;
+    flex:0 0 34px;
+  }
+
+  .mrr-stat-label{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:#8ea4cf;
+    margin-bottom:4px;
+  }
+
+  .mrr-stat-value{
+    color:#fff;
+    font-weight:700;
+    line-height:1.25;
+  }
+
+  .mrr-stat-help{
+    color:#7ea0ff;
+    font-size:11px;
+    margin-top:3px;
+  }
+
+  .mrr-status-list{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
+  .mrr-status-item{
+    display:flex;
+    gap:12px;
+    align-items:flex-start;
+    padding:12px;
+    border-radius:16px;
+    background:rgba(255,255,255,.03);
+    border:1px solid rgba(255,255,255,.06);
+  }
+
+  .mrr-status-icon{
+    width:28px;
+    height:28px;
+    border-radius:999px;
+    display:grid;
+    place-items:center;
+    font-size:13px;
+    font-weight:800;
+    flex:0 0 28px;
+  }
+
+  .mrr-status-icon.ok{ background:rgba(16,185,129,.18); color:#34d399; }
+  .mrr-status-icon.wait{ background:rgba(245,158,11,.18); color:#fbbf24; }
+  .mrr-status-icon.bad{ background:rgba(148,163,184,.14); color:#94a3b8; }
+
+  .mrr-status-title{
+    color:#fff;
+    font-weight:700;
+    font-size:14px;
+  }
+
+  .mrr-status-note{
+    color:#9eb1d7;
+    font-size:12px;
+    margin-top:2px;
+  }
+
+  .mrr-status-side{
+    margin-left:auto;
+    text-align:right;
+    color:#b7c8ea;
+    font-size:12px;
+    white-space:nowrap;
+  }
+
+  .mrr-doc-card{
+    margin-top:18px;
+    border-radius:22px;
+    overflow:hidden;
+    border:1px solid rgba(255,255,255,.08);
+    background:rgba(255,255,255,.04);
+  }
+
+  .mrr-doc-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:14px;
+    padding:18px;
+    border-bottom:1px solid rgba(255,255,255,.08);
+  }
+
+  .mrr-doc-title{
+    margin:0;
+    font-size:20px;
+    color:#fff;
+  }
+
+  .mrr-doc-sub{
+    color:#9eb1d7;
+    font-size:13px;
+    margin-top:4px;
+  }
+
+  .mrr-doc-table{
+    width:100%;
+    border-collapse:collapse;
+  }
+
+  .mrr-doc-table th,
+  .mrr-doc-table td{
+    padding:16px 18px;
+    border-bottom:1px solid rgba(255,255,255,.07);
+    text-align:left;
+    color:#e7eefb;
+    font-size:14px;
+    vertical-align:middle;
+  }
+
+  .mrr-doc-table th{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:#8ea4cf;
+  }
+
+  .mrr-doc-table tr:last-child td{ border-bottom:none; }
+
+  .mrr-doc-type{
+    font-weight:800;
+    color:#fff;
+  }
+
+  .mrr-doc-status{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding:6px 11px;
+    border-radius:999px;
+    font-size:12px;
+    font-weight:800;
+    border:1px solid rgba(16,185,129,.35);
+    background:rgba(16,185,129,.12);
+    color:#34d399;
+  }
+
+  .mrr-doc-actions{
+    display:flex;
+    gap:8px;
+    justify-content:flex-end;
+    flex-wrap:wrap;
+  }
+
+  .mrr-doc-action{
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    display:grid;
+    place-items:center;
+    text-decoration:none;
+    color:#dbe7ff;
+    border:1px solid rgba(255,255,255,.10);
+    background:rgba(255,255,255,.04);
+  }
+
+  .mrr-doc-action:hover{
+    background:rgba(255,255,255,.10);
+  }
+
+  .mrr-doc-empty{
+    padding:20px 18px;
+    color:#9eb1d7;
+  }
+
+  @media (max-width: 980px){
+    .mrr-grid{ grid-template-columns:1fr; }
+    .mrr-basic-grid{ grid-template-columns:1fr; }
+    .mrr-top-actions{ justify-content:flex-start; }
+    .mrr-doc-table{ display:block; overflow-x:auto; }
+  }
+</style>
+
+<div class="mrr-hero">
+
+  <div class="mrr-topbar">
     <div>
-      <h1>MRR Ticket #{{ lot.id }}</h1>
-      <div class="muted">
-        Type: <b>{{ lot.lot_type }}</b> •
-        Batch: <b>{{ lot.batch_no or "-" }}</b> •
+      <h1 class="mrr-title">MRR Ticket #{{ lot.id }}</h1>
+      <div class="mrr-subtitle">
+        Type: <b>{{ lot.lot_type }}</b> ·
+        Batch: <b>{{ lot.batch_no or "-" }}</b> ·
         Status: <b>{{ lot.status or "-" }}</b>
       </div>
     </div>
 
-    <div class="actions">
-      {# Ticket-level export: for OUTSOURCED tickets we only support PDF (F02) #}
+    <div class="mrr-top-actions">
       {% set _ticket_tpl = ((lot.lot_type or '')|upper) %}
+
       {% if _ticket_tpl != 'OUTSOURCED' %}
-        <a class="btn" href="/mrr/{{ lot.id }}/export/xlsx">Export XLSX</a>
-      {% endif %}
-      <a class="btn" href="/mrr/{{ lot.id }}/export/pdf">Export PDF</a>
-
-      {% if user.role and user.role|upper == "MANAGER" %}
-        <a class="btn btn-warn" href="/mrr-pending-approvals">Pending approvals</a>
+        <a class="mrr-icon-btn" href="/mrr/{{ lot.id }}/export/xlsx" title="Export XLSX" aria-label="Export XLSX">
+          ⭳
+        </a>
       {% endif %}
 
-      {% if user.role and user.role|upper == "MANAGER"
-            and not readonly
-            and (lot.status or "")|upper != "CANCELED" %}
-        <form method="post" action="/mrr/{{ lot.id }}/cancel" style="display:inline;"
-              onsubmit="return confirm('Cancel this ticket? It will be hidden from normal list and actions will be blocked.')">
-          <button class="btn btn-warn" type="submit">Cancel Ticket</button>
-        </form>
-      {% endif %}
+      <a class="mrr-icon-btn" href="/mrr/{{ lot.id }}/export/pdf" title="Export PDF" aria-label="Export PDF">
+        ⎙
+      </a>
 
       {% if user.role and user.role|upper == "MANAGER"
             and inspection_to_approve
             and inspection_to_approve.inspector_confirmed
             and not inspection_to_approve.manager_approved %}
-        <button class="btn btn-primary"
+        <button class="mrr-approve-btn"
                 onclick="approveInspection({{ lot.id }}, {{ inspection_to_approve.id }})">
-          Approve Receiving Inspection
+          ✓ Approve Receiving
         </button>
-
       {% endif %}
 
-      {% if user.role and user.role|upper == "MANAGER"
-            and latest_approved_inspection
-            and latest_approved_inspection.manager_approved %}
-        <form method="post"
-              action="/mrr/{{ lot.id }}/inspection/id/{{ latest_approved_inspection.id }}/unapprove"
-              style="display:inline;"
-              onsubmit="return confirm('Unapprove will reopen the ticket for adjustments. Continue?')">
-          <button class="btn btn-warn" type="submit">Unapprove Last Approval</button>
-        </form>
+      {% if user.role and user.role|upper == "MANAGER" %}
+        <div class="mrr-menu" id="mrrActionMenu">
+          <button type="button" class="mrr-menu-btn" onclick="toggleMrrMenu()">⋮</button>
+          <div class="mrr-menu-content">
+            <a class="mrr-menu-link" href="/mrr-pending-approvals">⏲ Pending Approvals</a>
+
+            {% if latest_approved_inspection and latest_approved_inspection.manager_approved %}
+              <form method="post"
+                    action="/mrr/{{ lot.id }}/inspection/id/{{ latest_approved_inspection.id }}/unapprove"
+                    onsubmit="return confirm('Unapprove will reopen the ticket for adjustments. Continue?')">
+                <button class="mrr-menu-submit" type="submit">↺ Unapprove Last</button>
+              </form>
+            {% endif %}
+
+            {% if not readonly and (lot.status or "")|upper != "CANCELED" %}
+              <form method="post"
+                    action="/mrr/{{ lot.id }}/cancel"
+                    onsubmit="return confirm('Cancel this ticket? It will be hidden from normal list and actions will be blocked.')">
+                <button class="mrr-menu-submit" type="submit">✕ Cancel Ticket</button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
       {% endif %}
     </div>
   </div>
+
+  {% if error %}
+    <div class="alert alert-error mt">{{ error }}</div>
+  {% endif %}
+
+  {% if readonly %}
+    <div class="alert alert-warn mt">
+      This MRR Ticket is <b>CANCELED</b>. You are viewing it in <b>read-only</b> mode.
+    </div>
+  {% endif %}
+
+  {% set docs_ok = (receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po)) %}
+  {% set insp_submitted = (inspection and inspection.inspector_confirmed) %}
+  {% set insp_ok = (inspection and inspection.manager_approved) %}
+  {% set documents_uploaded = (docs and docs|length > 0) %}
+  {% set documentation_saved = (receiving and (receiving.inspector_po_number or "")|length > 0) %}
+  {% set documentation_cleared = (receiving and receiving.manager_confirmed_po) %}
+  {% set receiving_inspection_submitted = (inspection and inspection.inspector_confirmed) %}
+  {% set waiting_manager_approval = (receiving_inspection_submitted and not (inspection and inspection.manager_approved)) %}
+
+  <div class="mrr-grid">
+
+    <div class="mrr-panel">
+      <div class="mrr-panel-title">📦 Basic Information</div>
+
+      <div class="mrr-basic-grid">
+        <div class="mrr-stat">
+          <div class="mrr-stat-icon">◫</div>
+          <div>
+            <div class="mrr-stat-label">Material</div>
+            <div class="mrr-stat-value">{{ lot.material_name or "-" }}</div>
+          </div>
+        </div>
+
+        <div class="mrr-stat">
+          <div class="mrr-stat-icon">◫</div>
+          <div>
+            <div class="mrr-stat-label">Supplier</div>
+            <div class="mrr-stat-value">{{ lot.supplier_name or "-" }}</div>
+          </div>
+        </div>
+
+        <div class="mrr-stat">
+          <div class="mrr-stat-icon">▤</div>
+          <div>
+            <div class="mrr-stat-label">PO Reference</div>
+            <div class="mrr-stat-value">{{ lot.po_number or "-" }}</div>
+          </div>
+        </div>
+
+        <div class="mrr-stat">
+          <div class="mrr-stat-icon">▤</div>
+          <div>
+            <div class="mrr-stat-label">Delivery Notes</div>
+            <div class="mrr-stat-value">
+              {% if used_dns and used_dns|length > 0 %}
+                {{ used_dns | join(", ") }}
+              {% else %}
+                -
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="mrr-stat">
+          <div class="mrr-stat-icon">◔</div>
+          <div>
+            <div class="mrr-stat-label">Quantity (PO)</div>
+            <div class="mrr-stat-value">{{ lot.quantity if lot.quantity is not none else "-" }} {{ lot.quantity_unit if lot.quantity_unit else "" }}</div>
+            <div class="mrr-stat-help">Target amount</div>
+          </div>
+        </div>
+
+        <div class="mrr-stat">
+          <div class="mrr-stat-icon">◕</div>
+          <div>
+            <div class="mrr-stat-label">Received Total</div>
+            <div class="mrr-stat-value">
+              {{ lot.received_total if lot.received_total is not none else 0 }}
+              {% if lot.quantity_unit and lot.quantity_unit|upper in ["PC","PCS"] %}
+                {{ lot.quantity_unit }}
+              {% else %}
+                KG (normalized)
+              {% endif %}
+            </div>
+            <div class="mrr-stat-help">Actual amount</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mrr-panel">
+      <div class="mrr-panel-title">🧭 Status</div>
+
+      <div class="mrr-status-list">
+        <div class="mrr-status-item">
+          <div class="mrr-status-icon {% if documents_uploaded %}ok{% else %}bad{% endif %}">{% if documents_uploaded %}✓{% else %}•{% endif %}</div>
+          <div>
+            <div class="mrr-status-title">Documents Uploaded</div>
+            <div class="mrr-status-note">PO / quality documents attached</div>
+          </div>
+          <div class="mrr-status-side">{% if documents_uploaded %}DONE{% else %}MISSING{% endif %}</div>
+        </div>
+
+        <div class="mrr-status-item">
+          <div class="mrr-status-icon {% if documentation_saved %}ok{% else %}bad{% endif %}">{% if documentation_saved %}✓{% else %}•{% endif %}</div>
+          <div>
+            <div class="mrr-status-title">Documentation Saved</div>
+            <div class="mrr-status-note">Inspector entered PO number</div>
+          </div>
+          <div class="mrr-status-side">{% if documentation_saved %}DONE{% else %}NOT YET{% endif %}</div>
+        </div>
+
+        <div class="mrr-status-item">
+          <div class="mrr-status-icon {% if documentation_cleared %}ok{% else %}bad{% endif %}">{% if documentation_cleared %}✓{% else %}•{% endif %}</div>
+          <div>
+            <div class="mrr-status-title">Documentation Cleared</div>
+            <div class="mrr-status-note">Manager approved documentation</div>
+          </div>
+          <div class="mrr-status-side">{% if documentation_cleared %}DONE{% else %}PENDING{% endif %}</div>
+        </div>
+
+        <div class="mrr-status-item">
+          <div class="mrr-status-icon {% if receiving_inspection_submitted %}ok{% else %}bad{% endif %}">{% if receiving_inspection_submitted %}✓{% else %}•{% endif %}</div>
+          <div>
+            <div class="mrr-status-title">Receiving Inspection Submitted</div>
+            <div class="mrr-status-note">Inspector submitted shipment inspection</div>
+          </div>
+          <div class="mrr-status-side">{% if receiving_inspection_submitted %}DONE{% else %}NOT YET{% endif %}</div>
+        </div>
+
+        <div class="mrr-status-item">
+          <div class="mrr-status-icon {% if inspection and inspection.manager_approved %}ok{% elif waiting_manager_approval %}wait{% else %}bad{% endif %}">
+            {% if inspection and inspection.manager_approved %}✓{% elif waiting_manager_approval %}!{% else %}•{% endif %}
+          </div>
+          <div>
+            <div class="mrr-status-title">Waiting for Manager Approval</div>
+            <div class="mrr-status-note">Final approval to close the ticket</div>
+          </div>
+          <div class="mrr-status-side">
+            {% if inspection and inspection.manager_approved %}
+              APPROVED
+            {% elif waiting_manager_approval %}
+              WAITING
+            {% else %}
+              NOT READY
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function toggleMrrMenu(){
+    const menu = document.getElementById("mrrActionMenu");
+    if(menu){ menu.classList.toggle("open"); }
+  }
+
+  document.addEventListener("click", function(e){
+    const menu = document.getElementById("mrrActionMenu");
+    if(!menu) return;
+    if(!menu.contains(e.target)){ menu.classList.remove("open"); }
+  });
+</script>
 
   {% set docs_ok = (receiving and (receiving.inspector_confirmed_po or receiving.manager_confirmed_po)) %}
   {% set insp_submitted = (inspection and inspection.inspector_confirmed) %}
@@ -133,264 +672,48 @@
     {% set inspector_confirmed = (receiving and receiving.inspector_confirmed_po) %}
     {% set manager_confirmed = (receiving and receiving.manager_confirmed_po) %}
 
-    <!-- ✅ LEVEL-UP INSPECTION STATUS (modern, tablet-friendly) -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-
-<style>
-  .inspStatusCard {
-    font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    background: #ffffff;
-    border: 1px solid rgba(0,0,0,0.06);
-    border-radius: 14px;
-    overflow: hidden;
-    margin-top: 14px;
-  }
-
-  .inspStatusHeader {
-    padding: 16px 16px 12px 16px;
-    border-bottom: 1px solid #f1f1f1;
-  }
-
-  .inspStatusTitle {
-    font-size: 18px;
-    font-weight: 600;
-    color: #111827;
-    margin: 0;
-    letter-spacing: -0.2px;
-  }
-
-  .inspStatusSub {
-    margin-top: 6px;
-    font-size: 13px;
-    color: #6b7280;
-  }
-
-  .inspRow {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
-    border-bottom: 1px solid #f1f1f1;
-  }
-
-  .inspRow:last-child { border-bottom: none; }
-
-  .inspIcon {
-    width: 34px;
-    height: 34px;
-    flex: 0 0 34px;
-    display: grid;
-    place-items: center;
-  }
-
-  .inspText {
-    font-size: 15px;
-    font-weight: 600;
-    color: #111827;
-  }
-
-  .inspHint {
-    font-size: 13px;
-    color: #6b7280;
-    margin-top: 2px;
-    font-weight: 500;
-  }
-
-  .inspRight {
-    margin-left: auto;
-    font-size: 12px;
-    font-weight: 700;
-    padding: 6px 10px;
-    border-radius: 999px;
-    border: 1px solid transparent;
-    white-space: nowrap;
-  }
-
-  .tagOk     { background:#ecfdf5; border-color:#a7f3d0; color:#065f46; }
-  .tagBad    { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
-  .tagWait   { background:#fffbeb; border-color:#fde68a; color:#92400e; }
-  .tagInfo   { background:#eff6ff; border-color:#bfdbfe; color:#1e40af; }
-
-  /* Icon SVG helpers */
-  .svgCircle { width: 34px; height: 34px; }
-</style>
-
-{# --- Status logic using your existing variables in this template --- #}
-{% set documents_uploaded = (ns.has_po and ns.has_quality) %}
-{% set documentation_saved = (receiving and (receiving.inspector_po_number or "")|length > 0) %}
-{% set documentation_cleared = (receiving and receiving.manager_confirmed_po) %}
-{% set receiving_inspection_submitted = (inspection and inspection.inspector_confirmed) %}
-{% set waiting_manager_approval = (receiving_inspection_submitted and not (inspection and inspection.manager_approved)) %}
-
-<div class="inspStatusCard">
-  <div class="inspStatusHeader">
-    <div class="inspStatusTitle">Inspection Status</div>
-    <div class="inspStatusSub">
-      Quick view for warehouse/tablet use (green = done, red = missing, amber = waiting)
-    </div>
-  </div>
-
-  <!-- Documents Uploaded -->
-  <div class="inspRow">
-    <div class="inspIcon">
-      {% if documents_uploaded %}
-        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
-          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      {% else %}
-        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
-          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
-      {% endif %}
-    </div>
-    <div>
-      <div class="inspText">Documents Uploaded</div>
-      <div class="inspHint">PO + Quality Doc (COA/MTC/Inspection Report)</div>
-    </div>
-    <div class="inspRight {% if documents_uploaded %}tagOk{% else %}tagBad{% endif %}">
-      {% if documents_uploaded %}DONE{% else %}MISSING{% endif %}
-    </div>
-  </div>
-
-  <!-- Documentation Saved -->
-  <div class="inspRow">
-    <div class="inspIcon">
-      {% if documentation_saved %}
-        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
-          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      {% else %}
-        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
-          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
-      {% endif %}
-    </div>
-    <div>
-      <div class="inspText">Documentation Saved</div>
-      <div class="inspHint">Inspector entered PO number</div>
-    </div>
-    <div class="inspRight {% if documentation_saved %}tagOk{% else %}tagBad{% endif %}">
-      {% if documentation_saved %}DONE{% else %}NOT YET{% endif %}
-    </div>
-  </div>
-
-  <!-- Documentation Cleared -->
-  <div class="inspRow">
-    <div class="inspIcon">
-      {% if documentation_cleared %}
-        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
-          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      {% else %}
-        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
-          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
-      {% endif %}
-    </div>
-    <div>
-      <div class="inspText">Documentation Cleared</div>
-      <div class="inspHint">Manager approved documentation</div>
-    </div>
-    <div class="inspRight {% if documentation_cleared %}tagOk{% else %}tagBad{% endif %}">
-      {% if documentation_cleared %}DONE{% else %}PENDING{% endif %}
-    </div>
-  </div>
-
-  <!-- Receiving Inspection Submitted -->
-  <div class="inspRow">
-    <div class="inspIcon">
-      {% if receiving_inspection_submitted %}
-        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
-          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      {% else %}
-        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
-          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
-      {% endif %}
-    </div>
-    <div>
-      <div class="inspText">Receiving Inspection Submitted</div>
-      <div class="inspHint">Inspector submitted shipment inspection</div>
-    </div>
-    <div class="inspRight {% if receiving_inspection_submitted %}tagOk{% else %}tagBad{% endif %}">
-      {% if receiving_inspection_submitted %}DONE{% else %}NOT YET{% endif %}
-    </div>
-  </div>
-
-  <!-- Waiting for Manager Approval -->
-  <div class="inspRow">
-    <div class="inspIcon">
-      {% if waiting_manager_approval %}
-        <!-- Amber hourglass -->
-        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="12" fill="#fef3c7"></circle>
-          <path d="M8 7h8M8 17h8M9 7c0 4 6 4 6 8s-6 4-6 8" fill="none"
-                stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      {% elif inspection and inspection.manager_approved %}
-        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="12" fill="#16a34a"></circle>
-          <path d="M7 12.5l3 3 7-7" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      {% else %}
-        <svg class="svgCircle" viewBox="0 0 24 24" aria-hidden="true">
-          <circle cx="12" cy="12" r="12" fill="#fee2e2"></circle>
-          <path d="M8 8l8 8M16 8l-8 8" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/>
-        </svg>
-      {% endif %}
-    </div>
-    <div>
-      <div class="inspText">Waiting for Manager Approval</div>
-      <div class="inspHint">Final approval to close the ticket</div>
-    </div>
-
-    {% if inspection and inspection.manager_approved %}
-      <div class="inspRight tagOk">APPROVED</div>
-    {% elif waiting_manager_approval %}
-      <div class="inspRight tagWait">WAITING</div>
-    {% else %}
-      <div class="inspRight tagBad">NOT READY</div>
-    {% endif %}
-  </div>
-</div>
-<!-- ✅ END LEVEL-UP INSPECTION STATUS -->
+    
 
 
-    <!-- UPLOADED DOCS LIST -->
-    <div class="card inner mt">
-      <div class="sectiontitle accent-blue">Uploaded Documents</div>
+        <!-- UPLOADED DOCS LIST -->
+    <div class="mrr-doc-card">
+      <div class="mrr-doc-head">
+        <div>
+          <h3 class="mrr-doc-title">Uploaded Documentation</h3>
+          <div class="mrr-doc-sub">Shipment-linked documents available for review and export.</div>
+        </div>
+
+        {% if docs and docs|length > 0 %}
+          <a class="btn btn-ghost" href="/mrr/{{ lot.id }}/docs">Open Documentation</a>
+        {% endif %}
+      </div>
 
       {% if docs and docs|length > 0 %}
-        <div class="tablewrap mt">
-          <table class="table wide">
+        <div style="overflow-x:auto;">
+          <table class="mrr-doc-table">
             <thead>
               <tr>
-                <th>Type</th>
-                <th>No.</th>
-                <th>Name</th>
-                <th>Actions</th>
+                <th>Document Type</th>
+                <th>Reference No.</th>
+                <th>File Name</th>
+                <th>Status</th>
+                <th style="text-align:right;">Actions</th>
               </tr>
             </thead>
             <tbody>
               {% for d in docs %}
                 <tr>
-                  <td><b>{{ d.doc_type }}</b></td>
+                  <td class="mrr-doc-type">{{ d.doc_type or "-" }}</td>
                   <td>{{ d.doc_number or "-" }}</td>
                   <td>{{ d.doc_name or "-" }}</td>
                   <td>
-                    <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/view">View</a>
-                    <a class="btn btn-sm" href="/mrr/docs/{{ d.id }}/download">Download</a>
+                    <span class="mrr-doc-status">◉ VERIFIED</span>
+                  </td>
+                  <td>
+                    <div class="mrr-doc-actions">
+                      <a class="mrr-doc-action" href="/mrr/docs/{{ d.id }}/view" title="View">👁</a>
+                      <a class="mrr-doc-action" href="/mrr/docs/{{ d.id }}/download" title="Download">⭳</a>
+                    </div>
                   </td>
                 </tr>
               {% endfor %}
@@ -398,16 +721,16 @@
           </table>
         </div>
       {% else %}
-        <div class="muted mt">No documents uploaded yet.</div>
+        <div class="mrr-doc-empty">No documents uploaded yet.</div>
       {% endif %}
     </div>
 
     <div class="card inner mt">
-      <div class="sectiontitle accent-blue">Upload & Manage Documents</div>
+      <div class="sectiontitle accent-blue">Documentation Workspace</div>
       <div class="muted tiny">
-        Use the documentation page to upload and attach documents to the correct shipment.
+        Open the documentation page to upload, replace, and attach files to this shipment.
       </div>
-    
+
       <div class="mt">
         {% if inspection %}
           <a class="btn btn-muted"
