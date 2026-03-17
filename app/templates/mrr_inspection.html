@@ -496,20 +496,28 @@
   // =========================
   // AUTO-SAVE DRAFT
   // =========================
-  (function(){
+    (function(){
     const form = document.getElementById("inspectionForm");
     const statusEl = document.getElementById("autosaveStatus");
     const actionEl = document.getElementById("form_action");
 
     let t = null;
     let saving = false;
+    let dirty = false;
+    let lastSavedSnapshot = "";
 
     function setStatus(txt){
       if(statusEl) statusEl.innerHTML = "Autosave: <b>" + txt + "</b>";
     }
 
+    function buildSnapshot(){
+      const fd = new FormData(form);
+      fd.delete("action");
+      return JSON.stringify(Array.from(fd.entries()));
+    }
+
     async function saveDraft(){
-      if(saving) return;
+      if(saving || !dirty) return;
       saving = true;
 
       try{
@@ -517,11 +525,12 @@
         const fd = new FormData(form);
         fd.set("action", "draft");
 
-        // IMPORTANT: use attribute value to avoid weird URL issues
         const url = form.getAttribute("action");
         const res = await fetch(url, { method: "POST", body: fd });
 
         if(res.ok){
+          dirty = false;
+          lastSavedSnapshot = buildSnapshot();
           setStatus("saved ✓");
         } else {
           setStatus("not saved (network)");
@@ -534,6 +543,7 @@
     }
 
     function scheduleSave(){
+      dirty = true;
       clearTimeout(t);
       t = setTimeout(saveDraft, 1200);
     }
@@ -541,11 +551,18 @@
     form.addEventListener("input", scheduleSave);
     form.addEventListener("change", scheduleSave);
 
-    setInterval(saveDraft, 20000);
+    setInterval(function(){
+      const snapshot = buildSnapshot();
+      if(snapshot !== lastSavedSnapshot){
+        dirty = true;
+      }
+      saveDraft();
+    }, 20000);
 
     // FINAL SUBMIT: require at least 1 batch number
     form.addEventListener("submit", function(e){
       actionEl.value = "submit";
+      dirty = false;
 
       const batches = Array.from(form.querySelectorAll('input[name="batch_numbers"]'))
         .map(i => (i.value || "").trim())
@@ -559,6 +576,7 @@
       return true;
     });
 
+    lastSavedSnapshot = buildSnapshot();
     setStatus("ready");
   })();
 </script>
