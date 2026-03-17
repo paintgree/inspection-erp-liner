@@ -4260,35 +4260,120 @@ def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, pa
     c.setFillColor(colors.HexColor("#f8fafc"))
     c.rect(0, 0, w, h, stroke=0, fill=1)
 
-    # main header card
-    card_x = 14 * mm
-    card_y = h - 42 * mm
-    card_w = w - 28 * mm
-    card_h = 28 * mm
+        w, h = A4
+    margin_x = 12 * mm
 
-    c.setFillColor(colors.white)
-    c.roundRect(card_x, card_y, card_w, card_h, 4 * mm, stroke=0, fill=1)
+    # ------------------------------------------------------------
+    # TOP LOGO HEADER
+    # ------------------------------------------------------------
+    logo_path = os.path.join(BASE_DIR, "static", "images", "logo.png")
+    logo_top_y = h - 18 * mm
 
-    # logo badge
-    badge_x = card_x + 4 * mm
-    badge_y = card_y + 6 * mm
-    c.setFillColor(colors.HexColor("#ede9fe"))
-    c.roundRect(badge_x, badge_y, 10 * mm, 10 * mm, 2 * mm, stroke=0, fill=1)
-
-    logo = _logo_path()
-    if os.path.exists(logo):
+    if os.path.exists(logo_path):
         try:
-            img = ImageReader(logo)
-            c.drawImage(img, badge_x + 1.5 * mm, badge_y + 1.5 * mm, width=7 * mm, height=7 * mm, mask="auto")
-        except Exception:
-            c.setFillColor(colors.HexColor("#4f46e5"))
-            c.setFont("Helvetica-Bold", 9)
-            c.drawCentredString(badge_x + 5 * mm, badge_y + 3.6 * mm, "H")
-    else:
-        c.setFillColor(colors.HexColor("#4f46e5"))
-        c.setFont("Helvetica-Bold", 9)
-        c.drawCentredString(badge_x + 5 * mm, badge_y + 3.6 * mm, "H")
+            img = ImageReader(logo_path)
+            iw, ih = img.getSize()
 
+            target_h = 16 * mm
+            scale = target_h / float(ih)
+            dw = float(iw) * scale
+            dh = target_h
+
+            total_block_w = dw + 55 * mm
+            start_x = (w - total_block_w) / 2.0
+
+            c.drawImage(
+                img,
+                start_x,
+                logo_top_y - dh,
+                width=dw,
+                height=dh,
+                mask="auto"
+            )
+
+            text_x = start_x + dw + 4 * mm
+            c.setFillColor(colors.HexColor("#334155"))
+            c.setFont("Helvetica-Bold", 9)
+            c.drawString(text_x, logo_top_y - 4 * mm, "شركة الدقم هونغتونغ لتزويد أنابيب ش.م.م")
+            c.setFont("Helvetica", 10)
+            c.drawString(text_x, logo_top_y - 9 * mm, "Duqm Hongtong Piping LLC")
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------
+    # REPORT HEADER BOX
+    # ------------------------------------------------------------
+    box_top = h - 34 * mm
+    box_h = 26 * mm
+    box_w = w - (2 * margin_x)
+
+    c.setStrokeColor(colors.HexColor("#dbe3ee"))
+    c.setFillColor(colors.white)
+    c.roundRect(margin_x, box_top - box_h, box_w, box_h, 4 * mm, stroke=1, fill=1)
+
+    left_x = margin_x + 8 * mm
+    right_box_w = 34 * mm
+
+    # Title area (NO logo inside the box)
+    c.setFillColor(colors.black)
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(left_x, box_top - 10 * mm, "Short-Time Hydrostatic")
+    c.drawString(left_x, box_top - 17 * mm, "Burst Pressure Test Report")
+
+    c.setFont("Helvetica", 8)
+    c.setFillColor(colors.HexColor("#64748b"))
+    c.drawString(left_x, box_top - 21.5 * mm, "DUQM HONGTONG PIPING LLC")
+
+    c.setFillColor(colors.HexColor("#4338ca"))
+    c.setFont("Helvetica-Bold", 7)
+    c.drawString(left_x + 42 * mm, box_top - 21.5 * mm, "OFFICIAL DOCUMENT")
+
+    # Right-side report id / result box
+    rid_x = margin_x + box_w - right_box_w - 6 * mm
+    rid_y = box_top - 4 * mm
+    rid_h = 18 * mm
+
+    c.setFillColor(colors.HexColor("#f8fafc"))
+    c.setStrokeColor(colors.HexColor("#e5e7eb"))
+    c.roundRect(rid_x, rid_y - rid_h, right_box_w, rid_h, 3 * mm, stroke=1, fill=1)
+
+    c.setFont("Helvetica-Bold", 6)
+    c.setFillColor(colors.HexColor("#94a3b8"))
+    c.drawRightString(rid_x + right_box_w - 3 * mm, rid_y - 3 * mm, "REPORT ID")
+
+    c.setFont("Helvetica-Bold", 11)
+    c.setFillColor(colors.black)
+    c.drawRightString(rid_x + right_box_w - 3 * mm, rid_y - 8 * mm, _txt(getattr(report, "report_no", "")) or "-")
+
+    rep_result = (_txt(getattr(report, "test_result", "")) or "").upper()
+    if rep_result == "PASS":
+        pill_fill = colors.HexColor("#dcfce7")
+        pill_text = colors.HexColor("#15803d")
+        pill_label = "PASS RESULT"
+    elif rep_result == "FAIL":
+        pill_fill = colors.HexColor("#fee2e2")
+        pill_text = colors.HexColor("#b91c1c")
+        pill_label = "FAIL RESULT"
+    else:
+        pill_fill = colors.HexColor("#e5e7eb")
+        pill_text = colors.HexColor("#475569")
+        pill_label = "NO RESULT"
+
+    pill_w = 22 * mm
+    pill_h = 6.5 * mm
+    pill_x = rid_x + right_box_w - pill_w - 3 * mm
+    pill_y = rid_y - 15 * mm
+
+    c.setFillColor(pill_fill)
+    c.setStrokeColor(pill_fill)
+    c.roundRect(pill_x, pill_y, pill_w, pill_h, 3 * mm, stroke=1, fill=1)
+
+    c.setFillColor(pill_text)
+    c.setFont("Helvetica-Bold", 6.5)
+    c.drawCentredString(pill_x + pill_w / 2, pill_y + 2.1 * mm, pill_label)
+
+    # Return Y position under header
+    y = box_top - box_h - 10 * mm
     # title area
     c.setFillColor(colors.black)
     c.setFont("Helvetica-Bold", 14)
