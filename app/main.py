@@ -3376,6 +3376,8 @@ def _save_burst_image_meta(abs_path: str, meta_json: str | None):
         "offset_x": 0.0,
         "offset_y": 0.0,
         "rotation": 0,
+        "flip_x": False,
+        "flip_y": False,
     }
 
     try:
@@ -3390,6 +3392,9 @@ def _save_burst_image_meta(abs_path: str, meta_json: str | None):
             if rotation not in (0, 90, 180, 270):
                 rotation = 0
             meta["rotation"] = rotation
+
+            meta["flip_x"] = bool(raw.get("flip_x", False))
+            meta["flip_y"] = bool(raw.get("flip_y", False))
     except Exception:
         pass
 
@@ -3400,7 +3405,14 @@ def _save_burst_image_meta(abs_path: str, meta_json: str | None):
 def _load_burst_image_meta(abs_path: str) -> dict:
     meta_path = _burst_meta_path(abs_path)
     if not abs_path or not os.path.exists(meta_path):
-        return {"zoom": 1.0, "offset_x": 0.0, "offset_y": 0.0, "rotation": 0}
+        return {
+            "zoom": 1.0,
+            "offset_x": 0.0,
+            "offset_y": 0.0,
+            "rotation": 0,
+            "flip_x": False,
+            "flip_y": False,
+        }
 
     try:
         with open(meta_path, "r", encoding="utf-8") as f:
@@ -3415,9 +3427,18 @@ def _load_burst_image_meta(abs_path: str) -> dict:
             "offset_x": max(-1.5, min(1.5, float(raw.get("offset_x", 0.0) or 0.0))),
             "offset_y": max(-1.5, min(1.5, float(raw.get("offset_y", 0.0) or 0.0))),
             "rotation": rotation,
+            "flip_x": bool(raw.get("flip_x", False)),
+            "flip_y": bool(raw.get("flip_y", False)),
         }
     except Exception:
-        return {"zoom": 1.0, "offset_x": 0.0, "offset_y": 0.0, "rotation": 0}
+        return {
+            "zoom": 1.0,
+            "offset_x": 0.0,
+            "offset_y": 0.0,
+            "rotation": 0,
+            "flip_x": False,
+            "flip_y": False,
+        }
 
 
 def _render_burst_image_to_box(real_path: str, box_w: float, box_h: float, allow_rotate: bool = False, fill_box: bool = False):
@@ -3431,11 +3452,18 @@ def _render_burst_image_to_box(real_path: str, box_w: float, box_h: float, allow
     zoom = float(meta.get("zoom", 1.0) or 1.0)
     offset_x = float(meta.get("offset_x", 0.0) or 0.0)
     offset_y = float(meta.get("offset_y", 0.0) or 0.0)
+    flip_x = bool(meta.get("flip_x", False))
+    flip_y = bool(meta.get("flip_y", False))
 
     if rotation in (90, 180, 270):
         img = img.rotate(-rotation, expand=True)
     elif allow_rotate and img.height > img.width:
         img = img.rotate(90, expand=True)
+
+    if flip_x:
+        img = ImageOps.mirror(img)
+    if flip_y:
+        img = ImageOps.flip(img)
 
     if img.mode not in ("RGB", "L"):
         img = img.convert("RGB")
@@ -3448,7 +3476,11 @@ def _render_burst_image_to_box(real_path: str, box_w: float, box_h: float, allow
 
     canvas_img = Image.new("RGB", (target_px_w, target_px_h), "white")
 
-    base_scale = min(target_px_w / float(iw), target_px_h / float(ih))
+    if fill_box:
+        base_scale = max(target_px_w / float(iw), target_px_h / float(ih))
+    else:
+        base_scale = min(target_px_w / float(iw), target_px_h / float(ih))
+
     final_scale = base_scale * zoom
 
     draw_w = max(1, int(iw * final_scale))
@@ -3471,7 +3503,6 @@ def _render_burst_image_to_box(real_path: str, box_w: float, box_h: float, allow
     canvas_img.save(out, format="JPEG", quality=92)
     out.seek(0)
     return out
-
     
     
 
