@@ -368,7 +368,30 @@
 
 
 
-<!-- =========================
+    <!-- =========================
+         Remarks
+    ========================== -->
+    <div class="card inner mt">
+      <div class="sectiontitle accent-blue">Remarks</div>
+
+      <label>General remarks</label>
+      <textarea name="remarks" placeholder="General remarks...">{{ inspection_data.get("remarks","") if inspection_data else "" }}</textarea>
+
+      <div class="grid2 mt">
+        <div>
+          <label>Inspected by</label>
+          <input name="inspected_by" value="{{ inspection_data.get('inspected_by', user.display_name) if inspection_data else user.display_name }}">
+        </div>
+      </div>
+
+      <div class="muted tiny mt">
+        No “Save Draft” button needed — this page auto-saves while you type.
+      </div>
+    </div>
+
+  </form>
+
+  <!-- =========================
        Photo Evidence
   ========================== -->
   <div class="card inner mt">
@@ -441,34 +464,18 @@
     {% endif %}
   </div>
 
-
-    <!-- =========================
-         Remarks + submit
-    ========================== -->
-    <div class="card inner mt">
-      <div class="sectiontitle accent-blue">Remarks</div>
-
-      <label>General remarks</label>
-      <textarea name="remarks" placeholder="General remarks...">{{ inspection_data.get("remarks","") if inspection_data else "" }}</textarea>
-
-      <div class="grid2 mt">
-        <div>
-          <label>Inspected by</label>
-          <input name="inspected_by" value="{{ inspection_data.get('inspected_by', user.display_name) if inspection_data else user.display_name }}">
-        </div>
-        <div>
-          <label>&nbsp;</label>
-          <button class="btn btn-primary" type="submit" id="finalSubmitBtn">Submit Inspection</button>
-        </div>
-      </div>
-
-      <div class="muted tiny mt">
-        No “Save Draft” button needed — this page auto-saves while you type.
+  <!-- =========================
+       Final submit button
+  ========================== -->
+  <div class="card inner mt">
+    <div class="grid2">
+      <div></div>
+      <div>
+        <label>&nbsp;</label>
+        <button class="btn btn-primary" type="submit" form="inspectionForm" id="finalSubmitBtn">Submit Inspection</button>
       </div>
     </div>
-
-  </form>
-
+  </div>
  
 
 <script>
