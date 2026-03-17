@@ -80,6 +80,7 @@ from .models import (
     MrrReceivingInspection,
     MrrInspection,
     MrrInspectionPhoto,
+    MrrInspectionDocument,
     BurstTestReport,
     BurstAttachment,
     BurstSample,
