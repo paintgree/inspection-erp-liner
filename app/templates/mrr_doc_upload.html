@@ -256,7 +256,7 @@
 
         <form class="mt" action="/mrr/{{ lot.id }}/docs/upload" method="post" enctype="multipart/form-data">
           <label class="docs-label">Select File</label>
-          <input class="docs-input" type="file" name="file" required>
+          <input type="file" name="file" required>
 
           <label class="docs-label">Document Type</label>
           <select class="docs-select" name="doc_type">
@@ -365,9 +365,9 @@
                     <a class="docs-action" href="/mrr/docs/{{ d.id }}/view" title="View">👁</a>
                     <a class="docs-action" href="/mrr/docs/{{ d.id }}/download" title="Download">⭳</a>
                     {% if not (receiving and receiving.manager_confirmed_po) %}
-                      <form method="post" action="/mrr/docs/{{ d.id }}/delete" style="display:inline;"
+                      <form method="post" action="/mrr/docs/{{ d.id }}/delete" style="display:inline-block; margin:0;"
                             onsubmit="return confirm('Delete this document?');">
-                        <button class="docs-action" type="submit" title="Delete">🗑</button>
+                        <button class="docs-action" type="submit" title="Delete" style="cursor:pointer;">🗑</button>
                       </form>
                     {% endif %}
                   </div>
