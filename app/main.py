@@ -80,7 +80,6 @@ from .models import (
     MrrReceivingInspection,
     MrrInspection,
     MrrInspectionPhoto,
-    MrrInspectionDocument,
     BurstTestReport,
     BurstAttachment,
     BurstSample,
@@ -5130,9 +5129,9 @@ def mrr_export_inspection_package(
 
     # Documents: include both shipment-specific and ticket-level (PO usually ticket-level)
     all_docs = session.exec(
-        select(MrrInspectionDocument)
-        .where(MrrInspectionDocument.ticket_id == lot_id)
-        .order_by(MrrInspectionDocument.created_at.asc())
+        select(MrrDocument)
+        .where(MrrDocument.ticket_id == lot_id)
+        .order_by(MrrDocument.created_at.asc())
     ).all()
 
     shipment_dn = (getattr(insp, "delivery_note_no", "") or "").strip()
