@@ -634,7 +634,7 @@ def fill_mrr_f01_xlsx_bytes(
         # -------------------------
     # COMMENTS / STATUS / SIGNATURES
     # -------------------------
-    status_raw = (data.get("approval_status") or "").strip().upper()
+    status_raw = str(data.get("approval_status") or "").strip().upper()
     status = ""
     if status_raw in ["VERIFIED", "VERIFIED_CONFIRMED", "VERIFIED AND CONFIRMED"]:
         status = "VERIFIED"
@@ -643,7 +643,7 @@ def fill_mrr_f01_xlsx_bytes(
     elif status_raw in ["NONCONFORM", "NON_CONFORMITY", "NON-CONFORMITY", "NON CONFORMITY"]:
         status = "NONCONFORM"
 
-    # put tick back on selected option
+    # show tick on selected option
     verified_label = "Verified and Confirmed"
     hold_label = "On Hold (Specify Reason Below)"
     nonconform_label = "Non-Conformity"
@@ -652,8 +652,8 @@ def fill_mrr_f01_xlsx_bytes(
     _ws_set_value_safe(ws, "D44", f"☑ {hold_label}" if status == "HOLD" else hold_label)
     _ws_set_value_safe(ws, "G44", f"☑ {nonconform_label}" if status == "NONCONFORM" else nonconform_label)
 
-    remarks = (data.get("remarks") or "").strip()
-    on_hold_reason = (data.get("on_hold_reason") or "").strip()
+    remarks = str(data.get("remarks") or "").strip()
+    on_hold_reason = str(data.get("on_hold_reason") or "").strip()
 
     lines = []
     if status == "HOLD" and on_hold_reason:
@@ -664,11 +664,42 @@ def fill_mrr_f01_xlsx_bytes(
     _ws_set_value_safe(ws, "A46", "\n".join(lines).strip())
 
     # prepared by inspector
-    inspector_name = (getattr(inspection, "inspector_name", "") or "").strip() or (data.get("inspected_by") or "").strip()
-    inspector_date_src = getattr(inspection, "submitted_at_utc", None) or getattr(inspection, "created_at", None) or datetime.utcnow()
+    inspector_name = ""
+    if hasattr(inspection, "inspector_name") and inspection.inspector_name:
+        inspector_name = str(inspection.inspector_name).strip()
+    elif data.get("inspected_by"):
+        inspector_name = str(data.get("inspected_by")).strip()
+
+    inspector_date = ""
+    try:
+        if hasattr(inspection, "created_at") and inspection.created_at:
+            inspector_date = _as_date_str(inspection.created_at)
+        else:
+            inspector_date = _as_date_str(datetime.utcnow())
+    except Exception:
+        inspector_date = ""
 
     _ws_set_value_safe(ws, "B51", inspector_name)
-    _ws_set_value_safe(ws, "B52", _as_date_str(inspector_date_src))
+    _ws_set_value_safe(ws, "B52", inspector_date)
+
+    # reviewed by should appear only if real review data exists
+    reviewer_name = ""
+    reviewer_date = ""
+
+    try:
+        if hasattr(inspection, "reviewed_by") and inspection.reviewed_by:
+            reviewer_name = str(inspection.reviewed_by).strip()
+    except Exception:
+        reviewer_name = ""
+
+    try:
+        if hasattr(inspection, "reviewed_at_utc") and inspection.reviewed_at_utc:
+            reviewer_date = _as_date_str(inspection.reviewed_at_utc)
+    except Exception:
+        reviewer_date = ""
+
+    _ws_set_value_safe(ws, "D51", reviewer_name)
+    _ws_set_value_safe(ws, "D52", reviewer_date)
 
     # reviewed by should show ONLY after actual approval/review action
     reviewer_name = (getattr(inspection, "reviewed_by", "") or "").strip()
