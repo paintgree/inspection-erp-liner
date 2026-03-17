@@ -631,7 +631,7 @@ def fill_mrr_f01_xlsx_bytes(
         if rm:
             _ws_set_value_safe(ws, f"I{r}", rm)
 
-    # -------------------------
+        # -------------------------
     # COMMENTS / STATUS / SIGNATURES
     # -------------------------
     status_raw = (data.get("approval_status") or "").strip().upper()
@@ -643,6 +643,15 @@ def fill_mrr_f01_xlsx_bytes(
     elif status_raw in ["NONCONFORM", "NON_CONFORMITY", "NON-CONFORMITY", "NON CONFORMITY"]:
         status = "NONCONFORM"
 
+    # put tick back on selected option
+    verified_label = "Verified and Confirmed"
+    hold_label = "On Hold (Specify Reason Below)"
+    nonconform_label = "Non-Conformity"
+
+    _ws_set_value_safe(ws, "A44", f"☑ {verified_label}" if status == "VERIFIED" else verified_label)
+    _ws_set_value_safe(ws, "D44", f"☑ {hold_label}" if status == "HOLD" else hold_label)
+    _ws_set_value_safe(ws, "G44", f"☑ {nonconform_label}" if status == "NONCONFORM" else nonconform_label)
+
     remarks = (data.get("remarks") or "").strip()
     on_hold_reason = (data.get("on_hold_reason") or "").strip()
 
@@ -653,12 +662,24 @@ def fill_mrr_f01_xlsx_bytes(
         lines.append(f"Remarks: {remarks}")
 
     _ws_set_value_safe(ws, "A46", "\n".join(lines).strip())
-    _ws_set_value_safe(ws, "B51", getattr(inspection, "inspector_name", "") or "")
-    _ws_set_value_safe(ws, "B52", _as_date_str(datetime.utcnow()))
 
-    if bool(getattr(inspection, "manager_approved", False)):
-        _ws_set_value_safe(ws, "D51", "MANAGER")
-        _ws_set_value_safe(ws, "D52", _as_date_str(datetime.utcnow()))
+    # prepared by inspector
+    inspector_name = (getattr(inspection, "inspector_name", "") or "").strip() or (data.get("inspected_by") or "").strip()
+    inspector_date_src = getattr(inspection, "submitted_at_utc", None) or getattr(inspection, "created_at", None) or datetime.utcnow()
+
+    _ws_set_value_safe(ws, "B51", inspector_name)
+    _ws_set_value_safe(ws, "B52", _as_date_str(inspector_date_src))
+
+    # reviewed by should show ONLY after actual approval/review action
+    reviewer_name = (getattr(inspection, "reviewed_by", "") or "").strip()
+    reviewer_date_src = getattr(inspection, "reviewed_at_utc", None)
+
+    if reviewer_name:
+        _ws_set_value_safe(ws, "D51", reviewer_name)
+        _ws_set_value_safe(ws, "D52", _as_date_str(reviewer_date_src) if reviewer_date_src else "")
+    else:
+        _ws_set_value_safe(ws, "D51", "")
+        _ws_set_value_safe(ws, "D52", "")
 
     # -------------------------
     # FOOTER / PRINT SETTINGS
