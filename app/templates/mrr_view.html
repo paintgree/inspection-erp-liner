@@ -180,6 +180,27 @@
     border:1px solid rgba(59,130,246,.10);
   }
 
+  .mrr-stat-highlight{
+    background: linear-gradient(180deg, #eef7ff 0%, #e0f2fe 100%);
+    border: 1px solid rgba(14, 165, 233, 0.28);
+    box-shadow: 0 6px 16px rgba(14, 165, 233, 0.10);
+  }
+  
+  .mrr-stat-highlight .mrr-stat-icon{
+    background:#dbeafe;
+    color:#1d4ed8;
+  }
+  
+  .mrr-stat-highlight .mrr-stat-value{
+    color:#0c4a6e;
+    font-weight:800;
+  }
+  
+  .mrr-stat-highlight .mrr-stat-help{
+    color:#075985;
+    font-weight:600;
+  }
+
   .mrr-stat-icon{
     width:34px;
     height:34px;
@@ -510,7 +531,7 @@
           </div>
         </div>
 
-        <div class="mrr-stat">
+        <div class="mrr-stat mrr-stat-highlight">
           <div class="mrr-stat-icon">◕</div>
           <div>
             <div class="mrr-stat-label">Received Total</div>
@@ -619,43 +640,7 @@
     </div>
   {% endif %}
 
-  <!-- BASIC INFO -->
-  <div class="card inner mt">
-    <h2>Basic Info</h2>
-
-    <div class="kv"><span>Material</span><b>{{ lot.material_name or "-" }}</b></div>
-    <div class="kv"><span>Supplier</span><b>{{ lot.supplier_name or "-" }}</b></div>
-    <div class="kv"><span>PO</span><b>{{ lot.po_number or "-" }}</b></div>
-
-    <div class="kv">
-      <span>Used Delivery Note(s)</span>
-      <b>
-        {% if used_dns and used_dns|length > 0 %}
-          {{ used_dns | join(", ") }}
-        {% else %}
-          -
-        {% endif %}
-      </b>
-    </div>
-
-    <div class="kv">
-      <span>Quantity (PO)</span>
-      <b>{{ lot.quantity if lot.quantity is not none else "-" }} {{ lot.quantity_unit if lot.quantity_unit else "" }}</b>
-    </div>
-
-    <div class="kv">
-      <span>Received Total</span>
-      <b>
-        {{ lot.received_total if lot.received_total is not none else 0 }}
-        {% if lot.quantity_unit and lot.quantity_unit|upper in ["PC","PCS"] %}
-          {{ lot.quantity_unit }}
-        {% else %}
-          KG (normalized)
-        {% endif %}
-      </b>
-    </div>
-  </div>
-
+  
   <!-- DOCUMENTATION -->
   <div class="card inner mt">
     <h2>Documentation</h2>
