@@ -1569,6 +1569,7 @@ def _docx_replace_all(doc: Document, needle: str, repl: str) -> None:
 def _image_path_to_pdf_bytes(image_path: str) -> bytes:
     """
     Convert one image file into a one-page PDF (fits into A4).
+    Used for normal single-image conversion.
     """
     from reportlab.pdfgen import canvas
     from reportlab.lib.pagesizes import A4
@@ -1581,7 +1582,7 @@ def _image_path_to_pdf_bytes(image_path: str) -> bytes:
     img = ImageReader(image_path)
     iw, ih = img.getSize()
 
-    margin = 36  # 0.5 inch
+    margin = 36
     max_w = page_w - 2 * margin
     max_h = page_h - 2 * margin
 
@@ -1599,7 +1600,210 @@ def _image_path_to_pdf_bytes(image_path: str) -> bytes:
     buf.seek(0)
     return buf.getvalue()
 
+def _photos_appendix_pdf_bytes(photos: list) -> bytes:
+    """
+    Build a grouped photo appendix PDF:
+    - grouped by category/group_name
+    - category heading like A. Packaging
+    - photos shown in 2-column grid
+    - multiple categories can appear on same page
+    - starts new page only when space is not enough
+    """
+    from io import BytesIO
+    from collections import OrderedDict
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.utils import ImageReader
+    from reportlab.pdfbase.pdfmetrics import stringWidth
 
+    buf = BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    page_w, page_h = A4
+
+    margin = 42
+    page_title_y = page_h - margin
+    y = page_title_y
+
+    col_gap = 16
+    box_w = (page_w - 2 * margin - col_gap) / 2
+    img_box_h = 120
+    caption_h = 14
+    row_gap = 16
+    section_gap = 18
+
+    def new_page():
+        nonlocal y
+        c.showPage()
+        y = page_title_y
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(margin, y, "Appendix A - Photo Evidence")
+        y -= 24
+
+    def fit_text(text, max_width, font_name="Helvetica", font_size=8):
+        text = (text or "").strip()
+        if not text:
+            return "-"
+        if stringWidth(text, font_name, font_size) <= max_width:
+            return text
+        while text and stringWidth(text + "...", font_name, font_size) > max_width:
+            text = text[:-1]
+        return (text + "...") if text else "-"
+
+    def draw_photo_cell(x, top_y, ph):
+        group_name = (getattr(ph, "group_name", "") or "Photo").strip()
+        caption = (getattr(ph, "caption", "") or "").strip()
+        path = resolve_mrr_photo_path(getattr(ph, "file_path", None))
+
+        # image frame
+        img_y = top_y - img_box_h
+        c.rect(x, img_y, box_w, img_box_h, stroke=1, fill=0)
+
+        if path and os.path.exists(path):
+            try:
+                img = ImageReader(path)
+                iw, ih = img.getSize()
+                scale = min((box_w - 8) / iw, (img_box_h - 8) / ih)
+                w = iw * scale
+                h = ih * scale
+                dx = x + (box_w - w) / 2
+                dy = img_y + (img_box_h - h) / 2
+                c.drawImage(img, dx, dy, width=w, height=h, preserveAspectRatio=True, mask="auto")
+            except Exception:
+                c.setFont("Helvetica", 9)
+                c.drawString(x + 8, img_y + img_box_h / 2, "Photo could not be rendered")
+        else:
+            c.setFont("Helvetica", 9)
+            c.drawString(x + 8, img_y + img_box_h / 2, "Photo file not found")
+
+        # caption
+        c.setFont("Helvetica", 8)
+        cap = fit_text(caption or "-", box_w - 4, "Helvetica", 8)
+        c.drawString(x + 2, img_y - 10, cap)
+
+    # group photos by category in original order
+    grouped = OrderedDict()
+    for ph in photos or []:
+        gname = (getattr(ph, "group_name", "") or "Uncategorized").strip()
+        grouped.setdefault(gname, []).append(ph)
+
+    # first page title
+    c.setFont("Helvetica-Bold", 14)
+    c.drawString(margin, y, "Appendix A - Photo Evidence")
+    y -= 24
+
+    if not grouped:
+        c.setFont("Helvetica", 10)
+        c.drawString(margin, y, "No photo evidence attached.")
+        c.showPage()
+        c.save()
+        buf.seek(0)
+        return buf.getvalue()
+
+    section_index = 0
+
+    for group_name, items in grouped.items():
+        section_index += 1
+        section_letter = chr(64 + section_index) if section_index <= 26 else f"({section_index})"
+
+        # estimate space needed for heading + first row
+        needed = 18 + img_box_h + caption_h + row_gap
+        if y - needed < margin:
+            new_page()
+
+        # section heading
+        c.setFont("Helvetica", 11)
+        c.drawString(margin, y, f"{section_letter}.  {group_name}")
+        y -= 14
+
+        # draw photos in 2-column rows
+        for i in range(0, len(items), 2):
+            row_needed = img_box_h + caption_h + row_gap
+            if y - row_needed < margin:
+                new_page()
+                c.setFont("Helvetica", 11)
+                c.drawString(margin, y, f"{section_letter}.  {group_name} (cont.)")
+                y -= 14
+
+            top_y = y
+            left_x = margin
+            right_x = margin + box_w + col_gap
+
+            draw_photo_cell(left_x, top_y, items[i])
+
+            if i + 1 < len(items):
+                draw_photo_cell(right_x, top_y, items[i + 1])
+            else:
+                c.rect(right_x, top_y - img_box_h, box_w, img_box_h, stroke=1, fill=0)
+
+            y -= (img_box_h + caption_h + row_gap)
+
+        y -= section_gap
+
+    c.save()
+    buf.seek(0)
+    return buf.getvalue()
+
+    def draw_slot(ph, top_y):
+        group_name = (getattr(ph, "group_name", "") or "Photo").strip()
+        caption = (getattr(ph, "caption", "") or "").strip()
+        path = resolve_mrr_photo_path(getattr(ph, "file_path", None))
+        if not path or not os.path.exists(path):
+            return
+
+        # heading
+        c.setFont("Helvetica-Bold", 11)
+        c.drawString(margin, top_y - 2, f"Category: {group_name}")
+
+        img_top = top_y - title_h
+        img_box_h = slot_h - title_h - caption_h
+        img_box_w = slot_w
+
+        try:
+            img = ImageReader(path)
+            iw, ih = img.getSize()
+
+            scale = min(img_box_w / iw, img_box_h / ih)
+            w = iw * scale
+            h = ih * scale
+
+            x = margin + (img_box_w - w) / 2
+            y = img_top - img_box_h + (img_box_h - h) / 2
+
+            c.rect(margin, img_top - img_box_h, img_box_w, img_box_h, stroke=1, fill=0)
+            c.drawImage(img, x, y, width=w, height=h, preserveAspectRatio=True, mask="auto")
+        except Exception:
+            c.rect(margin, img_top - img_box_h, img_box_w, img_box_h, stroke=1, fill=0)
+            c.setFont("Helvetica", 10)
+            c.drawString(margin + 10, img_top - 20, "Photo could not be rendered.")
+
+        c.setFont("Helvetica", 9)
+        c.drawString(margin, img_top - img_box_h - 14, f"Caption: {caption or '-'}")
+
+    if not photos:
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(margin, page_h - margin, "Appendix A - Photo Evidence")
+        c.setFont("Helvetica", 10)
+        c.drawString(margin, page_h - margin - 24, "No photos attached.")
+        c.showPage()
+    else:
+        for i in range(0, len(photos), 2):
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(margin, page_h - margin + 2, "Appendix A - Photo Evidence")
+
+            top_slot_top = page_h - margin - 24
+            bottom_slot_top = margin + slot_h
+
+            draw_slot(photos[i], top_slot_top)
+
+            if i + 1 < len(photos):
+                draw_slot(photos[i + 1], bottom_slot_top)
+
+            c.showPage()
+
+    c.save()
+    buf.seek(0)
+    return buf.getvalue()
+    
 def _doc_path_to_pdf_bytes(path: str) -> bytes | None:
     """
     Convert an attachment into PDF bytes if possible.
@@ -5207,9 +5411,11 @@ def mrr_export_inspection_package(
     # ------------------------
     if (mode or "").lower() == "pdf":
         pdf_parts: list[bytes] = []
+
+        # 1) report first
         pdf_parts.append(report_pdf)
 
-        # Add attachments (best-effort convert to pdf)
+        # 2) then supporting documents
         for d in docs_for_package:
             p = resolve_mrr_doc_path(getattr(d, "file_path", "") or "")
             if not p:
@@ -5218,19 +5424,20 @@ def mrr_export_inspection_package(
             if pdf_b:
                 pdf_parts.append(pdf_b)
 
-        # Add photos (each photo becomes a page in PDF)
-        for ph in photos:
-            p = resolve_mrr_photo_path(getattr(ph, "file_path", None))
-            if not p:
-                continue
-            ext = os.path.splitext(p)[1].lower()
-            if ext in [".png", ".jpg", ".jpeg", ".webp"]:
-                try:
-                    pdf_parts.append(_image_path_to_pdf_bytes(p))
-                except Exception:
-                    pass
+        # 3) then photo appendix pages
+        if photos:
+            try:
+                appendix_pdf = _photos_appendix_pdf_bytes(photos)
+                if appendix_pdf:
+                    pdf_parts.append(appendix_pdf)
+            except Exception:
+                pass
 
+        # merge everything first
         merged = _merge_pdf_bytes_in_order(pdf_parts)
+
+        # stamp footer LAST so total pages are correct for whole package
+        merged = stamp_footer_on_pdf(merged, "QAP0600-F01")
 
         filename = f"{report_no}_PACKAGE.pdf"
         return Response(
