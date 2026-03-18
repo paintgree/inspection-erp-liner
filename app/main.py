@@ -4258,10 +4258,10 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
     margin_x = 12 * mm
 
     # ------------------------------------------------------------
-    # TOP LOGO HEADER
+    # TOP CENTERED LOGO HEADER
     # ------------------------------------------------------------
     logo_path = os.path.join(BASE_DIR, "static", "images", "logo.png")
-    logo_top_y = h - 18 * mm
+    logo_top_y = h - 16 * mm
 
     if os.path.exists(logo_path):
         try:
@@ -4273,8 +4273,9 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
             dw = float(iw) * scale
             dh = target_h
 
-            total_block_w = dw + 55 * mm
-            start_x = (w - total_block_w) / 2.0
+            text_w = 42 * mm
+            total_w = dw + 4 * mm + text_w
+            start_x = (w - total_w) / 2.0
 
             c.drawImage(
                 img,
@@ -4285,20 +4286,14 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
                 mask="auto"
             )
 
-            text_x = start_x + dw + 4 * mm
-            c.setFillColor(colors.HexColor("#334155"))
-            c.setFont("Helvetica-Bold", 9)
-            c.drawString(text_x, logo_top_y - 4 * mm, "شركة الدقم هونغتونغ لتزويد أنابيب ش.م.م")
-            c.setFont("Helvetica", 10)
-            c.drawString(text_x, logo_top_y - 9 * mm, "Duqm Hongtong Piping LLC")
         except Exception:
             pass
 
     # ------------------------------------------------------------
     # REPORT HEADER BOX
     # ------------------------------------------------------------
-    box_top = h - 34 * mm
-    box_h = 26 * mm
+    box_top = h - 28 * mm
+    box_h = 24 * mm
     box_w = w - (2 * margin_x)
 
     c.setStrokeColor(colors.HexColor("#dbe3ee"))
@@ -4310,20 +4305,17 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
 
     c.setFillColor(colors.black)
     c.setFont("Helvetica-Bold", 18)
-    c.drawString(left_x, box_top - 10 * mm, "Short-Time Hydrostatic")
-    c.drawString(left_x, box_top - 17 * mm, "Burst Pressure Test Report")
+    c.drawString(left_x, box_top - 9 * mm, "Short-Time Hydrostatic")
+    c.drawString(left_x, box_top - 16 * mm, "Burst Pressure Test Report")
 
-    c.setFont("Helvetica", 8)
-    c.setFillColor(colors.HexColor("#64748b"))
-    c.drawString(left_x, box_top - 21.5 * mm, "DUQM HONGTONG PIPING LLC")
 
     c.setFillColor(colors.HexColor("#4338ca"))
     c.setFont("Helvetica-Bold", 7)
-    c.drawString(left_x + 42 * mm, box_top - 21.5 * mm, "OFFICIAL DOCUMENT")
+    c.drawString(left_x + 42 * mm, box_top - 20 * mm, "OFFICIAL DOCUMENT")
 
     rid_x = margin_x + box_w - right_box_w - 6 * mm
     rid_y = box_top - 4 * mm
-    rid_h = 18 * mm
+    rid_h = 16 * mm
 
     c.setFillColor(colors.HexColor("#f8fafc"))
     c.setStrokeColor(colors.HexColor("#e5e7eb"))
@@ -4361,7 +4353,7 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
     pill_w = 22 * mm
     pill_h = 6.5 * mm
     pill_x = rid_x + right_box_w - pill_w - 3 * mm
-    pill_y = rid_y - 15 * mm
+    pill_y = rid_y - 13 * mm
 
     c.setFillColor(pill_fill)
     c.setStrokeColor(pill_fill)
@@ -4387,7 +4379,7 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
     c.setFont("Helvetica", 8)
     c.drawRightString(w - margin_x, footer_y, f"Page {page_num}/{page_total}")
 
-    return box_top - box_h - 10 * mm
+    return box_top - box_h - 4 * mm
 
 def _draw_report_info_table(c, report, x, y):
     w, h = A4
