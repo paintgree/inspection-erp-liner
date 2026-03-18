@@ -4253,14 +4253,8 @@ def _logo_path() -> str:
     # Put your logo here: app/static/images/logo.png
     return os.path.join(base_dir, "static", "images", "logo.png")
 
-def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, page_total: int, report=None):
+def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1, report=None):
     w, h = A4
-
-    # page background
-    c.setFillColor(colors.HexColor("#f8fafc"))
-    c.rect(0, 0, w, h, stroke=0, fill=1)
-
-        w, h = A4
     margin_x = 12 * mm
 
     # ------------------------------------------------------------
@@ -4314,7 +4308,6 @@ def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, pa
     left_x = margin_x + 8 * mm
     right_box_w = 34 * mm
 
-    # Title area (NO logo inside the box)
     c.setFillColor(colors.black)
     c.setFont("Helvetica-Bold", 18)
     c.drawString(left_x, box_top - 10 * mm, "Short-Time Hydrostatic")
@@ -4328,7 +4321,6 @@ def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, pa
     c.setFont("Helvetica-Bold", 7)
     c.drawString(left_x + 42 * mm, box_top - 21.5 * mm, "OFFICIAL DOCUMENT")
 
-    # Right-side report id / result box
     rid_x = margin_x + box_w - right_box_w - 6 * mm
     rid_y = box_top - 4 * mm
     rid_h = 18 * mm
@@ -4341,11 +4333,18 @@ def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, pa
     c.setFillColor(colors.HexColor("#94a3b8"))
     c.drawRightString(rid_x + right_box_w - 3 * mm, rid_y - 3 * mm, "REPORT ID")
 
+    rep_no = "-"
+    if report is not None:
+        rep_no = str(getattr(report, "report_no", "") or "-")
+
     c.setFont("Helvetica-Bold", 11)
     c.setFillColor(colors.black)
-    c.drawRightString(rid_x + right_box_w - 3 * mm, rid_y - 8 * mm, _txt(getattr(report, "report_no", "")) or "-")
+    c.drawRightString(rid_x + right_box_w - 3 * mm, rid_y - 8 * mm, rep_no)
 
-    rep_result = (_txt(getattr(report, "test_result", "")) or "").upper()
+    rep_result = ""
+    if report is not None:
+        rep_result = str(getattr(report, "test_result", "") or "").upper()
+
     if rep_result == "PASS":
         pill_fill = colors.HexColor("#dcfce7")
         pill_text = colors.HexColor("#15803d")
@@ -4372,64 +4371,23 @@ def _draw_header_footer(c, *, title: str, doc_control_no: str, page_num: int, pa
     c.setFont("Helvetica-Bold", 6.5)
     c.drawCentredString(pill_x + pill_w / 2, pill_y + 2.1 * mm, pill_label)
 
-    # Return Y position under header
-    y = box_top - box_h - 10 * mm
-    # title area
-    c.setFillColor(colors.black)
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(card_x + 18 * mm, card_y + 18 * mm, "Short-Time Hydrostatic")
-    c.drawString(card_x + 18 * mm, card_y + 11 * mm, "Burst Pressure Test Report")
+    # ------------------------------------------------------------
+    # FOOTER
+    # ------------------------------------------------------------
+    footer_y = 10 * mm
+    c.setStrokeColor(colors.HexColor("#d1d5db"))
+    c.line(margin_x, footer_y + 5 * mm, w - margin_x, footer_y + 5 * mm)
 
-    c.setFont("Helvetica", 7)
+    if doc_control_no:
+        c.setFillColor(colors.HexColor("#6b7280"))
+        c.setFont("Helvetica", 8)
+        c.drawString(margin_x, footer_y, str(doc_control_no))
+
     c.setFillColor(colors.HexColor("#6b7280"))
-    c.drawString(card_x + 18 * mm, card_y + 5 * mm, "DUQM HONGTONG PIPING LLC")
-
-    c.setFont("Helvetica-Bold", 6)
-    c.setFillColor(colors.HexColor("#4f46e5"))
-    c.drawString(card_x + 66 * mm, card_y + 5 * mm, "OFFICIAL DOCUMENT")
-
-    # right side meta
-    report_no = _txt(getattr(report, "report_no", "")) if report else ""
-    result_txt = ""
-    if report:
-        rv = (_txt(getattr(report, "test_result", "")) or "").strip().upper()
-        if rv:
-            result_txt = rv
-
-    c.setFont("Helvetica-Bold", 5.5)
-    c.setFillColor(colors.HexColor("#94a3b8"))
-    c.drawRightString(card_x + card_w - 4 * mm, card_y + 20 * mm, "REPORT ID")
-
-    c.setFont("Helvetica-Bold", 8)
-    c.setFillColor(colors.black)
-    c.drawRightString(card_x + card_w - 4 * mm, card_y + 14 * mm, report_no or "-")
-
-    # result badge
-    badge_w = 24 * mm
-    badge_h = 6 * mm
-    rx = card_x + card_w - badge_w - 4 * mm
-    ry = card_y + 4 * mm
-
-    if result_txt == "PASS":
-        c.setFillColor(colors.HexColor("#ecfdf5"))
-        c.roundRect(rx, ry, badge_w, badge_h, 2 * mm, stroke=0, fill=1)
-        c.setFillColor(colors.HexColor("#059669"))
-        c.setFont("Helvetica-Bold", 6)
-        c.drawCentredString(rx + badge_w / 2, ry + 1.8 * mm, "PASS RESULT")
-    elif result_txt == "FAIL":
-        c.setFillColor(colors.HexColor("#fef2f2"))
-        c.roundRect(rx, ry, badge_w, badge_h, 2 * mm, stroke=0, fill=1)
-        c.setFillColor(colors.HexColor("#dc2626"))
-        c.setFont("Helvetica-Bold", 6)
-        c.drawCentredString(rx + badge_w / 2, ry + 1.8 * mm, "FAIL RESULT")
-
-    # footer
     c.setFont("Helvetica", 8)
-    c.setFillColor(colors.HexColor("#94a3b8"))
-    c.drawString(14 * mm, 8 * mm, doc_control_no or "")
-    c.drawRightString(w - 14 * mm, 8 * mm, f"Page {page_num}/{page_total}")
+    c.drawRightString(w - margin_x, footer_y, f"Page {page_num}/{page_total}")
 
-    return card_y - 10 * mm
+    return box_top - box_h - 10 * mm
 
 def _draw_report_info_table(c, report, x, y):
     w, h = A4
