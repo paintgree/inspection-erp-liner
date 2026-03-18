@@ -4268,7 +4268,7 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
             img = ImageReader(logo_path)
             iw, ih = img.getSize()
 
-            target_h = 16 * mm
+            target_h = 10 * mm
             scale = target_h / float(ih)
             dw = float(iw) * scale
             dh = target_h
@@ -4304,9 +4304,9 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
     right_box_w = 34 * mm
 
     c.setFillColor(colors.black)
-    c.setFont("Helvetica-Bold", 18)
-    c.drawString(left_x, box_top - 9 * mm, "Short-Time Hydrostatic")
-    c.drawString(left_x, box_top - 16 * mm, "Burst Pressure Test Report")
+    c.setFont("Helvetica-Bold", 12)
+    c.drawString(left_x, box_top - 9 * mm, "Short-Time Hydrostatic Burst Pressure Test Report")
+    
 
 
     c.setFillColor(colors.HexColor("#4338ca"))
