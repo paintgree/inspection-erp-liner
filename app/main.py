@@ -9230,69 +9230,19 @@ def dashboard(
 ):
     user = get_current_user(request, session)
 
-    # Optional filter (?process=LINER)
     q_process = (request.query_params.get("process") or "").strip().upper()
     if q_process and q_process not in ["LINER", "REINFORCEMENT", "COVER"]:
         q_process = ""
 
-    # Production runs (optionally filtered)
-    q = select(ProductionRun).order_by(ProductionRun.created_at.desc())
-    if q_process:
-        q = q.where(ProductionRun.process == q_process)
+    batch_cards, progress_map, grouped = _build_batch_dashboard_cards(session, q_process)
+    active_runs = [r for rows in grouped.values() for r in rows]
 
-    runs = session.exec(q).all()
-
-    grouped: Dict[str, List[ProductionRun]] = {}
-    for r in runs:
-        grouped.setdefault(r.dhtp_batch_no, []).append(r)
-
-    # ✅ bulk progress map instead of query-per-run
-    progress_map = get_progress_map_bulk(session, runs)
-
-    # Build "batch cards" for the dashboard UI
-    batch_cards = []
-    for batch_no, batch_runs in grouped.items():
-        if not batch_no:
-            continue
-
-        batch_runs_sorted = sorted(
-            batch_runs,
-            key=lambda r: (r.created_at or datetime.min),
-            reverse=True,
-        )
-        rep = batch_runs_sorted[0]
-
-        pcts = [progress_map.get(r.id, 0) for r in batch_runs if r.id is not None]
-        avg_progress = int(sum(pcts) / max(1, len(pcts)))
-
-        any_open = any((r.status or "").upper() == "OPEN" for r in batch_runs)
-        priority = "HIGH PRIORITY" if any_open else ""
-
-        processes = sorted({(r.process or "").strip().upper() for r in batch_runs if r.process})
-
-        batch_cards.append(
-            {
-                "batch_no": batch_no,
-                "client_name": rep.client_name or "",
-                "po_number": rep.po_number or "",
-                "itp_number": rep.itp_number or "",
-                "created_at": rep.created_at,
-                "avg_progress": avg_progress,
-                "priority": priority,
-                "processes": processes,
-                "run_count": len(batch_runs),
-            }
-        )
-
-    batch_cards.sort(key=lambda x: x.get("created_at") or datetime.min, reverse=True)
-
-    # ---------- Process tiles stats ----------
-    # Reuse the already-loaded runs when possible
+    # Process tiles stats
     if q_process:
         all_runs = session.exec(select(ProductionRun).order_by(ProductionRun.created_at.desc())).all()
         all_progress_map = get_progress_map_bulk(session, all_runs)
     else:
-        all_runs = runs
+        all_runs = active_runs
         all_progress_map = progress_map
 
     process_stats = {}
@@ -9304,54 +9254,40 @@ def dashboard(
         open_cnt = sum(1 for r in proc_runs if (r.status or "").upper() == "OPEN")
         closed_cnt = sum(1 for r in proc_runs if (r.status or "").upper() == "CLOSED")
         approved_cnt = sum(1 for r in proc_runs if (r.status or "").upper() == "APPROVED")
-
         proc_pcts = [all_progress_map.get(r.id, 0) for r in proc_runs if r.id is not None]
-        avg_progress = int(sum(proc_pcts) / max(1, len(proc_pcts)))
-
+        avg_p = int(sum(proc_pcts) / max(1, len(proc_pcts)))
         process_stats[proc] = {
             "open": open_cnt,
             "closed": closed_cnt,
             "approved": approved_cnt,
-            "avg_progress": avg_progress,
+            "avg_progress": avg_p,
             "icon": IMAGE_MAP.get(proc, ""),
         }
 
-    # ---------- MRR status summary ----------
     lots = session.exec(
         select(MaterialLot)
         .where(MaterialLot.status != MRR_CANCELED_STATUS)
         .order_by(MaterialLot.created_at.desc())
     ).all()
-
     lot_ids = [l.id for l in lots if l and l.id is not None]
-
     receiving_map = {}
     inspection_map = {}
-
     if lot_ids:
-        receivings = session.exec(
-            select(MrrReceiving).where(MrrReceiving.ticket_id.in_(lot_ids))
-        ).all()
+        receivings = session.exec(select(MrrReceiving).where(MrrReceiving.ticket_id.in_(lot_ids))).all()
         receiving_map = {r.ticket_id: r for r in receivings}
-
-        inspections = session.exec(
-            select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id.in_(lot_ids))
-        ).all()
+        inspections = session.exec(select(MrrReceivingInspection).where(MrrReceivingInspection.ticket_id.in_(lot_ids))).all()
         inspection_map = {i.ticket_id: i for i in inspections}
 
     mrr_pending_docs = 0
     mrr_docs_cleared = 0
     mrr_insp_submitted = 0
     mrr_final_approved = 0
-
     for lot in lots:
         rec = receiving_map.get(lot.id)
         insp = inspection_map.get(lot.id)
-
         docs_ok = bool(rec and (rec.inspector_confirmed_po or rec.manager_confirmed_po))
         insp_submitted = bool(insp and insp.inspector_confirmed)
         insp_ok = bool(insp and insp.manager_approved)
-
         if (lot.status or "").upper() == "APPROVED":
             mrr_final_approved += 1
         else:
@@ -9359,7 +9295,6 @@ def dashboard(
                 mrr_pending_docs += 1
             else:
                 mrr_docs_cleared += 1
-
             if insp_submitted and not insp_ok:
                 mrr_insp_submitted += 1
 
@@ -9369,6 +9304,8 @@ def dashboard(
         "insp_submitted": mrr_insp_submitted,
         "final_approved": mrr_final_approved,
     }
+
+    calendar = _build_dashboard_calendar(session)
 
     return templates.TemplateResponse(
         "dashboard.html",
@@ -9381,6 +9318,7 @@ def dashboard(
             "process_stats": process_stats,
             "selected_process": q_process,
             "batch_cards": batch_cards,
+            "calendar_items": calendar,
         },
     )
 
@@ -9389,115 +9327,77 @@ def global_search(
     q: str = "",
     session: Session = Depends(get_session),
 ):
-    q = (q or "").strip()
-    q_lower = q.lower()
-
+    query = (q or "").strip()
     results = []
-    if len(q_lower) < 2:
+    if len(query) < 1:
         return {"results": results}
 
-    # Production runs / batches
-    runs = session.exec(
-        select(ProductionRun).order_by(ProductionRun.created_at.desc())
-    ).all()
+    batch_cards, _, _ = _build_batch_dashboard_cards(session, "")
+    seen_urls = set()
 
-    seen_batch_urls = set()
-    for r in runs:
-        batch_no = (r.dhtp_batch_no or "").strip()
-        hay = " ".join([
-            batch_no,
-            r.client_name or "",
-            r.po_number or "",
-            r.itp_number or "",
-            r.process or "",
-            r.pipe_specification or "",
-        ]).lower()
-
-        if q_lower in hay and batch_no:
-            url = f"/batches/{batch_no}"
-            if url not in seen_batch_urls:
+    for card in batch_cards:
+        if _search_match(query, card.get("search_blob", ""), card.get("status_label", ""), card.get("next_action", "")):
+            url = f"/batches/{card['batch_no']}"
+            if url not in seen_urls:
                 results.append({
                     "type": "batch",
-                    "title": f"Batch {batch_no}",
-                    "subtitle": f"{r.client_name or '-'} · PO: {r.po_number or '-'} · ITP: {r.itp_number or '-'}",
+                    "title": f"Batch {card['batch_no']}",
+                    "subtitle": f"{card.get('client_name') or '-'} · PO: {card.get('po_number') or '-'} · {card.get('status_label') or '-'}",
                     "url": url,
                 })
-                seen_batch_urls.add(url)
+                seen_urls.add(url)
 
-    # Hydro
-    hydro_records = session.exec(
-        select(HydroTestRecord).order_by(HydroTestRecord.created_at.desc())
-    ).all()
+    hydro_records = session.exec(select(HydroTestRecord).order_by(HydroTestRecord.created_at.desc())).all()
     for rec in hydro_records:
-        hay = " ".join([
-            rec.batch_no or "",
-            rec.report_no or "",
-            getattr(rec, "assigned_qaqc_display_name", "") or "",
-        ]).lower()
-        if q_lower in hay and rec.batch_no:
-            results.append({
-                "type": "hydro",
-                "title": f"Hydro {rec.batch_no}",
-                "subtitle": f"Report: {rec.report_no or '-'}",
-                "url": f"/hydro/batch/{rec.batch_no}",
-            })
+        if _search_match(query, rec.batch_no or "", rec.report_no or "", getattr(rec, "assigned_qaqc_display_name", "") or "") and rec.batch_no:
+            url = f"/hydro/batch/{rec.batch_no}"
+            if url not in seen_urls:
+                results.append({
+                    "type": "hydro",
+                    "title": f"Hydro {rec.batch_no}",
+                    "subtitle": f"Report: {rec.report_no or '-'}",
+                    "url": url,
+                })
+                seen_urls.add(url)
 
-    # Burst
-    burst_reports = session.exec(
-        select(BurstTestReport).order_by(BurstTestReport.created_at.desc())
-    ).all()
+    burst_reports = session.exec(select(BurstTestReport).order_by(BurstTestReport.created_at.desc())).all()
     for rec in burst_reports:
-        hay = " ".join([
-            rec.batch_no or "",
-            rec.report_no or "",
-            rec.purpose or "",
-        ]).lower()
-        if q_lower in hay:
-            results.append({
-                "type": "burst",
-                "title": f"Burst {rec.batch_no or '-'}",
-                "subtitle": f"Report: {rec.report_no or '-'}",
-                "url": f"/burst/{rec.id}",
-            })
+        if _search_match(query, rec.batch_no or "", rec.report_no or "", rec.purpose or ""):
+            url = f"/burst/{rec.id}"
+            if url not in seen_urls:
+                results.append({
+                    "type": "burst",
+                    "title": f"Burst {rec.batch_no or '-'}",
+                    "subtitle": f"Report: {rec.report_no or '-'}",
+                    "url": url,
+                })
+                seen_urls.add(url)
 
-    # Final
-    final_phases = session.exec(
-        select(FinalInspectionPhase).order_by(FinalInspectionPhase.created_at.desc())
-    ).all()
+    final_phases = session.exec(select(FinalInspectionPhase).order_by(FinalInspectionPhase.created_at.desc())).all()
     for phase in final_phases:
-        hay = " ".join([
-            phase.batch_no or "",
-            phase.title or "",
-            phase.status or "",
-            phase.notes or "",
-        ]).lower()
-        if q_lower in hay and phase.batch_no:
-            results.append({
-                "type": "final",
-                "title": f"Final Inspection {phase.batch_no}",
-                "subtitle": f"{phase.title or '-'} · {phase.status or '-'}",
-                "url": f"/final/batch/{phase.batch_no}",
-            })
+        if _search_match(query, phase.batch_no or "", phase.title or "", phase.status or "", phase.notes or "") and phase.batch_no:
+            url = f"/final/batch/{phase.batch_no}"
+            if url not in seen_urls:
+                results.append({
+                    "type": "final",
+                    "title": f"Final Inspection {phase.batch_no}",
+                    "subtitle": f"{phase.title or '-'} · {phase.status or '-'}",
+                    "url": url,
+                })
+                seen_urls.add(url)
 
-    # RFI
-    rfi_records = session.exec(
-        select(RfiRecord).order_by(RfiRecord.created_at.desc())
-    ).all()
+    rfi_records = session.exec(select(RfiRecord).order_by(RfiRecord.created_at.desc())).all()
     for rfi in rfi_records:
-        hay = " ".join([
-            rfi.batch_no or "",
-            rfi.rfi_no or "",
-            rfi.client_name or "",
-            rfi.inspection_stage or "",
-            rfi.status or "",
-        ]).lower()
-        if q_lower in hay:
-            results.append({
-                "type": "rfi",
-                "title": f"RFI {rfi.rfi_no or '-'}",
-                "subtitle": f"Batch: {rfi.batch_no or '-'} · {rfi.inspection_stage or '-'}",
-                "url": f"/rfi/{rfi.id}",
-            })
+        if _search_match(query, rfi.batch_no or "", rfi.rfi_no or "", rfi.client_name or "", rfi.inspection_stage or "", rfi.status or ""):
+            url = f"/rfi/{rfi.id}"
+            if url not in seen_urls:
+                results.append({
+                    "type": "rfi",
+                    "title": f"RFI {rfi.rfi_no or '-'}",
+                    "subtitle": f"Batch: {rfi.batch_no or '-'} · {_format_rfi_activity_text(rfi.inspection_stage or '')}",
+                    "url": url,
+                })
+                seen_urls.add(url)
 
     return {"results": results[:25]}
 
