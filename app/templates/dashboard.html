@@ -1,173 +1,115 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="dash-shell">
-
-  <!-- =========================
-       Sidebar (Dashboard only)
-       ========================= -->
-  <aside class="dash-sidebar">
-  <div class="dash-nav-title">Processes</div>
-
-  <a class="dash-nav-item active" href="/dashboard">
-    <span class="dash-nav-ico">▦</span>
-    <span>Overview</span>
-  </a>
-
-  <a class="dash-nav-item" href="/runs">
-    <span class="dash-nav-ico">🧪</span>
-    <span>In-Process Inspection</span>
-  </a>
-
-  <a class="dash-nav-item" href="/mrr">
-    <span class="dash-nav-ico">📦</span>
-    <span>Material Receiving (MRR)</span>
-  </a>
- 
-
-  <a class="dash-nav-item" href="/burst">
-    <span class="dash-nav-ico">💥</span>
-    <span>Burst Testing</span>
-  </a>
-
-  <a class="dash-nav-item" href="/hydro">
-    <span class="dash-nav-ico">💧</span>
-    <span>Hydro Testing</span>
-  </a>
-
-  <a class="dash-nav-item" href="/final">
-    <span class="dash-nav-ico">✔</span>
-    <span>Final Inspection</span>
-  </a>
-
-  <a class="dash-nav-item" href="/rfi">
-    <span class="dash-nav-ico">🗂</span>
-    <span>RFI</span>
-  </a>
-
-</aside>
-
-
-  <!-- =========================
-       Main
-       ========================= -->
-  <main class="dash-main">
-
-    <div class="dash-header">
-      <div>
-        <h1 class="dash-title">Operations Overview</h1>
-        <div class="muted">Real-time monitoring across departments.</div>
-      </div>
-
-      <div class="global-search-wrap">
-        <div class="global-search-bar">
-          <input
-            id="globalSearchInput"
-            class="global-search-input"
-            type="text"
-            placeholder="Search batch, client, PO, ITP, hydro, burst, final, MRR, RFI..."
-            autocomplete="off"
-          >
-          <button id="globalSearchBtn" class="btn" type="button">Search</button>
-        </div>
-        <div id="globalSearchResults" class="global-search-results" style="display:none;"></div>
-      </div>
+<main class="dash-main">
+  <div class="dash-header">
+    <div>
+      <h1 class="dash-title">Orders Production Overview</h1>
+      <div class="muted">Real-time monitoring across the production and quality workflow.</div>
     </div>
 
-    <!-- KPI cards -->
-    <div class="kpi-grid">
-      <div class="kpi-card">
-        <div class="kpi-label">Total Batches</div>
-        <div class="kpi-value">{{ batch_cards|length }}</div>
+    <div class="global-search-wrap">
+      <div class="global-search-bar">
+        <input
+          id="globalSearchInput"
+          class="global-search-input"
+          type="text"
+          placeholder="Search batch, client, PO, ITP, hydro, burst, final, MRR, RFI..."
+          autocomplete="off"
+        >
+        <button id="globalSearchBtn" class="btn" type="button">Search</button>
       </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Total Production Runs</div>
-        <div class="kpi-value">{{ progress_map|length }}</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">Avg. Progress</div>
-        <div class="kpi-value">
-          {% if progress_map|length == 0 %}0%{% else %}
-            {{ (progress_map.values()|sum / (progress_map|length))|round(0, 'floor') }}%
-          {% endif %}
-        </div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-label">MRR Approved Lots</div>
-        <div class="kpi-value">{{ mrr_stats.final_approved }}</div>
+      <div id="globalSearchResults" class="global-search-results" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Total Batches</div>
+      <div class="kpi-value">{{ batch_cards|length }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Total Production Runs</div>
+      <div class="kpi-value">{{ progress_map|length }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Avg. Progress</div>
+      <div class="kpi-value">
+        {% if progress_map|length == 0 %}0%{% else %}
+          {{ (progress_map.values()|sum / (progress_map|length))|round(0, 'floor') }}%
+        {% endif %}
       </div>
     </div>
+    <div class="kpi-card">
+      <div class="kpi-label">MRR Approved Lots</div>
+      <div class="kpi-value">{{ mrr_stats.final_approved }}</div>
+    </div>
+  </div>
 
+  <div class="section mt">
+    <div class="section-head">
+      <h2>Manufacturing &amp; Production</h2>
+      <div class="muted">Click a batch to see all processes under it.</div>
+    </div>
 
-    <!-- =========================
-         Manufacturing & Production
-         ========================= -->
-    <div class="section mt">
-      <div class="section-head">
-        <h2>Manufacturing &amp; Production</h2>
-        <div class="muted">Click a batch to see all processes under it.</div>
+    {% if batch_cards|length == 0 %}
+      <div class="card mt">
+        <div class="muted">No batches yet.</div>
       </div>
+    {% else %}
+      <div class="workorders-grid">
+        {% for b in batch_cards %}
+          <a class="workorder-card" href="/batches/{{ b.batch_no }}">
+            {% if b.priority %}
+              <div class="workorder-priority">{{ b.priority }}</div>
+            {% endif %}
 
-      {% if batch_cards|length == 0 %}
-        <div class="card mt">
-          <div class="muted">No batches yet.</div>
-        </div>
-      {% else %}
-        <div class="workorders-grid">
-          {% for b in batch_cards %}
-            <a class="workorder-card" href="/batches/{{ b.batch_no }}">
-              {% if b.priority %}
-                <div class="workorder-priority">{{ b.priority }}</div>
-              {% endif %}
-
-              <div class="workorder-top">
-                <div>
-                  <div class="workorder-title">Batch {{ b.batch_no }}</div>
-                  <div class="workorder-sub muted">
-                    {% if b.client_name %}{{ b.client_name }}{% else %}—{% endif %}
-                    {% if b.po_number %} • PO: {{ b.po_number }}{% endif %}
-                    {% if b.itp_number %} • ITP: {{ b.itp_number }}{% endif %}
-                  </div>
+            <div class="workorder-top">
+              <div>
+                <div class="workorder-title">Batch {{ b.batch_no }}</div>
+                <div class="workorder-sub muted">
+                  {% if b.client_name %}{{ b.client_name }}{% else %}—{% endif %}
+                  {% if b.po_number %} • PO: {{ b.po_number }}{% endif %}
+                  {% if b.itp_number %} • ITP: {{ b.itp_number }}{% endif %}
                 </div>
-                <div class="workorder-progress">
-                  <div class="workorder-progress-label">Completion Status</div>
-                  <div class="workorder-progress-val">{{ b.avg_progress }}%</div>
+              </div>
+              <div class="workorder-progress">
+                <div class="workorder-progress-label">Completion Status</div>
+                <div class="workorder-progress-val">{{ b.avg_progress }}%</div>
+              </div>
+            </div>
+
+            <div class="progressbar" aria-label="progress">
+              <div class="progressbar-fill" style="width: {{ b.avg_progress }}%;"></div>
+            </div>
+
+            <div class="workorder-meta">
+              <div class="meta-item">
+                <div class="meta-label">Created</div>
+                <div class="meta-value">
+                  {% if b.created_at %}{{ b.created_at.strftime('%Y-%m-%d') }}{% else %}—{% endif %}
                 </div>
               </div>
 
-              <div class="progressbar" aria-label="progress">
-                <div class="progressbar-fill" style="width: {{ b.avg_progress }}%;"></div>
-              </div>
-
-              <div class="workorder-meta">
-                <div class="meta-item">
-                  <div class="meta-label">Created</div>
-                  <div class="meta-value">
-                    {% if b.created_at %}{{ b.created_at.strftime('%Y-%m-%d') }}{% else %}—{% endif %}
-                  </div>
-                </div>
-
-                <div class="meta-item">
-                  <div class="meta-label">Processes</div>
-                  <div class="meta-value">
-                    {% if b.processes|length == 0 %}—{% else %}{{ b.processes|join(', ') }}{% endif %}
-                  </div>
-                </div>
-
-                <div class="meta-item">
-                  <div class="meta-label">Runs</div>
-                  <div class="meta-value">{{ b.run_count }}</div>
+              <div class="meta-item">
+                <div class="meta-label">Processes</div>
+                <div class="meta-value">
+                  {% if b.processes|length == 0 %}—{% else %}{{ b.processes|join(', ') }}{% endif %}
                 </div>
               </div>
-            </a>
-          {% endfor %}
-        </div>
-      {% endif %}
-    </div>
 
-  </main>
+              <div class="meta-item">
+                <div class="meta-label">Runs</div>
+                <div class="meta-value">{{ b.run_count }}</div>
+              </div>
+            </div>
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</main>
 
-</div>
 <script>
 (function(){
   const input = document.getElementById("globalSearchInput");
@@ -260,19 +202,3 @@
 })();
 </script>
 {% endblock %}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
