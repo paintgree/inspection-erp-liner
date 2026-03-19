@@ -4260,26 +4260,26 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
     # ------------------------------------------------------------
     # TOP CENTERED LOGO HEADER
     # ------------------------------------------------------------
-    logo_path = os.path.join(BASE_DIR, "static", "images", "logo.png")
-    logo_top_y = h - 10 * mm  # moved higher to avoid overlap with title box
+        logo_path = os.path.join(BASE_DIR, "static", "images", "logo.png")
+    logo_top_y = h - 8 * mm
 
     if os.path.exists(logo_path):
         try:
             img = ImageReader(logo_path)
             iw, ih = img.getSize()
 
-            target_h = 11 * mm
+            # slightly bigger than before
+            target_h = 14 * mm
             scale = target_h / float(ih)
             dw = float(iw) * scale
             dh = target_h
 
-            text_w = 42 * mm
-            total_w = dw + 4 * mm + text_w
-            start_x = (w - total_w) / 2.0
+            # center logo exactly
+            logo_x = (w - dw) / 2.0
 
             c.drawImage(
                 img,
-                start_x,
+                logo_x,
                 logo_top_y - dh,
                 width=dw,
                 height=dh,
@@ -4287,7 +4287,6 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
             )
         except Exception:
             pass
-
     # ------------------------------------------------------------
     # REPORT HEADER BOX
     # ------------------------------------------------------------
@@ -4325,11 +4324,18 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
 
     c.setFont("Helvetica-Bold", 5.5)
     c.setFillColor(colors.HexColor("#94a3b8"))
-    c.drawRightString(rid_x + right_box_w - 3 * mm, rid_top - 3.2 * mm, "REPORT ID")
+    c.drawRightString(rid_x + right_box_w - 3 * mm, rid_top - 3.2 * mm, "REPORT NO.")
 
     rep_no = "-"
     if report is not None:
-        rep_no = str(getattr(report, "report_no", "") or "-")
+        rep_no = (
+            getattr(report, "report_no", None)
+            or getattr(report, "report_id", None)
+            or getattr(report, "id", None)
+            or getattr(report, "batch_no", None)
+            or "-"
+        )
+        rep_no = str(rep_no)
 
     c.setFont("Helvetica-Bold", 9.5)
     c.setFillColor(colors.black)
@@ -4543,19 +4549,19 @@ def _draw_specimen_blocks(c, report, samples, start_y):
 
             c.setFont("Helvetica-Bold", 4.5)
             c.setFillColor(colors.HexColor("#94a3b8"))
-            c.drawString(inner_left, top_y - 20.8 * mm, "TOTAL LEN")
-            c.drawString(inner_left + 31 * mm, top_y - 20.8 * mm, "EFFECTIVE")
+            c.drawString(inner_left, top_y - 20.2 * mm, "TOTAL LEN")
+            c.drawString(inner_left + 31 * mm, top_y - 20.2 * mm, "EFFECTIVE")
 
             c.setFont("Helvetica-Bold", 6.2)
             c.setFillColor(colors.black)
             c.drawString(
                 inner_left,
-                top_y - 23.2 * mm,
+                top_y - 22.6 * mm,
                 f"{total_len_mm:.1f} mm" if total_len_mm > 0 else "-"
             )
             c.drawString(
                 inner_left + 31 * mm,
-                top_y - 23.2 * mm,
+                top_y - 22.6 * mm,
                 f"{eff_len} mm" if eff_len != "-" else "-"
             )
 
