@@ -7290,6 +7290,164 @@ def _format_rfi_activity_text(value: str) -> str:
     if not items:
         return "-"
     return ", ".join(RFI_ACTIVITY_LABELS.get(x, x.replace("_", " ").title()) for x in items)
+
+
+def _search_match(query: str, *values: str) -> bool:
+    q = (query or "").strip().lower()
+    if not q:
+        return False
+    hay = " ".join(str(v or "") for v in values).lower()
+    return q in hay
+
+
+def _build_dashboard_calendar(session: Session) -> dict:
+    rows = session.exec(
+        select(RfiRecord).where(RfiRecord.status != "CLOSED").order_by(RfiRecord.created_at.desc())
+    ).all()
+    out = {"overdue": [], "today": [], "upcoming": []}
+    for rfi in rows:
+        info = _rfi_due_info(rfi)
+        if not info.get("due_at"):
+            continue
+        item = {
+            "title": f"{rfi.rfi_no or 'RFI'} - {rfi.batch_no or '-'}",
+            "message": info.get("label") or (info["due_at"].strftime("%Y-%m-%d") if info.get("due_at") else "-"),
+            "url": f"/rfi/{rfi.id}",
+        }
+        if info.get("is_overdue"):
+            out["overdue"].append(item)
+        elif info.get("is_due_today"):
+            out["today"].append(item)
+        elif info.get("is_upcoming"):
+            out["upcoming"].append(item)
+    return out
+
+
+def _compute_batch_status(session: Session, batch_no: str, runs: list[ProductionRun]) -> dict:
+    latest_rfi = session.exec(
+        select(RfiRecord).where(RfiRecord.batch_no == batch_no).order_by(RfiRecord.created_at.desc())
+    ).first()
+
+    remaining = _get_batch_remaining_rfi_activities(session, batch_no)
+    pending_runs = [r for r in runs if (getattr(r, "status", "") or "").upper() != "APPROVED"]
+
+    if pending_runs:
+        current_stage = "Production Ongoing"
+        remaining_steps = ["Complete production", "Raise RFI"]
+        status_label = "In Production"
+        status_class = "status-in-production"
+        next_action = "Continue production and complete all required runs."
+    elif latest_rfi is None:
+        current_stage = "Production Complete"
+        remaining_steps = ["Raise RFI"]
+        status_label = "Awaiting RFI"
+        status_class = "status-awaiting-rfi"
+        next_action = "Raise RFI for the completed scope."
+    else:
+        rfi_status = (latest_rfi.status or "").upper()
+        if rfi_status in ["DRAFT", "SUBMITTED", "SCHEDULED"]:
+            current_stage = "Awaiting TPI Visit"
+            remaining_steps = ["TPI visit", "Close RFI", "Dispatch"]
+            status_label = "RFI Raised - Awaiting TPI"
+            status_class = "status-awaiting-tpi"
+            next_action = "Follow up on inspection schedule / visit date."
+        elif rfi_status == "VISIT_COMPLETED":
+            current_stage = "TPI Completed"
+            remaining_steps = ["Dispatch"]
+            status_label = "Ready for Dispatch"
+            status_class = "status-ready-dispatch"
+            next_action = "Prepare release and dispatch."
+        elif rfi_status == "CLOSED" and remaining:
+            current_stage = "Previous RFI Closed"
+            remaining_steps = [RFI_ACTIVITY_LABELS.get(x, x) for x in remaining]
+            status_label = "Awaiting Next RFI"
+            status_class = "status-awaiting-rfi"
+            next_action = "Raise next RFI for the remaining activities."
+        else:
+            current_stage = "Completed"
+            remaining_steps = []
+            status_label = "Closed"
+            status_class = "status-closed"
+            next_action = "No action pending."
+
+    timeline_items = [
+        {"label": "Production", "state": "done" if not pending_runs else "current", "note": current_stage},
+        {"label": "RFI", "state": "pending" if latest_rfi is None else ("done" if (latest_rfi.status or "").upper() in ["VISIT_COMPLETED", "CLOSED"] else "current"), "note": latest_rfi.rfi_no if latest_rfi else "Not raised"},
+        {"label": "Dispatch", "state": "done" if status_label == "Closed" else ("current" if status_label == "Ready for Dispatch" else "pending"), "note": next_action},
+    ]
+
+    return {
+        "latest_rfi": latest_rfi,
+        "remaining_activities": remaining,
+        "status_label": status_label,
+        "status_class": status_class,
+        "current_stage": current_stage,
+        "remaining_text": ", ".join(remaining_steps) if remaining_steps else "None",
+        "next_action": next_action,
+        "timeline_items": timeline_items,
+    }
+
+
+def _build_batch_dashboard_cards(session: Session, q_process: str = ""):
+    runs = session.exec(select(ProductionRun).order_by(ProductionRun.created_at.desc())).all()
+    progress_map = get_progress_map_bulk(session, runs)
+
+    grouped = {}
+    for run in runs:
+        batch_no = (getattr(run, "dhtp_batch_no", "") or "").strip()
+        if not batch_no:
+            continue
+        grouped.setdefault(batch_no, []).append(run)
+
+    batch_cards = []
+    filtered_grouped = {}
+    for batch_no, batch_runs in grouped.items():
+        processes = sorted({(r.process or "").upper() for r in batch_runs if r.process})
+        if q_process and q_process not in processes:
+            continue
+
+        ref_run = next((r for r in batch_runs if (r.process or "").upper() == "COVER"), batch_runs[0])
+        avg_progress = 0
+        if batch_runs:
+            vals = [progress_map.get(r.id, 0) for r in batch_runs if getattr(r, "id", None) is not None]
+            avg_progress = int(sum(vals) / max(1, len(vals)))
+
+        status_info = _compute_batch_status(session, batch_no, batch_runs)
+
+        # hide fully closed items from overview
+        if status_info["status_label"] == "Closed":
+            continue
+
+        card = {
+            "batch_no": batch_no,
+            "client_name": getattr(ref_run, "client_name", "") or "",
+            "po_number": getattr(ref_run, "po_number", "") or "",
+            "itp_number": getattr(ref_run, "itp_number", "") or "",
+            "created_at": getattr(ref_run, "created_at", None),
+            "processes": processes,
+            "run_count": len(batch_runs),
+            "avg_progress": avg_progress,
+            "priority": "HIGH PRIORITY" if status_info["status_label"] in ["In Production", "RFI Raised - Awaiting TPI"] else "",
+            "status_label": status_info["status_label"],
+            "status_class": status_info["status_class"],
+            "current_stage": status_info["current_stage"],
+            "remaining_text": status_info["remaining_text"],
+            "next_action": status_info["next_action"],
+            "timeline_items": status_info["timeline_items"],
+            "latest_rfi_no": getattr(status_info["latest_rfi"], "rfi_no", "") if status_info.get("latest_rfi") else "",
+            "latest_rfi_scope": _split_rfi_activities(getattr(status_info["latest_rfi"], "inspection_stage", "")) if status_info.get("latest_rfi") else [],
+        }
+        card["search_blob"] = " ".join([
+            card["batch_no"], card["client_name"], card["po_number"], card["itp_number"],
+            card["status_label"], card["current_stage"], card["remaining_text"], card["next_action"],
+            card["latest_rfi_no"], " ".join(card["latest_rfi_scope"]), " ".join(card["processes"]),
+        ])
+        batch_cards.append(card)
+        filtered_grouped[batch_no] = batch_runs
+
+    batch_cards.sort(key=lambda x: ((0 if x["status_label"] != "Ready for Dispatch" else 1), x["batch_no"]), reverse=False)
+    filtered_progress_map = {r.id: progress_map.get(r.id, 0) for rows in filtered_grouped.values() for r in rows if getattr(r, "id", None) is not None}
+    return batch_cards, filtered_progress_map, filtered_grouped
     
 @app.get("/rfi", response_class=HTMLResponse)
 def rfi_dashboard(
