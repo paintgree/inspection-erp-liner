@@ -4337,22 +4337,7 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
     c.setFillColor(colors.black)
     c.drawRightString(rid_x + right_box_w - 3 * mm, rid_top - 7.8 * mm, rep_no)
 
-    rep_result = ""
-    if report is not None:
-        rep_result = str(getattr(report, "test_result", "") or "").upper()
 
-    if rep_result == "PASS":
-        pill_fill = colors.HexColor("#dcfce7")
-        pill_text = colors.HexColor("#15803d")
-        pill_label = "PASS RESULT"
-    elif rep_result == "FAIL":
-        pill_fill = colors.HexColor("#fee2e2")
-        pill_text = colors.HexColor("#b91c1c")
-        pill_label = "FAIL RESULT"
-    else:
-        pill_fill = colors.HexColor("#e5e7eb")
-        pill_text = colors.HexColor("#475569")
-        pill_label = "NO RESULT"
 
     pill_w = 24 * mm
     pill_h = 6.5 * mm
