@@ -4261,89 +4261,110 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
     # TOP CENTERED LOGO HEADER
     # ------------------------------------------------------------
     logo_path = os.path.join(BASE_DIR, "static", "images", "logo.png")
-    logo_top_y = h - 8 * mm
+    logo_top_y = h - 16 * mm
 
     if os.path.exists(logo_path):
         try:
             img = ImageReader(logo_path)
             iw, ih = img.getSize()
 
-            target_h = 14 * mm
+            target_h = 13 * mm
             scale = target_h / float(ih)
             dw = float(iw) * scale
             dh = target_h
 
-            logo_x = (w - dw) / 2.0
+            text_w = 42 * mm
+            total_w = dw + 4 * mm + text_w
+            start_x = (w - total_w) / 2.0
 
             c.drawImage(
                 img,
-                logo_x,
+                start_x,
                 logo_top_y - dh,
                 width=dw,
                 height=dh,
                 mask="auto"
             )
+
         except Exception:
             pass
 
     # ------------------------------------------------------------
     # REPORT HEADER BOX
     # ------------------------------------------------------------
-    box_top = h - 28 * mm
-    box_h = 22 * mm
+    box_top = h - 25 * mm
+    box_h = 18 * mm
     box_w = w - (2 * margin_x)
 
     c.setStrokeColor(colors.HexColor("#dbe3ee"))
-    c.setLineWidth(0.8)
     c.setFillColor(colors.white)
     c.roundRect(margin_x, box_top - box_h, box_w, box_h, 4 * mm, stroke=1, fill=1)
 
     left_x = margin_x + 8 * mm
-    right_box_w = 38 * mm
+    right_box_w = 34 * mm
 
-    c.setFillColor(colors.black)
-    c.setFont("Helvetica-Bold", 12.5)
-    c.drawString(left_x, box_top - 8.0 * mm, "Short-Time Hydrostatic Burst Pressure Test Report")
+    c.setFont("Helvetica-Bold", 16)
+    c.drawString(left_x, box_top - 7 * mm, "Short-Time Hydrostatic Burst Pressure Test Report")
 
     c.setFillColor(colors.HexColor("#4338ca"))
-    c.setFont("Helvetica-Bold", 6.5)
-    c.drawString(left_x, box_top - 14.3 * mm, "OFFICIAL DOCUMENT")
+    c.setFont("Helvetica-Bold", 7)
+    c.drawString(left_x + 46 * mm, box_top - 13 * mm, "OFFICIAL DOCUMENT")
 
     rid_x = margin_x + box_w - right_box_w - 6 * mm
-    rid_top = box_top - 2.8 * mm
-    rid_h = 11.5 * mm
+    rid_y = box_top - 4 * mm
+    rid_h = 16 * mm
 
     c.setFillColor(colors.HexColor("#f8fafc"))
     c.setStrokeColor(colors.HexColor("#e5e7eb"))
-    c.setLineWidth(0.7)
-    c.roundRect(rid_x, rid_top - rid_h, right_box_w, rid_h, 3 * mm, stroke=1, fill=1)
+    c.roundRect(rid_x, rid_y - rid_h, right_box_w, rid_h, 3 * mm, stroke=1, fill=1)
 
-    c.setFont("Helvetica-Bold", 5.5)
+    c.setFont("Helvetica-Bold", 6)
     c.setFillColor(colors.HexColor("#94a3b8"))
-    c.drawRightString(rid_x + right_box_w - 3 * mm, rid_top - 3.2 * mm, "REPORT ID")
+    c.drawRightString(rid_x + right_box_w - 3 * mm, rid_y - 3 * mm, "REPORT ID")
 
     rep_no = "-"
     if report is not None:
-        rep_no = (
-            getattr(report, "report_no", None)
-            or getattr(report, "report_id", None)
-            or getattr(report, "id", None)
-            or getattr(report, "batch_no", None)
-            or "-"
-        )
-        rep_no = str(rep_no)
+        rep_no = str(getattr(report, "report_no", "") or "-")
 
-    c.setFont("Helvetica-Bold", 9.5)
+    c.setFont("Helvetica-Bold", 11)
     c.setFillColor(colors.black)
-    c.drawRightString(rid_x + right_box_w - 3 * mm, rid_top - 7.8 * mm, rep_no)
+    c.drawRightString(rid_x + right_box_w - 3 * mm, rid_y - 8 * mm, rep_no)
 
+    rep_result = ""
+    if report is not None:
+        rep_result = str(getattr(report, "test_result", "") or "").upper()
+
+    if rep_result == "PASS":
+        pill_fill = colors.HexColor("#dcfce7")
+        pill_text = colors.HexColor("#15803d")
+        pill_label = "PASS RESULT"
+    elif rep_result == "FAIL":
+        pill_fill = colors.HexColor("#fee2e2")
+        pill_text = colors.HexColor("#b91c1c")
+        pill_label = "FAIL RESULT"
+    else:
+        pill_fill = colors.HexColor("#e5e7eb")
+        pill_text = colors.HexColor("#475569")
+        pill_label = "NO RESULT"
+
+    pill_w = 22 * mm
+    pill_h = 6.5 * mm
+    pill_x = rid_x + right_box_w - pill_w - 3 * mm
+    pill_y = rid_y - 13 * mm
+
+    c.setFillColor(pill_fill)
+    c.setStrokeColor(pill_fill)
+    c.roundRect(pill_x, pill_y, pill_w, pill_h, 3 * mm, stroke=1, fill=1)
+
+    c.setFillColor(pill_text)
+    c.setFont("Helvetica-Bold", 6.5)
+    c.drawCentredString(pill_x + pill_w / 2, pill_y + 2.1 * mm, pill_label)
 
     # ------------------------------------------------------------
     # FOOTER
     # ------------------------------------------------------------
     footer_y = 10 * mm
     c.setStrokeColor(colors.HexColor("#d1d5db"))
-    c.setLineWidth(0.6)
     c.line(margin_x, footer_y + 5 * mm, w - margin_x, footer_y + 5 * mm)
 
     if doc_control_no:
@@ -4355,20 +4376,20 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
     c.setFont("Helvetica", 8)
     c.drawRightString(w - margin_x, footer_y, f"Page {page_num}/{page_total}")
 
-    return box_top - box_h - 5 * mm
-    
+    return box_top - box_h - 1.5 * mm
+
 def _draw_report_info_table(c, report, x, y):
     w, h = A4
 
     c.setFont("Helvetica-Bold", 9)
     c.setFillColor(colors.black)
     c.drawString(x, y, "REPORT INFORMATION")
-    y -= 7 * mm
+    y -= 6 * mm
 
     card_x = x
-    gap = 3 * mm
-    card_w = (w - (2 * x) - (3 * gap)) / 4
-    card_h = 13 * mm
+    card_w = (w - 34 * mm) / 4
+    card_h = 14 * mm
+    gap = 2.5 * mm
 
     items = [
         ("BATCH NO", _txt(getattr(report, "batch_no", ""))),
@@ -4384,259 +4405,185 @@ def _draw_report_info_table(c, report, x, y):
         ("TEST DATE", _txt(getattr(report, "tested_at", "") or getattr(report, "created_at", ""))),
     ]
 
+    idx = 0
     rows = [items[:4], items[4:8], items[8:11]]
 
     for row_items in rows:
         cx = card_x
         for label, value in row_items:
             c.setFillColor(colors.white)
-            c.setStrokeColor(colors.white)
             c.roundRect(cx, y - card_h, card_w, card_h, 2.5 * mm, stroke=0, fill=1)
 
-            c.setFont("Helvetica-Bold", 5.4)
+            c.setFont("Helvetica-Bold", 5.5)
             c.setFillColor(colors.HexColor("#94a3b8"))
-            c.drawString(cx + 2.6 * mm, y - 3.9 * mm, label)
+            c.drawString(cx + 3 * mm, y - 4.2 * mm, label)
 
-            c.setFont("Helvetica-Bold", 7.5)
+            c.setFont("Helvetica-Bold", 8)
             c.setFillColor(colors.black)
-            c.drawString(cx + 2.6 * mm, y - 8.9 * mm, (value or "-")[:28])
+            c.drawString(cx + 3 * mm, y - 9.7 * mm, value or "-")
 
             cx += card_w + gap
+            idx += 1
 
-        y -= card_h + 1.8 * mm
-
-    return y - 1 * mm
-    
-def _draw_specimen_blocks(c, report, samples, start_y):
-    """
-    Compact specimen cards for page 1.
-    Draws 2 cards per row so more samples fit before results.
-    Returns the new y position after the specimen section.
-    """
-    w, h = A4
-    margin_x = 14 * mm
-    gap_x = 4 * mm
-    gap_y = 3 * mm
-
-    card_w = (w - (2 * margin_x) - gap_x) / 2
-    card_h = 23 * mm
-
-    y = start_y
-
-    c.setFont("Helvetica-Bold", 9)
-    c.setFillColor(colors.black)
-    c.drawString(margin_x, y, "SPECIMEN DETAILS")
-    y -= 6 * mm
-
-    if not samples:
-        c.setFont("Helvetica", 8)
-        c.setFillColor(colors.HexColor("#64748b"))
-        c.drawString(margin_x, y, "No specimen data")
-        return y - 6 * mm
-
-    for row_start in range(0, len(samples), 2):
-        row_samples = samples[row_start:row_start + 2]
-
-        row_h = card_h
-        if y - row_h < 55 * mm:
-            # Do not force a new page here for page 1 layout.
-            # Let caller decide if results should move to next page.
-            break
-
-        for col_idx, s in enumerate(row_samples):
-            x0 = margin_x + col_idx * (card_w + gap_x)
-            top_y = y
-
-            # card
-            c.setFillColor(colors.white)
-            c.setStrokeColor(colors.HexColor("#e2e8f0"))
-            c.roundRect(x0, top_y - card_h, card_w, card_h, 3 * mm, stroke=1, fill=1)
-
-            # sample badge
-            sample_no = row_start + col_idx + 1
-            c.setFillColor(colors.HexColor("#ede9fe"))
-            c.setStrokeColor(colors.HexColor("#ede9fe"))
-            c.roundRect(x0 + 3 * mm, top_y - 7.5 * mm, 9 * mm, 5.5 * mm, 1.8 * mm, stroke=1, fill=1)
-            c.setFillColor(colors.HexColor("#4f46e5"))
-            c.setFont("Helvetica-Bold", 6)
-            c.drawCentredString(x0 + 7.5 * mm, top_y - 5.8 * mm, f"#{sample_no}")
-
-            # serial
-            c.setFont("Helvetica-Bold", 4.8)
-            c.setFillColor(colors.HexColor("#94a3b8"))
-            c.drawString(x0 + 15 * mm, top_y - 4.3 * mm, "SERIAL NUMBER")
-            c.setFont("Helvetica-Bold", 7.2)
-            c.setFillColor(colors.black)
-            c.drawString(
-                x0 + 15 * mm,
-                top_y - 8.6 * mm,
-                (_txt(getattr(s, "sample_serial_number", "")) or "-")[:28]
-            )
-
-            # three short columns
-            title_y = top_y - 12.5 * mm
-            value_y = top_y - 16.8 * mm
-
-            inner_left = x0 + 3 * mm
-            inner_right = x0 + card_w - 3 * mm
-            inner_w = inner_right - inner_left
-            col_w = inner_w / 3.0
-
-            cols = [
-                ("LINER", _txt(getattr(s, "liner_thickness_mm", "")) or "-"),
-                ("REINF.", _txt(getattr(s, "reinforcement_thickness_mm", "")) or "-"),
-                ("COVER", _txt(getattr(s, "cover_thickness_mm", "")) or "-"),
-            ]
-
-            for i, (label, val) in enumerate(cols):
-                cx = inner_left + i * col_w
-
-                c.setFont("Helvetica-Bold", 4.8)
-                c.setFillColor(colors.HexColor("#4f46e5"))
-                c.drawString(cx, title_y, label)
-
-                c.setStrokeColor(colors.HexColor("#cbd5e1"))
-                c.setLineWidth(0.35)
-                c.line(cx, title_y - 1.3 * mm, cx + col_w - 2 * mm, title_y - 1.3 * mm)
-
-                c.setFont("Helvetica-Bold", 6.5)
-                c.setFillColor(colors.black)
-                txt = f"{val} mm" if val != "-" else "-"
-                c.drawString(cx, value_y, txt[:14])
-
-            # bottom mini info row
-            bottom_line_y = top_y - 18.7 * mm
-            c.setStrokeColor(colors.HexColor("#e2e8f0"))
-            c.setLineWidth(0.35)
-            c.line(inner_left, bottom_line_y, inner_right, bottom_line_y)
-
-            total_len_mm = float(getattr(s, "sample_length_m", 0.0) or 0.0) * 1000.0
-            eff_len = _txt(getattr(s, "effective_length_m", "")) or "-"
-
-            c.setFont("Helvetica-Bold", 4.5)
-            c.setFillColor(colors.HexColor("#94a3b8"))
-            c.drawString(inner_left, top_y - 20.2 * mm, "TOTAL LEN")
-            c.drawString(inner_left + 31 * mm, top_y - 20.2 * mm, "EFFECTIVE")
-
-            c.setFont("Helvetica-Bold", 6.2)
-            c.setFillColor(colors.black)
-            c.drawString(
-                inner_left,
-                top_y - 22.6 * mm,
-                f"{total_len_mm:.1f} mm" if total_len_mm > 0 else "-"
-            )
-            c.drawString(
-                inner_left + 31 * mm,
-                top_y - 22.6 * mm,
-                f"{eff_len} mm" if eff_len != "-" else "-"
-            )
-
-        y -= card_h + gap_y
+        y -= card_h + gap
 
     return y - 2 * mm
     
-def _draw_results_table(c, samples, y):
-    """
-    Compact results table.
-    Returns the new y position after drawing.
-    """
+def _draw_specimen_blocks(c, report, samples, start_y):
     w, h = A4
-    x0 = 14 * mm
-    box_w = w - 28 * mm
+    y = start_y
+
+    for idx, s in enumerate(samples, start=1):
+        block_h = 40 * mm
+        x0 = 14 * mm
+        box_w = w - 28 * mm
+
+        if y - block_h < 45 * mm:
+            c.showPage()
+            y = h - 32 * mm
+
+        c.setFont("Helvetica-Bold", 9)
+        c.setFillColor(colors.black)
+        c.drawString(x0, y, "SPECIMEN DETAILS")
+        y -= 6 * mm
+
+        c.setFillColor(colors.white)
+        c.roundRect(x0, y - block_h, box_w, block_h, 4 * mm, stroke=0, fill=1)
+
+        # specimen mini badge
+        c.setFillColor(colors.HexColor("#ede9fe"))
+        c.roundRect(x0 + 4 * mm, y - 10 * mm, 8 * mm, 8 * mm, 2 * mm, stroke=0, fill=1)
+        c.setFillColor(colors.HexColor("#4f46e5"))
+        c.setFont("Helvetica-Bold", 6)
+        c.drawCentredString(x0 + 8 * mm, y - 7.3 * mm, f"#{idx}")
+
+        # serial
+        c.setFont("Helvetica-Bold", 5)
+        c.setFillColor(colors.HexColor("#94a3b8"))
+        c.drawString(x0 + 15 * mm, y - 4.5 * mm, "SERIAL NUMBER")
+        c.setFont("Helvetica-Bold", 8)
+        c.setFillColor(colors.black)
+        c.drawString(x0 + 15 * mm, y - 9.5 * mm, _txt(getattr(s, "sample_serial_number", "")) or "-")
+
+        # columns
+        col_y = y - 18 * mm
+        col_w = (box_w - 12 * mm) / 3
+
+        cols = [
+            ("LINER LAYER", _txt(getattr(s, "liner_material_grade", "")), _txt(getattr(s, "liner_thickness_mm", ""))),
+            ("REINFORCEMENT", _txt(getattr(s, "reinforcement_material_grade", "")), _txt(getattr(s, "reinforcement_thickness_mm", ""))),
+            ("COVER LAYER", _txt(getattr(s, "cover_material_grade", "")), _txt(getattr(s, "cover_thickness_mm", ""))),
+        ]
+
+        for i, (title, material, thk) in enumerate(cols):
+            cx = x0 + 4 * mm + i * col_w
+
+            c.setFont("Helvetica-Bold", 5.5)
+            c.setFillColor(colors.HexColor("#4f46e5"))
+            c.drawString(cx, col_y, title)
+
+            c.setStrokeColor(colors.HexColor("#cbd5e1"))
+            c.setLineWidth(0.5)
+            c.line(cx, col_y - 1.8 * mm, cx + col_w - 6 * mm, col_y - 1.8 * mm)
+
+            c.setFont("Helvetica-Bold", 4.5)
+            c.setFillColor(colors.HexColor("#94a3b8"))
+            c.drawString(cx, col_y - 6 * mm, "MATERIAL")
+            c.drawString(cx + 26 * mm, col_y - 6 * mm, "THICKNESS")
+
+            c.setFont("Helvetica-Bold", 7)
+            c.setFillColor(colors.black)
+            c.drawString(cx, col_y - 10.5 * mm, material or "-")
+            c.drawString(cx + 26 * mm, col_y - 10.5 * mm, f"{thk} mm" if thk else "-")
+
+        # bottom row
+        row_y = y - 34 * mm
+        c.setStrokeColor(colors.HexColor("#cbd5e1"))
+        c.setLineWidth(0.4)
+        c.line(x0 + 4 * mm, row_y + 5 * mm, x0 + box_w - 4 * mm, row_y + 5 * mm)
+
+        c.setFont("Helvetica-Bold", 4.5)
+        c.setFillColor(colors.HexColor("#94a3b8"))
+        c.drawString(x0 + 10 * mm, row_y + 1.5 * mm, "TOTAL LENGTH")
+        c.drawString(x0 + 78 * mm, row_y + 1.5 * mm, "EFFECTIVE LENGTH")
+
+        c.setFont("Helvetica-Bold", 7)
+        c.setFillColor(colors.black)
+        sample_len_mm = float(getattr(s, "sample_length_m", 0.0) or 0.0) * 1000.0
+        c.drawString(x0 + 10 * mm, row_y - 3 * mm, f"{sample_len_mm:.1f} mm" if sample_len_mm > 0 else "-")
+        c.drawString(x0 + 78 * mm, row_y - 3 * mm, f"{_txt(getattr(s, 'effective_length_m', ''))} mm")
+
+        y = y - block_h - 8 * mm
+
+    return y
+    
+def _draw_results_table(c, samples, y):
+    w, h = A4
 
     c.setFont("Helvetica-Bold", 9)
     c.setFillColor(colors.black)
-    c.drawString(x0, y, "TEST RESULTS")
+    c.drawString(14 * mm, y, "TEST RESULTS")
     y -= 6 * mm
 
-    row_h = 6.2 * mm
-    head_h = 7 * mm
+    x0 = 14 * mm
+    box_w = w - 28 * mm
+    row_h = 8 * mm
+    head_h = 8 * mm
     total_h = head_h + max(1, len(samples)) * row_h
 
     c.setFillColor(colors.white)
-    c.setStrokeColor(colors.HexColor("#e2e8f0"))
-    c.roundRect(x0, y - total_h, box_w, total_h, 3 * mm, stroke=1, fill=1)
+    c.roundRect(x0, y - total_h, box_w, total_h, 4 * mm, stroke=0, fill=1)
 
-    headers = ["#", "SERIAL NO", "ACTUAL BURST", "PRESS. TIME", "RESULT"]
+    headers = ["#", "SERIAL NO", "ACTUAL BURST", "PRESSURIZATION TIME", "RESULT"]
+    xs = [x0 + 6 * mm, x0 + 25 * mm, x0 + 60 * mm, x0 + 98 * mm, x0 + 152 * mm]
 
-    xs = [
-        x0 + 4 * mm,    # #
-        x0 + 16 * mm,   # serial
-        x0 + 77 * mm,   # burst
-        x0 + 111 * mm,  # time
-        x0 + 153 * mm,  # result
-    ]
-
-    c.setFont("Helvetica-Bold", 5.2)
+    c.setFont("Helvetica-Bold", 5)
     c.setFillColor(colors.HexColor("#94a3b8"))
-    hy = y - 4.7 * mm
+    hy = y - 5.2 * mm
     for i, htxt in enumerate(headers):
         c.drawString(xs[i], hy, htxt)
 
     line_y = y - head_h
     c.setStrokeColor(colors.HexColor("#e5e7eb"))
-    c.setLineWidth(0.35)
-    c.line(x0 + 2.5 * mm, line_y, x0 + box_w - 2.5 * mm, line_y)
+    c.setLineWidth(0.4)
+    c.line(x0 + 3 * mm, line_y, x0 + box_w - 3 * mm, line_y)
 
     for i, s in enumerate(samples, start=1):
-        row_top = line_y - ((i - 1) * row_h)
-        text_y = row_top - 4.2 * mm
+        ry = line_y - ((i - 1) * row_h) - 5.5 * mm
 
-        c.setFont("Helvetica", 6.7)
+        c.setFont("Helvetica", 7)
         c.setFillColor(colors.black)
-        c.drawString(xs[0], text_y, str(i))
-        c.drawString(xs[1], text_y, (_txt(getattr(s, "sample_serial_number", "")) or "-")[:24])
-
-        burst_val = _txt(getattr(s, "actual_burst_psi", ""))
-        if burst_val:
-            burst_txt = f"{burst_val} MPa"
-        else:
-            burst_txt = "-"
-        c.drawString(xs[2], text_y, burst_txt)
-
-        press_txt = _txt(getattr(s, "pressurization_time_s", "")) or "-"
-        if press_txt != "-":
-            press_txt = f"{press_txt} s"
-        c.drawString(xs[3], text_y, press_txt)
+        c.drawString(xs[0], ry, str(i))
+        c.drawString(xs[1], ry, _txt(getattr(s, "sample_serial_number", "")) or "-")
+        c.drawString(xs[2], ry, f"{_txt(getattr(s, 'actual_burst_psi', ''))} MPa")
+        c.drawString(xs[3], ry, f"{_txt(getattr(s, 'pressurization_time_s', ''))} s")
 
         result_txt = (_txt(getattr(s, "test_result", "")) or "").strip().upper()
-
         bx = xs[4]
-        by = row_top - 5.0 * mm
-        bw = 14 * mm
-        bh = 4.4 * mm
+        by = ry - 2 * mm
+        bw = 16 * mm
+        bh = 5 * mm
 
         if result_txt == "PASS":
-            c.setFillColor(colors.HexColor("#dcfce7"))
-            c.setStrokeColor(colors.HexColor("#dcfce7"))
-            c.roundRect(bx, by, bw, bh, 2 * mm, stroke=1, fill=1)
-            c.setFillColor(colors.HexColor("#15803d"))
-            c.setFont("Helvetica-Bold", 5.2)
-            c.drawCentredString(bx + bw / 2, by + 1.3 * mm, "PASS")
+            c.setFillColor(colors.HexColor("#ecfdf5"))
+            c.roundRect(bx, by, bw, bh, 2 * mm, stroke=0, fill=1)
+            c.setFillColor(colors.HexColor("#059669"))
+            c.setFont("Helvetica-Bold", 5.5)
+            c.drawCentredString(bx + bw / 2, by + 1.5 * mm, "PASS")
         elif result_txt == "FAIL":
-            c.setFillColor(colors.HexColor("#fee2e2"))
-            c.setStrokeColor(colors.HexColor("#fee2e2"))
-            c.roundRect(bx, by, bw, bh, 2 * mm, stroke=1, fill=1)
-            c.setFillColor(colors.HexColor("#b91c1c"))
-            c.setFont("Helvetica-Bold", 5.2)
-            c.drawCentredString(bx + bw / 2, by + 1.3 * mm, "FAIL")
+            c.setFillColor(colors.HexColor("#fef2f2"))
+            c.roundRect(bx, by, bw, bh, 2 * mm, stroke=0, fill=1)
+            c.setFillColor(colors.HexColor("#dc2626"))
+            c.setFont("Helvetica-Bold", 5.5)
+            c.drawCentredString(bx + bw / 2, by + 1.5 * mm, "FAIL")
         else:
-            c.setFillColor(colors.HexColor("#e5e7eb"))
-            c.setStrokeColor(colors.HexColor("#e5e7eb"))
-            c.roundRect(bx, by, bw, bh, 2 * mm, stroke=1, fill=1)
+            c.setFillColor(colors.HexColor("#f1f5f9"))
+            c.roundRect(bx, by, bw, bh, 2 * mm, stroke=0, fill=1)
             c.setFillColor(colors.HexColor("#475569"))
-            c.setFont("Helvetica-Bold", 5.2)
-            c.drawCentredString(bx + bw / 2, by + 1.3 * mm, result_txt or "-")
+            c.setFont("Helvetica-Bold", 5.5)
+            c.drawCentredString(bx + bw / 2, by + 1.5 * mm, result_txt or "-")
 
-        # row separator
-        if i < len(samples):
-            sep_y = row_top - row_h
-            c.setStrokeColor(colors.HexColor("#f1f5f9"))
-            c.setLineWidth(0.3)
-            c.line(x0 + 2.5 * mm, sep_y, x0 + box_w - 2.5 * mm, sep_y)
-
-    return y - total_h - 7 * mm
-    
+    return y - total_h - 10 * mm
 def _make_burst_chart_png(samples) -> bytes | None:
     """
     Returns PNG bytes for chart, or None if no valid burst values.
@@ -4946,65 +4893,26 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
     # ------------------------------------------------------------
     # PAGE 1: report contents
-    # Keep specimen cards + results on first page when possible.
-    # If not enough room, move only results/signatures to next page.
     # ------------------------------------------------------------
     buf, c, title = new_page()
     w, h = A4
-    y = _draw_header_footer(
-        c,
-        title=title,
-        doc_control_no=doc_no,
-        page_num=1,
-        page_total=1,
-        report=report
-    )
+    y = _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1, report=report)
 
     y = _draw_report_info_table(c, report, 20 * mm, y)
-    y -= 5 * mm
+    y -= 8 * mm
 
-    # draw compact specimen area
-    specimen_start_y = y
-    y_after_specimens = _draw_specimen_blocks(c, report, samples, specimen_start_y)
+    y = _draw_specimen_blocks(c, report, samples, y)
 
-    # estimate results + signatures height
-    results_row_h = 6.2 * mm
-    results_head_h = 7 * mm
-    results_title_gap = 6 * mm
-    results_total_h = results_head_h + max(1, len(samples)) * results_row_h + results_title_gap + 7 * mm
-    signatures_need_h = 20 * mm
-
-    needed_after_specimens = results_total_h + signatures_need_h
-    bottom_safe_y = 24 * mm
-
-    if y_after_specimens - needed_after_specimens >= bottom_safe_y:
-        # keep results on first page
-        y = _draw_results_table(c, samples, y_after_specimens)
-        _draw_signatures(c, report, y, pdf_qaqc_name, pdf_qaqc_date)
+    if y < 85 * mm:
         c.showPage()
-        c.save()
-        pages.append(buf.getvalue())
-    else:
-        # finish page 1 with report info + specimens only
-        c.showPage()
-        c.save()
-        pages.append(buf.getvalue())
+        y = _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1, report=report)
 
-        # page 2 = results/signatures only
-        buf_r, c_r, _ = new_page()
-        y_r = _draw_header_footer(
-            c_r,
-            title=title,
-            doc_control_no=doc_no,
-            page_num=1,
-            page_total=1,
-            report=report
-        )
-        y_r = _draw_results_table(c_r, samples, y_r)
-        _draw_signatures(c_r, report, y_r, pdf_qaqc_name, pdf_qaqc_date)
-        c_r.showPage()
-        c_r.save()
-        pages.append(buf_r.getvalue())
+    y = _draw_results_table(c, samples, y)
+    _draw_signatures(c, report, y, pdf_qaqc_name, pdf_qaqc_date)
+
+    c.showPage()
+    c.save()
+    pages.append(buf.getvalue())
 
     # ------------------------------------------------------------
     # ------------------------------------------------------------
@@ -7038,6 +6946,200 @@ def _build_rfi_batch_package(session: Session, batch_no: str, linked_run_id: Opt
     }
 
 
+def _build_rfi_scope_documents(session: Session, rfi: RfiRecord, package: dict, attachments: list[RfiAttachment]) -> dict:
+    included = _split_rfi_activities(getattr(rfi, "inspection_stage", ""))
+    included_set = set(included)
+    excluded = [x for x in RFI_ACTIVITY_OPTIONS if x not in included_set]
+
+    sections: list[dict] = []
+    tool_rows: list[dict] = []
+
+    runs = package.get("runs", []) or []
+    run_ids = [r.id for r in runs if getattr(r, "id", None) is not None]
+    inspection_entries = []
+    if run_ids:
+        inspection_entries = session.exec(
+            select(InspectionEntry)
+            .where(InspectionEntry.run_id.in_(run_ids))
+            .order_by(InspectionEntry.actual_date.desc(), InspectionEntry.created_at.desc())
+        ).all()
+
+    entries_by_run: dict[int, list[InspectionEntry]] = {}
+    for entry in inspection_entries:
+        entries_by_run.setdefault(entry.run_id, []).append(entry)
+
+    if "IN_PROCESS" in included_set:
+        rows = []
+        for run in runs:
+            run_entries = entries_by_run.get(run.id, [])
+            if not run_entries:
+                continue
+            latest = run_entries[0]
+            rows.append({
+                "doc_type": "In-Process PDF",
+                "title": f"{(run.process or 'PROCESS').title()} Inspection Report",
+                "ref": f"Run #{run.id} • {len(run_entries)} entr{'y' if len(run_entries)==1 else 'ies'}",
+                "status": getattr(run, "status", "") or "RECORDED",
+                "date": getattr(latest, "actual_date", None),
+                "pdf_url": f"/runs/{run.id}/export/pdf",
+                "download_label": "View PDF",
+            })
+        sections.append({
+            "title": "In-Process Inspection Reports",
+            "subtitle": "Only reports for runs belonging to this batch and included in this RFI.",
+            "rows": rows,
+            "empty_text": "No in-process inspection PDFs found for this RFI scope.",
+        })
+
+        mrr_rows = []
+        seen_doc = set()
+        seen_ins = set()
+        for ticket in package.get("mrr_tickets", []) or []:
+            lot = ticket.get("lot")
+            lot_label = getattr(lot, "batch_no", "") or f"Lot #{getattr(lot, 'id', '-') }"
+            for ins in ticket.get("inspections", []) or []:
+                key = ("ins", getattr(ins, "id", None))
+                if key in seen_ins:
+                    continue
+                seen_ins.add(key)
+                mrr_rows.append({
+                    "doc_type": "MRR Inspection PDF",
+                    "title": getattr(ins, "report_no", "") or f"MRR Inspection #{getattr(ins, 'id', '-')}",
+                    "ref": f"Material Lot {lot_label}",
+                    "status": "APPROVED" if getattr(ins, "manager_approved", False) else ("CONFIRMED" if getattr(ins, "inspector_confirmed", False) else "RECORDED"),
+                    "date": getattr(ins, "created_at", None),
+                    "pdf_url": f"/mrr/{getattr(lot, 'id', 0)}/inspection/id/{getattr(ins, 'id', 0)}/export/pdf",
+                    "download_label": "View PDF",
+                })
+            for doc in ticket.get("docs", []) or []:
+                key = ("doc", getattr(doc, "id", None))
+                if key in seen_doc:
+                    continue
+                seen_doc.add(key)
+                mrr_rows.append({
+                    "doc_type": getattr(doc, "doc_type", "MRR Document") or "MRR Document",
+                    "title": getattr(doc, "doc_name", "") or f"MRR Document #{getattr(doc, 'id', '-')}",
+                    "ref": f"Material Lot {lot_label}",
+                    "status": "ATTACHED",
+                    "date": getattr(doc, "created_at", None),
+                    "pdf_url": f"/mrr/docs/{getattr(doc, 'id', 0)}/view",
+                    "download_label": "Open File",
+                })
+        sections.append({
+            "title": "Raw Material & MRR Documents",
+            "subtitle": "MRR documents are linked through raw materials consumed in the included in-process inspections.",
+            "rows": mrr_rows,
+            "empty_text": "No linked MRR documents found for the materials used in this RFI scope.",
+        })
+
+        seen_tools = set()
+        for entry in inspection_entries:
+            for idx in (1, 2):
+                name = (getattr(entry, f"tool{idx}_name", "") or "").strip()
+                serial = (getattr(entry, f"tool{idx}_serial", "") or "").strip()
+                due = (getattr(entry, f"tool{idx}_calib_due", "") or "").strip()
+                if not name and not serial:
+                    continue
+                key = (name, serial, due)
+                if key in seen_tools:
+                    continue
+                seen_tools.add(key)
+                tool_rows.append({
+                    "tool_name": name or "-",
+                    "serial": serial or "-",
+                    "calib_due": due or "-",
+                    "status": "Calibration documents not available yet",
+                })
+
+    if "BURST_TEST" in included_set:
+        burst_rows = []
+        for rep in package.get("burst_reports", []) or []:
+            sample_count = session.exec(select(BurstSample).where(BurstSample.report_id == rep.id)).all()
+            burst_rows.append({
+                "doc_type": "Burst Report PDF",
+                "title": f"Burst Report #{rep.id}",
+                "ref": f"{len(sample_count)} sample{'s' if len(sample_count) != 1 else ''}",
+                "status": (getattr(rep, "test_result", "") or getattr(rep, "current_revision_status", "") or "RECORDED"),
+                "date": getattr(rep, "tested_at", None) or getattr(rep, "created_at", None),
+                "pdf_url": f"/burst/{rep.id}/pdf",
+                "download_label": "View PDF",
+            })
+        sections.append({
+            "title": "Burst Test Documentation",
+            "subtitle": "Burst reports included in this RFI scope.",
+            "rows": burst_rows,
+            "empty_text": "No burst report PDFs found for this RFI scope.",
+        })
+
+    if "HYDRO_TEST" in included_set:
+        hydro_rows = []
+        for rec in package.get("hydro_records", []) or []:
+            hydro_rows.append({
+                "doc_type": "Hydro Report PDF",
+                "title": getattr(rec, "report_no", "") or f"Hydro Record #{rec.id}",
+                "ref": f"Length {float(getattr(rec, 'tested_length_m', 0.0) or 0.0):.1f} m",
+                "status": getattr(rec, "approval_status", "") or getattr(rec, "test_result", "") or "RECORDED",
+                "date": getattr(rec, "tested_at", None) or getattr(rec, "created_at", None),
+                "pdf_url": f"/hydro/record/{rec.id}/pdf",
+                "download_label": "View PDF",
+            })
+        sections.append({
+            "title": "Hydro Test Documentation",
+            "subtitle": "Hydro reports included in this RFI scope.",
+            "rows": hydro_rows,
+            "empty_text": "No hydro report PDFs found for this RFI scope.",
+        })
+
+    if "FINAL_INSPECTION" in included_set:
+        final_rows = []
+        for phase in package.get("final_phases", []) or []:
+            final_rows.append({
+                "doc_type": "Final Inspection PDF",
+                "title": getattr(phase, "title", "") or f"Final Phase {getattr(phase, 'phase_no', '-')}",
+                "ref": f"Phase {getattr(phase, 'phase_no', '-')}",
+                "status": getattr(phase, "status", "") or "RECORDED",
+                "date": getattr(phase, "approved_at", None) or getattr(phase, "created_at", None),
+                "pdf_url": f"/final/batch/{package.get('batch_no', '')}/phase/{phase.id}/pdf",
+                "download_label": "View PDF",
+            })
+        if package.get("batch_no"):
+            final_rows.insert(0, {
+                "doc_type": "Final Batch PDF",
+                "title": f"Batch {package.get('batch_no', '')} Consolidated Final Inspection",
+                "ref": "Full batch document",
+                "status": "COMPILED",
+                "date": None,
+                "pdf_url": f"/final/batch/{package.get('batch_no', '')}/pdf",
+                "download_label": "View PDF",
+            })
+        sections.append({
+            "title": "Final Inspection Documentation",
+            "subtitle": "Final inspection PDFs included in this RFI scope.",
+            "rows": final_rows,
+            "empty_text": "No final inspection PDFs found for this RFI scope.",
+        })
+
+    attachment_rows = []
+    for att in attachments or []:
+        attachment_rows.append({
+            "doc_type": getattr(att, "kind", "ATTACHMENT") or "ATTACHMENT",
+            "title": getattr(att, "file_name", "") or f"Attachment #{getattr(att, 'id', '-')}",
+            "ref": f"Uploaded by {getattr(att, 'uploaded_by', '-') or '-'}",
+            "status": "ATTACHED",
+            "date": getattr(att, "uploaded_at", None),
+            "pdf_url": f"/rfi/files/{getattr(att, 'id', 0)}/view",
+            "download_label": "Open File",
+        })
+
+    return {
+        "included": included,
+        "excluded": excluded,
+        "sections": sections,
+        "attachment_rows": attachment_rows,
+        "tool_rows": tool_rows,
+    }
+
+
 RFI_ACTIVITY_OPTIONS = [
     "DOCUMENT_REVIEW",
     "IN_PROCESS",
@@ -7320,6 +7422,8 @@ def rfi_detail(
         .order_by(RfiAttachment.uploaded_at.desc())
     ).all()
 
+    scope_docs = _build_rfi_scope_documents(session, rec, package, attachments)
+
     return templates.TemplateResponse(
         "rfi_detail.html",
         {
@@ -7328,9 +7432,53 @@ def rfi_detail(
             "rfi": rec,
             "package": package,
             "attachments": attachments,
+            "scope_docs": scope_docs,
             "rfi_due_info": _rfi_due_info(rec),
+            "activity_labels": RFI_ACTIVITY_LABELS,
         },
     )
+
+
+@app.get("/rfi/files/{attachment_id}/view")
+def rfi_attachment_view(
+    attachment_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    get_current_user(request, session)
+
+    att = session.get(RfiAttachment, attachment_id)
+    if not att:
+        raise HTTPException(404, "Attachment not found")
+
+    resolved = getattr(att, "file_path", "") or ""
+    if not resolved or not os.path.exists(resolved):
+        raise HTTPException(404, "File missing on server")
+
+    ctype, _ = mimetypes.guess_type(resolved)
+    if not ctype:
+        ctype = "application/octet-stream"
+
+    ext = os.path.splitext(resolved)[1].lower()
+    inline = (ctype == "application/pdf") or (ctype.startswith("image/")) or (ext in [".pdf", ".png", ".jpg", ".jpeg", ".webp"])
+    disposition_type = "inline" if inline else "attachment"
+
+    raw_name = getattr(att, "file_name", "") or os.path.basename(resolved)
+    raw_name = (
+        raw_name.replace("‎", "")
+                .replace("‏", "")
+                .replace("‪", "")
+                .replace("‫", "")
+                .replace("‬", "")
+                .strip()
+    )
+    safe_ascii = _safe_filename(raw_name) or "attachment"
+    from urllib.parse import quote
+    utf8_name = quote(raw_name.encode("utf-8"))
+    headers = {
+        "Content-Disposition": f'{disposition_type}; filename="{safe_ascii}"; filename*=UTF-8''{utf8_name}'
+    }
+    return FileResponse(resolved, media_type=ctype, headers=headers)
 
 
 @app.post("/rfi/{rfi_id}/status")
