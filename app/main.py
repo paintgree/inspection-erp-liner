@@ -4430,160 +4430,235 @@ def _draw_report_info_table(c, report, x, y):
     return y - 2 * mm
     
 def _draw_specimen_blocks(c, report, samples, start_y):
+    """
+    Compact specimen cards for page 1.
+    Draws 2 cards per row so more samples fit before results.
+    Returns the new y position after the specimen section.
+    """
     w, h = A4
+    margin_x = 14 * mm
+    gap_x = 4 * mm
+    gap_y = 3 * mm
+
+    card_w = (w - (2 * margin_x) - gap_x) / 2
+    card_h = 23 * mm
+
     y = start_y
-
-    for idx, s in enumerate(samples, start=1):
-        block_h = 40 * mm
-        x0 = 14 * mm
-        box_w = w - 28 * mm
-
-        if y - block_h < 45 * mm:
-            c.showPage()
-            y = h - 32 * mm
-
-        c.setFont("Helvetica-Bold", 9)
-        c.setFillColor(colors.black)
-        c.drawString(x0, y, "SPECIMEN DETAILS")
-        y -= 6 * mm
-
-        c.setFillColor(colors.white)
-        c.roundRect(x0, y - block_h, box_w, block_h, 4 * mm, stroke=0, fill=1)
-
-        # specimen mini badge
-        c.setFillColor(colors.HexColor("#ede9fe"))
-        c.roundRect(x0 + 4 * mm, y - 10 * mm, 8 * mm, 8 * mm, 2 * mm, stroke=0, fill=1)
-        c.setFillColor(colors.HexColor("#4f46e5"))
-        c.setFont("Helvetica-Bold", 6)
-        c.drawCentredString(x0 + 8 * mm, y - 7.3 * mm, f"#{idx}")
-
-        # serial
-        c.setFont("Helvetica-Bold", 5)
-        c.setFillColor(colors.HexColor("#94a3b8"))
-        c.drawString(x0 + 15 * mm, y - 4.5 * mm, "SERIAL NUMBER")
-        c.setFont("Helvetica-Bold", 8)
-        c.setFillColor(colors.black)
-        c.drawString(x0 + 15 * mm, y - 9.5 * mm, _txt(getattr(s, "sample_serial_number", "")) or "-")
-
-        # columns
-        col_y = y - 18 * mm
-        col_w = (box_w - 12 * mm) / 3
-
-        cols = [
-            ("LINER LAYER", _txt(getattr(s, "liner_material_grade", "")), _txt(getattr(s, "liner_thickness_mm", ""))),
-            ("REINFORCEMENT", _txt(getattr(s, "reinforcement_material_grade", "")), _txt(getattr(s, "reinforcement_thickness_mm", ""))),
-            ("COVER LAYER", _txt(getattr(s, "cover_material_grade", "")), _txt(getattr(s, "cover_thickness_mm", ""))),
-        ]
-
-        for i, (title, material, thk) in enumerate(cols):
-            cx = x0 + 4 * mm + i * col_w
-
-            c.setFont("Helvetica-Bold", 5.5)
-            c.setFillColor(colors.HexColor("#4f46e5"))
-            c.drawString(cx, col_y, title)
-
-            c.setStrokeColor(colors.HexColor("#cbd5e1"))
-            c.setLineWidth(0.5)
-            c.line(cx, col_y - 1.8 * mm, cx + col_w - 6 * mm, col_y - 1.8 * mm)
-
-            c.setFont("Helvetica-Bold", 4.5)
-            c.setFillColor(colors.HexColor("#94a3b8"))
-            c.drawString(cx, col_y - 6 * mm, "MATERIAL")
-            c.drawString(cx + 26 * mm, col_y - 6 * mm, "THICKNESS")
-
-            c.setFont("Helvetica-Bold", 7)
-            c.setFillColor(colors.black)
-            c.drawString(cx, col_y - 10.5 * mm, material or "-")
-            c.drawString(cx + 26 * mm, col_y - 10.5 * mm, f"{thk} mm" if thk else "-")
-
-        # bottom row
-        row_y = y - 34 * mm
-        c.setStrokeColor(colors.HexColor("#cbd5e1"))
-        c.setLineWidth(0.4)
-        c.line(x0 + 4 * mm, row_y + 5 * mm, x0 + box_w - 4 * mm, row_y + 5 * mm)
-
-        c.setFont("Helvetica-Bold", 4.5)
-        c.setFillColor(colors.HexColor("#94a3b8"))
-        c.drawString(x0 + 10 * mm, row_y + 1.5 * mm, "TOTAL LENGTH")
-        c.drawString(x0 + 78 * mm, row_y + 1.5 * mm, "EFFECTIVE LENGTH")
-
-        c.setFont("Helvetica-Bold", 7)
-        c.setFillColor(colors.black)
-        sample_len_mm = float(getattr(s, "sample_length_m", 0.0) or 0.0) * 1000.0
-        c.drawString(x0 + 10 * mm, row_y - 3 * mm, f"{sample_len_mm:.1f} mm" if sample_len_mm > 0 else "-")
-        c.drawString(x0 + 78 * mm, row_y - 3 * mm, f"{_txt(getattr(s, 'effective_length_m', ''))} mm")
-
-        y = y - block_h - 8 * mm
-
-    return y
-    
-def _draw_results_table(c, samples, y):
-    w, h = A4
 
     c.setFont("Helvetica-Bold", 9)
     c.setFillColor(colors.black)
-    c.drawString(14 * mm, y, "TEST RESULTS")
+    c.drawString(margin_x, y, "SPECIMEN DETAILS")
     y -= 6 * mm
 
+    if not samples:
+        c.setFont("Helvetica", 8)
+        c.setFillColor(colors.HexColor("#64748b"))
+        c.drawString(margin_x, y, "No specimen data")
+        return y - 6 * mm
+
+    for row_start in range(0, len(samples), 2):
+        row_samples = samples[row_start:row_start + 2]
+
+        row_h = card_h
+        if y - row_h < 55 * mm:
+            # Do not force a new page here for page 1 layout.
+            # Let caller decide if results should move to next page.
+            break
+
+        for col_idx, s in enumerate(row_samples):
+            x0 = margin_x + col_idx * (card_w + gap_x)
+            top_y = y
+
+            # card
+            c.setFillColor(colors.white)
+            c.setStrokeColor(colors.HexColor("#e2e8f0"))
+            c.roundRect(x0, top_y - card_h, card_w, card_h, 3 * mm, stroke=1, fill=1)
+
+            # sample badge
+            sample_no = row_start + col_idx + 1
+            c.setFillColor(colors.HexColor("#ede9fe"))
+            c.setStrokeColor(colors.HexColor("#ede9fe"))
+            c.roundRect(x0 + 3 * mm, top_y - 7.5 * mm, 9 * mm, 5.5 * mm, 1.8 * mm, stroke=1, fill=1)
+            c.setFillColor(colors.HexColor("#4f46e5"))
+            c.setFont("Helvetica-Bold", 6)
+            c.drawCentredString(x0 + 7.5 * mm, top_y - 5.8 * mm, f"#{sample_no}")
+
+            # serial
+            c.setFont("Helvetica-Bold", 4.8)
+            c.setFillColor(colors.HexColor("#94a3b8"))
+            c.drawString(x0 + 15 * mm, top_y - 4.3 * mm, "SERIAL NUMBER")
+            c.setFont("Helvetica-Bold", 7.2)
+            c.setFillColor(colors.black)
+            c.drawString(
+                x0 + 15 * mm,
+                top_y - 8.6 * mm,
+                (_txt(getattr(s, "sample_serial_number", "")) or "-")[:28]
+            )
+
+            # three short columns
+            title_y = top_y - 12.5 * mm
+            value_y = top_y - 16.8 * mm
+
+            inner_left = x0 + 3 * mm
+            inner_right = x0 + card_w - 3 * mm
+            inner_w = inner_right - inner_left
+            col_w = inner_w / 3.0
+
+            cols = [
+                ("LINER", _txt(getattr(s, "liner_thickness_mm", "")) or "-"),
+                ("REINF.", _txt(getattr(s, "reinforcement_thickness_mm", "")) or "-"),
+                ("COVER", _txt(getattr(s, "cover_thickness_mm", "")) or "-"),
+            ]
+
+            for i, (label, val) in enumerate(cols):
+                cx = inner_left + i * col_w
+
+                c.setFont("Helvetica-Bold", 4.8)
+                c.setFillColor(colors.HexColor("#4f46e5"))
+                c.drawString(cx, title_y, label)
+
+                c.setStrokeColor(colors.HexColor("#cbd5e1"))
+                c.setLineWidth(0.35)
+                c.line(cx, title_y - 1.3 * mm, cx + col_w - 2 * mm, title_y - 1.3 * mm)
+
+                c.setFont("Helvetica-Bold", 6.5)
+                c.setFillColor(colors.black)
+                txt = f"{val} mm" if val != "-" else "-"
+                c.drawString(cx, value_y, txt[:14])
+
+            # bottom mini info row
+            bottom_line_y = top_y - 18.7 * mm
+            c.setStrokeColor(colors.HexColor("#e2e8f0"))
+            c.setLineWidth(0.35)
+            c.line(inner_left, bottom_line_y, inner_right, bottom_line_y)
+
+            total_len_mm = float(getattr(s, "sample_length_m", 0.0) or 0.0) * 1000.0
+            eff_len = _txt(getattr(s, "effective_length_m", "")) or "-"
+
+            c.setFont("Helvetica-Bold", 4.5)
+            c.setFillColor(colors.HexColor("#94a3b8"))
+            c.drawString(inner_left, top_y - 20.8 * mm, "TOTAL LEN")
+            c.drawString(inner_left + 31 * mm, top_y - 20.8 * mm, "EFFECTIVE")
+
+            c.setFont("Helvetica-Bold", 6.2)
+            c.setFillColor(colors.black)
+            c.drawString(
+                inner_left,
+                top_y - 23.2 * mm,
+                f"{total_len_mm:.1f} mm" if total_len_mm > 0 else "-"
+            )
+            c.drawString(
+                inner_left + 31 * mm,
+                top_y - 23.2 * mm,
+                f"{eff_len} mm" if eff_len != "-" else "-"
+            )
+
+        y -= card_h + gap_y
+
+    return y - 2 * mm
+    
+def _draw_results_table(c, samples, y):
+    """
+    Compact results table.
+    Returns the new y position after drawing.
+    """
+    w, h = A4
     x0 = 14 * mm
     box_w = w - 28 * mm
-    row_h = 8 * mm
-    head_h = 8 * mm
+
+    c.setFont("Helvetica-Bold", 9)
+    c.setFillColor(colors.black)
+    c.drawString(x0, y, "TEST RESULTS")
+    y -= 6 * mm
+
+    row_h = 6.2 * mm
+    head_h = 7 * mm
     total_h = head_h + max(1, len(samples)) * row_h
 
     c.setFillColor(colors.white)
-    c.roundRect(x0, y - total_h, box_w, total_h, 4 * mm, stroke=0, fill=1)
+    c.setStrokeColor(colors.HexColor("#e2e8f0"))
+    c.roundRect(x0, y - total_h, box_w, total_h, 3 * mm, stroke=1, fill=1)
 
-    headers = ["#", "SERIAL NO", "ACTUAL BURST", "PRESSURIZATION TIME", "RESULT"]
-    xs = [x0 + 6 * mm, x0 + 25 * mm, x0 + 60 * mm, x0 + 98 * mm, x0 + 152 * mm]
+    headers = ["#", "SERIAL NO", "ACTUAL BURST", "PRESS. TIME", "RESULT"]
 
-    c.setFont("Helvetica-Bold", 5)
+    xs = [
+        x0 + 4 * mm,    # #
+        x0 + 16 * mm,   # serial
+        x0 + 77 * mm,   # burst
+        x0 + 111 * mm,  # time
+        x0 + 153 * mm,  # result
+    ]
+
+    c.setFont("Helvetica-Bold", 5.2)
     c.setFillColor(colors.HexColor("#94a3b8"))
-    hy = y - 5.2 * mm
+    hy = y - 4.7 * mm
     for i, htxt in enumerate(headers):
         c.drawString(xs[i], hy, htxt)
 
     line_y = y - head_h
     c.setStrokeColor(colors.HexColor("#e5e7eb"))
-    c.setLineWidth(0.4)
-    c.line(x0 + 3 * mm, line_y, x0 + box_w - 3 * mm, line_y)
+    c.setLineWidth(0.35)
+    c.line(x0 + 2.5 * mm, line_y, x0 + box_w - 2.5 * mm, line_y)
 
     for i, s in enumerate(samples, start=1):
-        ry = line_y - ((i - 1) * row_h) - 5.5 * mm
+        row_top = line_y - ((i - 1) * row_h)
+        text_y = row_top - 4.2 * mm
 
-        c.setFont("Helvetica", 7)
+        c.setFont("Helvetica", 6.7)
         c.setFillColor(colors.black)
-        c.drawString(xs[0], ry, str(i))
-        c.drawString(xs[1], ry, _txt(getattr(s, "sample_serial_number", "")) or "-")
-        c.drawString(xs[2], ry, f"{_txt(getattr(s, 'actual_burst_psi', ''))} MPa")
-        c.drawString(xs[3], ry, f"{_txt(getattr(s, 'pressurization_time_s', ''))} s")
+        c.drawString(xs[0], text_y, str(i))
+        c.drawString(xs[1], text_y, (_txt(getattr(s, "sample_serial_number", "")) or "-")[:24])
+
+        burst_val = _txt(getattr(s, "actual_burst_psi", ""))
+        if burst_val:
+            burst_txt = f"{burst_val} MPa"
+        else:
+            burst_txt = "-"
+        c.drawString(xs[2], text_y, burst_txt)
+
+        press_txt = _txt(getattr(s, "pressurization_time_s", "")) or "-"
+        if press_txt != "-":
+            press_txt = f"{press_txt} s"
+        c.drawString(xs[3], text_y, press_txt)
 
         result_txt = (_txt(getattr(s, "test_result", "")) or "").strip().upper()
+
         bx = xs[4]
-        by = ry - 2 * mm
-        bw = 16 * mm
-        bh = 5 * mm
+        by = row_top - 5.0 * mm
+        bw = 14 * mm
+        bh = 4.4 * mm
 
         if result_txt == "PASS":
-            c.setFillColor(colors.HexColor("#ecfdf5"))
-            c.roundRect(bx, by, bw, bh, 2 * mm, stroke=0, fill=1)
-            c.setFillColor(colors.HexColor("#059669"))
-            c.setFont("Helvetica-Bold", 5.5)
-            c.drawCentredString(bx + bw / 2, by + 1.5 * mm, "PASS")
+            c.setFillColor(colors.HexColor("#dcfce7"))
+            c.setStrokeColor(colors.HexColor("#dcfce7"))
+            c.roundRect(bx, by, bw, bh, 2 * mm, stroke=1, fill=1)
+            c.setFillColor(colors.HexColor("#15803d"))
+            c.setFont("Helvetica-Bold", 5.2)
+            c.drawCentredString(bx + bw / 2, by + 1.3 * mm, "PASS")
         elif result_txt == "FAIL":
-            c.setFillColor(colors.HexColor("#fef2f2"))
-            c.roundRect(bx, by, bw, bh, 2 * mm, stroke=0, fill=1)
-            c.setFillColor(colors.HexColor("#dc2626"))
-            c.setFont("Helvetica-Bold", 5.5)
-            c.drawCentredString(bx + bw / 2, by + 1.5 * mm, "FAIL")
+            c.setFillColor(colors.HexColor("#fee2e2"))
+            c.setStrokeColor(colors.HexColor("#fee2e2"))
+            c.roundRect(bx, by, bw, bh, 2 * mm, stroke=1, fill=1)
+            c.setFillColor(colors.HexColor("#b91c1c"))
+            c.setFont("Helvetica-Bold", 5.2)
+            c.drawCentredString(bx + bw / 2, by + 1.3 * mm, "FAIL")
         else:
-            c.setFillColor(colors.HexColor("#f1f5f9"))
-            c.roundRect(bx, by, bw, bh, 2 * mm, stroke=0, fill=1)
+            c.setFillColor(colors.HexColor("#e5e7eb"))
+            c.setStrokeColor(colors.HexColor("#e5e7eb"))
+            c.roundRect(bx, by, bw, bh, 2 * mm, stroke=1, fill=1)
             c.setFillColor(colors.HexColor("#475569"))
-            c.setFont("Helvetica-Bold", 5.5)
-            c.drawCentredString(bx + bw / 2, by + 1.5 * mm, result_txt or "-")
+            c.setFont("Helvetica-Bold", 5.2)
+            c.drawCentredString(bx + bw / 2, by + 1.3 * mm, result_txt or "-")
 
-    return y - total_h - 10 * mm
+        # row separator
+        if i < len(samples):
+            sep_y = row_top - row_h
+            c.setStrokeColor(colors.HexColor("#f1f5f9"))
+            c.setLineWidth(0.3)
+            c.line(x0 + 2.5 * mm, sep_y, x0 + box_w - 2.5 * mm, sep_y)
+
+    return y - total_h - 7 * mm
+    
 def _make_burst_chart_png(samples) -> bytes | None:
     """
     Returns PNG bytes for chart, or None if no valid burst values.
@@ -4893,26 +4968,65 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
     # ------------------------------------------------------------
     # PAGE 1: report contents
+    # Keep specimen cards + results on first page when possible.
+    # If not enough room, move only results/signatures to next page.
     # ------------------------------------------------------------
     buf, c, title = new_page()
     w, h = A4
-    y = _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1, report=report)
+    y = _draw_header_footer(
+        c,
+        title=title,
+        doc_control_no=doc_no,
+        page_num=1,
+        page_total=1,
+        report=report
+    )
 
     y = _draw_report_info_table(c, report, 20 * mm, y)
-    y -= 8 * mm
+    y -= 5 * mm
 
-    y = _draw_specimen_blocks(c, report, samples, y)
+    # draw compact specimen area
+    specimen_start_y = y
+    y_after_specimens = _draw_specimen_blocks(c, report, samples, specimen_start_y)
 
-    if y < 85 * mm:
+    # estimate results + signatures height
+    results_row_h = 6.2 * mm
+    results_head_h = 7 * mm
+    results_title_gap = 6 * mm
+    results_total_h = results_head_h + max(1, len(samples)) * results_row_h + results_title_gap + 7 * mm
+    signatures_need_h = 20 * mm
+
+    needed_after_specimens = results_total_h + signatures_need_h
+    bottom_safe_y = 24 * mm
+
+    if y_after_specimens - needed_after_specimens >= bottom_safe_y:
+        # keep results on first page
+        y = _draw_results_table(c, samples, y_after_specimens)
+        _draw_signatures(c, report, y, pdf_qaqc_name, pdf_qaqc_date)
         c.showPage()
-        y = _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1, report=report)
+        c.save()
+        pages.append(buf.getvalue())
+    else:
+        # finish page 1 with report info + specimens only
+        c.showPage()
+        c.save()
+        pages.append(buf.getvalue())
 
-    y = _draw_results_table(c, samples, y)
-    _draw_signatures(c, report, y, pdf_qaqc_name, pdf_qaqc_date)
-
-    c.showPage()
-    c.save()
-    pages.append(buf.getvalue())
+        # page 2 = results/signatures only
+        buf_r, c_r, _ = new_page()
+        y_r = _draw_header_footer(
+            c_r,
+            title=title,
+            doc_control_no=doc_no,
+            page_num=1,
+            page_total=1,
+            report=report
+        )
+        y_r = _draw_results_table(c_r, samples, y_r)
+        _draw_signatures(c_r, report, y_r, pdf_qaqc_name, pdf_qaqc_date)
+        c_r.showPage()
+        c_r.save()
+        pages.append(buf_r.getvalue())
 
     # ------------------------------------------------------------
     # ------------------------------------------------------------
