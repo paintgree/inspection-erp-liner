@@ -4260,7 +4260,7 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
     # ------------------------------------------------------------
     # TOP CENTERED LOGO HEADER
     # ------------------------------------------------------------
-        logo_path = os.path.join(BASE_DIR, "static", "images", "logo.png")
+    logo_path = os.path.join(BASE_DIR, "static", "images", "logo.png")
     logo_top_y = h - 8 * mm
 
     if os.path.exists(logo_path):
@@ -4268,13 +4268,11 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
             img = ImageReader(logo_path)
             iw, ih = img.getSize()
 
-            # slightly bigger than before
             target_h = 14 * mm
             scale = target_h / float(ih)
             dw = float(iw) * scale
             dh = target_h
 
-            # center logo exactly
             logo_x = (w - dw) / 2.0
 
             c.drawImage(
@@ -4287,11 +4285,12 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
             )
         except Exception:
             pass
+
     # ------------------------------------------------------------
     # REPORT HEADER BOX
     # ------------------------------------------------------------
-    box_top = h - 28 * mm   # lowered a little
-    box_h = 22 * mm         # taller box for breathing room
+    box_top = h - 28 * mm
+    box_h = 22 * mm
     box_w = w - (2 * margin_x)
 
     c.setStrokeColor(colors.HexColor("#dbe3ee"))
@@ -4302,17 +4301,14 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
     left_x = margin_x + 8 * mm
     right_box_w = 38 * mm
 
-    # main title
-    c.setFillColor(colors.black)
+    c.setFillColor(colors.black))
     c.setFont("Helvetica-Bold", 12.5)
     c.drawString(left_x, box_top - 8.0 * mm, "Short-Time Hydrostatic Burst Pressure Test Report")
 
-    # subtitle
     c.setFillColor(colors.HexColor("#4338ca"))
     c.setFont("Helvetica-Bold", 6.5)
     c.drawString(left_x, box_top - 14.3 * mm, "OFFICIAL DOCUMENT")
 
-    # report id box
     rid_x = margin_x + box_w - right_box_w - 6 * mm
     rid_top = box_top - 2.8 * mm
     rid_h = 15.5 * mm
@@ -4324,7 +4320,7 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
 
     c.setFont("Helvetica-Bold", 5.5)
     c.setFillColor(colors.HexColor("#94a3b8"))
-    c.drawRightString(rid_x + right_box_w - 3 * mm, rid_top - 3.2 * mm, "REPORT NO.")
+    c.drawRightString(rid_x + right_box_w - 3 * mm, rid_top - 3.2 * mm, "REPORT ID")
 
     rep_no = "-"
     if report is not None:
@@ -4388,7 +4384,6 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
     c.setFont("Helvetica", 8)
     c.drawRightString(w - margin_x, footer_y, f"Page {page_num}/{page_total}")
 
-    # more space below header before content starts
     return box_top - box_h - 5 * mm
 
 def _draw_report_info_table(c, report, x, y):
