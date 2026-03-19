@@ -7,78 +7,177 @@
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <header class="app-header">
-    <div class="app-header-inner">
-      <div class="app-header-left">
-        <a class="app-brand" href="/dashboard">
-          <span class="app-brand-mark">IE</span>
-          <span class="app-brand-text">
+  {% set current_path = request.url.path if request and request.url else '' %}
+  {% set order_active =
+      current_path == '/dashboard'
+      or current_path.startswith('/runs')
+      or current_path.startswith('/mrr')
+      or current_path.startswith('/burst')
+      or current_path.startswith('/hydro')
+      or current_path.startswith('/final')
+      or current_path.startswith('/rfi')
+      or current_path.startswith('/batches')
+  %}
+
+  <div class="erp-layout">
+    {% if user %}
+    <aside class="erp-sidebar">
+      <div class="erp-sidebar-inner">
+        <a class="erp-sidebar-brand" href="/dashboard">
+          <span class="erp-sidebar-brand-mark">IE</span>
+          <span class="erp-sidebar-brand-text">
             <strong>Inspection ERP</strong>
-            <small>Production & Quality System</small>
+            <small>Production &amp; Quality System</small>
           </span>
         </a>
-      </div>
 
-      {% if user %}
-      <div class="app-header-right">
-        <a class="app-header-icon" href="/dashboard" title="Dashboard" aria-label="Dashboard">
-          <span>⌂</span>
+        <div class="erp-side-caption">Main Modules</div>
+
+        <a class="erp-module-card erp-module-card-disabled" href="javascript:void(0)">
+          <span class="erp-module-icon">▦</span>
+          <span class="erp-module-label">Admin Dashboard</span>
         </a>
 
-        <button class="app-header-icon app-bell-btn" type="button" onclick="toggleHeaderNotifications()" title="Notifications" aria-label="Notifications">
-          <span>🔔</span>
-          <span id="appBellDot" class="app-bell-dot" style="display:none;">0</span>
-        </button>
+        <a class="erp-module-card {% if order_active %}active{% endif %}" href="/dashboard">
+          <span class="erp-module-icon">◈</span>
+          <span class="erp-module-label">Orders Production</span>
+          <span class="erp-module-arrow">›</span>
+        </a>
 
-        <div id="headerNotifications" class="app-header-popover" style="display:none;">
-          <div class="app-header-popover-title">Notifications</div>
-          <div id="headerNotificationsBody" class="app-header-popover-body">
-            <div class="app-empty-note">Loading notifications...</div>
+        <a class="erp-module-card erp-module-card-disabled" href="javascript:void(0)">
+          <span class="erp-module-icon">⌬</span>
+          <span class="erp-module-label">R&amp;D</span>
+        </a>
+
+        <a class="erp-module-card erp-module-card-disabled" href="javascript:void(0)">
+          <span class="erp-module-icon">▤</span>
+          <span class="erp-module-label">Documentations</span>
+        </a>
+
+        {% if order_active %}
+        <div class="erp-submodule-panel">
+          <div class="erp-submodule-top">
+            <div class="erp-submodule-badge">◈</div>
+            <div class="erp-submodule-title">Orders Production</div>
           </div>
-        </div>
 
-        <div class="app-user-menu-wrap">
-          <button class="app-user-btn" type="button" onclick="toggleUserMenu()">
-            <span class="app-user-avatar">
-              {{ (user.display_name or user.username or 'U')[:1] }}
-            </span>
-            <span class="app-user-meta">
-              <strong>{{ user.display_name }}</strong>
-              <small>{{ user.role }}</small>
-            </span>
-            <span class="app-user-caret">▾</span>
-          </button>
+          <nav class="erp-submodule-links">
+            <a class="erp-submodule-link {% if current_path == '/dashboard' %}active{% endif %}" href="/dashboard">
+              <span class="erp-submodule-icon">⌂</span>
+              <span>Overview</span>
+            </a>
 
-          <div id="appUserMenu" class="app-user-menu" style="display:none;">
-            <div class="app-user-menu-head">
-              <div class="app-user-menu-name">{{ user.display_name }}</div>
-              <div class="app-user-menu-role">{{ user.role }}</div>
-            </div>
-            
-            <a class="app-user-menu-item" href="/me">My Profile</a>
-            
-            {% if user and user.role and user.role|upper == "MANAGER" %}
-              <a class="app-user-menu-item" href="/users">User Management</a>
-            {% endif %}
-            
-            <a class="app-user-menu-item app-user-menu-danger" href="/logout">Logout</a>
-          </div>
+            <a class="erp-submodule-link {% if current_path.startswith('/rfi') %}active{% endif %}" href="/rfi">
+              <span class="erp-submodule-icon">☑</span>
+              <span>RFI Dashboard</span>
+            </a>
+
+            <a class="erp-submodule-link {% if current_path.startswith('/burst') %}active{% endif %}" href="/burst">
+              <span class="erp-submodule-icon">◫</span>
+              <span>Burst Report</span>
+            </a>
+
+            <a class="erp-submodule-link {% if current_path.startswith('/hydro') %}active{% endif %}" href="/hydro">
+              <span class="erp-submodule-icon">◔</span>
+              <span>Hydro Testing</span>
+            </a>
+
+            <a class="erp-submodule-link {% if current_path.startswith('/final') %}active{% endif %}" href="/final">
+              <span class="erp-submodule-icon">◌</span>
+              <span>Final Inspection</span>
+            </a>
+
+            <a class="erp-submodule-link {% if current_path.startswith('/mrr') %}active{% endif %}" href="/mrr">
+              <span class="erp-submodule-icon">▣</span>
+              <span>MRR Inspection</span>
+            </a>
+
+            <a class="erp-submodule-link {% if current_path.startswith('/runs') %}active{% endif %}" href="/runs">
+              <span class="erp-submodule-icon">△</span>
+              <span>In-Process Inspection</span>
+            </a>
+          </nav>
         </div>
+        {% endif %}
       </div>
-      {% endif %}
-    </div>
-  </header>
+    </aside>
+    {% endif %}
 
-  <div class="page">
+    <div class="erp-main">
+      <header class="app-header">
+        <div class="app-header-inner">
+          <div class="app-header-left">
+            <a class="app-brand" href="/dashboard">
+              <span class="app-brand-mark">IE</span>
+              <span class="app-brand-text">
+                <strong>Inspection ERP</strong>
+                <small>Production &amp; Quality System</small>
+              </span>
+            </a>
+          </div>
+
+          {% if user %}
+          <div class="app-header-right">
+            <a class="app-header-icon" href="/dashboard" title="Dashboard" aria-label="Dashboard">
+              <span>⌂</span>
+            </a>
+
+            <button class="app-header-icon app-bell-btn" type="button" onclick="toggleHeaderNotifications()" title="Notifications" aria-label="Notifications">
+              <span>🔔</span>
+              <span id="appBellDot" class="app-bell-dot" style="display:none;">0</span>
+            </button>
+
+            <div id="headerNotifications" class="app-header-popover" style="display:none;">
+              <div class="app-header-popover-title">Notifications</div>
+              <div id="headerNotificationsBody" class="app-header-popover-body">
+                <div class="app-empty-note">Loading notifications...</div>
+              </div>
+            </div>
+
+            <div class="app-user-menu-wrap">
+              <button class="app-user-btn" type="button" onclick="toggleUserMenu()">
+                <span class="app-user-avatar">
+                  {{ (user.display_name or user.username or 'U')[:1] }}
+                </span>
+                <span class="app-user-meta">
+                  <strong>{{ user.display_name }}</strong>
+                  <small>{{ user.role }}</small>
+                </span>
+                <span class="app-user-caret">▾</span>
+              </button>
+
+              <div id="appUserMenu" class="app-user-menu" style="display:none;">
+                <div class="app-user-menu-head">
+                  <div class="app-user-menu-name">{{ user.display_name }}</div>
+                  <div class="app-user-menu-role">{{ user.role }}</div>
+                </div>
+
+                <a class="app-user-menu-item" href="/me">My Profile</a>
+
+                {% if user and user.role and user.role|upper == "MANAGER" %}
+                  <a class="app-user-menu-item" href="/users">User Management</a>
+                {% endif %}
+
+                <a class="app-user-menu-item app-user-menu-danger" href="/logout">Logout</a>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </header>
+
+      <div class="page">
         {% if user and user.must_change_password %}
           <div class="alert" style="margin-bottom:14px; border-color:#f59e0b; background:#fff7ed; color:#9a3412;">
             Your password is still set to the default or was reset by admin. Please update it from <a href="/me" style="font-weight:800; text-decoration:underline;">My Profile</a>.
           </div>
         {% endif %}
-    {% block content %}{% endblock %}
+
+        {% block content %}{% endblock %}
+      </div>
+    </div>
   </div>
 
-  <!-- Global popup modal -->
   <div id="globalModal"
        style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:9999; align-items:center; justify-content:center;">
     <div style="width:min(520px, 92vw); background:#fff; border-radius:14px; padding:18px;
@@ -176,7 +275,6 @@
     }
   }
 
-  
   document.addEventListener("click", function(e){
     const menu = document.getElementById("appUserMenu");
     const menuWrap = document.querySelector(".app-user-menu-wrap");
@@ -191,7 +289,6 @@
     }
   });
 
-  // GLOBAL: intercept ALL POST forms
   document.addEventListener("submit", async function (e) {
     const form = e.target;
     if (!form || form.tagName !== "FORM") return;
@@ -253,10 +350,9 @@
       showGlobalModal("Error", "Network/server error. Please try again.");
     }
   }, true);
+
+  window.addEventListener("load", loadHeaderNotifications);
 </script>
 
 </body>
 </html>
-
-
-
