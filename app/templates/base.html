@@ -8,102 +8,149 @@
 </head>
 <body>
   {% set current_path = request.url.path if request and request.url else '' %}
-  {% set order_active =
-      current_path == '/dashboard'
-      or current_path.startswith('/runs')
-      or current_path.startswith('/mrr')
-      or current_path.startswith('/burst')
-      or current_path.startswith('/hydro')
-      or current_path.startswith('/final')
-      or current_path.startswith('/rfi')
-      or current_path.startswith('/batches')
-  %}
+  {% set selected_module = 'orders' %}
+  {% if current_path.startswith('/admin') or current_path.startswith('/users') %}
+    {% set selected_module = 'admin' %}
+  {% elif current_path.startswith('/rnd') %}
+    {% set selected_module = 'rnd' %}
+  {% elif current_path.startswith('/docs') %}
+    {% set selected_module = 'docs' %}
+  {% else %}
+    {% set selected_module = 'orders' %}
+  {% endif %}
 
-  <div class="erp-layout">
+  <div class="erp-shell">
     {% if user %}
-    <aside class="erp-sidebar">
-      <div class="erp-sidebar-inner">
-        <a class="erp-sidebar-brand" href="/dashboard">
-          <span class="erp-sidebar-brand-mark">IE</span>
-          <span class="erp-sidebar-brand-text">
-            <strong>Inspection ERP</strong>
-            <small>Production &amp; Quality System</small>
-          </span>
-        </a>
+    <aside class="erp-sidebar-twolevel">
+      <div class="erp-main-rail">
+        <div class="erp-main-rail-top">
+          <a class="erp-mini-brand" href="/dashboard" title="Inspection ERP">
+            <span class="erp-mini-brand-mark">IE</span>
+          </a>
+        </div>
 
-        <div class="erp-side-caption">Main Modules</div>
+        <div class="erp-main-rail-label">Main Modules</div>
 
-        <a class="erp-module-card erp-module-card-disabled" href="javascript:void(0)">
-          <span class="erp-module-icon">▦</span>
-          <span class="erp-module-label">Admin Dashboard</span>
-        </a>
+        <button type="button"
+                class="erp-main-module {% if selected_module == 'admin' %}active{% endif %}"
+                onclick="selectSidebarModule('admin')">
+          <span class="erp-main-module-icon">▦</span>
+          <span class="erp-main-module-text">Admin Dashboard</span>
+        </button>
 
-        <a class="erp-module-card {% if order_active %}active{% endif %}" href="/dashboard">
-          <span class="erp-module-icon">◈</span>
-          <span class="erp-module-label">Orders Production</span>
-          <span class="erp-module-arrow">›</span>
-        </a>
+        <button type="button"
+                class="erp-main-module {% if selected_module == 'orders' %}active{% endif %}"
+                onclick="selectSidebarModule('orders')">
+          <span class="erp-main-module-icon">◈</span>
+          <span class="erp-main-module-text">Orders Production</span>
+        </button>
 
-        <a class="erp-module-card erp-module-card-disabled" href="javascript:void(0)">
-          <span class="erp-module-icon">⌬</span>
-          <span class="erp-module-label">R&amp;D</span>
-        </a>
+        <button type="button"
+                class="erp-main-module {% if selected_module == 'rnd' %}active{% endif %}"
+                onclick="selectSidebarModule('rnd')">
+          <span class="erp-main-module-icon">⌬</span>
+          <span class="erp-main-module-text">R&amp;D</span>
+        </button>
 
-        <a class="erp-module-card erp-module-card-disabled" href="javascript:void(0)">
-          <span class="erp-module-icon">▤</span>
-          <span class="erp-module-label">Documentations</span>
-        </a>
+        <button type="button"
+                class="erp-main-module {% if selected_module == 'docs' %}active{% endif %}"
+                onclick="selectSidebarModule('docs')">
+          <span class="erp-main-module-icon">▤</span>
+          <span class="erp-main-module-text">Documentations</span>
+        </button>
+      </div>
 
-        {% if order_active %}
-        <div class="erp-submodule-panel">
-          <div class="erp-submodule-top">
-            <div class="erp-submodule-badge">◈</div>
-            <div class="erp-submodule-title">Orders Production</div>
+      <div class="erp-sub-rail">
+        <div id="module-panel-admin" class="erp-sub-panel {% if selected_module == 'admin' %}active{% endif %}">
+          <div class="erp-sub-panel-head">
+            <div class="erp-sub-panel-badge">▦</div>
+            <div class="erp-sub-panel-title">Admin Dashboard</div>
           </div>
 
-          <nav class="erp-submodule-links">
-            <a class="erp-submodule-link {% if current_path == '/dashboard' %}active{% endif %}" href="/dashboard">
-              <span class="erp-submodule-icon">⌂</span>
+          <nav class="erp-sub-links">
+            <a class="erp-sub-link" href="javascript:void(0)">
+              <span class="erp-sub-link-icon">•</span>
+              <span>Coming Soon</span>
+            </a>
+          </nav>
+        </div>
+
+        <div id="module-panel-orders" class="erp-sub-panel {% if selected_module == 'orders' %}active{% endif %}">
+          <div class="erp-sub-panel-head">
+            <div class="erp-sub-panel-badge">◈</div>
+            <div class="erp-sub-panel-title">Orders Production</div>
+          </div>
+
+          <nav class="erp-sub-links">
+            <a class="erp-sub-link {% if current_path == '/dashboard' %}active{% endif %}" href="/dashboard">
+              <span class="erp-sub-link-icon">⌂</span>
               <span>Overview</span>
             </a>
 
-            <a class="erp-submodule-link {% if current_path.startswith('/rfi') %}active{% endif %}" href="/rfi">
-              <span class="erp-submodule-icon">☑</span>
+            <a class="erp-sub-link {% if current_path.startswith('/rfi') %}active{% endif %}" href="/rfi">
+              <span class="erp-sub-link-icon">☑</span>
               <span>RFI Dashboard</span>
             </a>
 
-            <a class="erp-submodule-link {% if current_path.startswith('/burst') %}active{% endif %}" href="/burst">
-              <span class="erp-submodule-icon">◫</span>
+            <a class="erp-sub-link {% if current_path.startswith('/burst') %}active{% endif %}" href="/burst">
+              <span class="erp-sub-link-icon">◫</span>
               <span>Burst Report</span>
             </a>
 
-            <a class="erp-submodule-link {% if current_path.startswith('/hydro') %}active{% endif %}" href="/hydro">
-              <span class="erp-submodule-icon">◔</span>
+            <a class="erp-sub-link {% if current_path.startswith('/hydro') %}active{% endif %}" href="/hydro">
+              <span class="erp-sub-link-icon">◔</span>
               <span>Hydro Testing</span>
             </a>
 
-            <a class="erp-submodule-link {% if current_path.startswith('/final') %}active{% endif %}" href="/final">
-              <span class="erp-submodule-icon">◌</span>
+            <a class="erp-sub-link {% if current_path.startswith('/final') %}active{% endif %}" href="/final">
+              <span class="erp-sub-link-icon">◌</span>
               <span>Final Inspection</span>
             </a>
 
-            <a class="erp-submodule-link {% if current_path.startswith('/mrr') %}active{% endif %}" href="/mrr">
-              <span class="erp-submodule-icon">▣</span>
+            <a class="erp-sub-link {% if current_path.startswith('/mrr') %}active{% endif %}" href="/mrr">
+              <span class="erp-sub-link-icon">▣</span>
               <span>MRR Inspection</span>
             </a>
 
-            <a class="erp-submodule-link {% if current_path.startswith('/runs') %}active{% endif %}" href="/runs">
-              <span class="erp-submodule-icon">△</span>
+            <a class="erp-sub-link {% if current_path.startswith('/runs') %}active{% endif %}" href="/runs">
+              <span class="erp-sub-link-icon">△</span>
               <span>In-Process Inspection</span>
             </a>
           </nav>
         </div>
-        {% endif %}
+
+        <div id="module-panel-rnd" class="erp-sub-panel {% if selected_module == 'rnd' %}active{% endif %}">
+          <div class="erp-sub-panel-head">
+            <div class="erp-sub-panel-badge">⌬</div>
+            <div class="erp-sub-panel-title">R&amp;D</div>
+          </div>
+
+          <nav class="erp-sub-links">
+            <a class="erp-sub-link" href="javascript:void(0)">
+              <span class="erp-sub-link-icon">•</span>
+              <span>Coming Soon</span>
+            </a>
+          </nav>
+        </div>
+
+        <div id="module-panel-docs" class="erp-sub-panel {% if selected_module == 'docs' %}active{% endif %}">
+          <div class="erp-sub-panel-head">
+            <div class="erp-sub-panel-badge">▤</div>
+            <div class="erp-sub-panel-title">Documentations</div>
+          </div>
+
+          <nav class="erp-sub-links">
+            <a class="erp-sub-link" href="javascript:void(0)">
+              <span class="erp-sub-link-icon">•</span>
+              <span>Coming Soon</span>
+            </a>
+          </nav>
+        </div>
       </div>
     </aside>
     {% endif %}
 
-    <div class="erp-main">
+    <div class="erp-content-shell">
       <header class="app-header">
         <div class="app-header-inner">
           <div class="app-header-left">
@@ -221,6 +268,54 @@
     if (userMenu) userMenu.style.display = "none";
     if (!el) return;
     el.style.display = el.style.display === "block" ? "none" : "block";
+  }
+
+  function selectSidebarModule(moduleName) {
+    localStorage.setItem("erpSelectedModule", moduleName);
+
+    document.querySelectorAll(".erp-main-module").forEach(function(btn){
+      btn.classList.remove("active");
+    });
+
+    document.querySelectorAll(".erp-sub-panel").forEach(function(panel){
+      panel.classList.remove("active");
+    });
+
+    const moduleButtons = {
+      admin: document.querySelector('.erp-main-module[onclick*="admin"]'),
+      orders: document.querySelector('.erp-main-module[onclick*="orders"]'),
+      rnd: document.querySelector('.erp-main-module[onclick*="rnd"]'),
+      docs: document.querySelector('.erp-main-module[onclick*="docs"]')
+    };
+
+    const modulePanels = {
+      admin: document.getElementById("module-panel-admin"),
+      orders: document.getElementById("module-panel-orders"),
+      rnd: document.getElementById("module-panel-rnd"),
+      docs: document.getElementById("module-panel-docs")
+    };
+
+    if (moduleButtons[moduleName]) moduleButtons[moduleName].classList.add("active");
+    if (modulePanels[moduleName]) modulePanels[moduleName].classList.add("active");
+  }
+
+  function initSidebarModule() {
+    const currentPath = window.location.pathname || "";
+    let autoModule = "orders";
+
+    if (currentPath.startsWith("/admin") || currentPath.startsWith("/users")) {
+      autoModule = "admin";
+    } else if (currentPath.startsWith("/rnd")) {
+      autoModule = "rnd";
+    } else if (currentPath.startsWith("/docs")) {
+      autoModule = "docs";
+    } else {
+      autoModule = "orders";
+    }
+
+    const saved = localStorage.getItem("erpSelectedModule");
+    const useModule = autoModule || saved || "orders";
+    selectSidebarModule(useModule);
   }
 
   async function loadHeaderNotifications() {
@@ -351,7 +446,10 @@
     }
   }, true);
 
-  window.addEventListener("load", loadHeaderNotifications);
+  window.addEventListener("load", function() {
+    initSidebarModule();
+    loadHeaderNotifications();
+  });
 </script>
 
 </body>
