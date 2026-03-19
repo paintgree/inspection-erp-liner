@@ -4301,7 +4301,7 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
     left_x = margin_x + 8 * mm
     right_box_w = 38 * mm
 
-    c.setFillColor(colors.black))
+    c.setFillColor(colors.black)
     c.setFont("Helvetica-Bold", 12.5)
     c.drawString(left_x, box_top - 8.0 * mm, "Short-Time Hydrostatic Burst Pressure Test Report")
 
