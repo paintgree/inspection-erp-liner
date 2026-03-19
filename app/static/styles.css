@@ -822,18 +822,441 @@ tr.length-row td{
   .dash-shell{grid-template-columns:1fr;}
 }
 
-.dash-sidebar{
-  background:#0b1220;
-  color:#dbeafe;
-  border-radius:18px;
-  padding:16px;
-  position:sticky;
-  top:14px;
-  height:calc(100vh - 28px);
+/* =========================================================
+   FINAL LIGHT SINGLE SIDEBAR
+   ========================================================= */
+
+body{
+  background:#f7f8fc;
 }
 
-@media (max-width:900px){
-  .dash-sidebar{position:static;height:auto;}
+.single-sidebar-shell{
+  display:grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  min-height:100vh;
+}
+
+.erp-single-sidebar{
+  position:sticky;
+  top:0;
+  height:100vh;
+  background:#ffffff;
+  border-right:1px solid #e7eaf3;
+  box-shadow:0 0 0 1px rgba(15,23,42,.02), 12px 0 30px rgba(15,23,42,.04);
+  transition:width .22s ease, min-width .22s ease, max-width .22s ease;
+  width:320px;
+  min-width:320px;
+  max-width:320px;
+  overflow:hidden;
+  z-index:20;
+}
+
+.erp-single-sidebar.collapsed{
+  width:82px;
+  min-width:82px;
+  max-width:82px;
+}
+
+.erp-sidebar-topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:18px 16px 12px;
+  border-bottom:1px solid #eef2f7;
+}
+
+.erp-sidebar-brand{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  text-decoration:none;
+  min-width:0;
+}
+
+.erp-sidebar-brand-mark{
+  width:42px;
+  height:42px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:900;
+  color:#fff;
+  background:linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%);
+  box-shadow:0 10px 20px rgba(79,70,229,.18);
+  flex:0 0 auto;
+}
+
+.erp-sidebar-brand-text{
+  display:flex;
+  flex-direction:column;
+  line-height:1.08;
+  transition:opacity .18s ease, transform .18s ease;
+}
+
+.erp-sidebar-brand-text strong{
+  color:#0f172a;
+  font-size:15px;
+}
+
+.erp-sidebar-brand-text small{
+  color:#94a3b8;
+  font-size:11px;
+  margin-top:4px;
+}
+
+.erp-sidebar-toggle{
+  width:32px;
+  height:32px;
+  border-radius:999px;
+  border:1px solid #ddd6fe;
+  background:#ffffff;
+  color:#4f46e5;
+  font-size:18px;
+  cursor:pointer;
+  box-shadow:0 8px 18px rgba(79,70,229,.10);
+  flex:0 0 auto;
+  transition:transform .2s ease, background .2s ease;
+}
+
+.erp-sidebar-toggle:hover{
+  background:#f5f3ff;
+}
+
+.erp-single-sidebar.collapsed .erp-sidebar-toggle{
+  transform:rotate(180deg);
+}
+
+.erp-sidebar-inner{
+  padding:14px 14px 18px;
+  overflow:auto;
+  height:calc(100vh - 73px);
+}
+
+.erp-sidebar-content{
+  transition:opacity .16s ease, transform .16s ease;
+}
+
+.erp-sidebar-content.morph-out{
+  opacity:0;
+  transform:translateX(8px);
+}
+
+.erp-sidebar-content.morph-ready{
+  opacity:1;
+  transform:translateX(0);
+}
+
+.erp-sidebar-section-label{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.20em;
+  color:#94a3b8;
+  margin:4px 4px 14px;
+}
+
+.erp-module-row{
+  width:100%;
+  border:none;
+  background:transparent;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  text-align:left;
+  padding:14px 12px;
+  border-radius:16px;
+  cursor:pointer;
+  color:#64748b;
+  font-weight:800;
+  transition:.16s ease;
+  margin-bottom:10px;
+}
+
+.erp-module-row:hover{
+  background:#f4f6fb;
+  color:#0f172a;
+}
+
+.erp-module-row.active{
+  background:linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%);
+  color:#fff;
+  box-shadow:0 14px 26px rgba(79,70,229,.18);
+}
+
+.erp-module-row-icon{
+  width:34px;
+  height:34px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#eef2ff;
+  color:#4f46e5;
+  flex:0 0 auto;
+}
+
+.erp-module-row.active .erp-module-row-icon{
+  background:rgba(255,255,255,.18);
+  color:#fff;
+}
+
+.erp-module-row-text{
+  flex:1 1 auto;
+  font-size:15px;
+}
+
+.erp-module-row-arrow{
+  font-size:18px;
+  line-height:1;
+  opacity:.85;
+}
+
+.erp-sidebar-divider{
+  height:1px;
+  background:#eef2f7;
+  margin:8px 2px 16px;
+}
+
+.erp-sidebar-panel-wrap{
+  background:#fbfcff;
+  border:1px solid #edf1f7;
+  border-radius:18px;
+  padding:14px 12px;
+}
+
+.erp-sidebar-panel-head{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:4px 4px 14px;
+}
+
+.erp-sidebar-panel-badge{
+  width:34px;
+  height:34px;
+  border-radius:12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#eef2ff;
+  color:#4f46e5;
+  font-weight:900;
+  flex:0 0 auto;
+}
+
+.erp-sidebar-panel-title{
+  color:#0f172a;
+  font-size:18px;
+  font-weight:900;
+  line-height:1.1;
+}
+
+.erp-sidebar-links{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.erp-sidebar-link{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  text-decoration:none;
+  color:#64748b;
+  padding:12px 10px;
+  border-radius:14px;
+  font-weight:800;
+  transition:.15s ease;
+}
+
+.erp-sidebar-link:hover{
+  background:#f4f6fb;
+  color:#0f172a;
+}
+
+.erp-sidebar-link.active{
+  background:#eef2ff;
+  color:#312e81;
+}
+
+.erp-sidebar-link-icon{
+  width:20px;
+  text-align:center;
+  flex:0 0 auto;
+}
+
+.erp-content-shell{
+  min-width:0;
+  background:#f7f8fc;
+}
+
+.erp-single-sidebar.collapsed .erp-sidebar-brand-text,
+.erp-single-sidebar.collapsed .erp-sidebar-section-label,
+.erp-single-sidebar.collapsed .erp-module-row-text,
+.erp-single-sidebar.collapsed .erp-module-row-arrow,
+.erp-single-sidebar.collapsed .erp-sidebar-divider,
+.erp-single-sidebar.collapsed .erp-sidebar-panel-wrap{
+  opacity:0;
+  pointer-events:none;
+  transform:translateX(-6px);
+  display:none;
+}
+
+.erp-single-sidebar.collapsed .erp-sidebar-topbar{
+  justify-content:center;
+  flex-direction:column;
+}
+
+.erp-single-sidebar.collapsed .erp-sidebar-brand{
+  justify-content:center;
+}
+
+.erp-single-sidebar.collapsed .erp-module-row{
+  justify-content:center;
+  padding:12px 8px;
+}
+
+.erp-single-sidebar.collapsed .erp-module-row-icon{
+  margin:0 auto;
+}
+
+.app-header{
+  position:sticky;
+  top:0;
+  z-index:18;
+  background:rgba(247,248,252,.92);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid #e7eaf3;
+}
+
+.app-header-inner{
+  max-width:none;
+  margin:0;
+  padding:14px 22px;
+}
+
+.app-brand{
+  text-decoration:none;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.app-brand-mark{
+  width:40px;
+  height:40px;
+  border-radius:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#fff;
+  font-weight:900;
+  background:linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%);
+  box-shadow:0 10px 20px rgba(79,70,229,.16);
+}
+
+.app-brand-text{
+  display:flex;
+  flex-direction:column;
+  line-height:1.1;
+}
+
+.app-brand-text strong{
+  color:#0f172a;
+  font-size:15px;
+}
+
+.app-brand-text small{
+  color:#94a3b8;
+  font-size:11px;
+  margin-top:4px;
+}
+
+.app-header-icon,
+.app-user-btn{
+  background:#ffffff;
+  border:1px solid #e5e7eb;
+  box-shadow:0 4px 12px rgba(15,23,42,.05);
+}
+
+.page{
+  max-width:none;
+  margin:0;
+  padding:22px;
+}
+
+.dash-title{
+  color:#0f172a;
+}
+
+.muted{
+  color:#64748b !important;
+}
+
+.kpi-card,
+.workorder-card,
+.card,
+.section,
+.table,
+.panel{
+  background:#ffffff;
+  border:1px solid #e9edf5;
+  box-shadow:0 12px 28px rgba(15,23,42,.05);
+}
+
+.global-search-results,
+.app-header-popover,
+.app-user-menu{
+  background:#ffffff;
+  border:1px solid #e7eaf3;
+  box-shadow:0 18px 40px rgba(15,23,42,.08);
+}
+
+@media (max-width: 980px){
+  .single-sidebar-shell{
+    grid-template-columns:1fr;
+  }
+
+  .erp-single-sidebar{
+    position:static;
+    height:auto;
+    width:100%;
+    min-width:100%;
+    max-width:100%;
+  }
+
+  .erp-single-sidebar.collapsed{
+    width:100%;
+    min-width:100%;
+    max-width:100%;
+  }
+
+  .erp-sidebar-inner{
+    height:auto;
+  }
+
+  .erp-single-sidebar.collapsed .erp-sidebar-brand-text,
+  .erp-single-sidebar.collapsed .erp-sidebar-section-label,
+  .erp-single-sidebar.collapsed .erp-module-row-text,
+  .erp-single-sidebar.collapsed .erp-module-row-arrow,
+  .erp-single-sidebar.collapsed .erp-sidebar-divider,
+  .erp-single-sidebar.collapsed .erp-sidebar-panel-wrap{
+    display:block;
+    opacity:1;
+    pointer-events:auto;
+    transform:none;
+  }
+
+  .erp-single-sidebar.collapsed .erp-sidebar-topbar{
+    justify-content:space-between;
+    flex-direction:row;
+  }
+
+  .erp-single-sidebar.collapsed .erp-module-row{
+    justify-content:flex-start;
+    padding:14px 12px;
+  }
 }
 
 .dash-nav-title{
