@@ -4311,7 +4311,7 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
 
     rid_x = margin_x + box_w - right_box_w - 6 * mm
     rid_top = box_top - 2.8 * mm
-    rid_h = 15.5 * mm
+    rid_h = 11.5 * mm
 
     c.setFillColor(colors.HexColor("#f8fafc"))
     c.setStrokeColor(colors.HexColor("#e5e7eb"))
@@ -4337,35 +4337,6 @@ def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1,
     c.setFillColor(colors.black)
     c.drawRightString(rid_x + right_box_w - 3 * mm, rid_top - 7.8 * mm, rep_no)
 
-    rep_result = ""
-    if report is not None:
-        rep_result = str(getattr(report, "test_result", "") or "").upper()
-
-    if rep_result == "PASS":
-        pill_fill = colors.HexColor("#dcfce7")
-        pill_text = colors.HexColor("#15803d")
-        pill_label = "PASS RESULT"
-    elif rep_result == "FAIL":
-        pill_fill = colors.HexColor("#fee2e2")
-        pill_text = colors.HexColor("#b91c1c")
-        pill_label = "FAIL RESULT"
-    else:
-        pill_fill = colors.HexColor("#e5e7eb")
-        pill_text = colors.HexColor("#475569")
-        pill_label = "NO RESULT"
-
-    pill_w = 24 * mm
-    pill_h = 6.5 * mm
-    pill_x = rid_x + right_box_w - pill_w - 3 * mm
-    pill_y = rid_top - 13.0 * mm
-
-    c.setFillColor(pill_fill)
-    c.setStrokeColor(pill_fill)
-    c.roundRect(pill_x, pill_y, pill_w, pill_h, 3 * mm, stroke=1, fill=1)
-
-    c.setFillColor(pill_text)
-    c.setFont("Helvetica-Bold", 5.8)
-    c.drawCentredString(pill_x + pill_w / 2, pill_y + 2.05 * mm, pill_label)
 
     # ------------------------------------------------------------
     # FOOTER
