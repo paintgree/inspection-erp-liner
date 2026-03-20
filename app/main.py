@@ -7399,6 +7399,66 @@ def _build_batch_dashboard_cards(session: Session, q_process: str = ""):
             continue
         grouped.setdefault(batch_no, []).append(run)
 
+    def _fmt_m(value: float) -> str:
+        try:
+            num = float(value or 0.0)
+        except Exception:
+            num = 0.0
+        if abs(num - round(num)) < 0.01:
+            return f"{int(round(num))} m"
+        return f"{num:.1f} m"
+
+    def _build_process_breakdown(batch_runs: list[ProductionRun]) -> list[dict]:
+        rows = []
+        process_order = ["LINER", "REINFORCEMENT", "COVER"]
+
+        for proc in process_order:
+            proc_runs = [r for r in batch_runs if (getattr(r, "process", "") or "").upper() == proc]
+            if not proc_runs:
+                continue
+
+            total_m = 0.0
+            produced_m = 0.0
+            approved_runs = 0
+
+            for run in proc_runs:
+                try:
+                    total_m += float(getattr(run, "total_length_m", 0.0) or 0.0)
+                except Exception:
+                    pass
+
+                run_id = getattr(run, "id", None)
+                if run_id is not None:
+                    try:
+                        produced_m += float(get_run_produced_length_m(session, run_id) or 0.0)
+                    except Exception:
+                        pass
+
+                if (getattr(run, "status", "") or "").upper() == "APPROVED":
+                    approved_runs += 1
+
+            if total_m > 0 and produced_m > total_m:
+                produced_m = total_m
+
+            balance_m = max(0.0, total_m - produced_m)
+            pct = int((produced_m / total_m) * 100) if total_m > 0 else 0
+
+            rows.append({
+                "process": proc,
+                "label": proc.replace("_", " ").title(),
+                "total_m": round(total_m, 1),
+                "produced_m": round(produced_m, 1),
+                "balance_m": round(balance_m, 1),
+                "produced_text": _fmt_m(produced_m),
+                "balance_text": _fmt_m(balance_m),
+                "total_text": _fmt_m(total_m),
+                "pct": pct,
+                "approved_runs": approved_runs,
+                "run_count": len(proc_runs),
+            })
+
+        return rows
+
     batch_cards = []
     filtered_grouped = {}
     for batch_no, batch_runs in grouped.items():
@@ -7418,6 +7478,8 @@ def _build_batch_dashboard_cards(session: Session, q_process: str = ""):
         if status_info["status_label"] == "Closed":
             continue
 
+        process_breakdown = _build_process_breakdown(batch_runs)
+
         card = {
             "batch_no": batch_no,
             "client_name": getattr(ref_run, "client_name", "") or "",
@@ -7436,11 +7498,13 @@ def _build_batch_dashboard_cards(session: Session, q_process: str = ""):
             "timeline_items": status_info["timeline_items"],
             "latest_rfi_no": getattr(status_info["latest_rfi"], "rfi_no", "") if status_info.get("latest_rfi") else "",
             "latest_rfi_scope": _split_rfi_activities(getattr(status_info["latest_rfi"], "inspection_stage", "")) if status_info.get("latest_rfi") else [],
+            "process_breakdown": process_breakdown,
         }
         card["search_blob"] = " ".join([
             card["batch_no"], card["client_name"], card["po_number"], card["itp_number"],
             card["status_label"], card["current_stage"], card["remaining_text"], card["next_action"],
             card["latest_rfi_no"], " ".join(card["latest_rfi_scope"]), " ".join(card["processes"]),
+            " ".join(f"{x['label']} {x['produced_text']} {x['balance_text']}" for x in process_breakdown),
         ])
         batch_cards.append(card)
         filtered_grouped[batch_no] = batch_runs
