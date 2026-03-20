@@ -5035,7 +5035,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename=\"burst_report_{report_id}.pdf\"'},
+        headers={"Content-Disposition": f'inline; filename=\"burst_report_{report_id}.pdf\"'},
     )
 
 def _draw_sample_images(c, x, y, w, paths):
@@ -5329,7 +5329,7 @@ def mrr_export_inspection_pdf(
         return Response(
             content=pdf_bytes,
             media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            headers={"Content-Disposition": f'inline; filename="{filename}"'},
         )
 
     # ---------- RAW => F01 ----------
@@ -5506,7 +5506,7 @@ def mrr_export_inspection_package(
         return Response(
             content=merged,
             media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            headers={"Content-Disposition": f'inline; filename="{filename}"'},
         )
 
     # ------------------------
@@ -13144,7 +13144,7 @@ def mrr_export_xlsx(lot_id: int, request: Request, session: Session = Depends(ge
     return Response(
         content=xlsx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
 
 
@@ -13420,7 +13420,7 @@ def export_pdf(run_id: int, request: Request, session: Session = Depends(get_ses
     return Response(
         content=out.getvalue(),
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
 
 
