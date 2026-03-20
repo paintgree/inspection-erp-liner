@@ -89,6 +89,36 @@
                 <div class="progressbar-fill" style="width: {{ b.avg_progress }}%;"></div>
               </div>
 
+              {% if b.process_breakdown %}
+                <div class="process-breakdown">
+                  <div class="process-breakdown-head">
+                    <div class="order-stage-label" style="margin-bottom:0;">Production Detail</div>
+                    <div class="process-breakdown-sub">Covered vs balance by process</div>
+                  </div>
+
+                  <div class="process-breakdown-list">
+                    {% for p in b.process_breakdown %}
+                      <div class="process-breakdown-row">
+                        <div class="process-breakdown-top">
+                          <div class="process-breakdown-name">{{ p.label }}</div>
+                          <div class="process-breakdown-pct">{{ p.pct }}%</div>
+                        </div>
+
+                        <div class="process-breakdown-bar">
+                          <div class="process-breakdown-bar-fill" style="width: {{ p.pct }}%;"></div>
+                        </div>
+
+                        <div class="process-breakdown-meta">
+                          <span><strong>Covered:</strong> {{ p.produced_text }}</span>
+                          <span><strong>Balance:</strong> {{ p.balance_text }}</span>
+                          <span><strong>Total:</strong> {{ p.total_text }}</span>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endif %}
+
               <div class="order-stage-boxes">
                 <div class="order-stage-box">
                   <div class="order-stage-label">Current Stage</div>
@@ -313,7 +343,7 @@ function openTimeline(batchNo) {
       <div class="timeline-dot"></div>
       <div class="timeline-content">
         <div class="timeline-label">${item.label}</div>
-        <div class="timeline-detail">${item.detail || ''}</div>
+        <div class="timeline-detail">${item.note || ''}</div>
       </div>
     </div>
   `).join('');
