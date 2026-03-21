@@ -105,6 +105,10 @@
                 <span class="erp-sidebar-link-icon">△</span>
                 <span>In-Process Inspection</span>
               </a>
+              <a class="erp-sidebar-link {% if current_path.startswith('/rnd') %}active{% endif %}" href="/rnd">
+                <span class="erp-sidebar-link-icon">⌬</span>
+                <span>R&amp;D Qualification</span>
+              </a>
             </nav>
           </div>
         </div>
@@ -241,6 +245,10 @@
         <a class="erp-sidebar-link ${window.location.pathname.startsWith('/runs') ? 'active' : ''}" href="/runs">
           <span class="erp-sidebar-link-icon">△</span>
           <span>In-Process Inspection</span>
+        </a>
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rnd') ? 'active' : ''}" href="/rnd">
+          <span class="erp-sidebar-link-icon">⌬</span>
+          <span>R&amp;D Qualification</span>
         </a>
       `
     },
