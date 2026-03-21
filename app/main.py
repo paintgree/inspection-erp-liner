@@ -65,6 +65,7 @@ from sqlmodel import Session, select
 # ======================
 from .auth import hash_password, verify_password
 from .db import create_db_and_tables, get_session
+from .rnd_module import router as rnd_router
 from .models import (
     User,
     ProductionRun,
@@ -93,7 +94,7 @@ from .models import (
     FinalInspectionBatchNote,
     RfiRecord,
     RfiAttachment,
-from .rnd_module import router as rnd_router
+
 
 )
 
@@ -2409,7 +2410,7 @@ def stamp_signatures_on_pdf(
 
 
 app = FastAPI()
-
+app.include_router(rnd_router)
 # Session middleware (required for request.session in require_user)
 #app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)#
 
@@ -2484,7 +2485,7 @@ os.makedirs(MRR_PHOTO_DIR, exist_ok=True)
 
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
-app.include_router(rnd_router)
+
 
 @app.exception_handler(HTTPException)
 async def app_http_exception_handler(request: Request, exc: HTTPException):
