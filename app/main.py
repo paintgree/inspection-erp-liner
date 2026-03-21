@@ -93,6 +93,7 @@ from .models import (
     FinalInspectionBatchNote,
     RfiRecord,
     RfiAttachment,
+from .rnd_module import router as rnd_router
 
 )
 
@@ -281,7 +282,7 @@ from fastapi.responses import Response
 
 import os
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+(os.path.abspath(__file__))
 MRR_TEMPLATE_DIR = os.path.join(BASE_DIR, "templates", "templates_xlsx")
 
 MRR_TEMPLATE_XLSX_MAP = {
@@ -2412,7 +2413,7 @@ app = FastAPI()
 # Session middleware (required for request.session in require_user)
 #app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)#
 
-BASE_DIR = os.path.dirname(__file__)
+(__file__)
 
 from fastapi import Depends, HTTPException, Request
 
@@ -2483,7 +2484,7 @@ os.makedirs(MRR_PHOTO_DIR, exist_ok=True)
 
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
-
+app.include_router(rnd_router)
 
 @app.exception_handler(HTTPException)
 async def app_http_exception_handler(request: Request, exc: HTTPException):
