@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}{{ program.program_code }}{% endblock %}
+{% block content %}
+<style>
+.rp-wrap{display:grid;gap:18px;}
+.rp-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);gap:18px;align-items:start;}
+.rp-stack{display:grid;gap:18px;}
+.rp-card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:16px;box-shadow:0 8px 28px rgba(15,23,42,.05);}
+.rp-mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;}
+.rp-box{border:1px solid #eef2f7;border-radius:14px;padding:12px;background:#fbfdff;}
+.rp-box b{display:block;font-size:12px;color:#64748b;margin-bottom:6px;}
+.rp-progress{height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden;}.rp-progress>span{display:block;height:100%;background:linear-gradient(90deg,#3b82f6,#6366f1);}
+.rp-chip{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid #e5e7eb;background:#f8fafc;color:#334155;}
+.rp-chip.DRAFT{background:#f8fafc;border-color:#e2e8f0;color:#475569;}.rp-chip.RUNNING{background:#fff7ed;border-color:#fed7aa;color:#c2410c;}.rp-chip.QUALIFIED{background:#ecfdf5;border-color:#a7f3d0;color:#047857;}.rp-chip.PARTIAL_REQUALIFICATION{background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9;}.rp-chip.FAILED{background:#fef2f2;border-color:#fecaca;color:#b91c1c;}
+.rp-table{width:100%;border-collapse:collapse;}.rp-table th,.rp-table td{padding:10px;border-bottom:1px solid #eaeef5;vertical-align:top;text-align:left;font-size:13px;}.rp-table th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;}
+.rp-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.rp-form-grid label{display:grid;gap:6px;font-size:13px;font-weight:700;color:#334155;}
+.rp-form-grid input,.rp-form-grid textarea,.rp-form-grid select{width:100%;}
+.rp-actions{display:flex;gap:10px;flex-wrap:wrap;}
+@media (max-width:980px){.rp-grid{grid-template-columns:1fr;}.rp-mini{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width:640px){.rp-mini,.rp-form-grid{grid-template-columns:1fr;}.rp-actions .btn{width:100%;}}
+</style>
+
+<div class="rp-wrap">
+  <section class="rp-card">
+    <div class="section-head" style="margin-bottom:12px;">
+      <div>
+        <h1 style="margin:0;">{{ program.program_code }}</h1>
+        <div class="muted">{{ program.title }}</div>
+      </div>
+      <div class="rp-actions">
+        <span class="rp-chip {{ program.status }}">{{ program.status.replace('_',' ') }}</span>
+        <a class="btn btn-ghost" href="/rnd/qualifications">Back</a>
+        <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Regression</a>
+      </div>
+    </div>
+
+    <div class="rp-mini">
+      <div class="rp-box"><b>Variant</b>{{ program.nominal_size_in }} in / {{ program.npr_mpa }} MPa / {{ program.maot_c }} °C</div>
+      <div class="rp-box"><b>Family</b>{{ program.product_family }}</div>
+      <div class="rp-box"><b>Materials</b>{{ program.liner_material }} / {{ program.reinforcement_material }} / {{ program.cover_material }}</div>
+      <div class="rp-box"><b>Program Type</b>{{ program.pfr_or_pv }}{% if program.pfr_reference_code %} · Ref {{ program.pfr_reference_code }}{% endif %}</div>
+    </div>
+
+    <div style="margin-top:14px;">
+      <div class="muted" style="margin-bottom:6px;">Qualification matrix completion</div>
+      <div class="rp-progress"><span style="width: {{ progress_pct }}%;"></span></div>
+    </div>
+
+    <form method="post" action="/rnd/qualifications/{{ program.id }}/status" style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
+      <label style="display:grid;gap:6px;min-width:240px;">
+        <span class="muted">Program Status</span>
+        <select name="status">
+          {% for s in ['DRAFT','RUNNING','QUALIFIED','PARTIAL_REQUALIFICATION','FAILED'] %}
+            <option value="{{ s }}" {% if program.status == s %}selected{% endif %}>{{ s.replace('_',' ') }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <button class="btn btn-primary" type="submit">Update Status</button>
+    </form>
+  </section>
+
+  <section class="rp-grid">
+    <div class="rp-stack">
+      <article class="rp-card">
+        <div class="section-head"><h2 style="margin:0;">Qualification Matrix</h2></div>
+        <div style="overflow:auto;">
+          <table class="rp-table">
+            <thead>
+              <tr><th>Code</th><th>Test</th><th>Clause</th><th>Requirement</th><th>Status</th><th>Result</th><th>Action</th></tr>
+            </thead>
+            <tbody>
+              {% for test in tests %}
+              <tr>
+                <td><strong>{{ test.code }}</strong></td>
+                <td>{{ test.title }}<div class="muted">{{ test.description }}</div></td>
+                <td>{{ test.clause_ref }}</td>
+                <td>{{ test.specimen_requirement }}</td>
+                <td>{{ test.status }}</td>
+                <td>{{ test.result_summary or '-' }}</td>
+                <td>
+                  <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}" style="display:grid;gap:8px;min-width:220px;">
+                    <select name="status">
+                      {% for s in ['PLANNED','IN_PROGRESS','PASSED','FAILED','WAIVED'] %}
+                        <option value="{{ s }}" {% if test.status == s %}selected{% endif %}>{{ s.replace('_',' ') }}</option>
+                      {% endfor %}
+                    </select>
+                    <textarea name="result_summary" rows="2" placeholder="Result summary">{{ test.result_summary }}</textarea>
+                    <button class="btn btn-ghost" type="submit">Save</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="rp-card">
+        <div class="section-head"><h2 style="margin:0;">Specimen Register</h2></div>
+        <form method="post" action="/rnd/qualifications/{{ program.id }}/specimens/new" class="rp-form-grid" style="margin-bottom:16px;">
+          <label>Specimen ID<input name="specimen_id" required placeholder="S-001"></label>
+          <label>Sample Date<input name="sample_date" type="date" required></label>
+          <label>Test Type
+            <select name="test_type">
+              <option value="STATIC_REGRESSION">Static Regression</option>
+              <option value="CYCLIC_REGRESSION">Cyclic Regression</option>
+              <option value="PV_1000H">PV 1000 h</option>
+              <option value="GENERAL">General Qualification</option>
+            </select>
+          </label>
+          <label>Linked Test
+            <select name="test_id">
+              <option value="">-- optional --</option>
+              {% for test in tests %}
+                <option value="{{ test.id }}">{{ test.code }} - {{ test.title }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Nominal Size (in)<input name="nominal_size_in" type="number" step="0.01" value="{{ program.nominal_size_in }}"></label>
+          <label>Pressure (MPa)<input name="pressure_mpa" type="number" step="0.0001"></label>
+          <label>Temperature (°C)<input name="temperature_c" type="number" step="0.1" value="{{ program.maot_c }}"></label>
+          <label>Failure Hours<input name="failure_hours" type="number" step="0.001"></label>
+          <label>Failure Cycles<input name="failure_cycles" type="number" step="1"></label>
+          <label>Failure Mode<input name="failure_mode" placeholder="Leak / burst / end fitting / etc."></label>
+          <label>Fitting Type<input name="fitting_type" value="Field fitting"></label>
+          <label>Lab Name<input name="lab_name"></label>
+          <label>Witness Name<input name="witness_name"></label>
+          <label style="grid-column:1 / -1;">Notes<textarea name="notes" rows="3"></textarea></label>
+          <label><input type="checkbox" name="permissible_failure" value="1" checked> Permissible failure</label>
+          <label><input type="checkbox" name="include_in_regression" value="1" checked> Include in regression</label>
+          <label><input type="checkbox" name="is_runout" value="1"> Runout specimen</label>
+          <div style="grid-column:1 / -1;"><button class="btn btn-primary" type="submit">Add Specimen</button></div>
+        </form>
+
+        <div style="overflow:auto;">
+          <table class="rp-table">
+            <thead>
+              <tr><th>ID</th><th>Type</th><th>Pressure</th><th>Temp</th><th>Hours</th><th>Cycles</th><th>Failure</th><th>Flags</th><th></th></tr>
+            </thead>
+            <tbody>
+              {% for s in specimens %}
+              <tr>
+                <td><strong>{{ s.specimen_id }}</strong><div class="muted">{{ s.sample_date }}</div></td>
+                <td>{{ s.test_type }}</td>
+                <td>{{ s.pressure_mpa }}</td>
+                <td>{{ s.temperature_c }}</td>
+                <td>{{ s.failure_hours or '-' }}</td>
+                <td>{{ s.failure_cycles or '-' }}</td>
+                <td>{{ s.failure_mode or '-' }}</td>
+                <td>
+                  {% if s.permissible_failure %}Permissible{% else %}Non-permissible{% endif %}<br>
+                  {% if s.include_in_regression %}Included{% else %}Excluded{% endif %}
+                  {% if s.is_runout %}<br>Runout{% endif %}
+                </td>
+                <td>
+                  <form method="post" action="/rnd/qualifications/{{ program.id }}/specimens/{{ s.id }}/delete" onsubmit="return confirm('Delete specimen {{ s.specimen_id }}?');">
+                    <button class="btn btn-ghost" type="submit">Delete</button>
+                  </form>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="9" class="muted">No specimens yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </div>
+
+    <div class="rp-stack">
+      <article class="rp-card">
+        <h2 style="margin-top:0;">Materials Control</h2>
+        {% for m in materials %}
+          <form method="post" action="/rnd/qualifications/{{ program.id }}/materials/{{ m.id }}" class="rp-form-grid" style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #eef2f7;">
+            <div style="grid-column:1 / -1;font-weight:900;color:#0f172a;">{{ m.component }}</div>
+            <label>Material<input name="material_name" value="{{ m.material_name }}"></label>
+            <label>Supplier<input name="supplier_name" value="{{ m.supplier_name }}"></label>
+            <label>Grade<input name="grade_name" value="{{ m.grade_name }}"></label>
+            <label>Certificate Ref<input name="certificate_ref" value="{{ m.certificate_ref }}"></label>
+            <label>Batch Ref<input name="batch_ref" value="{{ m.batch_ref }}"></label>
+            <label>Status
+              <select name="status">
+                {% for s in ['PLANNED','IN_PROGRESS','PASSED','FAILED','WAIVED'] %}
+                  <option value="{{ s }}" {% if m.status == s %}selected{% endif %}>{{ s.replace('_',' ') }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label style="grid-column:1 / -1;">Notes<textarea name="notes" rows="2">{{ m.notes }}</textarea></label>
+            <div style="grid-column:1 / -1;"><button class="btn btn-ghost" type="submit">Save {{ m.component }}</button></div>
+          </form>
+        {% endfor %}
+      </article>
+
+      <article class="rp-card">
+        <h2 style="margin-top:0;">Readiness Snapshot</h2>
+        <div class="rp-mini">
+          <div class="rp-box"><b>Static Points</b>{{ static_reg.count }} / {{ static_reg.required_minimum }}</div>
+          <div class="rp-box"><b>Cyclic Points</b>{{ cyclic_reg.count }} / {{ cyclic_reg.required_minimum }}</div>
+          <div class="rp-box"><b>Passed Tests</b>{{ counts.PASSED }}</div>
+          <div class="rp-box"><b>In Progress</b>{{ counts.IN_PROGRESS }}</div>
+        </div>
+        {% if static_reg.lcl_rcrt_mpa %}<div class="rp-box" style="margin-top:12px;"><b>Static LCL at RCRT</b>{{ '%.3f'|format(static_reg.lcl_rcrt_mpa) }} MPa</div>{% endif %}
+        {% if static_reg.warning %}<div class="alert alert-error mt">{{ static_reg.warning }}</div>{% endif %}
+      </article>
+
+      <article class="rp-card">
+        <h2 style="margin-top:0;">Attachment Register</h2>
+        <form method="post" action="/rnd/qualifications/{{ program.id }}/attachments/new" class="rp-form-grid" style="margin-bottom:12px;">
+          <label>Category
+            <select name="category">
+              <option value="REPORT">Report</option>
+              <option value="RAW_DATA">Raw Data</option>
+              <option value="CERTIFICATE">Certificate</option>
+              <option value="CALCULATION">Calculation</option>
+            </select>
+          </label>
+          <label>Title<input name="title" required></label>
+          <label>Reference No<input name="reference_no"></label>
+          <label>Note<input name="file_note"></label>
+          <div style="grid-column:1 / -1;"><button class="btn btn-primary" type="submit">Add Register Row</button></div>
+        </form>
+        <table class="rp-table">
+          <thead><tr><th>Category</th><th>Title</th><th>Reference</th><th>Note</th></tr></thead>
+          <tbody>
+            {% for a in attachments %}
+              <tr><td>{{ a.category }}</td><td>{{ a.title }}</td><td>{{ a.reference_no or '-' }}</td><td>{{ a.file_note or '-' }}</td></tr>
+            {% else %}
+              <tr><td colspan="4" class="muted">No attachment rows yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </article>
+    </div>
+  </section>
+</div>
+{% endblock %}
