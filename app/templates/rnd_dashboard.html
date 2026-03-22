@@ -2,90 +2,58 @@
 {% block title %}R&D Qualification Dashboard{% endblock %}
 {% block content %}
 <style>
-.rnd-wrap{display:grid;gap:18px;}
-.rnd-hero{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;}
-.rnd-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;}
-.rnd-kpi{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:14px;box-shadow:0 8px 24px rgba(15,23,42,.04);}
-.rnd-kpi-label{font-size:12px;text-transform:uppercase;color:#64748b;font-weight:800;letter-spacing:.08em;}
-.rnd-kpi-value{font-size:26px;font-weight:900;color:#0f172a;margin-top:8px;}
-.rnd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;}
-.rnd-card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:16px;box-shadow:0 8px 28px rgba(15,23,42,.05);display:grid;gap:12px;}
-.rnd-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;}
-.rnd-title{font-size:18px;font-weight:900;color:#0f172a;}
-.rnd-meta{font-size:13px;color:#64748b;line-height:1.5;}
-.rnd-chip{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8;}
-.rnd-chip.DRAFT{background:#f8fafc;border-color:#e2e8f0;color:#475569;}
-.rnd-chip.RUNNING{background:#fff7ed;border-color:#fed7aa;color:#c2410c;}
-.rnd-chip.QUALIFIED{background:#ecfdf5;border-color:#a7f3d0;color:#047857;}
-.rnd-chip.PARTIAL_REQUALIFICATION{background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9;}
-.rnd-chip.FAILED{background:#fef2f2;border-color:#fecaca;color:#b91c1c;}
-.rnd-mini{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
-.rnd-box{border:1px solid #eef2f7;border-radius:14px;padding:12px;background:#fbfdff;}
-.rnd-box b{display:block;font-size:12px;color:#64748b;margin-bottom:6px;}
-.rnd-progress{height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden;}
-.rnd-progress > span{display:block;height:100%;background:linear-gradient(90deg,#3b82f6,#6366f1);}
-.rnd-actions{display:flex;gap:10px;flex-wrap:wrap;}
-@media (max-width:700px){.rnd-kpis{grid-template-columns:1fr 1fr;}.rnd-mini{grid-template-columns:1fr;}.rnd-actions .btn{width:100%;}}
-@media (max-width:480px){.rnd-kpis{grid-template-columns:1fr;}}
+.rnd-wrap{display:grid;gap:18px}.rnd-hero,.rnd-card,.rnd-guide,.rnd-kpi{background:#fff;border:1px solid #e5e7eb;border-radius:18px;box-shadow:0 8px 28px rgba(15,23,42,.05)}
+.rnd-hero,.rnd-card,.rnd-guide{padding:16px}.rnd-hero{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap}.rnd-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.rnd-kpi{padding:14px}.rnd-kpi-label{font-size:12px;text-transform:uppercase;color:#64748b;font-weight:800;letter-spacing:.08em}.rnd-kpi-value{font-size:26px;font-weight:900;color:#0f172a;margin-top:8px}.rnd-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}.rnd-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}.rnd-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.rnd-title{font-size:18px;font-weight:900;color:#0f172a}.rnd-meta{font-size:13px;color:#64748b;line-height:1.5}.rnd-chip{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8}.rnd-chip.DRAFT{background:#f8fafc;border-color:#e2e8f0;color:#475569}.rnd-chip.RUNNING{background:#fff7ed;border-color:#fed7aa;color:#c2410c}.rnd-chip.QUALIFIED{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.rnd-chip.PARTIAL_REQUALIFICATION{background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9}.rnd-chip.FAILED{background:#fef2f2;border-color:#fecaca;color:#b91c1c}.rnd-mini{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.rnd-box{border:1px solid #eef2f7;border-radius:14px;padding:12px;background:#fbfdff}.rnd-box b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}.rnd-progress{height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden}.rnd-progress>span{display:block;height:100%;background:linear-gradient(90deg,#3b82f6,#6366f1)}.rnd-actions{display:flex;gap:10px;flex-wrap:wrap}.rnd-list{display:grid;gap:10px;padding-left:18px;margin:0}.rnd-list li{color:#475569}.rnd-formula{border:1px dashed #cbd5e1;border-radius:14px;padding:10px 12px;background:#f8fafc;font-family:ui-monospace,monospace;font-size:13px}.rnd-callout{padding:12px 14px;border-radius:14px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}.rnd-pass{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.rnd-fail{background:#fef2f2;border-color:#fecaca;color:#b91c1c}@media (max-width:980px){.rnd-grid{grid-template-columns:1fr}.rnd-kpis{grid-template-columns:1fr 1fr}}@media (max-width:640px){.rnd-kpis,.rnd-mini{grid-template-columns:1fr}.rnd-actions .btn{width:100%}}
 </style>
-
 <div class="rnd-wrap">
-  <section class="rnd-hero card">
+  <section class="rnd-hero">
     <div>
       <h1 style="margin:0 0 6px 0;">R&amp;D Qualification Dashboard</h1>
-      <div class="muted">API 15S workspace for LLRTP with PE-RT liner, polyester fiber reinforcement, and PE100 cover.</div>
+      <div class="muted">{{ guide.summary }}</div>
     </div>
-    <div class="rnd-actions">
-      <a class="btn btn-primary" href="/rnd/qualifications/new">+ New Qualification Program</a>
-    </div>
+    <div class="rnd-actions"><a class="btn btn-primary" href="/rnd/qualifications/new">+ New Qualification Program</a></div>
   </section>
-
   <section class="rnd-kpis">
     <div class="rnd-kpi"><div class="rnd-kpi-label">Programs</div><div class="rnd-kpi-value">{{ dashboard|length }}</div></div>
     <div class="rnd-kpi"><div class="rnd-kpi-label">Running</div><div class="rnd-kpi-value">{{ dashboard|selectattr('program.status','equalto','RUNNING')|list|length }}</div></div>
     <div class="rnd-kpi"><div class="rnd-kpi-label">Qualified</div><div class="rnd-kpi-value">{{ dashboard|selectattr('program.status','equalto','QUALIFIED')|list|length }}</div></div>
     <div class="rnd-kpi"><div class="rnd-kpi-label">Specimens Logged</div><div class="rnd-kpi-value">{{ dashboard|map(attribute='specimens')|map('length')|sum }}</div></div>
   </section>
-
   <section class="rnd-grid">
-    {% for row in dashboard %}
+    <div class="rnd-cards">
+      {% for row in dashboard %}
       <article class="rnd-card">
         <div class="rnd-head">
-          <div>
-            <div class="rnd-title">{{ row.program.program_code }}</div>
-            <div class="rnd-meta">{{ row.program.title }}<br>{{ row.program.nominal_size_in }} in · {{ row.program.npr_mpa }} MPa · {{ row.program.maot_c }} °C · {{ row.program.pfr_or_pv }}</div>
-          </div>
+          <div><div class="rnd-title">{{ row.program.program_code }}</div><div class="rnd-meta">{{ row.program.title }}<br>{{ row.program.nominal_size_in }} in · {{ row.program.npr_mpa }} MPa · {{ row.program.maot_c }} °C · {{ row.program.pfr_or_pv }}</div></div>
           <span class="rnd-chip {{ row.program.status }}">{{ row.program.status.replace('_',' ') }}</span>
         </div>
-
         <div class="rnd-mini">
-          <div class="rnd-box"><b>Materials</b>{{ row.program.liner_material }} / {{ row.program.reinforcement_material }} / {{ row.program.cover_material }}</div>
-          <div class="rnd-box"><b>Matrix Progress</b>{{ row.counts.PASSED }} passed · {{ row.counts.IN_PROGRESS }} in progress · {{ row.tests|length }} total</div>
           <div class="rnd-box"><b>Static Regression</b>{{ row.static_reg.count }} valid points / {{ row.static_reg.required_minimum }}</div>
-          <div class="rnd-box"><b>Cyclic Regression</b>{{ row.cyclic_reg.count }} valid points / {{ row.cyclic_reg.required_minimum }}</div>
+          <div class="rnd-box"><b>Matrix Progress</b>{{ row.counts.PASSED }} passed · {{ row.tests|length }} total</div>
+          <div class="rnd-box"><b>LCL @ 175,000 h</b>{% if row.static_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(row.static_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
+          <div class="rnd-box"><b>MPR @ 0.67</b>{% if row.static_reg.mpr_mpa %}{{ '%.3f'|format(row.static_reg.mpr_mpa) }} MPa{% else %}-{% endif %}</div>
         </div>
-
-        <div>
-          <div class="rnd-meta" style="margin-bottom:6px;">Qualification matrix completion</div>
-          <div class="rnd-progress"><span style="width: {{ row.progress_pct }}%;"></span></div>
+        <div><div class="rnd-meta" style="margin-bottom:6px;">Qualification matrix completion</div><div class="rnd-progress"><span style="width: {{ row.progress_pct }}%;"></span></div></div>
+        {% if row.static_reg.pass_status %}
+        <div class="rnd-callout {% if row.static_reg.pass_status == 'PASS' %}rnd-pass{% else %}rnd-fail{% endif %}">
+          <strong>{{ row.static_reg.pass_status }}</strong> against target NPR {{ row.program.npr_mpa }} MPa{% if row.static_reg.margin_mpa is not none %} · margin {{ '%+.3f'|format(row.static_reg.margin_mpa) }} MPa{% endif %}
         </div>
-
-        {% if row.static_reg.lcl_rcrt_mpa %}
-          <div class="rnd-box"><b>LCL at RCRT</b>{{ '%.3f'|format(row.static_reg.lcl_rcrt_mpa) }} MPa</div>
         {% endif %}
-
-        <div class="rnd-actions">
-          <a class="btn btn-primary" href="/rnd/qualifications/{{ row.program.id }}">Open Program</a>
-          <a class="btn btn-ghost" href="/rnd/qualifications/{{ row.program.id }}/regression">Regression</a>
-        </div>
+        <div class="rnd-actions"><a class="btn btn-primary" href="/rnd/qualifications/{{ row.program.id }}">Open Program</a><a class="btn btn-ghost" href="/rnd/qualifications/{{ row.program.id }}/regression">Regression</a></div>
       </article>
-    {% else %}
-      <article class="card">
-        <h3 style="margin-top:0;">No qualification programs yet</h3>
-        <p class="muted">Create your first PFR or PV program for 4 in or 6 in variants and start logging API 15S qualification evidence.</p>
-        <a class="btn btn-primary" href="/rnd/qualifications/new">Create Program</a>
-      </article>
-    {% endfor %}
+      {% else %}
+      <article class="rnd-card"><h3 style="margin-top:0;">No qualification programs yet</h3><p class="muted">Create your first PFR or PV program for 4 in or 6 in variants and start logging API 15S qualification evidence.</p><a class="btn btn-primary" href="/rnd/qualifications/new">Create Program</a></article>
+      {% endfor %}
+    </div>
+    <aside class="rnd-guide">
+      <h2 style="margin-top:0;">How to use this module</h2>
+      <ol class="rnd-list">
+        {% for step in guide.steps %}<li><strong>{{ step.title }}</strong><br>{{ step.text }}</li>{% endfor %}
+      </ol>
+      <div style="margin-top:14px"><strong>Core formulas</strong></div>
+      <div style="display:grid;gap:8px;margin-top:8px">{% for row in guide.formula_examples %}<div class="rnd-formula"><strong>{{ row.label }}:</strong> {{ row.expr }}</div>{% endfor %}</div>
+      <div class="rnd-callout" style="margin-top:14px"><strong>Important:</strong> This software organizes and checks qualification evidence. It does not replace engineering review, witness requirements, or the full standard.</div>
+    </aside>
   </section>
 </div>
 {% endblock %}
