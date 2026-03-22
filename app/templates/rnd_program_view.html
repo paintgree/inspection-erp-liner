@@ -1,5 +1,28 @@
 {% extends "base.html" %}
-{% block title %}{{ program.program_code }}{% endblock %}
+{% block title %}{{ program.program_code }}  <section class="rp-card">
+    <h2 style="margin-top:0;">User Guidance</h2>
+    <div class="rp-mini">
+      <div class="rp-box"><b>Design Life</b>{{ rcrt_hours|int }} h basis for static regression review</div>
+      <div class="rp-box"><b>Design Factor</b>{{ '%.2f'|format(design_factor_nonmetallic) }} for nonmetallic reinforcement static MPR review</div>
+      <div class="rp-box"><b>MPR Result</b>{% if static_reg.mpr_mpa %}{{ '%.3f'|format(static_reg.mpr_mpa) }} MPa{% else %}-{% endif %}</div>
+      <div class="rp-box"><b>Acceptance</b>{% if static_reg.pass_status %}{{ static_reg.pass_status }}{% else %}Pending more data{% endif %}</div>
+    </div>
+    <div class="card" style="margin-top:14px;border:none;box-shadow:none;padding:0;background:transparent;">
+      <p style="margin-top:0;">{{ guide.summary }}</p>
+      <div class="rp-form-grid">
+        <div>
+          <h3 style="margin:0 0 8px 0;">Observe</h3>
+          <ul>{% for item in guide.observe %}<li>{{ item }}</li>{% endfor %}</ul>
+        </div>
+        <div>
+          <h3 style="margin:0 0 8px 0;">Avoid</h3>
+          <ul>{% for item in guide.avoid %}<li>{{ item }}</li>{% endfor %}</ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
 {% block content %}
 <style>
 .rp-wrap{display:grid;gap:18px;}
@@ -231,6 +254,29 @@
           </tbody>
         </table>
       </article>
+    </div>
+  </section>
+</div>
+  <section class="rp-card">
+    <h2 style="margin-top:0;">User Guidance</h2>
+    <div class="rp-mini">
+      <div class="rp-box"><b>Design Life</b>{{ rcrt_hours|int }} h basis for static regression review</div>
+      <div class="rp-box"><b>Design Factor</b>{{ '%.2f'|format(design_factor_nonmetallic) }} for nonmetallic reinforcement static MPR review</div>
+      <div class="rp-box"><b>MPR Result</b>{% if static_reg.mpr_mpa %}{{ '%.3f'|format(static_reg.mpr_mpa) }} MPa{% else %}-{% endif %}</div>
+      <div class="rp-box"><b>Acceptance</b>{% if static_reg.pass_status %}{{ static_reg.pass_status }}{% else %}Pending more data{% endif %}</div>
+    </div>
+    <div class="card" style="margin-top:14px;border:none;box-shadow:none;padding:0;background:transparent;">
+      <p style="margin-top:0;">{{ guide.summary }}</p>
+      <div class="rp-form-grid">
+        <div>
+          <h3 style="margin:0 0 8px 0;">Observe</h3>
+          <ul>{% for item in guide.observe %}<li>{{ item }}</li>{% endfor %}</ul>
+        </div>
+        <div>
+          <h3 style="margin:0 0 8px 0;">Avoid</h3>
+          <ul>{% for item in guide.avoid %}<li>{{ item }}</li>{% endfor %}</ul>
+        </div>
+      </div>
     </div>
   </section>
 </div>
