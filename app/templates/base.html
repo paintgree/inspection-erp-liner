@@ -105,10 +105,6 @@
                 <span class="erp-sidebar-link-icon">△</span>
                 <span>In-Process Inspection</span>
               </a>
-              <a class="erp-sidebar-link {% if current_path.startswith('/rnd') %}active{% endif %}" href="/rnd">
-                <span class="erp-sidebar-link-icon">⌬</span>
-                <span>R&amp;D Qualification</span>
-              </a>
             </nav>
           </div>
         </div>
@@ -253,12 +249,20 @@
       `
     },
     rnd: {
-      title: "R&D",
+      title: "R&D Qualification",
       badge: "⌬",
       links: `
-        <a class="erp-sidebar-link" href="javascript:void(0)">
-          <span class="erp-sidebar-link-icon">•</span>
-          <span>Coming Soon</span>
+        <a class="erp-sidebar-link ${window.location.pathname === '/rnd' || window.location.pathname === '/rnd/qualifications' ? 'active' : ''}" href="/rnd/qualifications">
+          <span class="erp-sidebar-link-icon">⌂</span>
+          <span>Qualification Overview</span>
+        </a>
+        <a class="erp-sidebar-link ${window.location.pathname.endsWith('/new') ? 'active' : ''}" href="/rnd/qualifications/new">
+          <span class="erp-sidebar-link-icon">＋</span>
+          <span>New Program</span>
+        </a>
+        <a class="erp-sidebar-link ${window.location.pathname.includes('/regression') ? 'active' : ''}" href="/rnd/qualifications">
+          <span class="erp-sidebar-link-icon">∿</span>
+          <span>Regression Center</span>
         </a>
       `
     },
