@@ -55,6 +55,10 @@
         <h2 style="margin-top:0;">Calculated Summary</h2>
         <table class="rr-table">
           <tbody>
+            <tr><th>Design factor</th><td>{{ '%.2f'|format(static_reg.design_factor) if static_reg.design_factor is defined else '-' }}</td></tr>
+            <tr><th>MPR</th><td>{% if static_reg.mpr_mpa %}{{ '%.3f'|format(static_reg.mpr_mpa) }} MPa{% else %}-{% endif %}</td></tr>
+            <tr><th>Target NPR</th><td>{{ '%.3f'|format(static_reg.target_npr_mpa) if static_reg.target_npr_mpa else '-' }} MPa</td></tr>
+            <tr><th>Pass / fail</th><td>{% if static_reg.pass_status %}{{ static_reg.pass_status }}{% else %}Pending{% endif %}</td></tr>
             <tr><th>Static slope</th><td>{{ '%.6f'|format(static_reg.slope) if static_reg.slope is defined else '-' }}</td></tr>
             <tr><th>Static intercept</th><td>{{ '%.6f'|format(static_reg.intercept) if static_reg.intercept is defined else '-' }}</td></tr>
             <tr><th>Static excluded points</th><td>{{ static_reg.excluded_count or 0 }} {% if static_reg.excluded_ids %}({{ static_reg.excluded_ids|join(', ') }}){% endif %}</td></tr>
@@ -93,6 +97,14 @@
             {% endfor %}
           </tbody>
         </table>
+      </article>
+    </div>
+        <article class="rr-card">
+        <h2 style="margin-top:0;">What this means</h2>
+        <p>{{ guide.summary }}</p>
+        <div class="rr-box"><b>Interpretation</b>For static qualification, review the lower confidence pressure at {{ rcrt_hours|int }} h, then apply the nonmetallic design factor {{ '%.2f'|format(design_factor_nonmetallic) }} to get MPR. Compare that MPR with the target NPR of {{ '%.3f'|format(program.npr_mpa) }} MPa.</div>
+        <div class="rr-box" style="margin-top:10px;"><b>Example</b>If LCL @ {{ rcrt_hours|int }} h = 16.0 MPa, then MPR = 16.0 x {{ '%.2f'|format(design_factor_nonmetallic) }} = 10.72 MPa. That would pass a 10 MPa product.</div>
+        <div class="rr-box" style="margin-top:10px;"><b>Avoid</b>{% for item in guide.avoid %}{{ item }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>
       </article>
     </div>
   </section>
