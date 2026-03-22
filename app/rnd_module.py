@@ -300,34 +300,75 @@ def _status_pct(counts: dict, total: int) -> int:
 def _qualification_guide(program: Optional[RndQualificationProgram] = None) -> dict:
     size = f"{program.nominal_size_in:g} in" if program else '4 in'
     npr = f"{program.npr_mpa:g} MPa" if program else '10 MPa'
-    maot = f"{program.maot_c:g} °C" if program else '65 °C'
+    maot = f"{program.maot_c:g} °C" if program else '85 °C'
+    intended_service = ((program.intended_service if program else '') or 'Water service').lower()
+    is_gas_service = any(k in intended_service for k in ['gas', 'multiphase'])
+    is_cyclic = 'cyclic' in intended_service or 'fatigue' in intended_service or 'pump' in intended_service
+
+    service_scope = 'Gas or multiphase service is declared, so rapid decompression and gas-service discipline are required.' if is_gas_service else 'This looks like water or liquid service, so rapid decompression may be waived unless the product will also be sold for gas or multiphase duty.'
+    cyclic_scope = 'Cyclic pressure qualification is required if the service exceeds 7000 cycles with ΔP/NPR ≥ 6 %.'
+
+    if program:
+        current_size = float(program.nominal_size_in or 0)
+        if current_size in (4.0, 6.0):
+            family_logic = 'For 4 in and 6 in at the same construction and pressure class, one size should normally be the fully qualified PFR and the other should be handled as a PV within the same product family, not as a second full qualification from zero.'
+        else:
+            family_logic = 'Choose the most demanding representative as the PFR, then qualify the rest of the family as PVs only where API 15S allows it.'
+    else:
+        family_logic = 'Choose the most demanding representative as the PFR, then qualify the rest of the family as PVs only where API 15S allows it.'
+
+    temperature_logic = 'The qualification temperature for nonmetallic reinforced pipe has to be at least as high as the claimed MAOT. So a 90 °C rating needs a qualification basis at 90 °C or above; an 85 °C qualification can support 65 °C service, but it does not automatically justify 90 °C.'
+
     return {
-        'summary': f'This workspace organizes API 15S qualification for LLRTP with PE-RT liner, polyester fiber reinforcement, and PE100 cover. It guides the user through product definition, test matrix, specimen tracking, and regression review for {size} / {npr} / {maot}.',
+        'summary': f'API 15S qualification cockpit for nonmetallic LLRTP using PE-RT liner, polyester yarn reinforcement, and PE cover. The module is structured to guide the team from product definition to evidence pack, with regression monitoring kept as the central control point for {size} / {npr} / {maot}.',
         'steps': [
-            {'title': '1. Define the qualification basis', 'text': 'Create the program as PFR or PV, set size, NPR, MAOT, service, and material stack. Use the most demanding representative as the PFR when possible.'},
-            {'title': '2. Lock the material system', 'text': 'Record liner, reinforcement, and cover grade, supplier, batch, and certificate references before test execution.'},
-            {'title': '3. Build the specimen plan', 'text': 'Prepare static regression specimens, cyclic specimens if cyclic service applies, and the rest of the API 15S matrix such as temperature cycling, MBR, impact, axial load, and decompression when applicable.'},
-            {'title': '4. Run regression correctly', 'text': 'For static regression, record pressure, temperature, time to failure, and failure mode. Exclude invalid failures and any point below 10 h from the regression dataset.'},
-            {'title': '5. Review the lower confidence basis', 'text': 'Use the lower confidence result at 175,000 h for nonmetallic reinforcement, then apply the design factor to compare against the target NPR.'},
-            {'title': '6. Close the program only with full evidence', 'text': 'A program is ready to close only when the matrix is complete, materials are traceable, exclusions are justified, and the final qualification package is signed off.'},
+            {'title': '1. Define the qualification family', 'text': family_logic},
+            {'title': '2. Freeze the materials and process window', 'text': 'Record liner, reinforcement yarn, cover, matrix or adhesive system, supplier, grade, certificates, and any change-control notes before logging any qualification data.'},
+            {'title': '3. Build the mandatory API 15S matrix', 'text': 'Set the program up around long-term hydrostatic regression for the PFR, PV 1000-hour confirmation where applicable, and the additional qualification tests required for temperature, MBR, impact, axial load, external load, and dimensional behavior.'},
+            {'title': '4. Run the regression program correctly', 'text': 'For nonmetallic reinforcement, keep valid long-term points, exclude sub-10-hour points from static regression, capture failure mode, and protect the dataset from non-permissible failures.'},
+            {'title': '5. Decide what is in scope for service', 'text': service_scope + ' ' + cyclic_scope},
+            {'title': '6. Close the qualification only with a complete evidence pack', 'text': 'A program is only ready for release when test records, calculations, traceability, exclusions, witness records, and final review notes are complete.'},
         ],
         'observe': [
-            'Use the correct end fittings so fitting failures do not corrupt the pipe qualification dataset.',
-            'Keep test temperature stable and recorded for every specimen.',
-            'Keep a clear reason whenever a point is excluded from regression.',
-            'Do not use average pressure alone for acceptance; review LCL and MPR basis.',
+            'Use field fittings for PV confirmation and for tests where the standard specifically requires them.',
+            'Keep the test temperature stable and linked to each specimen and chart.',
+            'Protect the regression dataset by documenting every exclusion and every non-permissible failure.',
+            'Use the lower confidence basis, not only the average line, when making release decisions.',
         ],
         'avoid': [
-            'Do not mix different designs or reinforcement constructions in one regression set.',
-            'Do not include points below 10 h in static regression.',
-            'Do not treat the software as a substitute for engineering review or third-party witness requirements.',
-            'Do not close a qualification with missing raw records, certificates, or failure descriptions.',
+            'Do not qualify 4 in and 6 in as two separate full programs unless the construction or family limits force you to.',
+            'Do not claim 90 °C capability from an 85 °C qualification basis.',
+            'Do not mix design changes, different yarn systems, or process changes into one regression set.',
+            'Do not treat the software as a substitute for engineering review, witness requirements, or laboratory accreditation.',
         ],
         'formula_examples': [
-            {'label': 'Regression line', 'expr': 'log10(P) = intercept + slope * log10(time)'},
-            {'label': 'Lower confidence at design life', 'expr': 'LCL_175000h = lower confidence pressure at 175,000 h'},
-            {'label': 'Nonmetallic MPR', 'expr': 'MPR = LCL_175000h x 0.67'},
-            {'label': 'PV helper', 'expr': 'PPV1000 = PPFR1000 x (NPR_PV / NPR_PFR)'},
+            {'label': 'Static regression line', 'expr': 'log10(P) = intercept + slope × log10(time)'},
+            {'label': 'Nonmetallic MPR', 'expr': 'MPR = LCL at 175,000 h × 0.67'},
+            {'label': 'PV confirmation pressure', 'expr': 'PPV1000 = PPFR1000 × (NPR_PV / NPR_PFR)'},
+            {'label': 'Gas-service operating limit', 'expr': 'MOP = NPR × service factors'},
+        ],
+        'product_story': [
+            {'title': 'Product family strategy', 'text': family_logic},
+            {'title': 'Temperature ladder', 'text': temperature_logic},
+            {'title': 'Regression priority', 'text': 'Because this is nonmetallic reinforced pipe, the long-term hydrostatic regression is the main qualification backbone. The module should therefore make specimen tracking, chart review, exclusion control, and LCL-based release decisions visible on every program.'},
+        ],
+        'what_applies': [
+            'PFR full long-term hydrostatic regression for the representative product.',
+            'PV 1000-hour confirmation for product variants within the same family.',
+            'Elevated temperature, temperature cycling, MBR and respooling, axial load, external load, LAOT, impact, TEC, and growth or shrinkage checks according to the size and rating range.',
+            'Rapid decompression only when the product is intended for gas or multiphase service.',
+            'Cyclic regression only when the service definition meets the cyclic threshold.',
+        ],
+        'what_not_needed': [
+            'A second full regression program for every nearby size in the same qualified family.',
+            'Rapid decompression for products not intended for gas or multiphase service.',
+            'Cyclic regression for clearly non-cyclic service below the API 15S threshold.',
+        ],
+        'tips': [
+            'Use the more demanding size or condition as the PFR where practical so the family coverage is stronger.',
+            'Show the exact acceptance logic beside each test card so operators understand why the test exists.',
+            'Give every test step a short plain-language reason, not only the clause reference.',
+            'Make regression status visible on the dashboard with count of valid points, excluded points, current LCL, current MPR, and release margin versus NPR.',
         ],
     }
 
