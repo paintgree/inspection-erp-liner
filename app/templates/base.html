@@ -254,15 +254,23 @@
       links: `
         <a class="erp-sidebar-link ${window.location.pathname === '/rnd' || window.location.pathname === '/rnd/qualifications' ? 'active' : ''}" href="/rnd/qualifications">
           <span class="erp-sidebar-link-icon">⌂</span>
-          <span>Qualification Overview</span>
+          <span>Overview</span>
         </a>
-        <a class="erp-sidebar-link ${window.location.pathname.endsWith('/new') ? 'active' : ''}" href="/rnd/qualifications/new">
-          <span class="erp-sidebar-link-icon">＋</span>
-          <span>New Program</span>
+        <a class="erp-sidebar-link ${window.location.pathname.includes('/wizard') ? 'active' : ''}" href="/rnd/qualifications">
+          <span class="erp-sidebar-link-icon">◎</span>
+          <span>Monogram Qualifier</span>
+        </a>
+        <a class="erp-sidebar-link ${window.location.pathname.includes('/qualifications/') && !window.location.pathname.includes('/regression') && !window.location.pathname.includes('/wizard') ? 'active' : ''}" href="/rnd/qualifications">
+          <span class="erp-sidebar-link-icon">⚗</span>
+          <span>Test Center</span>
         </a>
         <a class="erp-sidebar-link ${window.location.pathname.includes('/regression') ? 'active' : ''}" href="/rnd/qualifications">
           <span class="erp-sidebar-link-icon">∿</span>
-          <span>Regression Center</span>
+          <span>Regression Analysis</span>
+        </a>
+        <a class="erp-sidebar-link ${window.location.pathname.endsWith('/new') ? 'active' : ''}" href="/rnd/qualifications/new">
+          <span class="erp-sidebar-link-icon">＋</span>
+          <span>R&D Module</span>
         </a>
       `
     },
