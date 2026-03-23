@@ -356,6 +356,54 @@ def _burst_strength_summary(specimens: List[RndQualificationSpecimen]) -> dict:
         return {"count": 0, "min": None, "max": None, "mean": None}
     return {"count": len(values), "min": min(values), "max": max(values), "mean": sum(values) / len(values)}
 
+def _burst_execution_context(program: RndQualificationProgram, specimens: List[RndQualificationSpecimen], static_reg: dict | None = None) -> dict:
+    burst_types = {"BURST", "BURST_BASELINE", "MIN_BURST", "BURST_TEST", "BURST_QUALIFICATION"}
+    rows = [s for s in specimens if (s.test_type or "").upper() in burst_types]
+    threshold = ((static_reg or {}).get("mpr_mpa") or program.npr_mpa) / DESIGN_FACTOR_NONMETALLIC
+    required_count = 5
+    acceptable_modes = {"burst", "leak", "weep"}
+    flags = []
+    valid_rows = []
+    for s in rows:
+        row_flags = []
+        if not s.specimen_id:
+            row_flags.append("Missing specimen ID.")
+        if not s.pressure_mpa or s.pressure_mpa <= 0:
+            row_flags.append("Burst pressure must be entered.")
+        if not s.temperature_c:
+            row_flags.append("Test temperature is required.")
+        elif abs(float(s.temperature_c) - float(program.maot_c)) > 5:
+            row_flags.append(f"Temperature differs from qualification basis {program.maot_c:g} C by more than 5 C.")
+        if (s.failure_mode or "").strip().lower() not in acceptable_modes:
+            row_flags.append("Failure mode should be recorded as burst, leak, or weep for this workflow.")
+        passed = bool(s.pressure_mpa and s.pressure_mpa >= threshold and not row_flags)
+        valid_rows.append({"row": s, "flags": row_flags, "passed": passed})
+        flags.extend([f"{s.specimen_id or 'Unidentified specimen'}: {msg}" for msg in row_flags])
+        if s.pressure_mpa and s.pressure_mpa < threshold:
+            flags.append(f"{s.specimen_id or 'Unidentified specimen'}: burst pressure {s.pressure_mpa:.2f} MPa is below the current threshold {threshold:.2f} MPa.")
+
+    pass_count = sum(1 for item in valid_rows if item["passed"])
+    overall_pass = len(rows) >= required_count and all(item["passed"] for item in valid_rows[:required_count]) and pass_count >= required_count
+    status = "PASS" if overall_pass else ("IN_PROGRESS" if rows else "NOT_STARTED")
+    return {
+        "rows": valid_rows,
+        "required_count": required_count,
+        "threshold_mpa": threshold,
+        "status": status,
+        "flags": flags,
+        "entered_count": len(rows),
+        "pass_count": pass_count,
+        "accepted_modes": sorted(acceptable_modes),
+        "instruction_steps": [
+            "Prepare at least five specimens representative of the frozen design and trace each one to build records.",
+            f"Run the test at the qualification basis temperature of {program.maot_c:g} C unless an approved deviation is recorded.",
+            "Record burst pressure and failure mode for every specimen immediately after test completion.",
+            "The workflow will flag any specimen below the current burst threshold or with incomplete data.",
+        ],
+        "acceptance_text": f"This workflow currently requires at least {required_count} valid specimens, each at or above {threshold:.2f} MPa. The threshold uses MPR/Fd when regression exists, otherwise NPR/Fd as a startup gate.",
+        "disclaimer": "Treat this as the controlled project execution rule in the app. Final monogram acceptance still needs engineering review against the full API 15S basis.",
+    }
+
 
 def _pressure_recommendation(program: RndQualificationProgram, answers: dict[str, str], static_reg: dict, burst_summary: dict) -> dict:
     claim_pressure = _to_float(answers.get("claim_pressure_mpa"), program.npr_mpa)
@@ -795,12 +843,12 @@ def rnd_dashboard(request: Request, session: Session = Depends(get_session), use
             "checklist_counts": _checklist_counts(checklist),
         })
     guide = _qualification_guide()
-    return TEMPLATES.TemplateResponse("rnd_dashboard.html", {"request": request, "user": user, "dashboard": dashboard, "guide": guide, "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC, "rcrt_hours": RCRT_HOURS})
+    return TEMPLATES.TemplateResponse(request=request, name="rnd_dashboard.html", context={"request": request, "user": user, "dashboard": dashboard, "guide": guide, "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC, "rcrt_hours": RCRT_HOURS})
 
 
 @router.get("/qualifications/new")
 def rnd_new_program_form(request: Request, user: User = Depends(_require_user)):
-    return TEMPLATES.TemplateResponse("rnd_program_form.html", {"request": request, "user": user})
+    return TEMPLATES.TemplateResponse(request=request, name="rnd_program_form.html", context={"request": request, "user": user})
 
 
 @router.post("/qualifications/new")
@@ -831,7 +879,7 @@ def rnd_program_wizard(program_id: int, request: Request, session: Session = Dep
     static_reg = _regression_from_specimens(specimens, "STATIC_REGRESSION", program.npr_mpa)
     roadmap = _roadmap_summary(program, answers, static_reg)
     checklist = session.exec(select(RndChecklistItem).where(RndChecklistItem.program_id == program_id).order_by(RndChecklistItem.sort_order.asc())).all()
-    return TEMPLATES.TemplateResponse("rnd_wizard.html", {"request": request, "user": user, "program": program, "sections": _wizard_sections(session, program_id), "answers": answers, "checklist": checklist, "checklist_pct": _checklist_progress(checklist), "roadmap": roadmap, "guide": _qualification_guide(program)})
+    return TEMPLATES.TemplateResponse(request=request, name="rnd_wizard.html", context={"request": request, "user": user, "program": program, "sections": _wizard_sections(session, program_id), "answers": answers, "checklist": checklist, "checklist_pct": _checklist_progress(checklist), "roadmap": roadmap, "guide": _qualification_guide(program)})
 
 
 @router.post("/qualifications/{program_id}/wizard")
@@ -917,7 +965,7 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
     matrix_plan = _suggest_regression_matrix(program, answers, specimens, static_reg)
     test_guidance = _test_guidance_rows(program, tests, answers)
     dossier_sections = _dossier_sections(program, checklist, tests, materials, attachments, static_reg, roadmap, pressure_plan)
-    return TEMPLATES.TemplateResponse("rnd_program_view.html", {"request": request, "user": user, "program": program, "tests": tests, "specimens": specimens, "materials": materials, "attachments": attachments, "static_reg": static_reg, "cyclic_reg": cyclic_reg, "counts": counts, "progress_pct": _status_pct(counts, len(tests)), "guide": guide, "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC, "rcrt_hours": RCRT_HOURS, "checklist": checklist, "checklist_pct": _checklist_progress(checklist), "checklist_counts": _checklist_counts(checklist), "answers": answers, "roadmap": roadmap, "pressure_plan": pressure_plan, "matrix_plan": matrix_plan, "test_guidance": test_guidance, "dossier_sections": dossier_sections})
+    return TEMPLATES.TemplateResponse(request=request, name="rnd_program_view.html", context={"request": request, "user": user, "program": program, "tests": tests, "specimens": specimens, "materials": materials, "attachments": attachments, "static_reg": static_reg, "cyclic_reg": cyclic_reg, "counts": counts, "progress_pct": _status_pct(counts, len(tests)), "guide": guide, "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC, "rcrt_hours": RCRT_HOURS, "checklist": checklist, "checklist_pct": _checklist_progress(checklist), "checklist_counts": _checklist_counts(checklist), "answers": answers, "roadmap": roadmap, "pressure_plan": pressure_plan, "matrix_plan": matrix_plan, "test_guidance": test_guidance, "dossier_sections": dossier_sections, "burst_exec": _burst_execution_context(program, specimens, static_reg)})
 
 
 @router.post("/qualifications/{program_id}/checklist/{item_id}")
@@ -1027,6 +1075,39 @@ def rnd_delete_specimen(program_id: int, specimen_id: int, session: Session = De
     return RedirectResponse(url=f"/rnd/qualifications/{program_id}", status_code=303)
 
 
+@router.post("/qualifications/{program_id}/burst/add")
+def rnd_add_burst_specimen(
+    program_id: int,
+    request: Request,
+    specimen_id: str = Form(...),
+    pressure_mpa: float = Form(...),
+    temperature_c: float = Form(...),
+    failure_mode: str = Form(...),
+    notes: str = Form(""),
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+):
+    program = session.get(RndQualificationProgram, program_id)
+    if not program:
+        raise HTTPException(status_code=404, detail="Qualification program not found.")
+    specimen = RndQualificationSpecimen(
+        program_id=program_id,
+        specimen_id=specimen_id.strip(),
+        test_type="BURST_QUALIFICATION",
+        sample_date=date.today(),
+        nominal_size_in=program.nominal_size_in,
+        pressure_mpa=pressure_mpa,
+        temperature_c=temperature_c,
+        failure_mode=failure_mode.strip(),
+        permissible_failure=(failure_mode or "").strip().lower() in {"burst", "leak", "weep"},
+        include_in_regression=False,
+        notes=notes.strip(),
+        witness_name=(user.full_name or "").strip(),
+    )
+    session.add(specimen)
+    session.commit()
+    return RedirectResponse(url=f"/rnd/qualifications/{program_id}", status_code=303)
+
 @router.get("/qualifications/{program_id}/regression")
 def rnd_regression_view(program_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
     program = session.get(RndQualificationProgram, program_id)
@@ -1042,7 +1123,7 @@ def rnd_regression_view(program_id: int, request: Request, session: Session = De
             ratio = (program.npr_mpa / parent.npr_mpa) if parent.npr_mpa else None
             pv_formula = {"pfr_code": parent.program_code, "npr_pv": program.npr_mpa, "npr_pfr": parent.npr_mpa, "formula": "PPV1000 = PPFR1000 x (NPR_PV / NPR_PFR)", "ratio": ratio}
     guide = _qualification_guide(program)
-    return TEMPLATES.TemplateResponse("rnd_regression_view.html", {"request": request, "user": user, "program": program, "specimens": specimens, "static_reg": static_reg, "cyclic_reg": cyclic_reg, "pv_formula": pv_formula, "guide": guide, "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC, "rcrt_hours": RCRT_HOURS})
+    return TEMPLATES.TemplateResponse(request=request, name="rnd_regression_view.html", context={"request": request, "user": user, "program": program, "specimens": specimens, "static_reg": static_reg, "cyclic_reg": cyclic_reg, "pv_formula": pv_formula, "guide": guide, "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC, "rcrt_hours": RCRT_HOURS})
 
 
 @router.get("/qualifications/{program_id}/report")
@@ -1061,7 +1142,7 @@ def rnd_final_report(program_id: int, request: Request, session: Session = Depen
     roadmap = _roadmap_summary(program, answers, static_reg)
     pressure_plan = _pressure_recommendation(program, answers, static_reg, _burst_strength_summary(specimens))
     dossier_sections = _dossier_sections(program, checklist, tests, materials, attachments, static_reg, roadmap, pressure_plan)
-    return TEMPLATES.TemplateResponse("rnd_report.html", {"request": request, "user": user, "program": program, "roadmap": roadmap, "checklist": checklist, "tests": tests, "materials": materials, "attachments": attachments, "static_reg": static_reg, "pressure_plan": pressure_plan, "dossier_sections": dossier_sections, "checklist_pct": _checklist_progress(checklist)})
+    return TEMPLATES.TemplateResponse(request=request, name="rnd_report.html", context={"request": request, "user": user, "program": program, "roadmap": roadmap, "checklist": checklist, "tests": tests, "materials": materials, "attachments": attachments, "static_reg": static_reg, "pressure_plan": pressure_plan, "dossier_sections": dossier_sections, "checklist_pct": _checklist_progress(checklist)})
 
 
 @router.get("/qualifications/{program_id}/regression/export.csv")
