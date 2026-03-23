@@ -85,6 +85,7 @@
               <div class="rndx-box"><b>Excluded</b><span>{{ row.static_reg.excluded_count or 0 }}</span></div>
               <div class="rndx-box"><b>LCL @ 175,000 h</b><span>{% if row.static_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(row.static_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</span></div>
               <div class="rndx-box"><b>MPR</b><span>{% if row.static_reg.mpr_mpa %}{{ '%.3f'|format(row.static_reg.mpr_mpa) }} MPa{% else %}-{% endif %}</span></div>
+              <div class="rndx-box"><b>Checklist</b><span>{{ row.checklist_pct }}%</span></div>
             </div>
             <div>
               <div class="muted" style="margin-bottom:6px;">Matrix completion</div>
@@ -96,7 +97,8 @@
               </div>
             {% endif %}
             <div class="rndx-actions">
-              <a class="btn btn-primary" href="/rnd/qualifications/{{ row.program.id }}">Open program</a>
+              <a class="btn btn-primary" href="/rnd/qualifications/{{ row.program.id }}">Open cockpit</a>
+              <a class="btn btn-ghost" href="/rnd/qualifications/{{ row.program.id }}/wizard">Monogram qualifier</a>
               <a class="btn btn-ghost" href="/rnd/qualifications/{{ row.program.id }}/regression">Open regression</a>
             </div>
           </article>
