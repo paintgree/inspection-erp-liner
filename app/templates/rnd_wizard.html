@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Monogram Qualifier{% endblock %}
+{% block content %}
+<style>
+.mono{display:grid;gap:18px}.mono-hero,.mono-card{background:#fff;border:1px solid #e5e7eb;border-radius:24px;box-shadow:0 10px 30px rgba(15,23,42,.05);padding:20px}.mono-top{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}.mono-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}.mono-sections{display:grid;gap:16px}.mono-section{border:1px solid #eef2f7;border-radius:20px;padding:16px;background:#fbfdff}.mono-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.mono-fields label{display:grid;gap:7px;font-size:13px;color:#334155;font-weight:700}.mono-fields input,.mono-fields select{padding:11px 12px;border:1px solid #cbd5e1;border-radius:12px;background:#fff}.mono-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.mono-kpi{padding:14px;border:1px solid #e2e8f0;border-radius:18px;background:linear-gradient(180deg,#fbfdff,#f8fbff)}.mono-kpi b{display:block;font-size:12px;color:#64748b;text-transform:uppercase;letter-spacing:.08em}.mono-kpi span{display:block;margin-top:8px;font-size:24px;font-weight:900;color:#0f172a}.mono-list{margin:0;padding-left:18px;display:grid;gap:8px}.mono-note{padding:13px 14px;border-radius:16px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a}.mono-bar{height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden}.mono-bar span{display:block;height:100%;background:linear-gradient(90deg,#10b981,#2563eb)}.mono-table{width:100%;border-collapse:collapse}.mono-table th,.mono-table td{padding:10px;border-bottom:1px solid #eaeef5;vertical-align:top;text-align:left}.mono-table th{font-size:12px;text-transform:uppercase;color:#64748b;letter-spacing:.08em}.mono-chip{display:inline-flex;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:900;border:1px solid #cbd5e1;background:#f8fafc;color:#334155}.mono-chip.done{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.mono-chip.na{background:#f8fafc;border-color:#e2e8f0;color:#64748b}.mono-chip.prog{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}.mono-chip.pending{background:#fff7ed;border-color:#fed7aa;color:#c2410c}@media (max-width:1100px){.mono-top,.mono-grid{grid-template-columns:1fr}.mono-fields,.mono-kpis{grid-template-columns:1fr}}</style>
+<div class="mono">
+  <section class="mono-hero">
+    <div class="section-head">
+      <div>
+        <h1 style="margin:0;">Road to API Monogram</h1>
+        <div class="muted">{{ program.program_code }} · question-driven qualifier for teams starting from zero.</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Open cockpit</a>
+        <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Regression center</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="mono-top">
+    <form method="post" action="/rnd/qualifications/{{ program.id }}/wizard" class="mono-card">
+      <div class="section-head"><h2 style="margin:0;">Qualification wizard</h2><button class="btn btn-primary" type="submit">Save answers</button></div>
+      <div class="mono-sections">
+        {% for section in sections %}
+          <div class="mono-section">
+            <h3 style="margin-top:0;">{{ section.title }}</h3>
+            <div class="mono-fields">
+              {% for field in section.fields %}
+                <label>
+                  {{ field.label }}
+                  {% if field.key in ['service_medium'] %}
+                    <select name="{{ field.key }}">
+                      {% for opt in ['water','produced_water','hydrocarbon_liquid','gas','multiphase'] %}<option value="{{ opt }}" {% if field.value == opt %}selected{% endif %}>{{ opt.replace('_',' ').title() }}</option>{% endfor %}
+                    </select>
+                  {% elif field.key in ['family_same_construction','service_is_cyclic','service_requires_gas','liner_screened','reinforcement_screened','cover_screened','end_fitting_ready','has_burst_data','has_regression_data','has_witness_plan'] %}
+                    <select name="{{ field.key }}">
+                      <option value="yes" {% if field.value == 'yes' %}selected{% endif %}>Yes</option>
+                      <option value="no" {% if field.value == 'no' %}selected{% endif %}>No</option>
+                    </select>
+                  {% else %}
+                    <input name="{{ field.key }}" value="{{ field.value }}">
+                  {% endif %}
+                </label>
+              {% endfor %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </form>
+
+    <div class="mono-card">
+      <h2 style="margin-top:0;">Decision summary</h2>
+      <div class="mono-kpis">
+        <div class="mono-kpi"><b>Claim target</b><span>{{ '%.1f'|format(roadmap.claim_pressure) }} MPa</span></div>
+        <div class="mono-kpi"><b>MAOT target</b><span>{{ '%.0f'|format(roadmap.claim_temp) }} °C</span></div>
+        <div class="mono-kpi"><b>Checklist</b><span>{{ checklist_pct }}%</span></div>
+      </div>
+      <div class="mono-note" style="margin-top:14px;"><strong>Family decision.</strong> {{ roadmap.family_decision }}</div>
+      <div class="mono-note" style="margin-top:12px;"><strong>Temperature decision.</strong> {{ roadmap.temp_decision }}</div>
+      <div class="mono-note" style="margin-top:12px;"><strong>Rating advice.</strong> {{ roadmap.rating_advice }}</div>
+      <h3>System-selected required tests</h3>
+      <ul class="mono-list">{% for item in roadmap.required_tests %}<li>{{ item }}</li>{% endfor %}</ul>
+    </div>
+  </section>
+
+  <section class="mono-grid">
+    <div class="mono-card">
+      <div class="section-head"><h2 style="margin:0;">Auto-generated checklist</h2><div style="min-width:220px;"><div class="mono-bar"><span style="width:{{ checklist_pct }}%;"></span></div></div></div>
+      <table class="mono-table">
+        <thead><tr><th>Stage</th><th>Task</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for item in checklist %}
+            <tr>
+              <td>{{ item.stage }}</td>
+              <td><strong>{{ item.title }}</strong><div class="muted">{{ item.why_this_matters }}</div></td>
+              <td>
+                <span class="mono-chip {% if item.status == 'DONE' %}done{% elif item.status == 'NOT_APPLICABLE' %}na{% elif item.status == 'IN_PROGRESS' %}prog{% else %}pending{% endif %}">{{ item.status.replace('_',' ') }}</span>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="mono-card">
+      <h2 style="margin-top:0;">How this wizard behaves</h2>
+      <ul class="mono-list">
+        <li>It asks what you want to achieve first, instead of asking for MPR or NPR terms immediately.</li>
+        <li>It decides what is required, conditional, or not applicable.</li>
+        <li>It creates the working checklist automatically.</li>
+        <li>It pushes the user toward the next incomplete step.</li>
+      </ul>
+      <h3>Current next action</h3>
+      <div class="mono-note">{{ roadmap.next_action }}</div>
+      <h3 style="margin-top:18px;">Notes for your product</h3>
+      <ul class="mono-list">{% for row in guide.product_story %}<li><strong>{{ row.title }}.</strong> {{ row.text }}</li>{% endfor %}</ul>
+    </div>
+  </section>
+</div>
+{% endblock %}
