@@ -1,216 +1,190 @@
 {% extends "base.html" %}
-{% block title %}{{ program.program_code }}{% endblock %}
+{% block title %}Regression - {{ program.program_code }}{% endblock %}
 {% block content %}
 <style>
-.rp{display:grid;gap:18px}.rp-card{background:#fff;border:1px solid #e5e7eb;border-radius:22px;padding:18px;box-shadow:0 10px 30px rgba(15,23,42,.05)}
-.rp-hero{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}.rp-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap:18px;align-items:start}.rp-stack{display:grid;gap:18px}
-.rp-mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.rp-box{border:1px solid #eef2f7;border-radius:16px;padding:12px;background:#fbfdff}.rp-box b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}.rp-box span{font-size:17px;font-weight:900;color:#0f172a}
-.rp-chip{display:inline-flex;align-items:center;padding:7px 11px;border-radius:999px;font-size:12px;font-weight:900;border:1px solid #e5e7eb;background:#f8fafc;color:#334155}.rp-chip.DRAFT{background:#f8fafc;border-color:#e2e8f0;color:#475569}.rp-chip.RUNNING{background:#fff7ed;border-color:#fed7aa;color:#c2410c}.rp-chip.QUALIFIED{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.rp-chip.PARTIAL_REQUALIFICATION{background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9}.rp-chip.FAILED{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
-.rp-progress{height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden}.rp-progress>span{display:block;height:100%;background:linear-gradient(90deg,#4f46e5,#2563eb)}
-.rp-note{padding:13px 15px;border-radius:16px;border:1px solid #c7d2fe;background:#eef2ff;color:#3730a3}.rp-note.good{border-color:#a7f3d0;background:#ecfdf5;color:#065f46}.rp-note.warn{border-color:#fed7aa;background:#fff7ed;color:#9a3412}
-.rp-table{width:100%;border-collapse:collapse}.rp-table th,.rp-table td{padding:10px;border-bottom:1px solid #eaeef5;vertical-align:top;text-align:left;font-size:13px}.rp-table th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b}
-.rp-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.rp-form-grid label{display:grid;gap:6px;font-size:13px;font-weight:700;color:#334155}.rp-form-grid input,.rp-form-grid textarea,.rp-form-grid select{width:100%}
-.rp-actions{display:flex;gap:10px;flex-wrap:wrap}.rp-list{display:grid;gap:10px;padding-left:18px;margin:0}.rp-list li{color:#475569}
-@media (max-width:1080px){.rp-hero,.rp-grid{grid-template-columns:1fr}.rp-mini{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:640px){.rp-mini,.rp-form-grid{grid-template-columns:1fr}.rp-actions .btn{width:100%}}
+.rr-wrap{display:grid;gap:18px;}
+.rr-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);gap:18px;align-items:start;}
+.rr-card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:16px;box-shadow:0 8px 28px rgba(15,23,42,.05);}
+.rr-mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}.rr-box{border:1px solid #eef2f7;border-radius:14px;padding:12px;background:#fbfdff;}.rr-box b{display:block;font-size:12px;color:#64748b;margin-bottom:6px;}
+.rr-table{width:100%;border-collapse:collapse;}.rr-table th,.rr-table td{padding:10px;border-bottom:1px solid #eaeef5;vertical-align:top;text-align:left;font-size:13px;}.rr-table th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;}
+.rr-svg{width:100%;height:420px;border:1px solid #eef2f7;border-radius:16px;background:#fff;display:block;}
+@media (max-width:960px){.rr-grid{grid-template-columns:1fr;}.rr-mini{grid-template-columns:1fr 1fr;}}
+@media (max-width:560px){.rr-mini{grid-template-columns:1fr;}}
 </style>
 
-<div class="rp">
-  <section class="rp-hero">
-    <div class="rp-card">
-      <div class="section-head" style="margin-bottom:12px;">
-        <div>
-          <h1 style="margin:0;">{{ program.program_code }}</h1>
-          <div class="muted">{{ program.title }}</div>
-        </div>
-        <div class="rp-actions">
-          <span class="rp-chip {{ program.status }}">{{ program.status.replace('_',' ') }}</span>
-          <a class="btn btn-ghost" href="/rnd/qualifications">Back</a>
-          <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Regression center</a>
-        </div>
+<div class="rr-wrap">
+  <section class="rr-card">
+    <div class="section-head">
+      <div>
+        <h1 style="margin:0;">Regression Workspace</h1>
+        <div class="muted">{{ program.program_code }} · {{ program.title }}</div>
       </div>
-
-      <div class="rp-mini">
-        <div class="rp-box"><b>Product</b><span>{{ program.nominal_size_in }} in</span></div>
-        <div class="rp-box"><b>NPR / MAOT</b><span>{{ program.npr_mpa }} MPa · {{ program.maot_c }} °C</span></div>
-        <div class="rp-box"><b>Program type</b><span>{{ program.pfr_or_pv }}</span></div>
-        <div class="rp-box"><b>Progress</b><span>{{ progress_pct }}%</span></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back to Program</a>
       </div>
-
-      <div style="margin-top:14px;">
-        <div class="muted" style="margin-bottom:6px;">Qualification matrix completion</div>
-        <div class="rp-progress"><span style="width: {{ progress_pct }}%;"></span></div>
-      </div>
-
-      <div class="rp-note" style="margin-top:14px;">This page should act like a qualification workbook, not just a test list. Every row below should help the user understand what to do, why it is done, and what evidence must be attached.</div>
-
-      <form method="post" action="/rnd/qualifications/{{ program.id }}/status" style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:end;">
-        <label style="display:grid;gap:6px;min-width:240px;">
-          <span class="muted">Program status</span>
-          <select name="status">
-            {% for s in ['DRAFT','RUNNING','QUALIFIED','PARTIAL_REQUALIFICATION','FAILED'] %}
-              <option value="{{ s }}" {% if program.status == s %}selected{% endif %}>{{ s.replace('_',' ') }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <button class="btn btn-primary" type="submit">Update status</button>
-      </form>
     </div>
-
-    <aside class="rp-card">
-      <h2 style="margin-top:0;">Program guidance</h2>
-      <p style="margin-top:0;">{{ guide.summary }}</p>
-      <ul class="rp-list">{% for row in guide.product_story %}<li><strong>{{ row.title }}.</strong> {{ row.text }}</li>{% endfor %}</ul>
-      {% if static_reg.pass_status %}
-        <div class="rp-note {% if static_reg.pass_status == 'PASS' %}good{% else %}warn{% endif %}" style="margin-top:12px;">
-          <strong>{{ static_reg.pass_status }}</strong> against target NPR {{ program.npr_mpa }} MPa{% if static_reg.margin_mpa is not none %} · margin {{ '%+.3f'|format(static_reg.margin_mpa) }} MPa{% endif %}
-        </div>
-      {% endif %}
-    </aside>
   </section>
 
-  <section class="rp-grid">
-    <div class="rp-stack">
-      <article class="rp-card">
-        <div class="section-head"><h2 style="margin:0;">Qualification matrix</h2></div>
-        <div class="rp-note" style="margin-bottom:14px;">Recommended UX change: add short explanations per test row so the user immediately knows the purpose, acceptance logic, and what records to upload.</div>
-        <div style="overflow:auto;">
-          <table class="rp-table">
-            <thead><tr><th>Code</th><th>Test</th><th>Clause</th><th>Requirement</th><th>Status</th><th>Result</th><th>Action</th></tr></thead>
-            <tbody>
-              {% for test in tests %}
-              <tr>
-                <td><strong>{{ test.code }}</strong></td>
-                <td>{{ test.title }}<div class="muted">{{ test.description }}</div></td>
-                <td>{{ test.clause_ref }}</td>
-                <td>{{ test.specimen_requirement }}</td>
-                <td>{{ test.status }}</td>
-                <td>{{ test.result_summary or '-' }}</td>
-                <td>
-                  <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}" style="display:grid;gap:8px;min-width:220px;">
-                    <select name="status">
-                      {% for s in ['PLANNED','IN_PROGRESS','PASSED','FAILED','WAIVED'] %}
-                        <option value="{{ s }}" {% if test.status == s %}selected{% endif %}>{{ s.replace('_',' ') }}</option>
-                      {% endfor %}
-                    </select>
-                    <textarea name="result_summary" rows="2" placeholder="Result summary">{{ test.result_summary }}</textarea>
-                    <button class="btn btn-ghost" type="submit">Save</button>
-                  </form>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+  <section class="rr-grid">
+    <div style="display:grid;gap:18px;">
+      <article class="rr-card">
+        <h2 style="margin-top:0;">Static Regression</h2>
+        <div class="rr-mini">
+          <div class="rr-box"><b>Valid Points</b>{{ static_reg.count }} / {{ static_reg.required_minimum }}</div>
+          <div class="rr-box"><b>LCL @ RCRT</b>{% if static_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(static_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
+          <div class="rr-box"><b>LPL @ RCRT</b>{% if static_reg.lpl_rcrt_mpa %}{{ '%.3f'|format(static_reg.lpl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
         </div>
+        {% if static_reg.warning %}<div class="alert alert-error mt">{{ static_reg.warning }}</div>{% endif %}
+        <svg id="static-chart" class="rr-svg" viewBox="0 0 820 420"></svg>
       </article>
 
-      <article class="rp-card">
-        <div class="section-head"><h2 style="margin:0;">Specimen register</h2></div>
-        <form method="post" action="/rnd/qualifications/{{ program.id }}/specimens/new" class="rp-form-grid" style="margin-bottom:16px;">
-          <label>Specimen ID<input name="specimen_id" required placeholder="S-001"></label>
-          <label>Sample date<input name="sample_date" type="date" required></label>
-          <label>Test type
-            <select name="test_type">
-              <option value="STATIC_REGRESSION">Static regression</option>
-              <option value="CYCLIC_REGRESSION">Cyclic regression</option>
-              <option value="PV_1000H">PV 1000 h</option>
-              <option value="GENERAL">General qualification</option>
-            </select>
-          </label>
-          <label>Linked test
-            <select name="test_id">
-              <option value="">-- optional --</option>
-              {% for test in tests %}<option value="{{ test.id }}">{{ test.code }} - {{ test.title }}</option>{% endfor %}
-            </select>
-          </label>
-          <label>Nominal size (in)<input name="nominal_size_in" type="number" step="0.01" value="{{ program.nominal_size_in }}"></label>
-          <label>Pressure (MPa)<input name="pressure_mpa" type="number" step="0.0001"></label>
-          <label>Temperature (°C)<input name="temperature_c" type="number" step="0.1" value="{{ program.maot_c }}"></label>
-          <label>Failure hours<input name="failure_hours" type="number" step="0.001"></label>
-          <label>Failure cycles<input name="failure_cycles" type="number" step="1"></label>
-          <label>Failure mode<input name="failure_mode" placeholder="Burst / leak / fitting / etc."></label>
-          <label>Fitting type<input name="fitting_type" value="Field fitting"></label>
-          <label>Lab name<input name="lab_name"></label>
-          <label>Witness name<input name="witness_name"></label>
-          <label style="grid-column:1 / -1;">Notes<textarea name="notes" rows="3"></textarea></label>
-          <label><input type="checkbox" name="permissible_failure" value="1" checked> Permissible failure</label>
-          <label><input type="checkbox" name="include_in_regression" value="1" checked> Include in regression</label>
-          <label><input type="checkbox" name="is_runout" value="1"> Runout specimen</label>
-          <div style="grid-column:1 / -1;"><button class="btn btn-primary" type="submit">Add specimen</button></div>
-        </form>
+      <article class="rr-card">
+        <h2 style="margin-top:0;">Cyclic Regression</h2>
+        <div class="rr-mini">
+          <div class="rr-box"><b>Valid Points</b>{{ cyclic_reg.count }} / {{ cyclic_reg.required_minimum }}</div>
+          <div class="rr-box"><b>Mean Basis</b>{% if cyclic_reg.mean_rcrt_mpa %}{{ '%.3f'|format(cyclic_reg.mean_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
+          <div class="rr-box"><b>Lower Basis</b>{% if cyclic_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(cyclic_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
+        </div>
+        {% if cyclic_reg.warning %}<div class="alert alert-error mt">{{ cyclic_reg.warning }}</div>{% endif %}
+        <svg id="cyclic-chart" class="rr-svg" viewBox="0 0 820 420"></svg>
+      </article>
+    </div>
 
-        <div style="overflow:auto;">
-          <table class="rp-table">
-            <thead><tr><th>ID</th><th>Type</th><th>Pressure</th><th>Temp</th><th>Hours</th><th>Cycles</th><th>Failure</th><th>Flags</th><th></th></tr></thead>
-            <tbody>
-              {% for s in specimens %}
+    <div style="display:grid;gap:18px;">
+      <article class="rr-card">
+        <h2 style="margin-top:0;">Calculated Summary</h2>
+        <table class="rr-table">
+          <tbody>
+            <tr><th>Design factor</th><td>{{ '%.2f'|format(static_reg.design_factor) if static_reg.design_factor is defined else '-' }}</td></tr>
+            <tr><th>MPR</th><td>{% if static_reg.mpr_mpa %}{{ '%.3f'|format(static_reg.mpr_mpa) }} MPa{% else %}-{% endif %}</td></tr>
+            <tr><th>Target NPR</th><td>{{ '%.3f'|format(static_reg.target_npr_mpa) if static_reg.target_npr_mpa else '-' }} MPa</td></tr>
+            <tr><th>Pass / fail</th><td>{% if static_reg.pass_status %}{{ static_reg.pass_status }}{% else %}Pending{% endif %}</td></tr>
+            <tr><th>Static slope</th><td>{{ '%.6f'|format(static_reg.slope) if static_reg.slope is defined else '-' }}</td></tr>
+            <tr><th>Static intercept</th><td>{{ '%.6f'|format(static_reg.intercept) if static_reg.intercept is defined else '-' }}</td></tr>
+            <tr><th>Static excluded points</th><td>{{ static_reg.excluded_count or 0 }} {% if static_reg.excluded_ids %}({{ static_reg.excluded_ids|join(', ') }}){% endif %}</td></tr>
+            <tr><th>Cyclic slope</th><td>{{ '%.6f'|format(cyclic_reg.slope) if cyclic_reg.slope is defined else '-' }}</td></tr>
+            <tr><th>Cyclic intercept</th><td>{{ '%.6f'|format(cyclic_reg.intercept) if cyclic_reg.intercept is defined else '-' }}</td></tr>
+            <tr><th>Cyclic excluded points</th><td>{{ cyclic_reg.excluded_count or 0 }} {% if cyclic_reg.excluded_ids %}({{ cyclic_reg.excluded_ids|join(', ') }}){% endif %}</td></tr>
+          </tbody>
+        </table>
+      </article>
+
+      {% if pv_formula %}
+      <article class="rr-card">
+        <h2 style="margin-top:0;">PV Formula Helper</h2>
+        <div class="rr-box"><b>PFR Reference</b>{{ pv_formula.pfr_code }}</div>
+        <div class="rr-box" style="margin-top:10px;"><b>Formula</b>{{ pv_formula.formula }}</div>
+        <div class="rr-box" style="margin-top:10px;"><b>Ratio NPR_PV / NPR_PFR</b>{{ '%.4f'|format(pv_formula.ratio) if pv_formula.ratio is not none else '-' }}</div>
+      </article>
+      {% endif %}
+
+      <article class="rr-card">
+        <h2 style="margin-top:0;">Specimen Points</h2>
+        <table class="rr-table">
+          <thead><tr><th>Specimen</th><th>Type</th><th>Pressure</th><th>Hours</th><th>Cycles</th><th>Failure Mode</th></tr></thead>
+          <tbody>
+            {% for s in specimens %}
               <tr>
-                <td><strong>{{ s.specimen_id }}</strong><div class="muted">{{ s.sample_date }}</div></td>
+                <td>{{ s.specimen_id }}</td>
                 <td>{{ s.test_type }}</td>
                 <td>{{ s.pressure_mpa }}</td>
-                <td>{{ s.temperature_c }}</td>
                 <td>{{ s.failure_hours or '-' }}</td>
                 <td>{{ s.failure_cycles or '-' }}</td>
                 <td>{{ s.failure_mode or '-' }}</td>
-                <td>{% if s.permissible_failure %}Permissible{% else %}Non-permissible{% endif %}<br>{% if s.include_in_regression %}Included{% else %}Excluded{% endif %}{% if s.is_runout %}<br>Runout{% endif %}</td>
-                <td>
-                  <form method="post" action="/rnd/qualifications/{{ program.id }}/specimens/{{ s.id }}/delete" onsubmit="return confirm('Delete specimen {{ s.specimen_id }}?');">
-                    <button class="btn btn-ghost" type="submit">Delete</button>
-                  </form>
-                </td>
               </tr>
-              {% else %}
-              <tr><td colspan="9" class="muted">No specimens yet.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
+            {% else %}
+              <tr><td colspan="6" class="muted">No specimens logged yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </article>
     </div>
-
-    <div class="rp-stack">
-      <article class="rp-card">
-        <h2 style="margin-top:0;">Regression release view</h2>
-        <div class="rp-mini">
-          <div class="rp-box"><b>Static valid points</b><span>{{ static_reg.count }} / {{ static_reg.required_minimum }}</span></div>
-          <div class="rp-box"><b>Excluded points</b><span>{{ static_reg.excluded_count or 0 }}</span></div>
-          <div class="rp-box"><b>LCL @ 175,000 h</b><span>{% if static_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(static_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</span></div>
-          <div class="rp-box"><b>MPR</b><span>{% if static_reg.mpr_mpa %}{{ '%.3f'|format(static_reg.mpr_mpa) }} MPa{% else %}-{% endif %}</span></div>
-        </div>
-        <div class="rp-note" style="margin-top:12px;">Main recommendation: keep the regression center as the heart of the R&amp;D module, with live pass margin, excluded-point control, and reporting visibility.</div>
-      </article>
-
-      <article class="rp-card">
-        <h2 style="margin-top:0;">Materials control</h2>
-        {% for m in materials %}
-          <form method="post" action="/rnd/qualifications/{{ program.id }}/materials/{{ m.id }}" class="rp-form-grid" style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #eef2f7;">
-            <div style="grid-column:1 / -1;font-weight:900;color:#0f172a;">{{ m.component }}</div>
-            <label>Material<input name="material_name" value="{{ m.material_name }}"></label>
-            <label>Supplier<input name="supplier_name" value="{{ m.supplier_name }}"></label>
-            <label>Grade<input name="grade_name" value="{{ m.grade_name }}"></label>
-            <label>Certificate<input name="certificate_ref" value="{{ m.certificate_ref }}"></label>
-            <label>Batch<input name="batch_ref" value="{{ m.batch_ref }}"></label>
-            <label>Status
-              <select name="status">
-                {% for s in ['PLANNED','IN_PROGRESS','APPROVED','REJECTED'] %}<option value="{{ s }}" {% if m.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
-              </select>
-            </label>
-            <label style="grid-column:1 / -1;">Notes<textarea name="notes" rows="2">{{ m.notes }}</textarea></label>
-            <div style="grid-column:1 / -1;"><button class="btn btn-ghost" type="submit">Save material</button></div>
-          </form>
-        {% endfor %}
-      </article>
-
-      <article class="rp-card">
-        <h2 style="margin-top:0;">What applies / what not</h2>
-        <h3>Applies</h3>
-        <ul class="rp-list">{% for item in guide.what_applies %}<li>{{ item }}</li>{% endfor %}</ul>
-        <h3>Normally not needed</h3>
-        <ul class="rp-list">{% for item in guide.what_not_needed %}<li>{{ item }}</li>{% endfor %}</ul>
-        <h3>Tips for users</h3>
-        <ul class="rp-list">{% for item in guide.tips %}<li>{{ item }}</li>{% endfor %}</ul>
+        <article class="rr-card">
+        <h2 style="margin-top:0;">What this means</h2>
+        <p>{{ guide.summary }}</p>
+        <div class="rr-box"><b>Interpretation</b>For static qualification, review the lower confidence pressure at {{ rcrt_hours|int }} h, then apply the nonmetallic design factor {{ '%.2f'|format(design_factor_nonmetallic) }} to get MPR. Compare that MPR with the target NPR of {{ '%.3f'|format(program.npr_mpa) }} MPa.</div>
+        <div class="rr-box" style="margin-top:10px;"><b>Example</b>If LCL @ {{ rcrt_hours|int }} h = 16.0 MPa, then MPR = 16.0 x {{ '%.2f'|format(design_factor_nonmetallic) }} = 10.72 MPa. That would pass a 10 MPa product.</div>
+        <div class="rr-box" style="margin-top:10px;"><b>Avoid</b>{% for item in guide.avoid %}{{ item }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>
       </article>
     </div>
   </section>
 </div>
+
+<script>
+  function drawRegressionChart(svgId, reg, xLabel) {
+    const svg = document.getElementById(svgId);
+    if (!svg) return;
+    const width = 820, height = 420, left = 70, right = 20, top = 20, bottom = 50;
+    const plotW = width - left - right, plotH = height - top - bottom;
+    svg.innerHTML = '';
+
+    const pts = reg.points || [];
+    const lines = reg.chart_points || [];
+    if (!pts.length || !lines.length) {
+      svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#64748b" font-size="15">Not enough valid points to draw chart</text>';
+      return;
+    }
+
+    const allX = [...pts.map(p => p.x), ...lines.map(p => p.x)];
+    const allY = [];
+    pts.forEach(p => allY.push(p.y));
+    lines.forEach(p => {
+      allY.push(Math.log10(p.mean_pressure));
+      allY.push(Math.log10(p.lcl_pressure));
+      allY.push(Math.log10(p.lpl_pressure));
+    });
+
+    const xMin = Math.min(...allX), xMax = Math.max(...allX);
+    const yMin = Math.min(...allY), yMax = Math.max(...allY);
+    const xSpan = (xMax - xMin) || 1;
+    const ySpan = (yMax - yMin) || 1;
+    const sx = x => left + ((x - xMin) / xSpan) * plotW;
+    const sy = y => top + (plotH - ((y - yMin) / ySpan) * plotH);
+
+    function add(tag, attrs) {
+      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k, v));
+      svg.appendChild(el);
+      return el;
+    }
+
+    for (let i=0;i<6;i++) {
+      const gx = xMin + (xSpan * i / 5);
+      add('line', {x1:sx(gx), y1:top, x2:sx(gx), y2:height-bottom, stroke:'#eef2f7'});
+      const tx = add('text', {x:sx(gx), y:height-18, 'text-anchor':'middle', 'font-size':'11', fill:'#64748b'});
+      tx.textContent = gx.toFixed(2);
+    }
+    for (let i=0;i<6;i++) {
+      const gy = yMin + (ySpan * i / 5);
+      add('line', {x1:left, y1:sy(gy), x2:width-right, y2:sy(gy), stroke:'#eef2f7'});
+      const ty = add('text', {x:left-8, y:sy(gy)+4, 'text-anchor':'end', 'font-size':'11', fill:'#64748b'});
+      ty.textContent = gy.toFixed(2);
+    }
+    add('line', {x1:left, y1:height-bottom, x2:width-right, y2:height-bottom, stroke:'#94a3b8', 'stroke-width':'1.5'});
+    add('line', {x1:left, y1:top, x2:left, y2:height-bottom, stroke:'#94a3b8', 'stroke-width':'1.5'});
+
+    function poly(points, color, widthValue) {
+      add('polyline', {
+        fill:'none',
+        stroke:color,
+        'stroke-width':widthValue,
+        points: points.map(p => `${sx(p.x)},${sy(Math.log10(p.y))}`).join(' ')
+      });
+    }
+
+    poly(lines.map(p => ({x:p.x, y:p.mean_pressure})), '#2563eb', '2.5');
+    poly(lines.map(p => ({x:p.x, y:p.lcl_pressure})), '#7c3aed', '2');
+    poly(lines.map(p => ({x:p.x, y:p.lpl_pressure})), '#ef4444', '2');
+
+    pts.forEach(p => add('circle', {cx:sx(p.x), cy:sy(p.y), r:'4.5', fill:'#0f172a'}));
+
+    const xText = add('text', {x:width/2, y:height-2, 'text-anchor':'middle', 'font-size':'12', fill:'#475569'});
+    xText.textContent = `${xLabel} (log10)`;
+    const yText = add('text', {x:18, y:height/2, 'text-anchor':'middle', transform:`rotate(-90 18 ${height/2})`, 'font-size':'12', fill:'#475569'});
+    yText.textContent = 'Pressure MPa (log10)';
+  }
+
+  drawRegressionChart('static-chart', {{ static_reg|tojson }}, 'Failure hours');
+  drawRegressionChart('cyclic-chart', {{ cyclic_reg|tojson }}, 'Failure cycles');
+</script>
 {% endblock %}
