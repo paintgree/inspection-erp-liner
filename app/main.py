@@ -9532,10 +9532,11 @@ def dashboard(
     calendar = _build_dashboard_calendar(session)
 
     return templates.TemplateResponse(
+        request,
         "dashboard.html",
         {
             "request": request,
-            "user": user,
+            "user": u,
             "grouped": grouped,
             "progress_map": progress_map,
             "mrr_stats": mrr_stats,
