@@ -349,6 +349,144 @@ def _roadmap_summary(program: RndQualificationProgram, answers: dict[str, str], 
         "next_action": "Complete the wizard, then start the first incomplete required checklist item.",
     }
 
+def _burst_strength_summary(specimens: List[RndQualificationSpecimen]) -> dict:
+    burst_types = {"BURST", "BURST_BASELINE", "MIN_BURST", "BURST_TEST"}
+    values = [float(s.pressure_mpa) for s in specimens if (s.test_type or "").upper() in burst_types and s.pressure_mpa and s.pressure_mpa > 0]
+    if not values:
+        return {"count": 0, "min": None, "max": None, "mean": None}
+    return {"count": len(values), "min": min(values), "max": max(values), "mean": sum(values) / len(values)}
+
+
+def _pressure_recommendation(program: RndQualificationProgram, answers: dict[str, str], static_reg: dict, burst_summary: dict) -> dict:
+    claim_pressure = _to_float(answers.get("claim_pressure_mpa"), program.npr_mpa)
+    claim_temp = _to_float(answers.get("claim_temperature_c"), program.maot_c)
+    if static_reg.get("count", 0) >= 6 and static_reg.get("mpr_mpa"):
+        supported_npr = max(0.0, float(static_reg["mpr_mpa"]))
+        status = "evidence_based"
+        confidence = "HIGH" if static_reg.get("count", 0) >= static_reg.get("required_minimum", 18) else "MEDIUM"
+        message = f"Current regression supports about {supported_npr:.2f} MPa at {claim_temp:.0f} C before any commercial rounding decision. Keep using regression as the release basis."
+    elif burst_summary.get("count", 0) >= 3 and burst_summary.get("min"):
+        supported_npr = max(0.0, float(burst_summary["min"]) * 0.50)
+        status = "screening_only"
+        confidence = "LOW"
+        message = f"Only burst-style screening is available. A cautious planning target is around {supported_npr:.2f} MPa, but this is not an API 15S rating until regression matures."
+    else:
+        supported_npr = claim_pressure
+        status = "wizard_only"
+        confidence = "LOW"
+        message = f"No evidence-based pressure recommendation yet. Keep {claim_pressure:.2f} MPa as a planning target only until burst and regression data are added."
+
+    commercial_target = min(claim_pressure, supported_npr) if status == "evidence_based" else claim_pressure
+    if commercial_target <= 0:
+        commercial_target = claim_pressure or program.npr_mpa
+
+    return {
+        "status": status,
+        "confidence": confidence,
+        "supported_npr_mpa": round(supported_npr, 3),
+        "recommended_commercial_target_mpa": round(commercial_target, 3),
+        "message": message,
+        "next_step": "Use burst to screen the design, then mature the static regression set until the lower confidence line at 175000 h is stable.",
+    }
+
+
+def _suggest_regression_matrix(program: RndQualificationProgram, answers: dict[str, str], specimens: List[RndQualificationSpecimen], static_reg: dict) -> dict:
+    claim_pressure = _to_float(answers.get("claim_pressure_mpa"), program.npr_mpa)
+    claim_temp = _to_float(answers.get("claim_temperature_c"), program.maot_c)
+    existing = {}
+    for s in specimens:
+        if (s.test_type or "").upper() != "STATIC_REGRESSION" or not s.pressure_mpa:
+            continue
+        key = round(float(s.pressure_mpa), 1)
+        existing[key] = existing.get(key, 0) + 1
+
+    bands = [
+        ("A", 1.55, "10 to 100 h"),
+        ("B", 1.40, "100 to 300 h"),
+        ("C", 1.28, "300 to 1000 h"),
+        ("D", 1.18, "1000 to 3000 h"),
+        ("E", 1.08, "3000 to 10000 h"),
+        ("F", 1.00, "> 10000 h"),
+    ]
+    groups = []
+    for code, factor, window in bands:
+        pressure = round(max(claim_pressure * factor, claim_pressure * 0.95), 2)
+        current = sum(v for k, v in existing.items() if abs(k - round(pressure, 1)) <= 0.2)
+        groups.append({
+            "band": code,
+            "pressure_mpa": pressure,
+            "target_window": window,
+            "target_specimens": 3 if code in {"A", "B", "C", "D"} else 4,
+            "existing_specimens": current,
+            "status": "READY" if current >= (3 if code in {"A", "B", "C", "D"} else 4) else "ADD_POINTS",
+        })
+
+    return {
+        "claim_pressure_mpa": claim_pressure,
+        "claim_temperature_c": claim_temp,
+        "recommended_points": 20,
+        "current_points": static_reg.get("count", 0),
+        "groups": groups,
+        "notes": [
+            "Use this as a planning matrix, not as a substitute for engineering review.",
+            "Spread failures across short, medium, and long durations instead of clustering at one pressure.",
+            "Keep the same temperature basis as the intended MAOT claim unless the program is explicitly a screening run.",
+        ],
+    }
+
+
+def _test_guidance_rows(program: RndQualificationProgram, tests: List[RndQualificationTest], answers: dict[str, str]) -> list[dict]:
+    gas_service = _to_bool(answers.get("service_requires_gas")) or answers.get("service_medium", "").lower() in {"gas", "multiphase"}
+    cyclic_service = _to_bool(answers.get("service_is_cyclic"))
+    hints = {
+        "MPR_REG": ("Build enough pressure levels to cover short, mid, and long-term failures.", "A mature static regression with defensible exclusions and LCL at 175000 h."),
+        "PV_1000H": ("Use only after a valid PFR relationship is defined.", "Two successful PV confirmation specimens at the required constant pressure duration."),
+        "TEMP_ELEV": ("Run at or above the claimed MAOT.", "No unacceptable damage or leakage at the qualification temperature basis."),
+        "TEMP_CYCLE": ("Use representative fittings and realistic cycle limits.", "No leakage, structural failure, or unacceptable degradation after the cycle sequence."),
+        "RAPID_DECOMP": ("Required only for gas or multiphase routes.", "Acceptable performance after decompression exposure for the intended service."),
+        "OPERATING_MBR": ("Test the handling route you will actually sell.", "Pipe and fitting system stays within acceptable damage limits at declared MBR / respooling conditions."),
+        "AXIAL_LOAD": ("Confirm the axial envelope before release.", "Declared allowable axial load is validated and recorded."),
+        "CRUSH": ("Use representative product and loading fixtures.", "No unacceptable structural damage under the required external load case."),
+        "LOW_TEMP": ("Run only if the declared low temperature requires it.", "Product remains acceptable at the claimed low-temperature basis."),
+        "IMPACT": ("Use conditioned specimens representative of the released construction.", "Impact acceptance limits are met without critical damage."),
+        "TEC": ("Track dimensional response together with temperature and pressure.", "Thermal expansion coefficient and movement data are established for design use."),
+        "GROWTH": ("Measure dimensional change under sustained pressure.", "Growth / shrinkage remains within accepted limits for the design basis."),
+        "CYCLIC_REG": ("Only run for true cyclic duty.", "Cyclic regression basis supports the intended cycle severity and rating claim."),
+    }
+    rows = []
+    for test in tests:
+        apply = "Required"
+        code = (test.code or "").upper()
+        if code == "RAPID_DECOMP" and not gas_service:
+            apply = "Not applicable"
+        if code == "CYCLIC_REG" and not cyclic_service:
+            apply = "Not applicable"
+        if code == "PV_1000H" and program.pfr_or_pv == "PFR":
+            apply = "Family-dependent"
+        why, accept = hints.get(code, (test.description or "Follow the qualification route defined in the wizard.", "Record the evidence and reviewer decision."))
+        rows.append({
+            "test": test,
+            "applicability_text": apply,
+            "operator_tip": why,
+            "acceptance_hint": accept,
+        })
+    return rows
+
+
+def _dossier_sections(program: RndQualificationProgram, checklist: list[RndChecklistItem], tests: list[RndQualificationTest], materials: list[RndMaterialQualification], attachments: list[RndAttachmentRegister], static_reg: dict, roadmap: dict, pressure_plan: dict) -> list[dict]:
+    required_checklist = [x for x in checklist if x.applicability == "REQUIRED"]
+    done_checklist = [x for x in required_checklist if x.status in {"DONE", "WAIVED"}]
+    sections = [
+        {"title": "Program basis", "ready": bool(program.program_code and program.title and roadmap.get("claim_pressure")), "detail": f"Claim {roadmap.get('claim_pressure', 0):.2f} MPa at {roadmap.get('claim_temp', 0):.0f} C."},
+        {"title": "Materials package", "ready": all((m.status or "").upper() == "APPROVED" for m in materials) and bool(materials), "detail": f"{sum(1 for m in materials if (m.status or '').upper() == 'APPROVED')} of {len(materials)} material rows approved."},
+        {"title": "Test execution", "ready": all((t.status or '').upper() in {'PASSED', 'WAIVED'} or (t.applicability == 'SERVICE_DEP' and ((t.code == 'RAPID_DECOMP' and not roadmap.get('gas_service')) or (t.code == 'CYCLIC_REG' and not roadmap.get('cyclic_service')))) for t in tests) if tests else False, "detail": f"{sum(1 for t in tests if (t.status or '').upper() in {'PASSED','WAIVED'})} of {len(tests)} test rows closed."},
+        {"title": "Regression basis", "ready": static_reg.get('count', 0) >= static_reg.get('required_minimum', 18) and static_reg.get('mpr_mpa') is not None, "detail": f"{static_reg.get('count', 0)} valid static points. Supported NPR now {pressure_plan.get('supported_npr_mpa', 0):.2f} MPa."},
+        {"title": "Evidence register", "ready": len(attachments) >= 3, "detail": f"{len(attachments)} attachments logged in the dossier register."},
+        {"title": "Checklist closeout", "ready": len(done_checklist) == len(required_checklist) and len(required_checklist) > 0, "detail": f"{len(done_checklist)} of {len(required_checklist)} required checklist items closed."},
+    ]
+    return sections
+
+
 
 def _checklist_blueprint(program: RndQualificationProgram, answers: dict[str, str]) -> list[dict]:
     claim_pressure = _to_float(answers.get("claim_pressure_mpa"), program.npr_mpa)
@@ -657,30 +795,12 @@ def rnd_dashboard(request: Request, session: Session = Depends(get_session), use
             "checklist_counts": _checklist_counts(checklist),
         })
     guide = _qualification_guide()
-    return TEMPLATES.TemplateResponse(
-        request,
-        "rnd_dashboard.html",
-        {
-            "request": request,
-            "user": user,
-            "dashboard": dashboard,
-            "guide": guide,
-            "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC,
-            "rcrt_hours": RCRT_HOURS,
-        },
-    )
+    return TEMPLATES.TemplateResponse("rnd_dashboard.html", {"request": request, "user": user, "dashboard": dashboard, "guide": guide, "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC, "rcrt_hours": RCRT_HOURS})
 
 
 @router.get("/qualifications/new")
 def rnd_new_program_form(request: Request, user: User = Depends(_require_user)):
-    return TEMPLATES.TemplateResponse(
-        request,
-        "rnd_program_form.html",
-        {
-            "request": request,
-            "user": user,
-        },
-    )
+    return TEMPLATES.TemplateResponse("rnd_program_form.html", {"request": request, "user": user})
 
 
 @router.post("/qualifications/new")
@@ -711,21 +831,7 @@ def rnd_program_wizard(program_id: int, request: Request, session: Session = Dep
     static_reg = _regression_from_specimens(specimens, "STATIC_REGRESSION", program.npr_mpa)
     roadmap = _roadmap_summary(program, answers, static_reg)
     checklist = session.exec(select(RndChecklistItem).where(RndChecklistItem.program_id == program_id).order_by(RndChecklistItem.sort_order.asc())).all()
-    return TEMPLATES.TemplateResponse(
-        request,
-        "rnd_wizard.html",
-        {
-            "request": request,
-            "user": user,
-            "program": program,
-            "sections": _wizard_sections(session, program_id),
-            "answers": answers,
-            "checklist": checklist,
-            "checklist_pct": _checklist_progress(checklist),
-            "roadmap": roadmap,
-            "guide": _qualification_guide(program),
-        },
-    )
+    return TEMPLATES.TemplateResponse("rnd_wizard.html", {"request": request, "user": user, "program": program, "sections": _wizard_sections(session, program_id), "answers": answers, "checklist": checklist, "checklist_pct": _checklist_progress(checklist), "roadmap": roadmap, "guide": _qualification_guide(program)})
 
 
 @router.post("/qualifications/{program_id}/wizard")
@@ -807,31 +913,11 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
     counts = _matrix_counts(tests)
     guide = _qualification_guide(program)
     roadmap = _roadmap_summary(program, answers, static_reg)
-    return TEMPLATES.TemplateResponse(
-        request,
-        "rnd_program_view.html",
-        {
-            "request": request,
-            "user": user,
-            "program": program,
-            "tests": tests,
-            "specimens": specimens,
-            "materials": materials,
-            "attachments": attachments,
-            "static_reg": static_reg,
-            "cyclic_reg": cyclic_reg,
-            "counts": counts,
-            "progress_pct": _status_pct(counts, len(tests)),
-            "guide": guide,
-            "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC,
-            "rcrt_hours": RCRT_HOURS,
-            "checklist": checklist,
-            "checklist_pct": _checklist_progress(checklist),
-            "checklist_counts": _checklist_counts(checklist),
-            "answers": answers,
-            "roadmap": roadmap,
-        },
-    )
+    pressure_plan = _pressure_recommendation(program, answers, static_reg, _burst_strength_summary(specimens))
+    matrix_plan = _suggest_regression_matrix(program, answers, specimens, static_reg)
+    test_guidance = _test_guidance_rows(program, tests, answers)
+    dossier_sections = _dossier_sections(program, checklist, tests, materials, attachments, static_reg, roadmap, pressure_plan)
+    return TEMPLATES.TemplateResponse("rnd_program_view.html", {"request": request, "user": user, "program": program, "tests": tests, "specimens": specimens, "materials": materials, "attachments": attachments, "static_reg": static_reg, "cyclic_reg": cyclic_reg, "counts": counts, "progress_pct": _status_pct(counts, len(tests)), "guide": guide, "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC, "rcrt_hours": RCRT_HOURS, "checklist": checklist, "checklist_pct": _checklist_progress(checklist), "checklist_counts": _checklist_counts(checklist), "answers": answers, "roadmap": roadmap, "pressure_plan": pressure_plan, "matrix_plan": matrix_plan, "test_guidance": test_guidance, "dossier_sections": dossier_sections})
 
 
 @router.post("/qualifications/{program_id}/checklist/{item_id}")
@@ -956,22 +1042,26 @@ def rnd_regression_view(program_id: int, request: Request, session: Session = De
             ratio = (program.npr_mpa / parent.npr_mpa) if parent.npr_mpa else None
             pv_formula = {"pfr_code": parent.program_code, "npr_pv": program.npr_mpa, "npr_pfr": parent.npr_mpa, "formula": "PPV1000 = PPFR1000 x (NPR_PV / NPR_PFR)", "ratio": ratio}
     guide = _qualification_guide(program)
-    return TEMPLATES.TemplateResponse(
-        request,
-        "rnd_regression_view.html",
-        {
-            "request": request,
-            "user": user,
-            "program": program,
-            "specimens": specimens,
-            "static_reg": static_reg,
-            "cyclic_reg": cyclic_reg,
-            "pv_formula": pv_formula,
-            "guide": guide,
-            "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC,
-            "rcrt_hours": RCRT_HOURS,
-        },
-    )
+    return TEMPLATES.TemplateResponse("rnd_regression_view.html", {"request": request, "user": user, "program": program, "specimens": specimens, "static_reg": static_reg, "cyclic_reg": cyclic_reg, "pv_formula": pv_formula, "guide": guide, "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC, "rcrt_hours": RCRT_HOURS})
+
+
+@router.get("/qualifications/{program_id}/report")
+def rnd_final_report(program_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
+    program = session.get(RndQualificationProgram, program_id)
+    if not program:
+        raise HTTPException(404, "Program not found")
+    _seed_test_matrix(session, program)
+    answers = _wizard_answers_map(session, program_id)
+    checklist = session.exec(select(RndChecklistItem).where(RndChecklistItem.program_id == program_id).order_by(RndChecklistItem.sort_order.asc())).all()
+    tests = session.exec(select(RndQualificationTest).where(RndQualificationTest.program_id == program_id).order_by(RndQualificationTest.sort_order.asc())).all()
+    materials = session.exec(select(RndMaterialQualification).where(RndMaterialQualification.program_id == program_id).order_by(RndMaterialQualification.id.asc())).all()
+    attachments = session.exec(select(RndAttachmentRegister).where(RndAttachmentRegister.program_id == program_id).order_by(RndAttachmentRegister.created_at.desc())).all()
+    specimens = session.exec(select(RndQualificationSpecimen).where(RndQualificationSpecimen.program_id == program_id).order_by(RndQualificationSpecimen.created_at.asc())).all()
+    static_reg = _regression_from_specimens(specimens, "STATIC_REGRESSION", program.npr_mpa)
+    roadmap = _roadmap_summary(program, answers, static_reg)
+    pressure_plan = _pressure_recommendation(program, answers, static_reg, _burst_strength_summary(specimens))
+    dossier_sections = _dossier_sections(program, checklist, tests, materials, attachments, static_reg, roadmap, pressure_plan)
+    return TEMPLATES.TemplateResponse("rnd_report.html", {"request": request, "user": user, "program": program, "roadmap": roadmap, "checklist": checklist, "tests": tests, "materials": materials, "attachments": attachments, "static_reg": static_reg, "pressure_plan": pressure_plan, "dossier_sections": dossier_sections, "checklist_pct": _checklist_progress(checklist)})
 
 
 @router.get("/qualifications/{program_id}/regression/export.csv")
