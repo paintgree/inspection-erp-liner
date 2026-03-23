@@ -1,125 +1,63 @@
 {% extends "base.html" %}
-{% block title %}R&D Qualification{% endblock %}
+{% block title %}New Qualification Program{% endblock %}
 {% block content %}
-<style>
-.rndx{display:grid;gap:18px}
-.rndx-card,.rndx-hero,.rndx-panel{background:#fff;border:1px solid #e5e7eb;border-radius:22px;box-shadow:0 10px 30px rgba(15,23,42,.05)}
-.rndx-hero,.rndx-card,.rndx-panel{padding:18px}
-.rndx-hero{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;align-items:start}
-.rndx-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.rndx-kpi{padding:14px;border:1px solid #eef2f7;border-radius:18px;background:linear-gradient(180deg,#fbfdff,#f8fbff)}
-.rndx-kpi b{display:block;font-size:12px;text-transform:uppercase;color:#64748b;letter-spacing:.08em}
-.rndx-kpi span{display:block;margin-top:8px;font-size:28px;font-weight:900;color:#0f172a}
-.rndx-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}
-.rndx-list{display:grid;gap:14px}
-.rndx-row{display:grid;gap:12px;padding:16px;border:1px solid #eef2f7;border-radius:18px;background:#fcfdff}
-.rndx-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap}
-.rndx-title{font-size:18px;font-weight:900;color:#0f172a}
-.rndx-meta{font-size:13px;color:#64748b;line-height:1.6}
-.rndx-chip{display:inline-flex;align-items:center;padding:7px 11px;border-radius:999px;font-size:12px;font-weight:900;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8}
-.rndx-chip.DRAFT{background:#f8fafc;border-color:#e2e8f0;color:#475569}.rndx-chip.RUNNING{background:#fff7ed;border-color:#fed7aa;color:#c2410c}.rndx-chip.QUALIFIED{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.rndx-chip.PARTIAL_REQUALIFICATION{background:#f5f3ff;border-color:#ddd6fe;color:#6d28d9}.rndx-chip.FAILED{background:#fef2f2;border-color:#fecaca;color:#b91c1c}
-.rndx-mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-.rndx-box{border:1px solid #eef2f7;border-radius:16px;padding:12px;background:#fff}
-.rndx-box b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}
-.rndx-box span{font-size:17px;font-weight:900;color:#0f172a}
-.rndx-progress{height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden}.rndx-progress>span{display:block;height:100%;background:linear-gradient(90deg,#4f46e5,#2563eb)}
-.rndx-actions{display:flex;gap:10px;flex-wrap:wrap}
-.rndx-note{padding:12px 14px;border-radius:16px;border:1px solid #c7d2fe;background:#eef2ff;color:#3730a3}
-.rndx-note.good{border-color:#a7f3d0;background:#ecfdf5;color:#065f46}
-.rndx-note.warn{border-color:#fed7aa;background:#fff7ed;color:#9a3412}
-.rndx-checks{display:grid;gap:10px;padding-left:18px;margin:0}
-.rndx-checks li{color:#475569}
-.rndx-pills{display:flex;gap:8px;flex-wrap:wrap}.rndx-pill{padding:8px 10px;border-radius:999px;background:#f8fafc;border:1px solid #e2e8f0;font-size:12px;font-weight:800;color:#334155}
-@media (max-width:1100px){.rndx-hero,.rndx-grid{grid-template-columns:1fr}.rndx-kpis,.rndx-mini{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media (max-width:640px){.rndx-kpis,.rndx-mini{grid-template-columns:1fr}.rndx-actions .btn{width:100%}}
-</style>
-
-<div class="rndx">
-  <section class="rndx-hero">
+<div class="card" style="max-width:980px;margin:0 auto;">
+  <div class="section-head">
     <div>
-      <h1 style="margin:0 0 8px 0;">R&amp;D Qualification Module</h1>
-      <div class="muted" style="line-height:1.7;">{{ guide.summary }}</div>
-      <div class="rndx-pills" style="margin-top:14px;">
-        <span class="rndx-pill">API 15S based workflow</span>
-        <span class="rndx-pill">PFR / PV family logic</span>
-        <span class="rndx-pill">Regression-first release control</span>
-        <span class="rndx-pill">Plain-language tips for users</span>
-      </div>
-      <div class="rndx-actions" style="margin-top:16px;">
-        <a class="btn btn-primary" href="/rnd/qualifications/new">Create qualification program</a>
-      </div>
+      <h1 style="margin:0;">New R&amp;D Qualification Program</h1>
+      <div class="muted">Use this for PFR or PV programs under API 15S.</div>
     </div>
-    <div class="rndx-panel">
-      <h3 style="margin-top:0;">Recommended structure for your LLRTP</h3>
-      <ul class="rndx-checks">
-        {% for row in guide.product_story %}
-          <li><strong>{{ row.title }}.</strong> {{ row.text }}</li>
-        {% endfor %}
-      </ul>
-      <div class="rndx-note warn" style="margin-top:12px;">Build one fully qualified PFR first, then use PV confirmation for nearby family members instead of starting every size from zero.</div>
+    <a class="btn btn-ghost" href="/rnd/qualifications">Back</a>
+  </div>
+
+  <form method="post" action="/rnd/qualifications/new" class="grid-2 mt">
+    <label>
+      Program Code
+      <input name="program_code" required placeholder="Q-4IN-10MPA-65C-PFR">
+    </label>
+    <label>
+      Title
+      <input name="title" required placeholder="4 in / 10 MPa / 65 C Qualification">
+    </label>
+    <label>
+      Nominal Size (in)
+      <input name="nominal_size_in" type="number" step="0.01" value="4">
+    </label>
+    <label>
+      NPR (MPa)
+      <input name="npr_mpa" type="number" step="0.01" value="10">
+    </label>
+    <label>
+      MAOT (°C)
+      <input name="maot_c" type="number" step="0.1" value="65">
+    </label>
+    <label>
+      LAOT (°C)
+      <input name="laot_c" type="number" step="0.1" value="0">
+    </label>
+    <label>
+      Program Type
+      <select name="pfr_or_pv">
+        <option value="PFR">PFR</option>
+        <option value="PV">PV</option>
+      </select>
+    </label>
+    <label>
+      Parent PFR Program ID (only for PV)
+      <input name="parent_program_id" type="number" step="1" placeholder="Example: 1">
+    </label>
+    <label style="grid-column:1 / -1;">
+      Intended Service
+      <input name="intended_service" value="Static water service">
+    </label>
+    <label style="grid-column:1 / -1;">
+      Notes
+      <textarea name="notes" rows="5" placeholder="Project notes, end-fitting assumptions, cyclic service notes, etc."></textarea>
+    </label>
+    <div style="grid-column:1 / -1;display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-primary" type="submit">Create Program</button>
+      <a class="btn btn-ghost" href="/rnd/qualifications">Cancel</a>
     </div>
-  </section>
-
-  <section class="rndx-kpis">
-    <div class="rndx-kpi"><b>Programs</b><span>{{ dashboard|length }}</span></div>
-    <div class="rndx-kpi"><b>Running</b><span>{{ dashboard|selectattr('program.status','equalto','RUNNING')|list|length }}</span></div>
-    <div class="rndx-kpi"><b>Qualified</b><span>{{ dashboard|selectattr('program.status','equalto','QUALIFIED')|list|length }}</span></div>
-    <div class="rndx-kpi"><b>Specimens logged</b><span>{{ dashboard|map(attribute='specimens')|map('length')|sum }}</span></div>
-  </section>
-
-  <section class="rndx-grid">
-    <div class="rndx-card">
-      <div class="section-head"><h2 style="margin:0;">Qualification programs</h2></div>
-      <div class="rndx-list">
-        {% for row in dashboard %}
-          <article class="rndx-row">
-            <div class="rndx-head">
-              <div>
-                <div class="rndx-title">{{ row.program.program_code }}</div>
-                <div class="rndx-meta">{{ row.program.title }}<br>{{ row.program.nominal_size_in }} in · {{ row.program.npr_mpa }} MPa · {{ row.program.maot_c }} °C · {{ row.program.pfr_or_pv }}</div>
-              </div>
-              <span class="rndx-chip {{ row.program.status }}">{{ row.program.status.replace('_',' ') }}</span>
-            </div>
-            <div class="rndx-mini">
-              <div class="rndx-box"><b>Static points</b><span>{{ row.static_reg.count }} / {{ row.static_reg.required_minimum }}</span></div>
-              <div class="rndx-box"><b>Excluded</b><span>{{ row.static_reg.excluded_count or 0 }}</span></div>
-              <div class="rndx-box"><b>LCL @ 175,000 h</b><span>{% if row.static_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(row.static_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</span></div>
-              <div class="rndx-box"><b>MPR</b><span>{% if row.static_reg.mpr_mpa %}{{ '%.3f'|format(row.static_reg.mpr_mpa) }} MPa{% else %}-{% endif %}</span></div>
-            </div>
-            <div>
-              <div class="muted" style="margin-bottom:6px;">Matrix completion</div>
-              <div class="rndx-progress"><span style="width: {{ row.progress_pct }}%;"></span></div>
-            </div>
-            {% if row.static_reg.pass_status %}
-              <div class="rndx-note {% if row.static_reg.pass_status == 'PASS' %}good{% else %}warn{% endif %}">
-                <strong>{{ row.static_reg.pass_status }}</strong> versus target NPR {{ row.program.npr_mpa }} MPa{% if row.static_reg.margin_mpa is not none %} · margin {{ '%+.3f'|format(row.static_reg.margin_mpa) }} MPa{% endif %}
-              </div>
-            {% endif %}
-            <div class="rndx-actions">
-              <a class="btn btn-primary" href="/rnd/qualifications/{{ row.program.id }}">Open program</a>
-              <a class="btn btn-ghost" href="/rnd/qualifications/{{ row.program.id }}/regression">Open regression</a>
-            </div>
-          </article>
-        {% else %}
-          <article class="rndx-row">
-            <div class="rndx-title">No qualification programs yet</div>
-            <div class="rndx-meta">Start with a PFR for the most demanding family member, then create PV programs only where needed.</div>
-            <div class="rndx-actions"><a class="btn btn-primary" href="/rnd/qualifications/new">Create program</a></div>
-          </article>
-        {% endfor %}
-      </div>
-    </div>
-
-    <aside class="rndx-panel">
-      <h2 style="margin-top:0;">What this module now explains</h2>
-      <div class="rndx-note">Each step should tell the user what test is needed, why it matters, what evidence to collect, and what can be waived.</div>
-      <h3>Applies to your product</h3>
-      <ul class="rndx-checks">{% for item in guide.what_applies %}<li>{{ item }}</li>{% endfor %}</ul>
-      <h3>Normally not needed</h3>
-      <ul class="rndx-checks">{% for item in guide.what_not_needed %}<li>{{ item }}</li>{% endfor %}</ul>
-      <h3>Practical tips</h3>
-      <ul class="rndx-checks">{% for item in guide.tips %}<li>{{ item }}</li>{% endfor %}</ul>
-    </aside>
-  </section>
+  </form>
 </div>
 {% endblock %}
