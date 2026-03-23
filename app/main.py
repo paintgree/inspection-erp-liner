@@ -9536,7 +9536,7 @@ def dashboard(
         "dashboard.html",
         {
             "request": request,
-            "user": request.session.get("user"),
+            "user": None,
             "grouped": grouped,
             "progress_map": progress_map,
             "mrr_stats": mrr_stats,
