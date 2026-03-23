@@ -673,7 +673,14 @@ def rnd_dashboard(request: Request, session: Session = Depends(get_session), use
 
 @router.get("/qualifications/new")
 def rnd_new_program_form(request: Request, user: User = Depends(_require_user)):
-    return TEMPLATES.TemplateResponse("rnd_program_form.html", {"request": request, "user": user})
+    return TEMPLATES.TemplateResponse(
+        request,
+        "rnd_program_form.html",
+        {
+            "request": request,
+            "user": user,
+        },
+    )
 
 
 @router.post("/qualifications/new")
