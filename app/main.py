@@ -6205,7 +6205,7 @@ def home(request: Request, session: Session = Depends(get_session)):
 
 @app.get("/login", response_class=HTMLResponse)
 def login_get(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "error": ""})
+    return templates.TemplateResponse(request, "login.html", {"request": request, "error": ""})
 
 
 @app.post("/login")
