@@ -900,7 +900,22 @@ def rnd_regression_view(program_id: int, request: Request, session: Session = De
             ratio = (program.npr_mpa / parent.npr_mpa) if parent.npr_mpa else None
             pv_formula = {"pfr_code": parent.program_code, "npr_pv": program.npr_mpa, "npr_pfr": parent.npr_mpa, "formula": "PPV1000 = PPFR1000 x (NPR_PV / NPR_PFR)", "ratio": ratio}
     guide = _qualification_guide(program)
-    return TEMPLATES.TemplateResponse("rnd_regression_view.html", {"request": request, "user": user, "program": program, "specimens": specimens, "static_reg": static_reg, "cyclic_reg": cyclic_reg, "pv_formula": pv_formula, "guide": guide, "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC, "rcrt_hours": RCRT_HOURS})
+    return TEMPLATES.TemplateResponse("rnd_regression_view.html", return TEMPLATES.TemplateResponse(
+        request,
+        "rnd_regression_view.html",
+        {
+            "request": request,
+            "user": user,
+            "program": program,
+            "specimens": specimens,
+            "static_reg": static_reg,
+            "cyclic_reg": cyclic_reg,
+            "pv_formula": pv_formula,
+            "guide": guide,
+            "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC,
+            "rcrt_hours": RCRT_HOURS,
+        },
+    )
 
 
 @router.get("/qualifications/{program_id}/regression/export.csv")
