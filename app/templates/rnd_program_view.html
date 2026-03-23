@@ -13,6 +13,7 @@
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <a class="btn btn-ghost" href="/rnd/qualifications">Back</a>
         <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/wizard">Monogram qualifier</a>
+        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/report">Final report</a>
         <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Regression center</a>
       </div>
     </div>
@@ -37,6 +38,7 @@
         <div class="qc-note"><strong>Family decision.</strong> {{ roadmap.family_decision }}</div>
         <div class="qc-note" style="margin-top:10px;"><strong>Temperature decision.</strong> {{ roadmap.temp_decision }}</div>
         <div class="qc-note" style="margin-top:10px;"><strong>Pressure advice.</strong> {{ roadmap.rating_advice }}</div>
+        <div class="qc-note {% if pressure_plan.status == "evidence_based" %}good{% endif %}" style="margin-top:10px;"><strong>System recommendation.</strong> {{ pressure_plan.message }}</div>
         {% if static_reg.pass_status %}
           <div class="{% if static_reg.pass_status == 'PASS' %}qc-status-pass{% else %}qc-status-fail{% endif %}" style="margin-top:12px;"><strong>{{ static_reg.pass_status }}</strong> versus target NPR {{ program.npr_mpa }} MPa{% if static_reg.margin_mpa is not none %} · margin {{ '%+.2f'|format(static_reg.margin_mpa) }} MPa{% endif %}</div>
         {% endif %}
@@ -75,17 +77,17 @@
       <article class="qc-card">
         <div class="section-head"><h2 style="margin:0;">Test-by-test guidance</h2></div>
         <table class="qc-table">
-          <thead><tr><th>Code</th><th>Test</th><th>Why</th><th>Status</th></tr></thead>
+          <thead><tr><th>Code</th><th>Test</th><th>Guidance</th><th>Status</th></tr></thead>
           <tbody>
-            {% for test in tests %}
+            {% for row in test_guidance %}
               <tr>
-                <td><strong>{{ test.code }}</strong></td>
-                <td>{{ test.title }}<div class="qc-small">{{ test.clause_ref }}</div></td>
-                <td>{{ test.description }}<div class="qc-small">Specimens: {{ test.specimen_requirement }}</div></td>
+                <td><strong>{{ row.test.code }}</strong><div class="qc-small">{{ row.applicability_text }}</div></td>
+                <td>{{ row.test.title }}<div class="qc-small">{{ row.test.clause_ref }}</div></td>
+                <td>{{ row.test.description }}<div class="qc-small">Tip: {{ row.operator_tip }}</div><div class="qc-small">Acceptance: {{ row.acceptance_hint }}</div><div class="qc-small">Specimens: {{ row.test.specimen_requirement }}</div></td>
                 <td>
-                  <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}" class="qc-form">
-                    <select name="status">{% for s in ['PLANNED','IN_PROGRESS','PASSED','FAILED','WAIVED'] %}<option value="{{ s }}" {% if test.status == s %}selected{% endif %}>{{ s.replace('_',' ') }}</option>{% endfor %}</select>
-                    <textarea name="result_summary" rows="2" placeholder="Result summary">{{ test.result_summary }}</textarea>
+                  <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ row.test.id }}" class="qc-form">
+                    <select name="status">{% for s in ['PLANNED','IN_PROGRESS','PASSED','FAILED','WAIVED'] %}<option value="{{ s }}" {% if row.test.status == s %}selected{% endif %}>{{ s.replace('_',' ') }}</option>{% endfor %}</select>
+                    <textarea name="result_summary" rows="2" placeholder="Result summary">{{ row.test.result_summary }}</textarea>
                     <button class="btn btn-ghost" type="submit">Save</button>
                   </form>
                 </td>
@@ -94,9 +96,41 @@
           </tbody>
         </table>
       </article>
+
+      <article class="qc-card">
+        <div class="section-head"><h2 style="margin:0;">Suggested regression matrix</h2><span class="qc-chip pending">Planning guide</span></div>
+        <div class="qc-note"><strong>Target dataset.</strong> {{ matrix_plan.current_points }} current valid points versus a planning target of {{ matrix_plan.recommended_points }} points.</div>
+        <table class="qc-table" style="margin-top:12px;">
+          <thead><tr><th>Band</th><th>Pressure</th><th>Target window</th><th>Specimens</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for row in matrix_plan.groups %}
+              <tr>
+                <td><strong>{{ row.band }}</strong></td>
+                <td>{{ '%.2f'|format(row.pressure_mpa) }} MPa</td>
+                <td>{{ row.target_window }}</td>
+                <td>{{ row.existing_specimens }} / {{ row.target_specimens }}</td>
+                <td><span class="qc-chip {% if row.status == 'READY' %}done{% else %}pending{% endif %}">{{ row.status.replace('_',' ') }}</span></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <ul class="qc-list" style="margin-top:12px;">{% for note in matrix_plan.notes %}<li>{{ note }}</li>{% endfor %}</ul>
+      </article>
     </div>
 
     <div class="qc-stack">
+      <article class="qc-card">
+        <h2 style="margin-top:0;">Pressure strategy</h2>
+        <div class="qc-mini">
+          <div class="qc-box"><b>Confidence</b><span>{{ pressure_plan.confidence }}</span></div>
+          <div class="qc-box"><b>Supported NPR now</b><span>{{ '%.2f'|format(pressure_plan.supported_npr_mpa) }} MPa</span></div>
+          <div class="qc-box"><b>Recommended target</b><span>{{ '%.2f'|format(pressure_plan.recommended_commercial_target_mpa) }} MPa</span></div>
+          <div class="qc-box"><b>Status</b><span>{{ pressure_plan.status.replace('_',' ') }}</span></div>
+        </div>
+        <div class="qc-note" style="margin-top:12px;">{{ pressure_plan.message }}</div>
+        <div class="qc-small" style="margin-top:10px;">{{ pressure_plan.next_step }}</div>
+      </article>
+
       <article class="qc-card">
         <h2 style="margin-top:0;">Regression readiness</h2>
         <div class="qc-mini">
@@ -122,6 +156,22 @@
             <button class="btn btn-ghost" type="submit">Save material</button>
           </form>
         {% endfor %}
+      </article>
+
+      <article class="qc-card">
+        <div class="section-head"><h2 style="margin:0;">Dossier readiness</h2><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/report">Open report</a></div>
+        <table class="qc-table">
+          <thead><tr><th>Section</th><th>Detail</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for row in dossier_sections %}
+              <tr>
+                <td><strong>{{ row.title }}</strong></td>
+                <td>{{ row.detail }}</td>
+                <td><span class="qc-chip {% if row.ready %}done{% else %}pending{% endif %}">{{ 'READY' if row.ready else 'PENDING' }}</span></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </article>
 
       <article class="qc-card">
