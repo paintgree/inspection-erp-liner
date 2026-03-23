@@ -657,7 +657,18 @@ def rnd_dashboard(request: Request, session: Session = Depends(get_session), use
             "checklist_counts": _checklist_counts(checklist),
         })
     guide = _qualification_guide()
-    return TEMPLATES.TemplateResponse("rnd_dashboard.html", {"request": request, "user": user, "dashboard": dashboard, "guide": guide, "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC, "rcrt_hours": RCRT_HOURS})
+    return TEMPLATES.TemplateResponse(
+        request,
+        "rnd_dashboard.html",
+        {
+            "request": request,
+            "user": user,
+            "dashboard": dashboard,
+            "guide": guide,
+            "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC,
+            "rcrt_hours": RCRT_HOURS,
+        },
+    )
 
 
 @router.get("/qualifications/new")
