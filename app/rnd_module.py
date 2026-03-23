@@ -711,7 +711,21 @@ def rnd_program_wizard(program_id: int, request: Request, session: Session = Dep
     static_reg = _regression_from_specimens(specimens, "STATIC_REGRESSION", program.npr_mpa)
     roadmap = _roadmap_summary(program, answers, static_reg)
     checklist = session.exec(select(RndChecklistItem).where(RndChecklistItem.program_id == program_id).order_by(RndChecklistItem.sort_order.asc())).all()
-    return TEMPLATES.TemplateResponse("rnd_wizard.html", {"request": request, "user": user, "program": program, "sections": _wizard_sections(session, program_id), "answers": answers, "checklist": checklist, "checklist_pct": _checklist_progress(checklist), "roadmap": roadmap, "guide": _qualification_guide(program)})
+    return TEMPLATES.TemplateResponse(
+        request,
+        "rnd_wizard.html",
+        {
+            "request": request,
+            "user": user,
+            "program": program,
+            "sections": _wizard_sections(session, program_id),
+            "answers": answers,
+            "checklist": checklist,
+            "checklist_pct": _checklist_progress(checklist),
+            "roadmap": roadmap,
+            "guide": _qualification_guide(program),
+        },
+    )
 
 
 @router.post("/qualifications/{program_id}/wizard")
@@ -793,7 +807,31 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
     counts = _matrix_counts(tests)
     guide = _qualification_guide(program)
     roadmap = _roadmap_summary(program, answers, static_reg)
-    return TEMPLATES.TemplateResponse("rnd_program_view.html", {"request": request, "user": user, "program": program, "tests": tests, "specimens": specimens, "materials": materials, "attachments": attachments, "static_reg": static_reg, "cyclic_reg": cyclic_reg, "counts": counts, "progress_pct": _status_pct(counts, len(tests)), "guide": guide, "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC, "rcrt_hours": RCRT_HOURS, "checklist": checklist, "checklist_pct": _checklist_progress(checklist), "checklist_counts": _checklist_counts(checklist), "answers": answers, "roadmap": roadmap})
+    return TEMPLATES.TemplateResponse(
+        request,
+        "rnd_program_view.html",
+        {
+            "request": request,
+            "user": user,
+            "program": program,
+            "tests": tests,
+            "specimens": specimens,
+            "materials": materials,
+            "attachments": attachments,
+            "static_reg": static_reg,
+            "cyclic_reg": cyclic_reg,
+            "counts": counts,
+            "progress_pct": _status_pct(counts, len(tests)),
+            "guide": guide,
+            "design_factor_nonmetallic": DESIGN_FACTOR_NONMETALLIC,
+            "rcrt_hours": RCRT_HOURS,
+            "checklist": checklist,
+            "checklist_pct": _checklist_progress(checklist),
+            "checklist_counts": _checklist_counts(checklist),
+            "answers": answers,
+            "roadmap": roadmap,
+        },
+    )
 
 
 @router.post("/qualifications/{program_id}/checklist/{item_id}")
