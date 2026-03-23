@@ -9720,6 +9720,7 @@ def batch_detail(batch_no: str, request: Request, session: Session = Depends(get
     avg_progress = int(sum(pcts) / max(1, len(pcts)))
 
     return templates.TemplateResponse(
+        request,
         "batch_detail.html",
         {
             "request": request,
@@ -9733,7 +9734,6 @@ def batch_detail(batch_no: str, request: Request, session: Session = Depends(get
             "itp_number": rep.itp_number or "",
         },
     )
-
 
 from sqlalchemy import or_, cast
 from sqlalchemy.types import String as SqlString
