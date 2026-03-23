@@ -1,190 +1,136 @@
 {% extends "base.html" %}
-{% block title %}Regression - {{ program.program_code }}{% endblock %}
+{% block title %}Qualification Cockpit{% endblock %}
 {% block content %}
 <style>
-.rr-wrap{display:grid;gap:18px;}
-.rr-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(300px,.8fr);gap:18px;align-items:start;}
-.rr-card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:16px;box-shadow:0 8px 28px rgba(15,23,42,.05);}
-.rr-mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}.rr-box{border:1px solid #eef2f7;border-radius:14px;padding:12px;background:#fbfdff;}.rr-box b{display:block;font-size:12px;color:#64748b;margin-bottom:6px;}
-.rr-table{width:100%;border-collapse:collapse;}.rr-table th,.rr-table td{padding:10px;border-bottom:1px solid #eaeef5;vertical-align:top;text-align:left;font-size:13px;}.rr-table th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;}
-.rr-svg{width:100%;height:420px;border:1px solid #eef2f7;border-radius:16px;background:#fff;display:block;}
-@media (max-width:960px){.rr-grid{grid-template-columns:1fr;}.rr-mini{grid-template-columns:1fr 1fr;}}
-@media (max-width:560px){.rr-mini{grid-template-columns:1fr;}}
-</style>
-
-<div class="rr-wrap">
-  <section class="rr-card">
+.qc{display:grid;gap:18px}.qc-card,.qc-hero{background:#fff;border:1px solid #e5e7eb;border-radius:24px;box-shadow:0 10px 30px rgba(15,23,42,.05);padding:20px}.qc-hero-top{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}.qc-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.qc-kpi{padding:14px;border:1px solid #e2e8f0;border-radius:18px;background:linear-gradient(180deg,#fbfdff,#f8fbff)}.qc-kpi b{display:block;font-size:12px;text-transform:uppercase;color:#64748b;letter-spacing:.08em}.qc-kpi span{display:block;margin-top:8px;font-size:24px;font-weight:900;color:#0f172a}.qc-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}.qc-stack{display:grid;gap:18px}.qc-bar{height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden}.qc-bar span{display:block;height:100%;background:linear-gradient(90deg,#10b981,#2563eb)}.qc-note{padding:13px 14px;border-radius:16px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a}.qc-note.good{border-color:#a7f3d0;background:#ecfdf5;color:#065f46}.qc-mini{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.qc-box{padding:12px;border:1px solid #e2e8f0;border-radius:16px;background:#fff}.qc-box b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}.qc-table{width:100%;border-collapse:collapse}.qc-table th,.qc-table td{padding:10px;border-bottom:1px solid #eaeef5;vertical-align:top;text-align:left}.qc-table th{font-size:12px;text-transform:uppercase;color:#64748b;letter-spacing:.08em}.qc-chip{display:inline-flex;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:900;border:1px solid #cbd5e1;background:#f8fafc;color:#334155}.qc-chip.done{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.qc-chip.na{background:#f8fafc;border-color:#e2e8f0;color:#64748b}.qc-chip.prog{background:#eff6ff;border-color:#bfdbfe;color:#1d4ed8}.qc-chip.pending{background:#fff7ed;border-color:#fed7aa;color:#c2410c}.qc-form{display:grid;gap:8px}.qc-form select,.qc-form textarea{width:100%;padding:9px 10px;border:1px solid #cbd5e1;border-radius:12px}.qc-pills{display:flex;gap:8px;flex-wrap:wrap}.qc-pill{padding:8px 10px;border-radius:999px;background:#f8fafc;border:1px solid #e2e8f0;font-size:12px;font-weight:900;color:#334155}.qc-list{display:grid;gap:8px;margin:0;padding-left:18px}.qc-small{font-size:13px;color:#64748b}.qc-status-pass{padding:12px;border-radius:16px;background:#ecfdf5;border:1px solid #a7f3d0;color:#047857}.qc-status-fail{padding:12px;border-radius:16px;background:#fef2f2;border:1px solid #fecaca;color:#b91c1c}@media (max-width:1100px){.qc-hero-top,.qc-grid{grid-template-columns:1fr}.qc-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (max-width:640px){.qc-kpis,.qc-mini{grid-template-columns:1fr}}</style>
+<div class="qc">
+  <section class="qc-hero">
     <div class="section-head">
       <div>
-        <h1 style="margin:0;">Regression Workspace</h1>
+        <h1 style="margin:0;">Qualification Cockpit</h1>
         <div class="muted">{{ program.program_code }} · {{ program.title }}</div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back to Program</a>
+        <a class="btn btn-ghost" href="/rnd/qualifications">Back</a>
+        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/wizard">Monogram qualifier</a>
+        <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Regression center</a>
       </div>
+    </div>
+
+    <div class="qc-hero-top" style="margin-top:14px;">
+      <div>
+        <div class="qc-kpis">
+          <div class="qc-kpi"><b>Program type</b><span>{{ program.pfr_or_pv }}</span></div>
+          <div class="qc-kpi"><b>Claim target</b><span>{{ program.npr_mpa }} MPa</span></div>
+          <div class="qc-kpi"><b>MAOT</b><span>{{ program.maot_c }} °C</span></div>
+          <div class="qc-kpi"><b>Checklist</b><span>{{ checklist_pct }}%</span></div>
+        </div>
+        <div style="margin-top:14px;"><div class="qc-small">Road to monogram completion</div><div class="qc-bar"><span style="width:{{ checklist_pct }}%;"></span></div></div>
+        <div class="qc-pills" style="margin-top:14px;">
+          <span class="qc-pill">Launch size {{ roadmap.launch_size|round(0)|int if roadmap.launch_size else program.nominal_size_in }} in</span>
+          {% if roadmap.sister_size %}<span class="qc-pill">Sister size {{ roadmap.sister_size|round(0)|int }} in</span>{% endif %}
+          <span class="qc-pill">{{ 'Gas / multiphase route' if roadmap.gas_service else 'Liquid / water route' }}</span>
+          <span class="qc-pill">{{ 'Cyclic service' if roadmap.cyclic_service else 'Static service' }}</span>
+        </div>
+      </div>
+      <aside>
+        <div class="qc-note"><strong>Family decision.</strong> {{ roadmap.family_decision }}</div>
+        <div class="qc-note" style="margin-top:10px;"><strong>Temperature decision.</strong> {{ roadmap.temp_decision }}</div>
+        <div class="qc-note" style="margin-top:10px;"><strong>Pressure advice.</strong> {{ roadmap.rating_advice }}</div>
+        {% if static_reg.pass_status %}
+          <div class="{% if static_reg.pass_status == 'PASS' %}qc-status-pass{% else %}qc-status-fail{% endif %}" style="margin-top:12px;"><strong>{{ static_reg.pass_status }}</strong> versus target NPR {{ program.npr_mpa }} MPa{% if static_reg.margin_mpa is not none %} · margin {{ '%+.2f'|format(static_reg.margin_mpa) }} MPa{% endif %}</div>
+        {% endif %}
+      </aside>
     </div>
   </section>
 
-  <section class="rr-grid">
-    <div style="display:grid;gap:18px;">
-      <article class="rr-card">
-        <h2 style="margin-top:0;">Static Regression</h2>
-        <div class="rr-mini">
-          <div class="rr-box"><b>Valid Points</b>{{ static_reg.count }} / {{ static_reg.required_minimum }}</div>
-          <div class="rr-box"><b>LCL @ RCRT</b>{% if static_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(static_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
-          <div class="rr-box"><b>LPL @ RCRT</b>{% if static_reg.lpl_rcrt_mpa %}{{ '%.3f'|format(static_reg.lpl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
-        </div>
-        {% if static_reg.warning %}<div class="alert alert-error mt">{{ static_reg.warning }}</div>{% endif %}
-        <svg id="static-chart" class="rr-svg" viewBox="0 0 820 420"></svg>
-      </article>
-
-      <article class="rr-card">
-        <h2 style="margin-top:0;">Cyclic Regression</h2>
-        <div class="rr-mini">
-          <div class="rr-box"><b>Valid Points</b>{{ cyclic_reg.count }} / {{ cyclic_reg.required_minimum }}</div>
-          <div class="rr-box"><b>Mean Basis</b>{% if cyclic_reg.mean_rcrt_mpa %}{{ '%.3f'|format(cyclic_reg.mean_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
-          <div class="rr-box"><b>Lower Basis</b>{% if cyclic_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(cyclic_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
-        </div>
-        {% if cyclic_reg.warning %}<div class="alert alert-error mt">{{ cyclic_reg.warning }}</div>{% endif %}
-        <svg id="cyclic-chart" class="rr-svg" viewBox="0 0 820 420"></svg>
-      </article>
-    </div>
-
-    <div style="display:grid;gap:18px;">
-      <article class="rr-card">
-        <h2 style="margin-top:0;">Calculated Summary</h2>
-        <table class="rr-table">
+  <section class="qc-grid">
+    <div class="qc-stack">
+      <article class="qc-card">
+        <div class="section-head"><h2 style="margin:0;">Checklist table</h2><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/wizard">Regenerate from wizard</a></div>
+        <table class="qc-table">
+          <thead><tr><th>Stage</th><th>Task</th><th>Acceptance / evidence</th><th>Status</th><th>Update</th></tr></thead>
           <tbody>
-            <tr><th>Design factor</th><td>{{ '%.2f'|format(static_reg.design_factor) if static_reg.design_factor is defined else '-' }}</td></tr>
-            <tr><th>MPR</th><td>{% if static_reg.mpr_mpa %}{{ '%.3f'|format(static_reg.mpr_mpa) }} MPa{% else %}-{% endif %}</td></tr>
-            <tr><th>Target NPR</th><td>{{ '%.3f'|format(static_reg.target_npr_mpa) if static_reg.target_npr_mpa else '-' }} MPa</td></tr>
-            <tr><th>Pass / fail</th><td>{% if static_reg.pass_status %}{{ static_reg.pass_status }}{% else %}Pending{% endif %}</td></tr>
-            <tr><th>Static slope</th><td>{{ '%.6f'|format(static_reg.slope) if static_reg.slope is defined else '-' }}</td></tr>
-            <tr><th>Static intercept</th><td>{{ '%.6f'|format(static_reg.intercept) if static_reg.intercept is defined else '-' }}</td></tr>
-            <tr><th>Static excluded points</th><td>{{ static_reg.excluded_count or 0 }} {% if static_reg.excluded_ids %}({{ static_reg.excluded_ids|join(', ') }}){% endif %}</td></tr>
-            <tr><th>Cyclic slope</th><td>{{ '%.6f'|format(cyclic_reg.slope) if cyclic_reg.slope is defined else '-' }}</td></tr>
-            <tr><th>Cyclic intercept</th><td>{{ '%.6f'|format(cyclic_reg.intercept) if cyclic_reg.intercept is defined else '-' }}</td></tr>
-            <tr><th>Cyclic excluded points</th><td>{{ cyclic_reg.excluded_count or 0 }} {% if cyclic_reg.excluded_ids %}({{ cyclic_reg.excluded_ids|join(', ') }}){% endif %}</td></tr>
+            {% for item in checklist %}
+              <tr>
+                <td>{{ item.stage }}</td>
+                <td><strong>{{ item.title }}</strong><div class="qc-small">{{ item.why_this_matters }}</div><div class="qc-small">{{ item.api_reference }}</div></td>
+                <td>{{ item.acceptance_rule }}<div class="qc-small">Evidence: {{ item.evidence_required }}</div></td>
+                <td><span class="qc-chip {% if item.status == 'DONE' %}done{% elif item.status == 'NOT_APPLICABLE' %}na{% elif item.status == 'IN_PROGRESS' %}prog{% else %}pending{% endif %}">{{ item.status.replace('_',' ') }}</span></td>
+                <td>
+                  <form method="post" action="/rnd/qualifications/{{ program.id }}/checklist/{{ item.id }}" class="qc-form">
+                    <select name="status">
+                      {% for s in ['PENDING','IN_PROGRESS','DONE','WAIVED','NOT_APPLICABLE'] %}<option value="{{ s }}" {% if item.status == s %}selected{% endif %}>{{ s.replace('_',' ') }}</option>{% endfor %}
+                    </select>
+                    <textarea name="notes" rows="2" placeholder="Notes">{{ item.notes }}</textarea>
+                    <button class="btn btn-ghost" type="submit">Save</button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
           </tbody>
         </table>
       </article>
 
-      {% if pv_formula %}
-      <article class="rr-card">
-        <h2 style="margin-top:0;">PV Formula Helper</h2>
-        <div class="rr-box"><b>PFR Reference</b>{{ pv_formula.pfr_code }}</div>
-        <div class="rr-box" style="margin-top:10px;"><b>Formula</b>{{ pv_formula.formula }}</div>
-        <div class="rr-box" style="margin-top:10px;"><b>Ratio NPR_PV / NPR_PFR</b>{{ '%.4f'|format(pv_formula.ratio) if pv_formula.ratio is not none else '-' }}</div>
-      </article>
-      {% endif %}
-
-      <article class="rr-card">
-        <h2 style="margin-top:0;">Specimen Points</h2>
-        <table class="rr-table">
-          <thead><tr><th>Specimen</th><th>Type</th><th>Pressure</th><th>Hours</th><th>Cycles</th><th>Failure Mode</th></tr></thead>
+      <article class="qc-card">
+        <div class="section-head"><h2 style="margin:0;">Test-by-test guidance</h2></div>
+        <table class="qc-table">
+          <thead><tr><th>Code</th><th>Test</th><th>Why</th><th>Status</th></tr></thead>
           <tbody>
-            {% for s in specimens %}
+            {% for test in tests %}
               <tr>
-                <td>{{ s.specimen_id }}</td>
-                <td>{{ s.test_type }}</td>
-                <td>{{ s.pressure_mpa }}</td>
-                <td>{{ s.failure_hours or '-' }}</td>
-                <td>{{ s.failure_cycles or '-' }}</td>
-                <td>{{ s.failure_mode or '-' }}</td>
+                <td><strong>{{ test.code }}</strong></td>
+                <td>{{ test.title }}<div class="qc-small">{{ test.clause_ref }}</div></td>
+                <td>{{ test.description }}<div class="qc-small">Specimens: {{ test.specimen_requirement }}</div></td>
+                <td>
+                  <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}" class="qc-form">
+                    <select name="status">{% for s in ['PLANNED','IN_PROGRESS','PASSED','FAILED','WAIVED'] %}<option value="{{ s }}" {% if test.status == s %}selected{% endif %}>{{ s.replace('_',' ') }}</option>{% endfor %}</select>
+                    <textarea name="result_summary" rows="2" placeholder="Result summary">{{ test.result_summary }}</textarea>
+                    <button class="btn btn-ghost" type="submit">Save</button>
+                  </form>
+                </td>
               </tr>
-            {% else %}
-              <tr><td colspan="6" class="muted">No specimens logged yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>
       </article>
     </div>
-        <article class="rr-card">
-        <h2 style="margin-top:0;">What this means</h2>
-        <p>{{ guide.summary }}</p>
-        <div class="rr-box"><b>Interpretation</b>For static qualification, review the lower confidence pressure at {{ rcrt_hours|int }} h, then apply the nonmetallic design factor {{ '%.2f'|format(design_factor_nonmetallic) }} to get MPR. Compare that MPR with the target NPR of {{ '%.3f'|format(program.npr_mpa) }} MPa.</div>
-        <div class="rr-box" style="margin-top:10px;"><b>Example</b>If LCL @ {{ rcrt_hours|int }} h = 16.0 MPa, then MPR = 16.0 x {{ '%.2f'|format(design_factor_nonmetallic) }} = 10.72 MPa. That would pass a 10 MPa product.</div>
-        <div class="rr-box" style="margin-top:10px;"><b>Avoid</b>{% for item in guide.avoid %}{{ item }}{% if not loop.last %}<br>{% endif %}{% endfor %}</div>
+
+    <div class="qc-stack">
+      <article class="qc-card">
+        <h2 style="margin-top:0;">Regression readiness</h2>
+        <div class="qc-mini">
+          <div class="qc-box"><b>Valid points</b><span>{{ static_reg.count }} / {{ static_reg.required_minimum }}</span></div>
+          <div class="qc-box"><b>LCL @ 175,000 h</b><span>{% if static_reg.lcl_rcrt_mpa %}{{ '%.2f'|format(static_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</span></div>
+          <div class="qc-box"><b>MPR</b><span>{% if static_reg.mpr_mpa %}{{ '%.2f'|format(static_reg.mpr_mpa) }} MPa{% else %}-{% endif %}</span></div>
+          <div class="qc-box"><b>Excluded</b><span>{{ static_reg.excluded_count or 0 }}</span></div>
+        </div>
+        {% if static_reg.warning %}<div class="qc-note" style="margin-top:12px;">{{ static_reg.warning }}</div>{% endif %}
+      </article>
+
+      <article class="qc-card">
+        <h2 style="margin-top:0;">Material control</h2>
+        {% for m in materials %}
+          <form method="post" action="/rnd/qualifications/{{ program.id }}/materials/{{ m.id }}" class="qc-form" style="padding-bottom:14px;margin-bottom:14px;border-bottom:1px solid #eef2f7;">
+            <strong>{{ m.component }}</strong>
+            <input name="material_name" value="{{ m.material_name }}" placeholder="Material">
+            <input name="supplier_name" value="{{ m.supplier_name }}" placeholder="Supplier">
+            <input name="grade_name" value="{{ m.grade_name }}" placeholder="Grade">
+            <input name="certificate_ref" value="{{ m.certificate_ref }}" placeholder="Certificate ref">
+            <select name="status">{% for s in ['PLANNED','IN_PROGRESS','APPROVED','REJECTED'] %}<option value="{{ s }}" {% if m.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}</select>
+            <textarea name="notes" rows="2" placeholder="Notes">{{ m.notes }}</textarea>
+            <button class="btn btn-ghost" type="submit">Save material</button>
+          </form>
+        {% endfor %}
+      </article>
+
+      <article class="qc-card">
+        <h2 style="margin-top:0;">Why the system chose this route</h2>
+        <ul class="qc-list">{% for item in roadmap.required_tests %}<li>{{ item }}</li>{% endfor %}</ul>
+        <h3 style="margin-bottom:8px;">Guidance</h3>
+        <ul class="qc-list">{% for item in guide.tips %}<li>{{ item }}</li>{% endfor %}</ul>
       </article>
     </div>
   </section>
 </div>
-
-<script>
-  function drawRegressionChart(svgId, reg, xLabel) {
-    const svg = document.getElementById(svgId);
-    if (!svg) return;
-    const width = 820, height = 420, left = 70, right = 20, top = 20, bottom = 50;
-    const plotW = width - left - right, plotH = height - top - bottom;
-    svg.innerHTML = '';
-
-    const pts = reg.points || [];
-    const lines = reg.chart_points || [];
-    if (!pts.length || !lines.length) {
-      svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#64748b" font-size="15">Not enough valid points to draw chart</text>';
-      return;
-    }
-
-    const allX = [...pts.map(p => p.x), ...lines.map(p => p.x)];
-    const allY = [];
-    pts.forEach(p => allY.push(p.y));
-    lines.forEach(p => {
-      allY.push(Math.log10(p.mean_pressure));
-      allY.push(Math.log10(p.lcl_pressure));
-      allY.push(Math.log10(p.lpl_pressure));
-    });
-
-    const xMin = Math.min(...allX), xMax = Math.max(...allX);
-    const yMin = Math.min(...allY), yMax = Math.max(...allY);
-    const xSpan = (xMax - xMin) || 1;
-    const ySpan = (yMax - yMin) || 1;
-    const sx = x => left + ((x - xMin) / xSpan) * plotW;
-    const sy = y => top + (plotH - ((y - yMin) / ySpan) * plotH);
-
-    function add(tag, attrs) {
-      const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
-      Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k, v));
-      svg.appendChild(el);
-      return el;
-    }
-
-    for (let i=0;i<6;i++) {
-      const gx = xMin + (xSpan * i / 5);
-      add('line', {x1:sx(gx), y1:top, x2:sx(gx), y2:height-bottom, stroke:'#eef2f7'});
-      const tx = add('text', {x:sx(gx), y:height-18, 'text-anchor':'middle', 'font-size':'11', fill:'#64748b'});
-      tx.textContent = gx.toFixed(2);
-    }
-    for (let i=0;i<6;i++) {
-      const gy = yMin + (ySpan * i / 5);
-      add('line', {x1:left, y1:sy(gy), x2:width-right, y2:sy(gy), stroke:'#eef2f7'});
-      const ty = add('text', {x:left-8, y:sy(gy)+4, 'text-anchor':'end', 'font-size':'11', fill:'#64748b'});
-      ty.textContent = gy.toFixed(2);
-    }
-    add('line', {x1:left, y1:height-bottom, x2:width-right, y2:height-bottom, stroke:'#94a3b8', 'stroke-width':'1.5'});
-    add('line', {x1:left, y1:top, x2:left, y2:height-bottom, stroke:'#94a3b8', 'stroke-width':'1.5'});
-
-    function poly(points, color, widthValue) {
-      add('polyline', {
-        fill:'none',
-        stroke:color,
-        'stroke-width':widthValue,
-        points: points.map(p => `${sx(p.x)},${sy(Math.log10(p.y))}`).join(' ')
-      });
-    }
-
-    poly(lines.map(p => ({x:p.x, y:p.mean_pressure})), '#2563eb', '2.5');
-    poly(lines.map(p => ({x:p.x, y:p.lcl_pressure})), '#7c3aed', '2');
-    poly(lines.map(p => ({x:p.x, y:p.lpl_pressure})), '#ef4444', '2');
-
-    pts.forEach(p => add('circle', {cx:sx(p.x), cy:sy(p.y), r:'4.5', fill:'#0f172a'}));
-
-    const xText = add('text', {x:width/2, y:height-2, 'text-anchor':'middle', 'font-size':'12', fill:'#475569'});
-    xText.textContent = `${xLabel} (log10)`;
-    const yText = add('text', {x:18, y:height/2, 'text-anchor':'middle', transform:`rotate(-90 18 ${height/2})`, 'font-size':'12', fill:'#475569'});
-    yText.textContent = 'Pressure MPa (log10)';
-  }
-
-  drawRegressionChart('static-chart', {{ static_reg|tojson }}, 'Failure hours');
-  drawRegressionChart('cyclic-chart', {{ cyclic_reg|tojson }}, 'Failure cycles');
-</script>
 {% endblock %}
