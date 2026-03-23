@@ -390,7 +390,18 @@ def rnd_dashboard(request: Request, session: Session = Depends(get_session), use
         counts = _matrix_counts(tests)
         dashboard.append({'program': program, 'tests': tests, 'specimens': specimens, 'counts': counts, 'progress_pct': _status_pct(counts, len(tests)), 'static_reg': static_reg, 'cyclic_reg': cyclic_reg})
     guide = _qualification_guide()
-    return TEMPLATES.TemplateResponse('rnd_dashboard.html', {'request': request, 'user': user, 'dashboard': dashboard, 'guide': guide, 'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC, 'rcrt_hours': RCRT_HOURS})
+    return TEMPLATES.TemplateResponse(
+        request,
+        'rnd_dashboard.html',
+        {
+            'request': request,
+            'user': user,
+            'dashboard': dashboard,
+            'guide': guide,
+            'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC,
+            'rcrt_hours': RCRT_HOURS,
+        },
+    )
 
 
 @router.get('/qualifications/new')
