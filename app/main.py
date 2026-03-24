@@ -11265,6 +11265,7 @@ def runs_list(
     )
 
     return templates.TemplateResponse(
+        request,
         "run_list.html",
         {
             "request": request,
