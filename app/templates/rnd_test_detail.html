@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Qualification Test Detail{% endblock %}
+{% block content %}
+<style>
+.td-wrap{display:grid;gap:18px}.td-card{background:#fff;border:1px solid #e5e7eb;border-radius:22px;padding:18px;box-shadow:0 10px 28px rgba(15,23,42,.05)}.td-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}.td-list{display:grid;gap:8px;padding-left:18px;margin:0}.td-box{border:1px solid #e5e7eb;border-radius:16px;padding:14px;background:#fbfdff}.muted-sm{font-size:13px;color:#64748b}@media (max-width:960px){.td-grid{grid-template-columns:1fr}}
+</style>
+<div class="td-wrap">
+  <section class="td-card">
+    <div class="section-head">
+      <div><h1 style="margin:0;">{{ test.title }}</h1><div class="muted">{{ program.program_code }} · {{ test.clause_ref }}</div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;"><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back</a><a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/reports/final">Final report</a></div>
+    </div>
+  </section>
+  <section class="td-grid">
+    <article class="td-card">
+      <div class="td-box"><strong>Objective</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.objective }}</div></div>
+      <div class="td-box" style="margin-top:12px;"><strong>Why this test is needed</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.why }}</div></div>
+      <div class="td-box" style="margin-top:12px;"><strong>How to do it</strong><ul class="td-list">{% for item in rulebook.how %}<li>{{ item }}</li>{% endfor %}</ul></div>
+      <div class="td-box" style="margin-top:12px;"><strong>Acceptance / review logic</strong><ul class="td-list">{% for item in rulebook.acceptance %}<li>{{ item }}</li>{% endfor %}</ul></div>
+    </article>
+    <aside class="td-card">
+      <div class="td-box"><strong>Clause basis</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.clause_ref }}</div></div>
+      <div class="td-box" style="margin-top:12px;"><strong>Applicability</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.applicability_note }}</div></div>
+      <div class="td-box" style="margin-top:12px;"><strong>Specimen requirement</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.specimen_requirement }}</div></div>
+      <div class="td-box" style="margin-top:12px;"><strong>What the report should show</strong><ul class="td-list">{% for item in rulebook.report_fields %}<li>{{ item }}</li>{% endfor %}</ul></div>
+    </aside>
+  </section>
+</div>
+{% endblock %}

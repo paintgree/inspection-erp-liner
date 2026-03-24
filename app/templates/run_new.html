@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block content %}
+<a class="btn btn-ghost" href="/dashboard">← Back</a>
+
+<div class="card">
+  <h1>Start New Production Run</h1>
+
+  {% if error %}
+    <div class="alert">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/runs/new">
+    <div class="grid2">
+      <div style="grid-column:1 / -1;">
+        <label>Create Layer(s)</label>
+        <div class="toolbar" style="gap:14px; flex-wrap:wrap; margin-top:8px;">
+          <label style="display:flex; gap:8px; align-items:center;">
+            <input type="checkbox" name="selected_processes" value="LINER" checked>
+            LINER
+          </label>
+          <label style="display:flex; gap:8px; align-items:center;">
+            <input type="checkbox" name="selected_processes" value="REINFORCEMENT" checked>
+            REINFORCEMENT
+          </label>
+          <label style="display:flex; gap:8px; align-items:center;">
+            <input type="checkbox" name="selected_processes" value="COVER" checked>
+            COVER
+          </label>
+        </div>
+        <div class="muted tiny mt">
+          You can create 1, 2, or all 3 layers in one step. Each layer will still be editable separately later.
+        </div>
+      </div>
+
+      <div>
+        <label>Batch No</label>
+        <input name="dhtp_batch_no" required>
+      </div>
+
+      <div>
+        <label>Client Name</label>
+        <input name="client_name" required>
+      </div>
+
+      <div>
+        <label>PO Number</label>
+        <input name="po_number" required>
+      </div>
+
+      <div>
+        <label>ITP Number</label>
+        <input name="itp_number" required>
+      </div>
+
+      <div>
+        <label>Pipe Specification</label>
+        <input name="pipe_specification" required>
+      </div>
+
+      <div style="grid-column:1 / -1;">
+        <div class="card inner mt">
+          <div class="sectiontitle accent-purple">Allowed Materials Per Layer</div>
+
+          <div class="grid3 mt">
+            <div id="linerMaterialsWrap">
+              <label>LINER Materials</label>
+              <select name="liner_material_names" multiple size="5">
+                {% for name in liner_materials %}
+                  <option value="{{ name }}">{{ name }}</option>
+                {% endfor %}
+              </select>
+              <div class="muted tiny mt">Select one or more approved RAW materials for LINER.</div>
+            </div>
+
+            <div id="reinforcementMaterialsWrap">
+              <label>REINFORCEMENT Materials</label>
+              <select name="reinforcement_material_names" multiple size="5">
+                {% for name in reinforcement_materials %}
+                  <option value="{{ name }}">{{ name }}</option>
+                {% endfor %}
+              </select>
+              <div class="muted tiny mt">Select one or more approved RAW materials for REINFORCEMENT.</div>
+            </div>
+
+            <div id="coverMaterialsWrap">
+              <label>COVER Materials</label>
+              <select name="cover_material_names" multiple size="5">
+                {% for name in cover_materials %}
+                  <option value="{{ name }}">{{ name }}</option>
+                {% endfor %}
+              </select>
+              <div class="muted tiny mt">Select one or more approved RAW materials for COVER.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label>Total Pipe Length (m)</label>
+        <input name="total_length_m" type="number" step="0.01" value="0">
+      </div>
+    </div>
+
+    <div class="mt">
+      <label style="display:flex; gap:10px; align-items:center;">
+        <input type="checkbox" name="allow_duplicate" value="1">
+        Allow duplicate line for same Batch + Process
+      </label>
+    </div>
+
+    <div class="toolbar mt">
+      <button class="btn btn-primary" type="submit">Create Run(s)</button>
+      <a class="btn" href="/dashboard">Cancel</a>
+    </div>
+  </form>
+</div>
+  <script>
+    (function () {
+      const processBoxes = Array.from(document.querySelectorAll('input[name="selected_processes"]'));
+      const linerWrap = document.getElementById('linerMaterialsWrap');
+      const reinforcementWrap = document.getElementById('reinforcementMaterialsWrap');
+      const coverWrap = document.getElementById('coverMaterialsWrap');
+
+      function checked(name) {
+        const el = processBoxes.find(x => x.value === name);
+        return !!(el && el.checked);
+      }
+
+      function syncLayerMaterialVisibility() {
+        if (linerWrap) linerWrap.style.display = checked('LINER') ? '' : 'none';
+        if (reinforcementWrap) reinforcementWrap.style.display = checked('REINFORCEMENT') ? '' : 'none';
+        if (coverWrap) coverWrap.style.display = checked('COVER') ? '' : 'none';
+      }
+
+      processBoxes.forEach(box => box.addEventListener('change', syncLayerMaterialVisibility));
+      syncLayerMaterialVisibility();
+    })();
+  </script>
+{% endblock %}
+

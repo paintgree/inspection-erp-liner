@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Regression Center{% endblock %}
+{% block content %}
+<style>
+.rr-wrap{display:grid;gap:18px}.rr-card{background:#fff;border:1px solid #e5e7eb;border-radius:22px;padding:18px;box-shadow:0 10px 28px rgba(15,23,42,.05)}.rr-grid{display:grid;grid-template-columns:1.12fr .88fr;gap:18px}.rr-mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.rr-box{border:1px solid #e5e7eb;border-radius:16px;padding:12px;background:#fbfdff}.rr-box b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}.rr-note{padding:14px 16px;border-radius:16px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a}.rr-warn{padding:14px 16px;border-radius:16px;border:1px solid #fecdd3;background:#fff1f2;color:#be123c}.rr-table{width:100%;border-collapse:collapse}.rr-table th,.rr-table td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top;font-size:13px}.rr-table th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#64748b}.rr-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.rr-form label{display:grid;gap:6px;font-size:13px;font-weight:700;color:#334155}.rr-form input,.rr-form select,.rr-form textarea{border:1px solid #cbd5e1;border-radius:12px;padding:10px 12px;font:inherit;background:#fff}.rr-svg{width:100%;height:380px;border:1px solid #eef2f7;border-radius:16px;background:#fff;display:block}.rr-links{display:grid;gap:10px}.rr-links .rr-box{padding:14px}.muted-sm{color:#64748b;font-size:13px}@media (max-width:980px){.rr-grid,.rr-mini,.rr-form{grid-template-columns:1fr}}
+</style>
+<div class="rr-wrap">
+  <section class="rr-card">
+    <div class="section-head">
+      <div><h1 style="margin:0;">Regression center</h1><div class="muted">{{ program.program_code }} · {{ program.title }}</div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;"><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back</a><a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/reports/regression">Web report</a></div>
+    </div>
+  </section>
+
+  <section class="rr-grid">
+    <article class="rr-card">
+      <h2 style="margin-top:0;">Add regression specimen</h2>
+      <div class="rr-note" style="margin-bottom:12px;">Use this page to build the dataset. The software calculates the trend, but it keeps telling you when the set is still provisional.</div>
+      <form method="post" action="/rnd/qualifications/{{ program.id }}/specimens/new" class="rr-form">
+        <label>Specimen ID<input name="specimen_id" required></label>
+        <label>Test type<select name="test_type"><option value="STATIC_REGRESSION">Static regression</option><option value="CYCLIC_REGRESSION">Cyclic regression</option></select></label>
+        <label>Sample date<input type="date" name="sample_date" value="{{ request.scope.get('date','') if false else '' }}"></label>
+        <label>Size (in)<input type="number" step="0.01" name="nominal_size_in" value="{{ program.nominal_size_in }}"></label>
+        <label>Pressure (MPa)<input type="number" step="0.001" name="pressure_mpa"></label>
+        <label>Temperature (°C)<input type="number" step="0.1" name="temperature_c" value="{{ program.maot_c }}"></label>
+        <label>Failure hours<input type="number" step="0.1" name="failure_hours"></label>
+        <label>Failure cycles<input type="number" step="1" name="failure_cycles"></label>
+        <label>Failure mode<input name="failure_mode" placeholder="burst / leak"></label>
+        <label>Fitting type<input name="fitting_type" value="Field fitting"></label>
+        <label>Lab name<input name="lab_name"></label>
+        <label>Witness<input name="witness_name"></label>
+        <label><input type="checkbox" name="permissible_failure" value="1" checked> Permissible failure</label>
+        <label><input type="checkbox" name="include_in_regression" value="1" checked> Include in regression</label>
+        <label><input type="checkbox" name="is_runout" value="1"> Runout</label>
+        <label style="grid-column:1/-1;">Notes<textarea name="notes"></textarea></label>
+        <div style="grid-column:1/-1;"><button class="btn btn-primary" type="submit">Add specimen</button></div>
+      </form>
+    </article>
+    <aside class="rr-card">
+      <h2 style="margin-top:0;">Explain these numbers</h2>
+      <div class="rr-links">
+        {% for row in explainers %}
+        <div class="rr-box"><b>{{ row.label }}</b>{{ row.text }}</div>
+        {% endfor %}
+      </div>
+    </aside>
+  </section>
+
+  <section class="rr-grid">
+    <article class="rr-card">
+      <h2 style="margin-top:0;">Static regression snapshot</h2>
+      <div class="rr-mini">
+        <div class="rr-box"><b>Valid static points</b>{{ static_reg.count }} / {{ static_reg.required_minimum }}</div>
+        <div class="rr-box"><b>{% if static_reg.provisional %}Provisional {% endif %}LCL @ 175,000 h</b>{% if static_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(static_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
+        <div class="rr-box"><b>{% if static_reg.provisional %}Provisional {% endif %}MPR @ 0.67</b>{% if static_reg.mpr_mpa %}{{ '%.3f'|format(static_reg.mpr_mpa) }} MPa{% else %}-{% endif %}</div>
+      </div>
+      {% if static_reg.warning %}<div class="rr-warn" style="margin-top:12px;">{{ static_reg.warning }}</div>{% endif %}
+      <svg id="static-chart" class="rr-svg" viewBox="0 0 820 380"></svg>
+    </article>
+    <aside class="rr-card">
+      <h2 style="margin-top:0;">Calculated summary</h2>
+      <table class="rr-table">
+        <tbody>
+          <tr><th>Formula</th><td>{{ static_reg.formula_text or '-' }}</td></tr>
+          <tr><th>Slope</th><td>{{ '%.6f'|format(static_reg.slope) if static_reg.slope is defined else '-' }}</td></tr>
+          <tr><th>Intercept</th><td>{{ '%.6f'|format(static_reg.intercept) if static_reg.intercept is defined else '-' }}</td></tr>
+          <tr><th>Target NPR</th><td>{{ '%.3f'|format(program.npr_mpa) }} MPa</td></tr>
+          <tr><th>Pass / fail</th><td>{{ static_reg.pass_status or 'Pending' }}</td></tr>
+          <tr><th>Excluded points</th><td>{{ static_reg.excluded_count }}{% if static_reg.excluded_ids %} ({{ static_reg.excluded_ids|join(', ') }}){% endif %}</td></tr>
+        </tbody>
+      </table>
+      <div class="rr-note" style="margin-top:12px;">LCL can be much higher than the target NPR because it is the long-term strength basis before the design factor is applied. With too few points, the software treats it as provisional and does not present it as a final qualification claim.</div>
+    </aside>
+  </section>
+
+  <section class="rr-grid">
+    <article class="rr-card">
+      <h2 style="margin-top:0;">Specimen log</h2>
+      <table class="rr-table">
+        <thead><tr><th>Specimen</th><th>Type</th><th>Pressure</th><th>Hours</th><th>Cycles</th><th>Mode</th><th></th></tr></thead>
+        <tbody>
+          {% for s in specimens %}
+          <tr>
+            <td>{{ s.specimen_id }}</td><td>{{ s.test_type }}</td><td>{{ s.pressure_mpa }}</td><td>{{ s.failure_hours or '-' }}</td><td>{{ s.failure_cycles or '-' }}</td><td>{{ s.failure_mode or '-' }}</td>
+            <td>
+              <form method="post" action="/rnd/qualifications/{{ program.id }}/specimens/{{ s.id }}/delete" data-noajax="1"><button class="btn btn-ghost" type="submit">Delete</button></form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="muted-sm">No specimens logged yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </article>
+    <aside class="rr-card">
+      <h2 style="margin-top:0;">Cyclic snapshot</h2>
+      <div class="rr-mini">
+        <div class="rr-box"><b>Valid cyclic points</b>{{ cyclic_reg.count }} / {{ cyclic_reg.required_minimum }}</div>
+        <div class="rr-box"><b>Lower cyclic basis</b>{% if cyclic_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(cyclic_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
+        <div class="rr-box"><b>Status</b>{% if cyclic_reg.warning %}Immature{% else %}Monitoring{% endif %}</div>
+      </div>
+      {% if cyclic_reg.warning %}<div class="rr-warn" style="margin-top:12px;">{{ cyclic_reg.warning }}</div>{% endif %}
+      {% if pv_formula %}<div class="rr-note" style="margin-top:12px;">PV helper: {{ pv_formula.formula }}{% if pv_formula.ratio is not none %} · Ratio = {{ '%.4f'|format(pv_formula.ratio) }}{% endif %}</div>{% endif %}
+    </aside>
+  </section>
+</div>
+<script>
+function drawRegressionChart(svgId, reg) {
+  const svg = document.getElementById(svgId);
+  if (!svg) return;
+  const width = 820, height = 380, left = 70, right = 20, top = 20, bottom = 50;
+  const plotW = width - left - right, plotH = height - top - bottom;
+  svg.innerHTML = '';
+  const pts = reg.points || [];
+  const lines = reg.chart_points || [];
+  if (!pts.length || !lines.length) {
+    svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#64748b" font-size="15">Not enough valid points to draw chart</text>';
+    return;
+  }
+  const allX = [...pts.map(p => p.x), ...lines.map(p => p.x)];
+  const allY = [];
+  pts.forEach(p => allY.push(p.y));
+  lines.forEach(p => { allY.push(Math.log10(p.mean_pressure)); allY.push(Math.log10(p.lcl_pressure)); });
+  const xMin = Math.min(...allX), xMax = Math.max(...allX), yMin = Math.min(...allY), yMax = Math.max(...allY);
+  const sx = x => left + ((x - xMin) / ((xMax - xMin) || 1)) * plotW;
+  const sy = y => top + (plotH - ((y - yMin) / ((yMax - yMin) || 1)) * plotH);
+  function add(tag, attrs) { const el = document.createElementNS('http://www.w3.org/2000/svg', tag); Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k, v)); svg.appendChild(el); return el; }
+  for (let i=0;i<6;i++) { const gx=xMin+((xMax-xMin)*i/5); add('line',{x1:sx(gx),y1:top,x2:sx(gx),y2:height-bottom,stroke:'#eef2f7'}); const tx=add('text',{x:sx(gx),y:height-18,'text-anchor':'middle','font-size':'11',fill:'#64748b'}); tx.textContent=gx.toFixed(2); }
+  for (let i=0;i<6;i++) { const gy=yMin+((yMax-yMin)*i/5); add('line',{x1:left,y1:sy(gy),x2:width-right,y2:sy(gy),stroke:'#eef2f7'}); const ty=add('text',{x:left-8,y:sy(gy)+4,'text-anchor':'end','font-size':'11',fill:'#64748b'}); ty.textContent=gy.toFixed(2); }
+  add('line',{x1:left,y1:height-bottom,x2:width-right,y2:height-bottom,stroke:'#94a3b8'}); add('line',{x1:left,y1:top,x2:left,y2:height-bottom,stroke:'#94a3b8'});
+  add('polyline',{fill:'none',stroke:'#2563eb','stroke-width':'2.5',points:lines.map(p=>`${sx(p.x)},${sy(Math.log10(p.mean_pressure))}`).join(' ')});
+  add('polyline',{fill:'none',stroke:'#7c3aed','stroke-width':'2',points:lines.map(p=>`${sx(p.x)},${sy(Math.log10(p.lcl_pressure))}`).join(' ')});
+  pts.forEach(p => add('circle',{cx:sx(p.x),cy:sy(p.y),r:'4.5',fill:'#0f172a'}));
+}
+drawRegressionChart('static-chart', {{ static_reg|tojson }});
+</script>
+{% endblock %}

@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Qualification Execution Flow{% endblock %}
+{% block content %}
+<style>
+.rnd-wrap{display:grid;gap:18px}.rnd-card{background:#fff;border:1px solid #e5e7eb;border-radius:22px;box-shadow:0 10px 28px rgba(15,23,42,.05);padding:18px}.rnd-top{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}.rnd-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}.rnd-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}.rnd-kpi{border:1px solid #e5e7eb;border-radius:16px;padding:14px;background:#fcfcff}.rnd-kpi b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}.rnd-progress{height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden;margin-top:12px}.rnd-progress>span{display:block;height:100%;background:linear-gradient(90deg,#10b981,#4f46e5)}.rnd-steps{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.rnd-step{padding:7px 12px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8}.rnd-step.active{background:#4f46e5;color:#fff;border-color:#4f46e5}.rnd-note{padding:14px 16px;border-radius:16px;border:1px solid #bfdbfe;background:#eff6ff;color:#1e3a8a}.rnd-warn{padding:14px 16px;border-radius:16px;border:1px solid #fecdd3;background:#fff1f2;color:#be123c}.rnd-ok{padding:14px 16px;border-radius:16px;border:1px solid #a7f3d0;background:#ecfdf5;color:#047857}.rnd-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.rnd-form label{display:grid;gap:6px;font-size:13px;font-weight:700;color:#334155}.rnd-form input,.rnd-form select,.rnd-form textarea{border:1px solid #cbd5e1;border-radius:12px;padding:10px 12px;font:inherit;background:#fff}.rnd-form textarea{min-height:94px;resize:vertical}.rnd-table{width:100%;border-collapse:collapse}.rnd-table th,.rnd-table td{padding:10px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top;text-align:left;font-size:13px}.rnd-table th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#64748b}.rnd-chip{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800;background:#eef2ff;color:#4338ca}.rnd-chip.warn{background:#fff7ed;color:#c2410c}.rnd-chip.bad{background:#fff1f2;color:#be123c}.rnd-chip.ok{background:#ecfdf5;color:#047857}.rnd-actions{display:flex;gap:10px;flex-wrap:wrap}.rnd-list{display:grid;gap:8px;padding-left:18px;margin:0}.muted-small{font-size:13px;color:#64748b}.link-grid{display:grid;gap:10px}.link-card{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:12px 14px;border:1px solid #e5e7eb;border-radius:16px;background:#fbfdff}.link-card b{display:block}.section-title{margin:0 0 6px 0;font-size:22px;font-weight:900}@media (max-width:980px){.rnd-top,.rnd-grid,.rnd-kpis,.rnd-form{grid-template-columns:1fr}}
+</style>
+<div class="rnd-wrap">
+  <section class="rnd-card">
+    <div class="section-head">
+      <div>
+        <h1 class="section-title">Road to API Monogram</h1>
+        <div class="muted">{{ program.program_code }} · {{ program.title }}</div>
+      </div>
+      <div class="rnd-actions">
+        <a class="btn btn-ghost" href="/rnd/qualifications">Back</a>
+        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/regression">Regression center</a>
+        <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/reports/final">Open final report</a>
+      </div>
+    </div>
+    <div class="rnd-kpis">
+      <div class="rnd-kpi"><b>Program type</b>{{ program.pfr_or_pv }}</div>
+      <div class="rnd-kpi"><b>Claim target</b>{{ '%.2f'|format(program.npr_mpa) }} MPa</div>
+      <div class="rnd-kpi"><b>MAOT</b>{{ '%.1f'|format(program.maot_c) }} °C</div>
+      <div class="rnd-kpi"><b>Current stage</b>{{ flow.current|replace('_',' ')|title }}</div>
+    </div>
+    <div class="rnd-progress"><span style="width:{{ flow.progress_pct }}%"></span></div>
+    <div class="rnd-steps">
+      <span class="rnd-step active">Wizard</span>
+      <span class="rnd-step {% if flow.current in ['materials','burst','regression','review'] %}active{% endif %}">Materials</span>
+      <span class="rnd-step {% if flow.current in ['burst','regression','review'] %}active{% endif %}">Burst screen</span>
+      <span class="rnd-step {% if flow.current in ['regression','review'] %}active{% endif %}">Regression</span>
+      <span class="rnd-step {% if flow.current == 'review' %}active{% endif %}">Reports</span>
+    </div>
+  </section>
+
+  <section class="rnd-top">
+    <article class="rnd-card">
+      <h2 style="margin-top:0;">Step 1 · Qualification wizard</h2>
+      <div class="rnd-note" style="margin-bottom:14px;">This is the route-definition step. The system uses these answers to decide whether rapid decompression and cyclic regression apply, and whether the family logic should stay PFR + PV.</div>
+      <form method="post" action="/rnd/qualifications/{{ program.id }}/wizard/save" class="rnd-form">
+        <label>Launch size (in)
+          <input name="launch_size_in" value="{{ wizard.answers.launch_size_in or ('%.0f'|format(program.nominal_size_in)) }}">
+        </label>
+        <label>Sister size (in)
+          <input name="sister_size_in" value="{{ wizard.answers.sister_size_in or '6' }}">
+        </label>
+        <label>Target NPR (MPa)
+          <input type="number" step="0.01" name="npr_mpa" value="{{ program.npr_mpa }}">
+        </label>
+        <label>Target MAOT (°C)
+          <input type="number" step="0.1" name="maot_c" value="{{ program.maot_c }}">
+        </label>
+        <label>Program type
+          <select name="pfr_or_pv"><option value="PFR" {% if program.pfr_or_pv=='PFR' %}selected{% endif %}>PFR</option><option value="PV" {% if program.pfr_or_pv=='PV' %}selected{% endif %}>PV</option></select>
+        </label>
+        <label>Service route
+          <select name="service_route"><option value="static_liquid" {% if wizard.decision.service_route=='static_liquid' %}selected{% endif %}>Static liquid</option><option value="gas_multiphase" {% if wizard.decision.service_route=='gas_multiphase' %}selected{% endif %}>Gas / multiphase</option></select>
+        </label>
+        <label>Intended service
+          <input name="intended_service" value="{{ program.intended_service }}">
+        </label>
+        <label>Cyclic service?
+          <select name="cyclic_service"><option value="no" {% if wizard.decision.cyclic_service=='no' %}selected{% endif %}>No</option><option value="yes" {% if wizard.decision.cyclic_service=='yes' %}selected{% endif %}>Yes</option></select>
+        </label>
+        <div style="grid-column:1/-1;"><button class="btn btn-primary" type="submit">Save route decision</button></div>
+      </form>
+    </article>
+    <aside class="rnd-card">
+      <h2 style="margin-top:0;">System decisions</h2>
+      <div class="link-grid">
+        <div class="link-card"><div><b>Family</b><div class="muted-small">{{ wizard.decision.family_decision }}</div></div></div>
+        <div class="link-card"><div><b>Service route</b><div class="muted-small">{{ wizard.decision.service_decision }}</div></div></div>
+        <div class="link-card"><div><b>Cyclic route</b><div class="muted-small">{{ wizard.decision.cyclic_decision }}</div></div></div>
+        <div class="link-card"><div><b>Temperature</b><div class="muted-small">{{ wizard.decision.temperature_decision }}</div></div></div>
+      </div>
+    </aside>
+  </section>
+
+  <section class="rnd-grid">
+    <article class="rnd-card">
+      <h2 style="margin-top:0;">Step 2 · Material qualification</h2>
+      <div class="rnd-note" style="margin-bottom:12px;">{{ material_state.headline }}</div>
+      <div class="muted-small" style="margin-bottom:12px;">{{ material_state.standard_basis }}</div>
+      {% for row in material_state.rows %}
+      <form method="post" action="/rnd/qualifications/{{ program.id }}/materials/{{ row.row.id }}" class="rnd-form" style="margin-bottom:16px;padding:14px;border:1px solid #e5e7eb;border-radius:18px;background:#fbfdff;">
+        <div style="grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+          <div><strong>{{ row.row.component }}</strong><div class="muted-small">{{ row.evidence_hint }}</div></div>
+          <span class="rnd-chip {% if row.ready %}ok{% else %}warn{% endif %}">{{ 'Ready' if row.ready else 'Missing data' }}</span>
+        </div>
+        <label>Material name<input name="material_name" value="{{ row.row.material_name }}"></label>
+        <label>Supplier<input name="supplier_name" value="{{ row.row.supplier_name }}"></label>
+        <label>Grade<input name="grade_name" value="{{ row.row.grade_name }}"></label>
+        <label>Certificate ref<input name="certificate_ref" value="{{ row.row.certificate_ref }}"></label>
+        <label>Batch ref<input name="batch_ref" value="{{ row.row.batch_ref }}"></label>
+        <label>Status<select name="status"><option value="PLANNED" {% if row.row.status=='PLANNED' %}selected{% endif %}>Planned</option><option value="REVIEW" {% if row.row.status=='REVIEW' %}selected{% endif %}>Review</option><option value="ACCEPTED" {% if row.row.status=='ACCEPTED' %}selected{% endif %}>Accepted</option></select></label>
+        <label style="grid-column:1/-1;">Engineering note / compatibility hint<textarea name="notes">{{ row.row.notes }}</textarea></label>
+        {% if row.missing %}<div class="rnd-warn" style="grid-column:1/-1;">Missing: {{ row.missing|join(', ') }}</div>{% endif %}
+        <div style="grid-column:1/-1;"><button class="btn btn-primary" type="submit">Save {{ row.row.component|lower }}</button></div>
+      </form>
+      {% endfor %}
+      <div class="rnd-actions"><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/reports/materials">Open material report</a></div>
+    </article>
+
+    <aside class="rnd-card">
+      <h2 style="margin-top:0;">Step 3 · Burst screening</h2>
+      <div class="rnd-note" style="margin-bottom:12px;">{{ burst_state.headline }}</div>
+      <div class="rnd-card" style="padding:14px;border-radius:18px;border:1px solid #e5e7eb;background:#fbfdff;box-shadow:none;">
+        <strong>Why {{ '%.3f'|format(burst_state.explainer.threshold_mpa) }} MPa appears</strong>
+        <div class="muted-small" style="margin-top:8px;">{{ burst_state.explainer.formula }}</div>
+        <div class="muted-small" style="margin-top:8px;">{{ burst_state.explainer.why }}</div>
+        <div class="muted-small" style="margin-top:8px;">{{ burst_state.explainer.standard_note }}</div>
+      </div>
+      <form method="post" action="/rnd/qualifications/{{ program.id }}/burst/add" class="rnd-form" style="margin-top:14px;">
+        <label>Specimen ID<input name="specimen_id" placeholder="B-01"></label>
+        <label>Burst pressure (MPa)<input type="number" step="0.001" name="pressure_mpa"></label>
+        <label>Test temperature (°C)<input type="number" step="0.1" name="temperature_c" value="{{ program.maot_c }}"></label>
+        <label>Failure mode<select name="failure_mode"><option value="burst">Burst</option><option value="rupture">Rupture</option><option value="leak">Leak</option><option value="fitting">Fitting issue</option></select></label>
+        <label style="grid-column:1/-1;">Notes<textarea name="notes"></textarea></label>
+        <div style="grid-column:1/-1;"><button class="btn btn-primary" type="submit">Add burst result</button></div>
+      </form>
+      <div style="margin-top:12px;"><span class="rnd-chip {% if burst_state.complete %}ok{% else %}warn{% endif %}">{{ burst_state.accepted_count }} / {{ burst_state.required_count }} accepted</span></div>
+      <table class="rnd-table" style="margin-top:12px;">
+        <thead><tr><th>Specimen</th><th>Pressure</th><th>Status</th><th>Flags</th></tr></thead>
+        <tbody>
+          {% for row in burst_state.rows %}
+          <tr>
+            <td>{{ row.specimen.specimen_id }}</td>
+            <td>{{ row.specimen.pressure_mpa }}</td>
+            <td><span class="rnd-chip {% if row.status=='ACCEPTED' %}ok{% else %}bad{% endif %}">{{ row.status }}</span></td>
+            <td>{% if row.flags %}{{ row.flags|join(' | ') }}{% else %}Accepted{% endif %}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="4" class="muted-small">No burst specimens yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="rnd-actions" style="margin-top:12px;"><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/reports/burst">Open burst report</a></div>
+    </aside>
+  </section>
+
+  <section class="rnd-grid">
+    <article class="rnd-card">
+      <h2 style="margin-top:0;">Step 4 · API 15S qualification tests</h2>
+      <div class="muted-small" style="margin-bottom:12px;">These are the qualification items seeded into the route. Open any item to see why it is needed, how to execute it, what inputs belong in the report, and whether it is active or conditional.</div>
+      <table class="rnd-table">
+        <thead><tr><th>Test</th><th>Clause</th><th>Specimens</th><th>System status</th><th></th></tr></thead>
+        <tbody>
+          {% for row in matrix_rows %}
+          <tr>
+            <td><strong>{{ row.test.title }}</strong><div class="muted-small">{{ row.test.description }}</div></td>
+            <td>{{ row.test.clause_ref }}</td>
+            <td>{{ row.test.specimen_requirement }}</td>
+            <td><span class="rnd-chip {% if row.ui_status in ['PASSED','REVIEW','IN_PROGRESS'] %}ok{% elif row.ui_status in ['BLOCKED','NOT_APPLICABLE'] %}warn{% endif %}">{{ row.ui_status|replace('_',' ') }}</span></td>
+            <td><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/tests/{{ row.test.id }}">Open</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </article>
+
+    <aside class="rnd-card">
+      <h2 style="margin-top:0;">Step 5 · Regression and reports</h2>
+      {% if static_reg.warning %}<div class="rnd-warn" style="margin-bottom:12px;">{{ static_reg.warning }}</div>{% endif %}
+      <div class="link-grid">
+        <div class="link-card"><div><b>Valid static points</b><div class="muted-small">{{ static_reg.count }} / {{ static_reg.required_minimum }}</div></div></div>
+        <div class="link-card"><div><b>Provisional LCL @ 175,000 h</b><div class="muted-small">{% if static_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(static_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div></div></div>
+        <div class="link-card"><div><b>Provisional MPR</b><div class="muted-small">{% if static_reg.mpr_mpa %}{{ '%.3f'|format(static_reg.mpr_mpa) }} MPa{% else %}-{% endif %}</div></div></div>
+      </div>
+      <div class="rnd-note" style="margin-top:12px;">If the regression set is immature, the software still calculates the line so you can monitor the trend, but it clearly labels LCL and MPR as provisional until the dataset is qualification-ready.</div>
+      <div class="rnd-actions" style="margin-top:14px;">
+        <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Open regression center</a>
+        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/reports/regression">Open regression report</a>
+      </div>
+      <div class="rnd-actions" style="margin-top:10px;"><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/reports/final">Open final web report</a></div>
+    </aside>
+  </section>
+</div>
+{% endblock %}
