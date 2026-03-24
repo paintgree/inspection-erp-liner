@@ -3260,6 +3260,7 @@ def burst_dashboard(request: Request, session: Session = Depends(get_session)):
         result_map[r.id] = result_value
 
     return templates.TemplateResponse(
+        request,
         "burst_dashboard.html",
         {
             "request": request,
@@ -3293,6 +3294,7 @@ def burst_new(request: Request, session: Session = Depends(get_session)):
     # Some templates use "runs", others use "cover_runs".
     # Send BOTH so the dropdown never becomes empty بسبب اختلاف الاسم.
     return templates.TemplateResponse(
+        request,
         "burst_new.html",
         {
             "request": request,
@@ -3656,6 +3658,7 @@ def burst_edit(report_id: int, request: Request, session: Session = Depends(get_
     )
 
     return templates.TemplateResponse(
+        request,
         "burst_edit.html",
         {
             "request": request,
@@ -3845,6 +3848,7 @@ def burst_view(report_id: int, request: Request, session: Session = Depends(get_
     
 
     return templates.TemplateResponse(
+        request,
         "burst_view.html",
         {
             "request": request,
@@ -6228,6 +6232,7 @@ def login_post(
 
     if not user or not verify_password(password, user.password_hash):
         return templates.TemplateResponse(
+            request,
             "login.html",
             {
                 "request": request,
@@ -6237,6 +6242,7 @@ def login_post(
 
     if getattr(user, "is_locked", False):
         return templates.TemplateResponse(
+            request,
             "login.html",
             {
                 "request": request,
@@ -6303,6 +6309,7 @@ def users_get(request: Request, session: Session = Depends(get_session)):
         })
 
     return templates.TemplateResponse(
+        request,
         "users.html",
         {
             "request": request,
@@ -6385,6 +6392,7 @@ def user_edit_page(
     effective = _effective_access_for_user(target)
 
     return templates.TemplateResponse(
+        request,
         "user_edit.html",
         {
             "request": request,
@@ -7549,6 +7557,7 @@ def rfi_dashboard(
         )
 
     return templates.TemplateResponse(
+        request,
         "rfi_dashboard.html",
         {
             "request": request,
@@ -7653,6 +7662,7 @@ def rfi_detail(
     scope_docs = _build_rfi_scope_documents(session, rec, package, attachments)
 
     return templates.TemplateResponse(
+        request,
         "rfi_detail.html",
         {
             "request": request,
@@ -8076,6 +8086,7 @@ def final_dashboard(request: Request, session: Session = Depends(get_session)):
     summaries.sort(key=lambda x: x["batch_no"])
 
     return templates.TemplateResponse(
+        request,
         "final_dashboard.html",
         {
             "request": request,
@@ -8105,6 +8116,7 @@ def final_batch_view(batch_no: str, request: Request, session: Session = Depends
     ).first()
 
     return templates.TemplateResponse(
+        request,
         "final_view.html",
         {
             "request": request,
@@ -9008,6 +9020,7 @@ def hydro_dashboard(
         ).all()
 
     return templates.TemplateResponse(
+        request,
         "hydro_dashboard.html",
         {
             "request": request,
@@ -9038,6 +9051,7 @@ def hydro_batch_view(batch_no: str, request: Request, session: Session = Depends
             edit_record = None
 
     return templates.TemplateResponse(
+        request,
         "hydro_view.html",
         {
             "request": request,
@@ -9638,6 +9652,7 @@ def my_profile(
     user = get_current_user(request, session)
 
     return templates.TemplateResponse(
+        request,
         "me.html",
         {
             "request": request,
@@ -9724,6 +9739,7 @@ def batch_detail(batch_no: str, request: Request, session: Session = Depends(get
     avg_progress = int(sum(pcts) / max(1, len(pcts)))
 
     return templates.TemplateResponse(
+        request,
         "batch_detail.html",
         {
             "request": request,
@@ -9785,6 +9801,7 @@ def mrr_reports_list(request: Request, session: Session = Depends(get_session)):
         reports = filtered
 
     return templates.TemplateResponse(
+        request,
         "mrr_reports_list.html",
         {
             "request": request,
@@ -9884,6 +9901,7 @@ def mrr_tickets_list(request: Request, session: Session = Depends(get_session)):
             docs_status_map[tid] = "Done" if has_po else "Pending"
 
     return templates.TemplateResponse(
+        request,
         "mrr_list.html",
         {
             "request": request,
@@ -9929,6 +9947,7 @@ def mrr_list_canceled(request: Request, session: Session = Depends(get_session))
         inspection_map = {i.ticket_id: i for i in inspections}
 
     return templates.TemplateResponse(
+        request,
         "mrr_list.html",
         {
             "request": request,
@@ -9947,6 +9966,7 @@ def mrr_new_get(request: Request, session: Session = Depends(get_session)):
     require_manager(user)
 
     return templates.TemplateResponse(
+        request,
         "mrr_new.html",
         {
             "request": request,
@@ -10174,6 +10194,7 @@ def mrr_view(lot_id: int, request: Request, session: Session = Depends(get_sessi
     insp_ok = bool(inspection and getattr(inspection, "manager_approved", False))
 
     return templates.TemplateResponse(
+        request,
         "mrr_view.html",
         {
             "request": request,
@@ -10271,6 +10292,7 @@ def mrr_docs_page(
             pass
 
     return templates.TemplateResponse(
+        request,
         "mrr_doc_upload.html",
         {
             "request": request,
@@ -10750,6 +10772,7 @@ def mrr_pending(request: Request, session: Session = Depends(get_session)):
         lot_map = {l.id: l for l in lots}
 
     return templates.TemplateResponse(
+        request,
         "mrr_pending.html",
         {
             "request": request,
@@ -10818,6 +10841,7 @@ def new_shipment_inspection_page(
 
     # If everything ok -> show your existing "new shipment" page
     return templates.TemplateResponse(
+        request,
         "mrr_new_shipment.html",
         {
             "request": request,
@@ -11292,6 +11316,7 @@ def run_new_get(request: Request, session: Session = Depends(get_session)):
     cover_materials = _approved_raw_material_names_by_layer(session, "COVER")
     
     return templates.TemplateResponse(
+        request,
         "run_new.html",
         {
             "request": request,
@@ -11353,6 +11378,7 @@ def run_new_post(
         if not material_map.get(process):
             msg = f"Please select at least one approved material for {process}."
             return templates.TemplateResponse(
+                request,
                 "run_new.html",
                 {
                     "request": request,
@@ -11365,6 +11391,7 @@ def run_new_post(
 
     if not ordered:
         return templates.TemplateResponse(
+            request,
             "run_new.html",
             {
                 "request": request,
@@ -11390,6 +11417,7 @@ def run_new_post(
 
         if existing_open and allow_duplicate != "1":
             return templates.TemplateResponse(
+                request,
                 "run_new.html",
                 {
                     "request": request,
@@ -11572,6 +11600,7 @@ def run_view(run_id: int, request: Request, session: Session = Depends(get_sessi
         progress = get_progress_percent(session, run)
 
         return templates.TemplateResponse(
+            request,
             "run_view.html",
             {
                 "request": request,
@@ -11694,6 +11723,7 @@ def run_edit_get(run_id: int, request: Request, session: Session = Depends(get_s
     ).all()
 
     return templates.TemplateResponse(
+        request,
         "run_edit.html",
         {"request": request, "user": user, "run": run, "machines": machines, "params": params, "error": ""},
     )
@@ -11816,6 +11846,7 @@ def entry_new_get(run_id: int, request: Request, session: Session = Depends(get_
     today_lot = get_latest_material_lot_for_run(session, run_id)
 
     return templates.TemplateResponse(
+        request,
         "entry_new.html",
         {
             "request": request,
@@ -12129,6 +12160,7 @@ def fill_missing_value_get(
         return RedirectResponse(f"/values/{existing.id}/edit", status_code=302)
 
     return templates.TemplateResponse(
+        request,
         "value_fill.html",
         {"request": request, "user": user, "run": run, "entry": entry, "param": param, "error": ""},
     )
@@ -12233,6 +12265,7 @@ def value_edit_get(value_id: int, request: Request, session: Session = Depends(g
     ).first()
 
     return templates.TemplateResponse(
+        request,
         "value_edit.html",
         {"request": request, "user": user, "run": run, "entry": entry, "param": param, "v": v, "error": ""},
     )
@@ -12313,6 +12346,7 @@ def pending_list(run_id: int, request: Request, session: Session = Depends(get_s
             pending_items.append({"value": v, "entry": emap.get(v.entry_id), "param": pmap.get(v.param_key)})
 
     return templates.TemplateResponse(
+        request,
         "pending_list.html",
         {"request": request, "user": user, "run": run, "items": pending_items},
     )
