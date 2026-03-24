@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block content %}
+<a class="btn btn-ghost" href="/runs/{{ run.id }}">← Back</a>
+
+<div class="card">
+  <h1>Edit Run — {{ run.process }} / Batch {{ run.dhtp_batch_no }}</h1>
+
+  {% if error %}
+    <div class="alert">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/runs/{{ run.id }}/edit">
+    <div class="card inner">
+      <h2>Header</h2>
+      <div class="grid2">
+        <div><label>Client Name</label><input name="client_name" value="{{ run.client_name }}" required></div>
+        <div><label>PO Number</label><input name="po_number" value="{{ run.po_number }}" required></div>
+
+        <div><label>ITP Number</label><input name="itp_number" value="{{ run.itp_number }}" required></div>
+        <div><label>Pipe Specification</label><input name="pipe_specification" value="{{ run.pipe_specification }}" required></div>
+
+        <div><label>Raw Material Spec</label><input name="raw_material_spec" value="{{ run.raw_material_spec }}" required></div>
+        <div><label>Total Pipe Length (m)</label><input name="total_length_m" type="number" step="0.01" value="{{ run.total_length_m }}"></div>
+      </div>
+    </div>
+
+    <div class="card inner mt">
+      <h2>Machines Used</h2>
+      <div class="muted">We store up to 5 machines by replacing the list.</div>
+
+      {% set m1 = (machines[0] if machines|length>0 else None) %}
+      {% set m2 = (machines[1] if machines|length>1 else None) %}
+      {% set m3 = (machines[2] if machines|length>2 else None) %}
+      {% set m4 = (machines[3] if machines|length>3 else None) %}
+      {% set m5 = (machines[4] if machines|length>4 else None) %}
+
+      <div class="grid2">
+        <div><label>Machine 1 Name</label><input name="machine1_name" value="{{ m1.machine_name if m1 else '' }}"></div>
+        <div><label>Machine 1 Tag</label><input name="machine1_tag" value="{{ m1.machine_tag if m1 else '' }}"></div>
+
+        <div><label>Machine 2 Name</label><input name="machine2_name" value="{{ m2.machine_name if m2 else '' }}"></div>
+        <div><label>Machine 2 Tag</label><input name="machine2_tag" value="{{ m2.machine_tag if m2 else '' }}"></div>
+
+        <div><label>Machine 3 Name</label><input name="machine3_name" value="{{ m3.machine_name if m3 else '' }}"></div>
+        <div><label>Machine 3 Tag</label><input name="machine3_tag" value="{{ m3.machine_tag if m3 else '' }}"></div>
+
+        <div><label>Machine 4 Name</label><input name="machine4_name" value="{{ m4.machine_name if m4 else '' }}"></div>
+        <div><label>Machine 4 Tag</label><input name="machine4_tag" value="{{ m4.machine_tag if m4 else '' }}"></div>
+
+        <div><label>Machine 5 Name</label><input name="machine5_name" value="{{ m5.machine_name if m5 else '' }}"></div>
+        <div><label>Machine 5 Tag</label><input name="machine5_tag" value="{{ m5.machine_tag if m5 else '' }}"></div>
+      </div>
+    </div>
+
+    <div class="card inner mt">
+      <h2>Parameter Limits + Rename Fields</h2>
+      <div class="muted">Manager can rename labels per run. Rules control OUT-OF-SPEC highlighting.</div>
+
+      <div class="tablewrap mt">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Label (Editable)</th>
+              <th>Unit</th>
+              <th>Rule</th>
+              <th>Set Value</th>
+              <th>Tolerance (±) / Limit</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in params %}
+              <tr>
+                <td>
+                  <input name="label_{{ p.param_key }}" value="{{ p.label }}" style="width:100%;">
+                  <div class="muted" style="font-size:12px;">key: {{ p.param_key }}</div>
+                </td>
+                <td>{{ p.unit or '' }}</td>
+                <td>
+                  <select name="rule_{{ p.param_key }}">
+                    <option value="">(none)</option>
+                    <option value="RANGE" {% if p.rule=="RANGE" %}selected{% endif %}>RANGE</option>
+                    <option value="MIN_ONLY" {% if p.rule=="MIN_ONLY" %}selected{% endif %}>MIN_ONLY</option>
+                    <option value="MAX_ONLY" {% if p.rule=="MAX_ONLY" %}selected{% endif %}>MAX_ONLY</option>
+                  </select>
+                </td>
+                <td>
+                <input name="set_{{ p.param_key }}" type="number" step="0.01"
+                       value="{% if p.rule=='RANGE' and p.min_value is not none and p.max_value is not none %}{{ ((p.min_value + p.max_value) / 2) | round(3) }}
+                              {% elif p.rule=='MAX_ONLY' and p.max_value is not none %}{{ p.max_value }}
+                              {% elif p.rule=='MIN_ONLY' and p.min_value is not none %}{{ p.min_value }}
+                              {% else %}{% endif %}">
+              </td>
+              
+              <td>
+                <input name="tol_{{ p.param_key }}" type="number" step="0.01"
+                       value="{% if p.rule=='RANGE' and p.min_value is not none and p.max_value is not none %}{{ ((p.max_value - p.min_value) / 2) | round(3) }}{% else %}{% endif %}">
+                {% if p.rule == "MAX_ONLY" %}<div class="muted" style="font-size:12px;">Max limit</div>{% endif %}
+                {% if p.rule == "MIN_ONLY" %}<div class="muted" style="font-size:12px;">Min limit</div>{% endif %}
+              </td>
+
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="toolbar mt">
+      <button class="btn btn-primary" type="submit">Save Changes</button>
+      <a class="btn" href="/runs/{{ run.id }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

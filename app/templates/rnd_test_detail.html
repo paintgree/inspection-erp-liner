@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ test.title }} - {{ program.program_code }}{% endblock %}
+{% block content %}
+<style>
+.td-wrap{display:grid;gap:18px}.td-card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:18px;box-shadow:0 10px 28px rgba(15,23,42,.05)}.td-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}.td-list{margin:0;padding-left:18px;display:grid;gap:8px}.td-note{padding:12px 14px;border:1px solid #bfdbfe;background:#eff6ff;border-radius:14px;color:#1e3a8a}.td-box{border:1px solid #e5e7eb;border-radius:16px;padding:14px;background:#fbfdff}.td-table{width:100%;border-collapse:collapse}.td-table th,.td-table td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}.td-table th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b}@media(max-width:980px){.td-grid{grid-template-columns:1fr}}
+</style>
+<div class="td-wrap">
+  <section class="td-card">
+    <div style="display:flex;justify-content:space-between;gap:14px;align-items:flex-start;flex-wrap:wrap;">
+      <div>
+        <h1 style="margin:0;">{{ test.title }}</h1>
+        <div class="muted">{{ program.program_code }} · {{ test.code }} · {{ test.clause_ref }}</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back to flow</a>
+        <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/reports/final">Final report</a>
+      </div>
+    </div>
+  </section>
+  <section class="td-grid">
+    <div style="display:grid;gap:18px;">
+      <article class="td-card">
+        <h2 style="margin-top:0;">Why this test is needed</h2>
+        <div class="td-note">{{ pack.why }}</div>
+        <div class="td-box" style="margin-top:14px;"><strong>Standard / basis:</strong> {{ pack.basis }}</div>
+      </article>
+      <article class="td-card">
+        <h2 style="margin-top:0;">How to execute it</h2>
+        <ol class="td-list">{% for item in pack.how %}<li>{{ item }}</li>{% endfor %}</ol>
+      </article>
+      <article class="td-card">
+        <h2 style="margin-top:0;">What the system will look for</h2>
+        <ul class="td-list">{% for item in pack.acceptance %}<li>{{ item }}</li>{% endfor %}</ul>
+      </article>
+      <article class="td-card">
+        <h2 style="margin-top:0;">Related records already captured</h2>
+        <table class="td-table">
+          <thead><tr><th>Specimen</th><th>Pressure</th><th>Temp</th><th>Hours/Cycles</th><th>Failure</th></tr></thead>
+          <tbody>
+            {% for s in specimens %}
+            <tr>
+              <td>{{ s.specimen_id }}</td>
+              <td>{{ s.pressure_mpa or '-' }}</td>
+              <td>{{ s.temperature_c or '-' }}</td>
+              <td>{{ s.failure_hours or s.failure_cycles or '-' }}</td>
+              <td>{{ s.failure_mode or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="muted">No related specimen records have been linked yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </article>
+    </div>
+    <aside style="display:grid;gap:18px;">
+      <article class="td-card">
+        <h2 style="margin-top:0;">Quick facts</h2>
+        <div class="td-box"><b>Stage</b><div>{{ pack.stage }}</div></div>
+        <div class="td-box" style="margin-top:10px;"><b>Applicability</b><div>{{ test.applicability }}</div></div>
+        <div class="td-box" style="margin-top:10px;"><b>Specimen requirement</b><div>{{ test.specimen_requirement }}</div></div>
+        <div class="td-box" style="margin-top:10px;"><b>Status</b><div>{{ test.status }}</div></div>
+      </article>
+      {% if test.code == 'MPR_REG' %}
+      <article class="td-card">
+        <h2 style="margin-top:0;">Regression clarification</h2>
+        <div class="td-note">For nonmetallic reinforced pipe, the long-term rating route is built from the lower confidence basis at {{ '{:,.0f}'.format(rcrt_hours) }} h, then multiplied by the design factor {{ '%.2f'|format(design_factor_nonmetallic) }} to estimate MPR.</div>
+      </article>
+      {% endif %}
+      {% if test.code in ['OPERATING_MBR','AXIAL_LOAD','IMPACT'] %}
+      <article class="td-card">
+        <h2 style="margin-top:0;">Burst-screen helper</h2>
+        <div class="td-note">For the current planning target, the internal burst screen shown by the app is {{ '%.3f'|format(threshold_mpa) }} MPa. This is a planning threshold derived from NPR / Fd, not the final nonmetallic qualification basis on its own.</div>
+      </article>
+      {% endif %}
+    </aside>
+  </section>
+</div>
+{% endblock %}

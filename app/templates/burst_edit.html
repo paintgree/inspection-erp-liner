@@ -1,0 +1,914 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+  .burst-edit-wrap{max-width:1200px;margin:0 auto;display:grid;gap:18px}
+  .burst-edit-top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center}
+  .burst-edit-card{background:#fff;border:1px solid #e5e7eb;border-radius:16px;padding:18px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .burst-edit-title{margin:0 0 4px 0;font-size:24px;font-weight:900}
+  .burst-edit-sub{color:#6b7280}
+  .burst-grid-2,.burst-grid-3,.burst-grid-4{display:grid;gap:12px}
+  .burst-grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .burst-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .burst-grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .burst-section-title{margin:0 0 14px 0;font-size:18px;font-weight:900}
+  .burst-sample-card{border:1px solid #e5e7eb;border-radius:14px;padding:14px;background:#f9fafb;margin-top:14px}
+  .burst-sample-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+  .burst-attachment-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .burst-attachment-box{border:1px dashed #cbd5e1;border-radius:12px;padding:12px;background:#fff}
+  .burst-attachment-label{font-size:12px;font-weight:800;color:#475569;margin-bottom:8px;text-transform:uppercase}
+  .burst-file-link{font-size:12px;word-break:break-all}
+  .burst-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+  .hint{font-size:12px;color:#6b7280;margin-top:6px}
+
+  .burst-upload-preview{
+    margin-top:10px;
+    min-height:120px;
+    border:1px solid #e2e8f0;
+    border-radius:12px;
+    background:#f8fafc;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+    position:relative;
+  }
+
+  .burst-upload-preview img{
+    width:100%;
+    height:120px;
+    object-fit:cover;
+    display:block;
+  }
+
+  .burst-upload-preview-empty{
+    color:#94a3b8;
+    font-size:12px;
+    font-weight:700;
+  }
+
+  .burst-upload-tools{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-top:10px;
+  }
+
+  .burst-tool-btn{
+    border:1px solid #dbe2ea;
+    background:#fff;
+    color:#334155;
+    border-radius:10px;
+    padding:8px 10px;
+    font-size:12px;
+    font-weight:800;
+    cursor:pointer;
+  }
+
+  .burst-tool-btn:hover{
+    background:#f8fafc;
+  }
+
+  .burst-modal{
+    position:fixed;
+    inset:0;
+    background:rgba(15,23,42,.65);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:2000;
+    padding:20px;
+  }
+
+  .burst-modal.open{
+    display:flex;
+  }
+
+  .burst-modal-card{
+    width:min(1100px, 96vw);
+    max-height:92vh;
+    display:grid;
+    grid-template-rows:auto 1fr auto;
+    background:#0f172a;
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px;
+    overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,.35);
+  }
+
+  .burst-modal-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:16px;
+    padding:18px 20px;
+    background:#1e293b;
+    color:#fff;
+  }
+
+  .burst-modal-title{
+    margin:0;
+    font-size:24px;
+    font-weight:900;
+  }
+
+  .burst-modal-sub{
+    margin-top:4px;
+    color:#cbd5e1;
+    font-size:13px;
+  }
+
+  .burst-modal-close{
+    border:none;
+    background:transparent;
+    color:#cbd5e1;
+    font-size:28px;
+    cursor:pointer;
+    line-height:1;
+  }
+
+  .burst-editor-stage-wrap{
+    padding:20px;
+    background:#000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+
+  .burst-editor-stage{
+    width:min(900px, 100%);
+    height:min(60vh, 620px);
+    position:relative;
+    overflow:hidden;
+    background:#000;
+  }
+
+  .burst-editor-image{
+    position:absolute;
+    top:50%;
+    left:50%;
+    transform-origin:center center;
+    max-width:none;
+    max-height:none;
+    user-select:none;
+    cursor:grab;
+  }
+
+  .burst-editor-image.dragging{
+    cursor:grabbing;
+  }
+
+  .burst-editor-overlay{
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+  }
+
+  .burst-editor-shade{
+    position:absolute;
+    background:rgba(0,0,0,.42);
+  }
+
+  .burst-editor-frame{
+    position:absolute;
+    border:2px solid rgba(255,255,255,.72);
+    box-shadow:0 0 0 9999px rgba(0,0,0,.28);
+  }
+
+  .burst-editor-grid{
+    position:absolute;
+    inset:0;
+    background-image:
+      linear-gradient(to right, rgba(255,255,255,.22) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,.22) 1px, transparent 1px);
+    background-size:33.333% 100%, 100% 33.333%;
+  }
+
+  .burst-modal-foot{
+    background:#1e293b;
+    padding:14px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+
+  .burst-editor-controls{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    flex-wrap:wrap;
+    color:#e2e8f0;
+  }
+
+  .burst-editor-controls label{
+    font-size:12px;
+    font-weight:800;
+    color:#cbd5e1;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+
+  .burst-editor-range{
+    width:220px;
+  }
+
+  .burst-editor-actionbar{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+
+  .burst-editor-iconbtn{
+    border:1px solid rgba(255,255,255,.12);
+    background:#334155;
+    color:#fff;
+    border-radius:10px;
+    padding:10px 12px;
+    font-size:13px;
+    font-weight:800;
+    cursor:pointer;
+  }
+
+  .burst-editor-iconbtn:hover{
+    background:#3d4b60;
+  }
+
+  .burst-editor-cancel{
+    border:1px solid rgba(255,255,255,.12);
+    background:#334155;
+    color:#fff;
+    border-radius:10px;
+    padding:10px 16px;
+    font-weight:800;
+    cursor:pointer;
+  }
+
+  .burst-editor-save{
+    border:none;
+    background:linear-gradient(135deg,#4f46e5 0%, #7c3aed 100%);
+    color:#fff;
+    border-radius:10px;
+    padding:10px 16px;
+    font-weight:900;
+    cursor:pointer;
+  }
+
+  @media (max-width: 900px){
+    .burst-grid-2,.burst-grid-3,.burst-grid-4,.burst-attachment-grid{grid-template-columns:1fr}
+    .burst-editor-stage{height:52vh}
+  }
+</style>
+
+<div class="burst-edit-wrap">
+  {% if rep.published_at and (not edit_direct_allowed) %}
+    <div class="burst-alert">
+      You are outside the 24-hour edit window. Saving this report will create a pending approval draft. It will only go live after QAQC approval.
+    </div>
+  {% endif %}
+  <div class="burst-edit-top">
+    <div>
+      <h1 class="burst-edit-title">Edit Burst Test</h1>
+      <div class="burst-edit-sub">Save your data here, then review the final report page after saving.</div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a class="btn btn-secondary" href="/burst">Back</a>
+      <a class="btn btn-secondary" href="/burst/{{ rep.id }}">Final Report</a>
+    </div>
+  </div>
+
+  <form method="post" action="/burst/{{ rep.id }}/update">
+    <div class="burst-edit-card">
+      <h2 class="burst-section-title">Report Information</h2>
+      <div class="burst-grid-4">
+        <div>
+          <label>Batch No</label>
+          <input type="text" value="{{ rep.batch_no or '' }}" disabled>
+        </div>
+        <div>
+          <label>Client</label>
+          <input type="text" value="{{ rep.client_name or '' }}" disabled>
+        </div>
+        <div>
+          <label>Client PO</label>
+          <input name="client_po" type="text" value="{{ rep.client_po or '' }}">
+        </div>
+        <div>
+          <label>Purpose</label>
+          <input type="text" value="{{ rep.purpose or '' }}" disabled>
+        </div>
+      </div>
+
+      <div class="burst-grid-4" style="margin-top:12px;">
+        <div>
+          <label>Pipe Specification</label>
+          <input name="pipe_specification" type="text" value="{{ rep.pipe_specification or '' }}">
+        </div>
+        <div>
+          <label>Reference Standard</label>
+          <input name="reference_standard" type="text" value="{{ rep.reference_standard or '' }}">
+        </div>
+        <div>
+          <label>Procedure</label>
+          <input name="reference_dhtp_procedure" type="text" value="{{ rep.reference_dhtp_procedure or '' }}">
+        </div>
+        <div>
+          <label>System Max Pressure</label>
+          <input name="system_max_pressure" type="text" value="{{ rep.system_max_pressure or '' }}">
+        </div>
+      </div>
+
+      <div class="burst-grid-4" style="margin-top:12px;">
+        <div>
+          <label>Laboratory Temperature</label>
+          <input name="laboratory_temperature" type="text" value="{{ rep.laboratory_temperature or '' }}">
+        </div>
+        <div>
+          <label>Testing Medium</label>
+          <input name="testing_medium" type="text" value="{{ rep.testing_medium or '' }}">
+        </div>
+        <div>
+          <label>Total No. of Specimens</label>
+          <input id="specimen-count-input" name="total_no_of_specimens" type="number" min="1" max="50" value="{{ rep.total_no_of_specimens or 1 }}">
+        </div>
+        <div>
+          <label>Total Produced Length</label>
+          <input type="text" value="{{ produced_len or rep.total_length_m or 0 }}" disabled>
+        </div>
+      </div>
+    </div>
+
+    <div class="burst-edit-card">
+      <h2 class="burst-section-title">Signatures & Notes</h2>
+      <div class="burst-grid-2">
+        
+        <div>
+          <label>Technician</label>
+          <input name="technician_name" type="text" value="{{ rep.technician_name or '' }}">
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label>Notes</label>
+        <textarea name="notes" rows="3">{{ rep.notes or '' }}</textarea>
+      </div>
+    </div>
+
+    <div class="burst-edit-card">
+      <h2 class="burst-section-title">Specimens</h2>
+      <div class="hint">Only the first {{ rep.total_no_of_specimens or 1 }} specimen cards are shown on the final report and in the export.</div>
+
+      {% for s in samples %}
+      <div class="burst-sample-card" data-sample-card data-sample-index="{{ loop.index }}">
+        <div class="burst-sample-head">
+          <h3 style="margin:0;">Specimen {{ loop.index }}</h3>
+          <span class="hint">Sample ID: {{ s.id }}</span>
+        </div>
+
+        <div class="burst-grid-4">
+          <div>
+            <label>Serial Number</label>
+            <input name="sample_serial_number_{{ s.id }}" type="text" value="{{ s.sample_serial_number or '' }}">
+          </div>
+          <div>
+            <label>Sample Length (m)</label>
+            <input name="sample_length_m_{{ s.id }}" type="number" step="0.001" value="{{ s.sample_length_m or 0 }}">
+          </div>
+          <div>
+            <label>Effective Length (mm)</label>
+            <input name="effective_length_m_{{ s.id }}" type="number" step="0.001" value="{{ s.effective_length_m or 0 }}">
+          </div>
+          <div>
+            <label>Actual Burst (MPa)</label>
+            <input name="actual_burst_MPa_{{ s.id }}" type="number" step="0.001" value="{{ s.actual_burst_psi or 0 }}">
+          </div>
+        </div>
+
+        <div class="burst-grid-4" style="margin-top:12px;">
+          <div>
+            <label>Pressurization Time (s)</label>
+            <input name="pressurization_time_s_{{ s.id }}" type="text" value="{{ s.pressurization_time_s or '' }}">
+          </div>
+          <div>
+            <label>Result</label>
+            <select name="test_result_{{ s.id }}">
+              <option value="" {% if not s.test_result %}selected{% endif %}>Select</option>
+              <option value="PASS" {% if s.test_result == 'PASS' %}selected{% endif %}>PASS</option>
+              <option value="FAIL" {% if s.test_result == 'FAIL' %}selected{% endif %}>FAIL</option>
+            </select>
+          </div>
+          <div>
+            <label>Liner Material</label>
+            <input name="liner_material_grade_{{ s.id }}" type="text" value="{{ s.liner_material_grade or rep.liner_material_grade or '' }}">
+          </div>
+          <div>
+            <label>Liner Thickness (mm)</label>
+            <input name="liner_thickness_mm_{{ s.id }}" type="number" step="0.001" value="{{ s.liner_thickness_mm or 0 }}">
+          </div>
+        </div>
+
+        <div class="burst-grid-4" style="margin-top:12px;">
+          <div>
+            <label>Reinforcement Material</label>
+            <input name="reinforcement_material_grade_{{ s.id }}" type="text" value="{{ s.reinforcement_material_grade or rep.reinforcement_material_grade or '' }}">
+          </div>
+          <div>
+            <label>Reinforcement Thickness (mm)</label>
+            <input name="reinforcement_thickness_mm_{{ s.id }}" type="number" step="0.001" value="{{ s.reinforcement_thickness_mm or 0 }}">
+          </div>
+          <div>
+            <label>Cover Material</label>
+            <input name="cover_material_grade_{{ s.id }}" type="text" value="{{ s.cover_material_grade or rep.cover_material_grade or '' }}">
+          </div>
+          <div>
+            <label>Cover Thickness (mm)</label>
+            <input name="cover_thickness_mm_{{ s.id }}" type="number" step="0.001" value="{{ s.cover_thickness_mm or 0 }}">
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="burst-edit-card">
+      <div class="burst-actions">
+        <button class="btn btn-secondary" type="submit" name="action" value="save">Save</button>
+        <button class="btn btn-primary" type="submit" name="action" value="lock">Save & Lock</button>
+      </div>
+    </div>
+  </form>
+
+    <div class="burst-edit-card">
+    <h2 class="burst-section-title">Photos & Chart Uploads</h2>
+    <div class="hint">Each specimen can store one chart, one full-length photo, and two side photos. You can upload, crop, move, rotate, flip, and re-edit later. The guideline frame shows the area that appears in the final report.</div>
+
+    {% for s in samples %}
+    <div class="burst-sample-card" data-sample-upload-card data-sample-index="{{ loop.index }}">
+      <div class="burst-sample-head">
+        <h3 style="margin:0;">Uploads for Specimen {{ loop.index }}</h3>
+      </div>
+
+      <form method="post" action="/burst/{{ rep.id }}/sample/{{ s.id }}/upload_attachments" enctype="multipart/form-data" data-burst-upload-form>
+        <div class="burst-attachment-grid">
+
+          <div class="burst-attachment-box">
+            <div class="burst-attachment-label">Chart</div>
+            <input type="file" name="chart" accept=".png,.jpg,.jpeg,.webp" data-kind-input="CHART">
+            {% set att = att_map.get(s.id, {}).get('CHART') %}
+            {% set meta = crop_meta.get(s.id, {}).get('CHART', {}) %}
+            <div class="burst-upload-preview">
+              {% if att %}
+                <img src="/burst/files/{{ att.id }}/view" alt="Chart preview" data-preview-img="CHART">
+              {% else %}
+                <div class="burst-upload-preview-empty" data-preview-empty="CHART">No image selected</div>
+                <img src="" alt="" style="display:none;" data-preview-img="CHART">
+              {% endif %}
+            </div>
+            <input type="hidden" name="crop_chart" value='{{ meta|tojson }}' data-meta-input="CHART">
+            <div class="burst-upload-tools">
+              {% if att %}
+                <a class="burst-file-link" target="_blank" href="/burst/files/{{ att.id }}/view">View file</a>
+              {% endif %}
+              <button type="button"
+                      class="burst-tool-btn"
+                      data-open-editor
+                      data-kind="CHART"
+                      data-kind-label="Chart"
+                      data-current-url="{% if att %}/burst/files/{{ att.id }}/view{% endif %}">
+                Adjust
+              </button>
+            </div>
+          </div>
+
+          <div class="burst-attachment-box">
+            <div class="burst-attachment-label">Full Length</div>
+            <input type="file" name="photo_full" accept=".png,.jpg,.jpeg,.webp" data-kind-input="PHOTO_FULL">
+            {% set att = att_map.get(s.id, {}).get('PHOTO_FULL') %}
+            {% set meta = crop_meta.get(s.id, {}).get('PHOTO_FULL', {}) %}
+            <div class="burst-upload-preview">
+              {% if att %}
+                <img src="/burst/files/{{ att.id }}/view" alt="Full length preview" data-preview-img="PHOTO_FULL">
+              {% else %}
+                <div class="burst-upload-preview-empty" data-preview-empty="PHOTO_FULL">No image selected</div>
+                <img src="" alt="" style="display:none;" data-preview-img="PHOTO_FULL">
+              {% endif %}
+            </div>
+            <input type="hidden" name="crop_photo_full" value='{{ meta|tojson }}' data-meta-input="PHOTO_FULL">
+            <div class="burst-upload-tools">
+              {% if att %}
+                <a class="burst-file-link" target="_blank" href="/burst/files/{{ att.id }}/view">View file</a>
+              {% endif %}
+              <button type="button"
+                      class="burst-tool-btn"
+                      data-open-editor
+                      data-kind="PHOTO_FULL"
+                      data-kind-label="Full Length"
+                      data-current-url="{% if att %}/burst/files/{{ att.id }}/view{% endif %}">
+                Adjust
+              </button>
+            </div>
+          </div>
+
+          <div class="burst-attachment-box">
+            <div class="burst-attachment-label">Side A</div>
+            <input type="file" name="photo_a" accept=".png,.jpg,.jpeg,.webp" data-kind-input="PHOTO_A">
+            {% set att = att_map.get(s.id, {}).get('PHOTO_A') %}
+            {% set meta = crop_meta.get(s.id, {}).get('PHOTO_A', {}) %}
+            <div class="burst-upload-preview">
+              {% if att %}
+                <img src="/burst/files/{{ att.id }}/view" alt="Side A preview" data-preview-img="PHOTO_A">
+              {% else %}
+                <div class="burst-upload-preview-empty" data-preview-empty="PHOTO_A">No image selected</div>
+                <img src="" alt="" style="display:none;" data-preview-img="PHOTO_A">
+              {% endif %}
+            </div>
+            <input type="hidden" name="crop_photo_a" value='{{ meta|tojson }}' data-meta-input="PHOTO_A">
+            <div class="burst-upload-tools">
+              {% if att %}
+                <a class="burst-file-link" target="_blank" href="/burst/files/{{ att.id }}/view">View file</a>
+              {% endif %}
+              <button type="button"
+                      class="burst-tool-btn"
+                      data-open-editor
+                      data-kind="PHOTO_A"
+                      data-kind-label="Side A"
+                      data-current-url="{% if att %}/burst/files/{{ att.id }}/view{% endif %}">
+                Adjust
+              </button>
+            </div>
+          </div>
+
+          <div class="burst-attachment-box">
+            <div class="burst-attachment-label">Side B</div>
+            <input type="file" name="photo_b" accept=".png,.jpg,.jpeg,.webp" data-kind-input="PHOTO_B">
+            {% set att = att_map.get(s.id, {}).get('PHOTO_B') %}
+            {% set meta = crop_meta.get(s.id, {}).get('PHOTO_B', {}) %}
+            <div class="burst-upload-preview">
+              {% if att %}
+                <img src="/burst/files/{{ att.id }}/view" alt="Side B preview" data-preview-img="PHOTO_B">
+              {% else %}
+                <div class="burst-upload-preview-empty" data-preview-empty="PHOTO_B">No image selected</div>
+                <img src="" alt="" style="display:none;" data-preview-img="PHOTO_B">
+              {% endif %}
+            </div>
+            <input type="hidden" name="crop_photo_b" value='{{ meta|tojson }}' data-meta-input="PHOTO_B">
+            <div class="burst-upload-tools">
+              {% if att %}
+                <a class="burst-file-link" target="_blank" href="/burst/files/{{ att.id }}/view">View file</a>
+              {% endif %}
+              <button type="button"
+                      class="burst-tool-btn"
+                      data-open-editor
+                      data-kind="PHOTO_B"
+                      data-kind-label="Side B"
+                      data-current-url="{% if att %}/burst/files/{{ att.id }}/view{% endif %}">
+                Adjust
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="burst-actions" style="margin-top:12px;">
+          <button class="btn btn-secondary" type="submit">Upload Files</button>
+        </div>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="burst-modal" id="burstPhotoEditor">
+    <div class="burst-modal-card">
+      <div class="burst-modal-head">
+        <div>
+          <h3 class="burst-modal-title">Adjust Photo for Report</h3>
+          <div class="burst-modal-sub">Resize, move, rotate, flip and crop the image. The highlighted frame shows the exact area used in the final report.</div>
+        </div>
+        <button type="button" class="burst-modal-close" id="burstEditorCloseBtn">×</button>
+      </div>
+
+      <div class="burst-editor-stage-wrap">
+        <div class="burst-editor-stage" id="burstEditorStage">
+          <img id="burstEditorImage" class="burst-editor-image" src="" alt="Editor image">
+          <div class="burst-editor-overlay">
+            <div class="burst-editor-frame" id="burstEditorFrame">
+              <div class="burst-editor-grid"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="burst-modal-foot">
+        <div class="burst-editor-controls">
+          <label for="burstZoomRange">Zoom</label>
+          <input id="burstZoomRange" class="burst-editor-range" type="range" min="0.2" max="4" step="0.01" value="1">
+        </div>
+
+        <div class="burst-editor-actionbar">
+          <button type="button" class="burst-editor-iconbtn" id="burstRotateLeft">↺ Rotate</button>
+          <button type="button" class="burst-editor-iconbtn" id="burstRotateRight">↻ Rotate</button>
+          <button type="button" class="burst-editor-iconbtn" id="burstFlipX">⇋ Flip H</button>
+          <button type="button" class="burst-editor-iconbtn" id="burstFlipY">⇅ Flip V</button>
+          <button type="button" class="burst-editor-iconbtn" id="burstResetBtn">Reset</button>
+          <button type="button" class="burst-editor-cancel" id="burstEditorCancelBtn">Cancel</button>
+          <button type="button" class="burst-editor-save" id="burstEditorApplyBtn">Apply & Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const countInput = document.getElementById("specimen-count-input");
+  const specimenCards = Array.from(document.querySelectorAll("[data-sample-card]"));
+  const uploadCards = Array.from(document.querySelectorAll("[data-sample-upload-card]"));
+
+  function refreshSpecimenCards() {
+    if (!countInput) return;
+    let count = parseInt(countInput.value || "1", 10);
+    if (isNaN(count)) count = 1;
+    if (count < 1) count = 1;
+    if (count > 50) count = 50;
+
+    specimenCards.forEach(card => {
+      const idx = parseInt(card.getAttribute("data-sample-index"), 10);
+      card.style.display = idx <= count ? "" : "none";
+    });
+
+    uploadCards.forEach(card => {
+      const idx = parseInt(card.getAttribute("data-sample-index"), 10);
+      card.style.display = idx <= count ? "" : "none";
+    });
+  }
+
+  if (countInput) {
+    countInput.addEventListener("input", refreshSpecimenCards);
+    countInput.addEventListener("change", refreshSpecimenCards);
+    refreshSpecimenCards();
+  }
+
+  document.querySelectorAll('[data-kind-input]').forEach(input => {
+    input.addEventListener('change', function () {
+      const box = input.closest('.burst-attachment-box');
+      const img = box.querySelector('[data-preview-img]');
+      const empty = box.querySelector('[data-preview-empty]');
+      const btn = box.querySelector('[data-open-editor]');
+
+      if (input.files && input.files[0]) {
+        const url = URL.createObjectURL(input.files[0]);
+        img.src = url;
+        img.style.display = 'block';
+        if (empty) empty.style.display = 'none';
+        if (btn) btn.setAttribute('data-current-url', url);
+      }
+    });
+  });
+
+  const modal = document.getElementById('burstPhotoEditor');
+  const stage = document.getElementById('burstEditorStage');
+  const frame = document.getElementById('burstEditorFrame');
+  const image = document.getElementById('burstEditorImage');
+  const zoomRange = document.getElementById('burstZoomRange');
+
+  const closeBtn = document.getElementById('burstEditorCloseBtn');
+  const cancelBtn = document.getElementById('burstEditorCancelBtn');
+  const applyBtn = document.getElementById('burstEditorApplyBtn');
+  const rotateLeftBtn = document.getElementById('burstRotateLeft');
+  const rotateRightBtn = document.getElementById('burstRotateRight');
+  const flipXBtn = document.getElementById('burstFlipX');
+  const flipYBtn = document.getElementById('burstFlipY');
+  const resetBtn = document.getElementById('burstResetBtn');
+
+  let activeForm = null;
+  let activeKind = null;
+  let activeMetaInput = null;
+  let activeButton = null;
+
+  let editorState = {
+    zoom: 1,
+    offset_x: 0,
+    offset_y: 0,
+    rotation: 0,
+    flip_x: false,
+    flip_y: false
+  };
+
+  let drag = {
+    down: false,
+    startX: 0,
+    startY: 0,
+    baseX: 0,
+    baseY: 0
+  };
+
+  const frameRatios = {
+    CHART: 16 / 9,
+    PHOTO_FULL: 16 / 7,
+    PHOTO_A: 4 / 3,
+    PHOTO_B: 4 / 3
+  };
+
+  function getFrameBox(kind) {
+    const stageW = stage.clientWidth;
+    const stageH = stage.clientHeight;
+    const ratio = frameRatios[kind] || (4 / 3);
+
+    let w = stageW * 0.84;
+    let h = w / ratio;
+
+    if (h > stageH * 0.74) {
+      h = stageH * 0.74;
+      w = h * ratio;
+    }
+
+    return {
+      width: w,
+      height: h,
+      left: (stageW - w) / 2,
+      top: (stageH - h) / 2
+    };
+  }
+
+  function renderFrame() {
+    const box = getFrameBox(activeKind);
+    frame.style.width = box.width + 'px';
+    frame.style.height = box.height + 'px';
+    frame.style.left = box.left + 'px';
+    frame.style.top = box.top + 'px';
+  }
+
+  function renderImage() {
+    const stageW = stage.clientWidth;
+    const stageH = stage.clientHeight;
+
+    const tx = editorState.offset_x * (stageW * 0.25);
+    const ty = -editorState.offset_y * (stageH * 0.25);
+
+    const sx = editorState.flip_x ? -editorState.zoom : editorState.zoom;
+    const sy = editorState.flip_y ? -editorState.zoom : editorState.zoom;
+
+    image.style.transform =
+      'translate(-50%, -50%) ' +
+      'translate(' + tx + 'px,' + ty + 'px) ' +
+      'rotate(' + editorState.rotation + 'deg) ' +
+      'scale(' + sx + ',' + sy + ')';
+  }
+
+  function openEditor(button) {
+    const box = button.closest('.burst-attachment-box');
+    const form = button.closest('form');
+    const kind = button.getAttribute('data-kind');
+    const src = button.getAttribute('data-current-url') || '';
+    const metaInput = form.querySelector('[data-meta-input="' + kind + '"]');
+
+    if (!src) {
+      alert('Please select or upload an image first.');
+      return;
+    }
+
+    activeForm = form;
+    activeKind = kind;
+    activeMetaInput = metaInput;
+    activeButton = button;
+
+    try {
+      const parsed = JSON.parse(metaInput.value || '{}');
+      editorState = {
+        zoom: Number(parsed.zoom || 1),
+        offset_x: Number(parsed.offset_x || 0),
+        offset_y: Number(parsed.offset_y || 0),
+        rotation: Number(parsed.rotation || 0),
+        flip_x: !!parsed.flip_x,
+        flip_y: !!parsed.flip_y
+      };
+    } catch (e) {
+      editorState = {
+        zoom: 1,
+        offset_x: 0,
+        offset_y: 0,
+        rotation: 0,
+        flip_x: false,
+        flip_y: false
+      };
+    }
+
+    zoomRange.value = editorState.zoom;
+    image.src = src;
+    modal.classList.add('open');
+
+    setTimeout(function () {
+      renderFrame();
+      renderImage();
+    }, 30);
+  }
+
+  function closeEditor() {
+    modal.classList.remove('open');
+    activeForm = null;
+    activeKind = null;
+    activeMetaInput = null;
+    activeButton = null;
+    image.src = '';
+  }
+
+  document.querySelectorAll('[data-open-editor]').forEach(btn => {
+    btn.addEventListener('click', function () {
+      openEditor(btn);
+    });
+  });
+
+  zoomRange.addEventListener('input', function () {
+    editorState.zoom = Number(zoomRange.value || 1);
+    renderImage();
+  });
+
+  rotateLeftBtn.addEventListener('click', function () {
+    editorState.rotation = (editorState.rotation + 270) % 360;
+    renderImage();
+  });
+
+  rotateRightBtn.addEventListener('click', function () {
+    editorState.rotation = (editorState.rotation + 90) % 360;
+    renderImage();
+  });
+
+  flipXBtn.addEventListener('click', function () {
+    editorState.flip_x = !editorState.flip_x;
+    renderImage();
+  });
+
+  flipYBtn.addEventListener('click', function () {
+    editorState.flip_y = !editorState.flip_y;
+    renderImage();
+  });
+
+  resetBtn.addEventListener('click', function () {
+    editorState = {
+      zoom: 1,
+      offset_x: 0,
+      offset_y: 0,
+      rotation: 0,
+      flip_x: false,
+      flip_y: false
+    };
+    zoomRange.value = 1;
+    renderImage();
+  });
+
+  image.addEventListener('mousedown', function (e) {
+    drag.down = true;
+    drag.startX = e.clientX;
+    drag.startY = e.clientY;
+    drag.baseX = editorState.offset_x;
+    drag.baseY = editorState.offset_y;
+    image.classList.add('dragging');
+  });
+
+  window.addEventListener('mousemove', function (e) {
+    if (!drag.down) return;
+
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+
+    editorState.offset_x = Math.max(-1.5, Math.min(1.5, drag.baseX + (dx / stage.clientWidth) * 2));
+    editorState.offset_y = Math.max(-1.5, Math.min(1.5, drag.baseY - (dy / stage.clientHeight) * 2));
+
+    renderImage();
+  });
+
+  window.addEventListener('mouseup', function () {
+    drag.down = false;
+    image.classList.remove('dragging');
+  });
+
+  applyBtn.addEventListener('click', function () {
+    if (!activeMetaInput || !activeForm) return;
+
+    activeMetaInput.value = JSON.stringify({
+      zoom: Number(editorState.zoom || 1),
+      offset_x: Number(editorState.offset_x || 0),
+      offset_y: Number(editorState.offset_y || 0),
+      rotation: Number(editorState.rotation || 0),
+      flip_x: !!editorState.flip_x,
+      flip_y: !!editorState.flip_y
+    });
+
+    closeEditor();
+    activeForm.submit();
+  });
+
+  closeBtn.addEventListener('click', closeEditor);
+  cancelBtn.addEventListener('click', closeEditor);
+
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) closeEditor();
+  });
+
+  window.addEventListener('resize', function () {
+    if (!modal.classList.contains('open')) return;
+    renderFrame();
+    renderImage();
+  });
+});
+</script>
+
+{% endblock %}
