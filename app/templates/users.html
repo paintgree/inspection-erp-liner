@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="user-mgmt-shell">
+  <div class="user-mgmt-panel">
+
+    <div class="user-mgmt-toolbar">
+      <div class="user-search-wrap">
+        <input id="userSearchInput" class="user-search-input" type="text" placeholder="Search by username, full name, email, or department...">
+      </div>
+
+      <button class="btn btn-primary" type="button" onclick="openCreateUserModal()">+ New User</button>
+    </div>
+
+    <div class="user-mgmt-head-row">
+      <div>User & Department</div>
+      <div>Role Level</div>
+      <div>Status</div>
+      <div>Created</div>
+      <div>Actions</div>
+    </div>
+
+    <div id="userRowsWrap">
+      {% for row in user_rows %}
+        {% set u = row.user_obj %}
+        <div
+          class="user-list-row"
+          data-search="{{ (u.display_name ~ ' ' ~ u.username ~ ' ' ~ (u.email or '') ~ ' ' ~ row.department)|lower }}"
+        >
+          <div class="user-col user-main-col">
+            <div class="user-avatar-tile">
+              {{ (u.display_name or u.username or 'U')[:1] }}
+            </div>
+            <div>
+              <div class="user-name-line">{{ u.display_name }}</div>
+              <div class="user-sub-line">
+                {{ u.username }}
+                {% if u.email %} · {{ u.email }}{% endif %}
+              </div>
+              <div class="user-sub-line">{{ row.department }}</div>
+            </div>
+          </div>
+
+          <div class="user-col">
+            <span class="role-pill">{{ u.role }}</span>
+          </div>
+
+          <div class="user-col">
+            <span class="status-pill {% if row.status_label == 'LOCKED' %}status-pill-locked{% else %}status-pill-active{% endif %}">
+              {{ row.status_label }}
+            </span>
+          </div>
+
+          <div class="user-col">
+            {% if u.created_at %}
+              {{ u.created_at.strftime('%Y-%m-%d') }}
+            {% else %}
+              —
+            {% endif %}
+          </div>
+
+          <div class="user-col user-actions-col">
+            <a class="icon-action-btn" href="/users/{{ u.username }}/edit" title="Edit">✎</a>
+
+            {% if user.username != u.username %}
+              <form method="post" action="/users/{{ u.username }}/toggle-lock" style="display:inline;">
+                <button class="icon-action-btn" type="submit" title="{% if u.is_locked %}Unlock{% else %}Lock{% endif %}">
+                  {% if u.is_locked %}🔓{% else %}🔒{% endif %}
+                </button>
+              </form>
+
+              <form method="post" action="/users/{{ u.username }}/delete" style="display:inline;" onsubmit="return confirm('Delete user {{ u.username }}?');">
+                <button class="icon-action-btn icon-action-danger" type="submit" title="Delete">🗑</button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+
+  </div>
+</div>
+
+<div id="createUserModal" class="user-modal-backdrop" style="display:none;">
+  <div class="user-modal-card">
+    <div class="user-modal-top">
+      <div>
+        <h2 style="margin:0;">Create New User</h2>
+        <div class="muted">New accounts start with default password <b>0000</b>.</div>
+      </div>
+      <button class="user-modal-close" type="button" onclick="closeCreateUserModal()">✕</button>
+    </div>
+
+    <form method="post" action="/users">
+      <label>Username</label>
+      <input name="username" placeholder="Enter username" required>
+
+      <label>Full Name</label>
+      <input name="display_name" placeholder="Enter full name" required>
+
+      <label>Email</label>
+      <input name="email" type="email" placeholder="email@company.com">
+
+      <div class="grid2 mt">
+        <div>
+          <label>Department</label>
+          <select name="department" id="create_department" required>
+            {% for d in departments %}
+              <option value="{{ d }}">{{ d }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label>Role</label>
+          <select name="role" id="create_role" required>
+            {% for r in roles %}
+              <option value="{{ r }}">{{ r }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="toolbar mt">
+        <button class="btn btn-primary" type="submit">Create User Account</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  const input = document.getElementById("userSearchInput");
+  const rows = Array.from(document.querySelectorAll(".user-list-row"));
+
+  if (input) {
+    input.addEventListener("input", function(){
+      const q = (input.value || "").trim().toLowerCase();
+      rows.forEach(function(row){
+        const hay = row.getAttribute("data-search") || "";
+        row.style.display = hay.includes(q) ? "" : "none";
+      });
+    });
+  }
+
+  const createRole = document.getElementById("create_role");
+  const createDepartment = document.getElementById("create_department");
+
+  function defaultDeptForRole(role){
+    const r = (role || "").toUpperCase();
+    if (r === "INSPECTOR") return "QUALITY";
+    if (r === "COORDINATOR") return "QUALITY";
+    if (r === "RUN_CREATOR") return "PRODUCTION";
+    if (r === "MANAGER") return "QUALITY";
+    if (r === "BOSS") return "ADMIN";
+    return "QUALITY";
+  }
+
+  if (createRole && createDepartment) {
+    createRole.addEventListener("change", function(){
+      createDepartment.value = defaultDeptForRole(createRole.value);
+    });
+  }
+})();
+
+function openCreateUserModal(){
+  const m = document.getElementById("createUserModal");
+  if (m) m.style.display = "flex";
+}
+
+function closeCreateUserModal(){
+  const m = document.getElementById("createUserModal");
+  if (m) m.style.display = "none";
+}
+
+document.addEventListener("click", function(e){
+  const backdrop = document.getElementById("createUserModal");
+  if (backdrop && e.target === backdrop) {
+    closeCreateUserModal();
+  }
+});
+</script>
+
+{% endblock %}
