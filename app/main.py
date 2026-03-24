@@ -9536,6 +9536,7 @@ def dashboard(
     calendar = _build_dashboard_calendar(session)
 
     return templates.TemplateResponse(
+        request,
         "dashboard.html",
         {
             "request": request,
