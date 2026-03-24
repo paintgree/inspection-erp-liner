@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}Qualification Execution Flow{% endblock %}
+{% block content %}
+<style>
+.flow-wrap{display:grid;gap:18px}.flow-card,.flow-stage,.flow-side{background:#fff;border:1px solid #e5e7eb;border-radius:22px;box-shadow:0 10px 28px rgba(15,23,42,.05)}
+.flow-card,.flow-stage,.flow-side{padding:18px}.flow-top{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}.flow-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}.flow-actions{display:flex;gap:10px;flex-wrap:wrap}.flow-progress{height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden;margin-top:12px}.flow-progress>span{display:block;height:100%;background:linear-gradient(90deg,#10b981,#4f46e5)}.flow-steps{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.flow-step{padding:7px 12px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8}.flow-step.active{background:#4f46e5;color:#fff;border-color:#4f46e5}.flow-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}.flow-kpi{border:1px solid #e5e7eb;border-radius:16px;padding:14px;background:#fcfcff}.flow-kpi b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}.flow-banner{padding:14px 16px;border-radius:16px;background:#f8fafc;border:1px solid #e2e8f0}.flow-banner strong{display:block;margin-bottom:6px}.flow-note{padding:12px 14px;border-radius:14px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}.flow-error{background:#fff1f2;border-color:#fecdd3;color:#be123c}.flow-good{background:#ecfdf5;border-color:#a7f3d0;color:#047857}.flow-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.flow-form label{display:grid;gap:6px;font-size:13px;font-weight:700;color:#334155}.flow-form input,.flow-form select,.flow-form textarea{border:1px solid #cbd5e1;border-radius:12px;padding:10px 12px;font:inherit;background:#fff}.flow-form textarea{min-height:84px;resize:vertical}.flow-table{width:100%;border-collapse:collapse}.flow-table th,.flow-table td{padding:10px 8px;border-bottom:1px solid #e5e7eb;vertical-align:top;text-align:left;font-size:13px}.flow-table th{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#64748b}.pill{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:11px;font-weight:800}.pill.ok{background:#ecfdf5;color:#047857}.pill.bad{background:#fff1f2;color:#be123c}.flow-list{display:grid;gap:8px;padding-left:18px;margin:10px 0 0 0}.muted-sm{color:#64748b;font-size:13px}.stage-title{font-size:22px;font-weight:900;margin:0 0 6px 0}@media (max-width:980px){.flow-top,.flow-grid,.flow-kpis,.flow-form{grid-template-columns:1fr}}
+</style>
+<div class="flow-wrap">
+  <section class="flow-card">
+    <div class="flow-top">
+      <div>
+        <h1 style="margin:0 0 6px 0;">{{ program.program_code }} · Qualification Execution Flow</h1>
+        <div class="muted">{{ program.title }} · {{ program.nominal_size_in }} in · {{ program.npr_mpa }} MPa · {{ program.maot_c }} °C</div>
+        <div class="flow-progress"><span style="width:{{ flow.progress_pct }}%"></span></div>
+        <div class="flow-steps">
+          <span class="flow-step active">Wizard</span>
+          <span class="flow-step {% if flow.current == 'materials' %}active{% endif %}">Material screening</span>
+          <span class="flow-step {% if flow.current == 'burst' %}active{% endif %}">Burst qualification</span>
+          <span class="flow-step {% if flow.current == 'regression' %}active{% endif %}">Regression setup</span>
+        </div>
+      </div>
+      <div class="flow-actions" style="justify-content:flex-end;align-items:flex-start;">
+        <a class="btn btn-ghost" href="/rnd/qualifications">Back</a>
+        <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Regression center</a>
+      </div>
+    </div>
+    <div class="flow-kpis">
+      <div class="flow-kpi"><b>Current stage</b>{{ flow.current.replace('_',' ')|title }}</div>
+      <div class="flow-kpi"><b>Main route</b>{{ wizard.decision.service_route.replace('_',' ')|title }}</div>
+      <div class="flow-kpi"><b>Planning burst screen</b>{{ '%.3f'|format(threshold_mpa) }} MPa</div>
+      <div class="flow-kpi"><b>Regression target</b>{{ static_reg.required_minimum }} valid points</div>
+    </div>
+  </section>
+
+  <section class="flow-grid">
+    <div style="display:grid;gap:18px;">
+      <article class="flow-stage">
+        <h2 class="stage-title">1. Qualification wizard</h2>
+        <div class="flow-note">This first block defines the commercial claim and determines the route. The system uses these answers to decide whether decompression or cyclic logic is needed later.</div>
+        <form class="flow-form" method="post" action="/rnd/qualifications/{{ program.id }}/wizard/save" style="margin-top:14px;">
+          <label>Launch size (in)
+            <select name="launch_size_in">
+              {% for opt in ['4','6'] %}<option value="{{ opt }}" {% if wizard.decision.launch_size == opt %}selected{% endif %}>{{ opt }} in</option>{% endfor %}
+            </select>
+          </label>
+          <label>Sister size (in)
+            <select name="sister_size_in">
+              {% for opt in ['4','6'] %}<option value="{{ opt }}" {% if wizard.decision.sister_size == opt %}selected{% endif %}>{{ opt }} in</option>{% endfor %}
+            </select>
+          </label>
+          <label>Claim target NPR (MPa)<input type="number" step="0.001" name="npr_mpa" value="{{ program.npr_mpa }}" required></label>
+          <label>Claim target MAOT (°C)<input type="number" step="0.1" name="maot_c" value="{{ program.maot_c }}" required></label>
+          <label>Service route
+            <select name="service_route">
+              <option value="static_liquid" {% if wizard.decision.service_route == 'static_liquid' %}selected{% endif %}>Static liquid</option>
+              <option value="gas_multiphase" {% if wizard.decision.service_route == 'gas_multiphase' %}selected{% endif %}>Gas / multiphase</option>
+            </select>
+          </label>
+          <label>Cyclic service
+            <select name="cyclic_service">
+              <option value="no" {% if wizard.decision.cyclic_service == 'no' %}selected{% endif %}>No</option>
+              <option value="yes" {% if wizard.decision.cyclic_service == 'yes' %}selected{% endif %}>Yes</option>
+            </select>
+          </label>
+          <label>Program type
+            <select name="pfr_or_pv">
+              <option value="PFR" {% if program.pfr_or_pv == 'PFR' %}selected{% endif %}>PFR</option>
+              <option value="PV" {% if program.pfr_or_pv == 'PV' %}selected{% endif %}>PV</option>
+            </select>
+          </label>
+          <label>Intended service description<input name="intended_service" value="{{ program.intended_service }}"></label>
+          <div style="grid-column:1 / -1;"><button class="btn btn-primary" type="submit">Save route decision</button></div>
+        </form>
+      </article>
+
+      <article class="flow-stage">
+        <h2 class="stage-title">2. Material screening</h2>
+        <div class="flow-note">{{ material_state.headline }}</div>
+        <div style="display:grid;gap:14px;margin-top:14px;">
+          {% for item in material_state.rows %}
+          <form class="flow-card" method="post" action="/rnd/qualifications/{{ program.id }}/materials/{{ item.row.id }}" style="padding:16px;">
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:10px;">
+              <div style="font-weight:900;">{{ item.row.component|title }}</div>
+              <span class="pill {% if item.ready %}ok{% else %}bad{% endif %}">{{ 'Ready' if item.ready else 'Needs input' }}</span>
+            </div>
+            <div class="flow-form">
+              <label>Material name<input name="material_name" value="{{ item.row.material_name }}"></label>
+              <label>Supplier<input name="supplier_name" value="{{ item.row.supplier_name }}"></label>
+              <label>Grade<input name="grade_name" value="{{ item.row.grade_name }}"></label>
+              <label>Certificate ref<input name="certificate_ref" value="{{ item.row.certificate_ref }}"></label>
+              <label>Batch ref<input name="batch_ref" value="{{ item.row.batch_ref }}"></label>
+              <label>Status
+                <select name="status">
+                  {% for s in ['PLANNED','IN_PROGRESS','PASSED'] %}<option value="{{ s }}" {% if item.row.status == s %}selected{% endif %}>{{ s.replace('_',' ') }}</option>{% endfor %}
+                </select>
+              </label>
+              <label style="grid-column:1 / -1;">Screening note<textarea name="notes">{{ item.row.notes }}</textarea></label>
+              <div style="grid-column:1 / -1;display:flex;justify-content:space-between;gap:12px;align-items:center;">
+                <div class="muted-sm">{% if item.missing %}Missing: {{ item.missing|join(', ') }}{% else %}This material record is complete enough to proceed.{% endif %}</div>
+                <button class="btn btn-ghost" type="submit">Save {{ item.row.component|title }}</button>
+              </div>
+            </div>
+          </form>
+          {% endfor %}
+        </div>
+      </article>
+
+      <article class="flow-stage">
+        <h2 class="stage-title">3. Burst qualification screen</h2>
+        <div class="flow-note">{{ burst_state.headline }}</div>
+        <div class="flow-banner" style="margin-top:14px;">
+          <strong>System rule</strong>
+          Enter at least {{ burst_state.required_count }} burst specimens. Each specimen must meet or exceed {{ '%.3f'|format(burst_state.threshold_mpa) }} MPa and be run within ±5 °C of the qualification basis. Non-burst failure modes are automatically flagged.
+        </div>
+        <div class="flow-grid" style="grid-template-columns:1fr 1fr;margin-top:14px;">
+          <div class="flow-banner">
+            <strong>Why {{ '%.3f'|format(burst_basis.threshold_mpa) }} MPa appears</strong>
+            <div>{{ burst_basis.formula }}</div>
+            <div style="margin-top:8px;font-weight:800;">{{ burst_basis.equation }}</div>
+            <div class="muted-sm" style="margin-top:8px;">{{ burst_basis.summary }}</div>
+          </div>
+          <div class="flow-banner">
+            <strong>Important standard note</strong>
+            <div class="muted-sm">{{ burst_basis.standard_basis }}</div>
+            <div class="muted-sm" style="margin-top:8px;">{{ burst_basis.caution }}</div>
+          </div>
+        </div>
+        <form class="flow-form" method="post" action="/rnd/qualifications/{{ program.id }}/burst/add" style="margin-top:14px;">
+          <label>Specimen ID<input name="specimen_id" required></label>
+          <label>Burst pressure (MPa)<input type="number" step="0.001" name="pressure_mpa" required></label>
+          <label>Test temperature (°C)<input type="number" step="0.1" name="temperature_c" value="{{ program.maot_c }}" required></label>
+          <label>Failure mode
+            <select name="failure_mode">
+              <option value="burst">burst</option>
+              <option value="rupture">rupture</option>
+              <option value="leak">leak</option>
+              <option value="fitting">fitting</option>
+            </select>
+          </label>
+          <label style="grid-column:1 / -1;">Notes<textarea name="notes"></textarea></label>
+          <div style="grid-column:1 / -1;"><button class="btn btn-primary" type="submit" {% if not material_state.complete %}disabled{% endif %}>Add burst result</button></div>
+        </form>
+        {% if not material_state.complete %}<div class="flow-note flow-error" style="margin-top:12px;">Burst entry stays locked until all material rows are complete.</div>{% endif %}
+        <table class="flow-table" style="margin-top:14px;">
+          <thead><tr><th>Specimen</th><th>Pressure</th><th>Temp</th><th>Mode</th><th>System result</th><th>Flags</th></tr></thead>
+          <tbody>
+            {% for row in burst_state.rows %}
+            <tr>
+              <td>{{ row.specimen.specimen_id }}</td>
+              <td>{{ row.specimen.pressure_mpa }} MPa</td>
+              <td>{{ row.specimen.temperature_c }} °C</td>
+              <td>{{ row.specimen.failure_mode }}</td>
+              <td><span class="pill {% if row.status == 'ACCEPTED' %}ok{% else %}bad{% endif %}">{{ row.status }}</span></td>
+              <td>{% if row.flags %}{{ row.flags|join(' ') }}{% else %}No red flags.{% endif %}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="muted">No burst specimens entered yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </article>
+    </div>
+
+    <aside style="display:grid;gap:18px;">
+      <article class="flow-side">
+        <h2 style="margin-top:0;">System decision</h2>
+        <div class="flow-banner"><strong>Family strategy</strong>{{ wizard.decision.family_decision }}</div>
+        <div class="flow-banner" style="margin-top:10px;"><strong>Service route</strong>{{ wizard.decision.service_decision }}</div>
+        <div class="flow-banner" style="margin-top:10px;"><strong>Cyclic route</strong>{{ wizard.decision.cyclic_decision }}</div>
+        <div class="flow-banner" style="margin-top:10px;"><strong>Temperature route</strong>{{ wizard.decision.temperature_decision }}</div>
+      </article>
+
+      <article class="flow-side">
+        <h2 style="margin-top:0;">Acceptance logic</h2>
+        <div class="flow-banner"><strong>Material stage</strong>All three material rows must contain traceable material name, supplier, grade, certificate reference, batch reference, and a screening note before structural testing is allowed.</div>
+        <div class="flow-banner" style="margin-top:10px;"><strong>Burst stage</strong>The app currently uses a planning burst screen of {{ '%.3f'|format(burst_basis.threshold_mpa) }} MPa, plus a ±5 °C temperature window and a permissible burst/rupture mode gate. Treat this as an execution screen, not as the final API 15S qualification decision for nonmetallic PFRs.</div>
+        <div class="flow-banner" style="margin-top:10px;"><strong>Regression stage</strong>The real qualification backbone for your nonmetallic pipe is the long-term regression basis, where MPR is derived from the lower confidence result at {{ '{:,.0f}'.format(rcrt_hours) }} h after applying Fd = {{ design_factor_nonmetallic }}.</div>
+      </article>
+
+      <article class="flow-side">
+        <h2 style="margin-top:0;">What the system expects next</h2>
+        {% if flow.current == 'materials' %}
+          <div class="flow-note flow-error">Current blocker: finish all material screening rows with traceability and screening notes.</div>
+          <ul class="flow-list"><li>Enter supplier, grade, certificate ref, and batch for liner, reinforcement, and cover.</li><li>Add one screening note per material explaining suitability for pressure, temperature, and service chemistry.</li><li>Only after that will burst qualification open fully.</li></ul>
+        {% elif flow.current == 'burst' %}
+          <div class="flow-note flow-error">Current blocker: burst screen not yet accepted.</div>
+          <ul class="flow-list"><li>Record at least five burst specimens.</li><li>Each result must meet the threshold and temperature window.</li><li>Leak or fitting failures are flagged automatically for review.</li></ul>
+        {% elif flow.current == 'regression' %}
+          <div class="flow-note flow-good">Burst stage is accepted. Move into regression planning now.</div>
+          <ul class="flow-list"><li>Build the static regression matrix with pressure bands and longer-duration points.</li><li>Use the regression center to track valid points versus the minimum target of {{ static_reg.required_minimum }}.</li><li>Do not claim final qualification until the lower confidence basis is mature.</li></ul>
+          <div style="margin-top:14px;"><a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Open regression center</a></div>
+        {% else %}
+          <div class="flow-note flow-good">Core stages are complete. Review the regression basis and compile the dossier.</div>
+        {% endif %}
+      </article>
+
+      <article class="flow-side">
+        <h2 style="margin-top:0;">Regression readiness snapshot</h2>
+        <div class="flow-kpi" style="margin-top:0;"><b>Valid static points</b>{{ static_reg.count }} / {{ static_reg.required_minimum }}</div>
+        <div class="flow-kpi"><b>LCL at {{ '{:,.0f}'.format(rcrt_hours) }} h</b>{% if static_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(static_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
+        <div class="flow-kpi"><b>MPR at {{ design_factor_nonmetallic }}</b>{% if static_reg.mpr_mpa %}{{ '%.3f'|format(static_reg.mpr_mpa) }} MPa{% else %}-{% endif %}</div>
+        {% if static_reg.warning %}<div class="flow-note flow-error" style="margin-top:10px;">{{ static_reg.warning }}</div>{% endif %}
+      </article>
+    </aside>
+  </section>
+</div>
+{% endblock %}

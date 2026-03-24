@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Inspection ERP Login</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="login-screen">
+    <div class="login-shell">
+      <div class="login-card">
+        <div class="login-brand">
+          <div class="login-brand-badge">IE</div>
+        </div>
+
+        <h1 class="login-title">Welcome Back</h1>
+        <div class="login-subtitle">Please sign in to continue to Inspection ERP.</div>
+
+        {% if error %}
+          <div class="alert login-error">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="/login">
+          <label>USERNAME</label>
+          <input class="login-input" name="username" placeholder="Enter username" required>
+
+          <label style="margin-top:18px;">PASSWORD</label>
+          <input class="login-input" name="password" type="password" placeholder="Enter password" required>
+
+          <button class="login-submit" type="submit">Sign In →</button>
+        </form>
+
+        <div class="login-hint">
+          Accounts are created by the administrator only.
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

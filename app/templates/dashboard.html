@@ -1,0 +1,359 @@
+{% extends "base.html" %}
+{% block content %}
+
+<main class="dash-main overview-main">
+  <div class="dash-header overview-header">
+    <div>
+      <h1 class="dash-title">Orders Production Overview</h1>
+      <div class="muted">Live batches only. Closed / fully released batches are hidden from this overview.</div>
+    </div>
+
+    <div class="global-search-wrap">
+      <div class="global-search-bar">
+        <input
+          id="globalSearchInput"
+          class="global-search-input"
+          type="text"
+          placeholder="Search batch, client, PO, ITP, RFI, hydro, burst, final..."
+          autocomplete="off"
+        >
+        <button id="globalSearchBtn" class="btn" type="button">Search</button>
+      </div>
+      <div id="globalSearchResults" class="global-search-results" style="display:none;"></div>
+    </div>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">Active Batches</div>
+      <div class="kpi-value">{{ batch_cards|length }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Active Production Runs</div>
+      <div class="kpi-value">{{ progress_map|length }}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Avg. Progress</div>
+      <div class="kpi-value">
+        {% if progress_map|length == 0 %}0%{% else %}
+          {{ (progress_map.values()|sum / (progress_map|length))|round(0, 'floor') }}%
+        {% endif %}
+      </div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">MRR Approved Lots</div>
+      <div class="kpi-value">{{ mrr_stats.final_approved }}</div>
+    </div>
+  </div>
+
+  <div class="overview-grid mt">
+    <section class="section overview-orders-section">
+      <div class="section-head">
+        <div>
+          <h2>Manufacturing &amp; Production</h2>
+          <div class="muted">Each card shows current status, next action, and the remaining journey.</div>
+        </div>
+      </div>
+
+      {% if batch_cards|length == 0 %}
+        <div class="card mt">
+          <div class="muted">No active batches found.</div>
+        </div>
+      {% else %}
+        <div class="workorders-grid overview-workorders-grid">
+          {% for b in batch_cards %}
+            <div class="workorder-card status-card {{ b.status_class }}">
+              <div class="workorder-card-topline">
+                <div class="workorder-status-chip {{ b.status_class }}">{{ b.status_label }}</div>
+                {% if b.priority %}
+                  <div class="workorder-priority">{{ b.priority }}</div>
+                {% endif %}
+              </div>
+
+              <div class="workorder-top">
+                <div>
+                  <div class="workorder-title">Batch {{ b.batch_no }}</div>
+                  <div class="workorder-sub muted">
+                    {% if b.client_name %}{{ b.client_name }}{% else %}-{% endif %}
+                    {% if b.po_number %} · PO: {{ b.po_number }}{% endif %}
+                    {% if b.itp_number %} · ITP: {{ b.itp_number }}{% endif %}
+                  </div>
+                </div>
+                <div class="workorder-progress">
+                  <div class="workorder-progress-label">Completion</div>
+                  <div class="workorder-progress-val">{{ b.avg_progress }}%</div>
+                </div>
+              </div>
+
+              <div class="progressbar" aria-label="progress">
+                <div class="progressbar-fill" style="width: {{ b.avg_progress }}%;"></div>
+              </div>
+
+              {% if b.process_breakdown %}
+                <div class="process-breakdown">
+                  <div class="process-breakdown-head">
+                    <div class="order-stage-label" style="margin-bottom:0;">Production Detail</div>
+                    <div class="process-breakdown-sub">Covered vs balance by process</div>
+                  </div>
+
+                  <div class="process-breakdown-list">
+                    {% for p in b.process_breakdown %}
+                      <div class="process-breakdown-row">
+                        <div class="process-breakdown-top">
+                          <div class="process-breakdown-name">{{ p.label }}</div>
+                          <div class="process-breakdown-pct">{{ p.pct }}%</div>
+                        </div>
+
+                        <div class="process-breakdown-bar">
+                          <div class="process-breakdown-bar-fill" style="width: {{ p.pct }}%;"></div>
+                        </div>
+
+                        <div class="process-breakdown-meta">
+                          <span><strong>Covered:</strong> {{ p.produced_text }}</span>
+                          <span><strong>Balance:</strong> {{ p.balance_text }}</span>
+                          <span><strong>Total:</strong> {{ p.total_text }}</span>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% endif %}
+
+              <div class="order-stage-boxes">
+                <div class="order-stage-box">
+                  <div class="order-stage-label">Current Stage</div>
+                  <div class="order-stage-value">{{ b.current_stage }}</div>
+                </div>
+                <div class="order-stage-box">
+                  <div class="order-stage-label">Remaining</div>
+                  <div class="order-stage-value">{{ b.remaining_text }}</div>
+                </div>
+              </div>
+
+              <div class="order-next-action">
+                <div class="order-stage-label">Next Action</div>
+                <div class="order-stage-value">{{ b.next_action }}</div>
+              </div>
+
+              {% if b.latest_rfi_no %}
+                <div class="order-inline-note">
+                  <strong>Latest RFI:</strong> {{ b.latest_rfi_no }}
+                  {% if b.latest_rfi_scope %}
+                    <span>- {{ b.latest_rfi_scope|join(', ') }}</span>
+                  {% endif %}
+                </div>
+              {% endif %}
+
+              <div class="workorder-meta">
+                <div class="meta-item">
+                  <div class="meta-label">Created</div>
+                  <div class="meta-value">
+                    {% if b.created_at %}{{ b.created_at.strftime('%Y-%m-%d') }}{% else %}-{% endif %}
+                  </div>
+                </div>
+
+                <div class="meta-item">
+                  <div class="meta-label">Processes</div>
+                  <div class="meta-value">
+                    {% if b.processes|length == 0 %}-{% else %}{{ b.processes|join(', ') }}{% endif %}
+                  </div>
+                </div>
+
+                <div class="meta-item">
+                  <div class="meta-label">Runs</div>
+                  <div class="meta-value">{{ b.run_count }}</div>
+                </div>
+              </div>
+
+              <div class="card-actions-row">
+                <a class="btn btn-ghost" href="/batches/{{ b.batch_no }}">Open Batch</a>
+                <button class="btn btn-primary" type="button" onclick="openTimeline('{{ b.batch_no }}')">View Timeline</button>
+              </div>
+
+              <div id="timeline-data-{{ b.batch_no|replace('/', '-') }}" class="timeline-data-store" style="display:none;"
+                   data-batch="{{ b.batch_no }}"
+                   data-items='{{ b.timeline_items|tojson|safe }}'></div>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </section>
+
+    <aside class="overview-side-panel">
+      <section class="section">
+        <div class="section-head compact-head">
+          <div>
+            <h2>RFI / TPI Calendar</h2>
+            <div class="muted">Keep pending visits visible all the time.</div>
+          </div>
+        </div>
+
+        <div class="calendar-group">
+          <div class="calendar-group-title">Overdue</div>
+          {% if calendar_items.overdue %}
+            {% for item in calendar_items.overdue %}
+              <a class="calendar-item is-overdue" href="{{ item.url }}">
+                <div class="calendar-item-title">{{ item.title }}</div>
+                <div class="calendar-item-sub">{{ item.message }}</div>
+              </a>
+            {% endfor %}
+          {% else %}
+            <div class="calendar-empty">No overdue RFIs.</div>
+          {% endif %}
+        </div>
+
+        <div class="calendar-group">
+          <div class="calendar-group-title">Today</div>
+          {% if calendar_items.today %}
+            {% for item in calendar_items.today %}
+              <a class="calendar-item is-today" href="{{ item.url }}">
+                <div class="calendar-item-title">{{ item.title }}</div>
+                <div class="calendar-item-sub">{{ item.message }}</div>
+              </a>
+            {% endfor %}
+          {% else %}
+            <div class="calendar-empty">Nothing scheduled for today.</div>
+          {% endif %}
+        </div>
+
+        <div class="calendar-group">
+          <div class="calendar-group-title">Upcoming</div>
+          {% if calendar_items.upcoming %}
+            {% for item in calendar_items.upcoming %}
+              <a class="calendar-item" href="{{ item.url }}">
+                <div class="calendar-item-title">{{ item.title }}</div>
+                <div class="calendar-item-sub">{{ item.message }}</div>
+              </a>
+            {% endfor %}
+          {% else %}
+            <div class="calendar-empty">No upcoming RFIs.</div>
+          {% endif %}
+        </div>
+      </section>
+    </aside>
+  </div>
+</main>
+
+<div id="timelineModal" class="timeline-modal-backdrop" style="display:none;">
+  <div class="timeline-modal-card">
+    <div class="timeline-modal-head">
+      <div>
+        <div class="timeline-modal-title" id="timelineModalTitle">Batch Timeline</div>
+        <div class="muted">Current order journey and remaining steps.</div>
+      </div>
+      <button class="btn btn-ghost" type="button" onclick="closeTimeline()">Close</button>
+    </div>
+    <div id="timelineModalBody" class="timeline-modal-body"></div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const input = document.getElementById("globalSearchInput");
+  const button = document.getElementById("globalSearchBtn");
+  const results = document.getElementById("globalSearchResults");
+  let timer = null;
+
+  function hideResults(){
+    if (!results) return;
+    results.style.display = "none";
+    results.innerHTML = "";
+  }
+
+  function renderResults(items){
+    if (!results) return;
+    if (!items || items.length === 0) {
+      results.innerHTML = '<div class="global-search-empty">No matching results.</div>';
+      results.style.display = "block";
+      return;
+    }
+
+    results.innerHTML = items.map(item => `
+      <a class="global-search-item" href="${item.url}">
+        <div class="global-search-title">${item.title}</div>
+        <div class="global-search-sub">${item.subtitle || ""}</div>
+        <div class="global-search-type">${item.type || ""}</div>
+      </a>
+    `).join("");
+    results.style.display = "block";
+  }
+
+  async function runSearch(){
+    const q = (input?.value || "").trim();
+    if (q.length < 1) {
+      hideResults();
+      return;
+    }
+
+    try {
+      const res = await fetch(`/search?q=${encodeURIComponent(q)}`, {
+        credentials: "same-origin",
+        headers: { "Accept": "application/json" }
+      });
+      if (!res.ok) {
+        renderResults([]);
+        return;
+      }
+      const data = await res.json();
+      renderResults(data.results || []);
+    } catch (err) {
+      renderResults([]);
+    }
+  }
+
+  if (input) {
+    input.addEventListener("input", function(){
+      clearTimeout(timer);
+      timer = setTimeout(runSearch, 140);
+    });
+    input.addEventListener("keydown", function(e){
+      if (e.key === "Enter") {
+        e.preventDefault();
+        runSearch();
+      }
+    });
+    input.addEventListener("focus", function(){
+      if (results && results.innerHTML.trim()) {
+        results.style.display = "block";
+      }
+    });
+  }
+
+  if (button) button.addEventListener("click", runSearch);
+
+  document.addEventListener("click", function(e){
+    const wrap = document.querySelector(".global-search-wrap");
+    if (wrap && !wrap.contains(e.target)) hideResults();
+  });
+})();
+
+function openTimeline(batchNo) {
+  const safeId = String(batchNo).replaceAll('/', '-');
+  const store = document.getElementById(`timeline-data-${safeId}`);
+  const body = document.getElementById("timelineModalBody");
+  const title = document.getElementById("timelineModalTitle");
+  const modal = document.getElementById("timelineModal");
+  if (!store || !body || !title || !modal) return;
+
+  const items = JSON.parse(store.dataset.items || '[]');
+  title.innerText = `Batch ${batchNo} Timeline`;
+
+  body.innerHTML = items.map(item => `
+    <div class="timeline-row ${item.state}">
+      <div class="timeline-dot"></div>
+      <div class="timeline-content">
+        <div class="timeline-label">${item.label}</div>
+        <div class="timeline-detail">${item.note || ''}</div>
+      </div>
+    </div>
+  `).join('');
+
+  modal.style.display = 'flex';
+}
+
+function closeTimeline() {
+  const modal = document.getElementById("timelineModal");
+  if (modal) modal.style.display = 'none';
+}
+</script>
+{% endblock %}
