@@ -1,85 +1,66 @@
 {% extends "base.html" %}
-{% block title %}Qualification Test Detail{% endblock %}
+{% block title %}Specimen Preparation · {{ test.title }}{% endblock %}
 {% block content %}
 <style>
-.td-wrap{display:grid;gap:18px}.td-card{background:#fff;border:1px solid #e5e7eb;border-radius:22px;padding:18px;box-shadow:0 10px 28px rgba(15,23,42,.05)}.td-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}.td-list{display:grid;gap:8px;padding-left:18px;margin:0}.td-box{border:1px solid #e5e7eb;border-radius:16px;padding:14px;background:#fbfdff}.muted-sm{font-size:13px;color:#64748b}.prep-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}.prep-tab{border:1px solid #cbd5e1;background:#fff;border-radius:999px;padding:8px 12px;font-size:13px;font-weight:700;color:#334155;cursor:pointer}.prep-tab.active{background:#0f172a;color:#fff;border-color:#0f172a}.prep-panel{display:none}.prep-panel.active{display:block}.prep-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.prep-pill{border:1px solid #e5e7eb;border-radius:16px;padding:12px;background:#fff}.prep-check{display:grid;gap:8px;margin-top:12px}.prep-check div{padding:10px 12px;border:1px dashed #cbd5e1;border-radius:14px;background:#fff}.prep-note{margin-top:12px;padding:12px 14px;border-radius:16px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}@media (max-width:960px){.td-grid,.prep-kpis{grid-template-columns:1fr}}
-</style>
-<div class="td-wrap">
-  <section class="td-card">
-    <div class="section-head">
-      <div><h1 style="margin:0;">{{ test.title }}</h1><div class="muted">{{ program.program_code }} · {{ test.clause_ref }}</div></div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;"><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back</a><a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/reports/final">Final report</a></div>
-    </div>
-  </section>
-  <section class="td-grid">
-    <article class="td-card">
-      <div class="td-box"><strong>Objective</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.objective }}</div></div>
-      <div class="td-box" style="margin-top:12px;"><strong>Why this test is needed</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.why }}</div></div>
-      <div class="td-box" style="margin-top:12px;"><strong>How to do it</strong><ul class="td-list">{% for item in rulebook.how %}<li>{{ item }}</li>{% endfor %}</ul></div>
-      <div class="td-box" style="margin-top:12px;"><strong>Acceptance / review logic</strong><ul class="td-list">{% for item in rulebook.acceptance %}<li>{{ item }}</li>{% endfor %}</ul></div>
-    </article>
-    <aside class="td-card">
-      <div class="td-box"><strong>Clause basis</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.clause_ref }}</div></div>
-      <div class="td-box" style="margin-top:12px;"><strong>Applicability</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.applicability_note }}</div></div>
-      <div class="td-box" style="margin-top:12px;"><strong>Specimen requirement</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.specimen_requirement }}</div></div>
-      <div class="td-box" style="margin-top:12px;"><strong>What the report should show</strong><ul class="td-list">{% for item in rulebook.report_fields %}<li>{{ item }}</li>{% endfor %}</ul></div>
-    </aside>
-  </section>
-
-  <section class="td-card">
-    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+.detail-wrap{display:grid;gap:18px}.detail-card{background:#fff;border:1px solid #e5e7eb;border-radius:22px;box-shadow:0 10px 28px rgba(15,23,42,.05);padding:18px}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.detail-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.detail-kpi{border:1px solid #e5e7eb;border-radius:16px;padding:14px;background:#fcfcff}.detail-kpi b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}.detail-note{padding:14px 16px;border-radius:16px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}.detail-list{display:grid;gap:8px;padding-left:18px;margin:8px 0 0 0}.muted-sm{color:#64748b;font-size:13px}@media (max-width:980px){.detail-grid,.detail-kpis{grid-template-columns:1fr}}</style>
+<div class="detail-wrap">
+  <section class="detail-card">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
       <div>
-        <h2 style="margin:0 0 6px 0;">Specimen Preparation & Conditioning</h2>
-        <div class="muted-sm">Guided panel only — not another big form. Use it to understand how to prepare the specimen before you start the actual test entry.</div>
+        <h1 style="margin:0 0 6px 0;">{{ test.title }}</h1>
+        <div class="muted-sm">{{ program.program_code }} · {{ program.title }}</div>
       </div>
-      <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back to active workflow</a>
-    </div>
-
-    <div class="prep-tabs" style="margin-top:14px;">
-      <button type="button" class="prep-tab active" data-panel="prep-overview">Instructions</button>
-      <button type="button" class="prep-tab" data-panel="prep-conditioning">Conditioning</button>
-      <button type="button" class="prep-tab" data-panel="prep-release">Release checklist</button>
-    </div>
-
-    <div id="prep-overview" class="prep-panel active">
-      <div class="prep-kpis">
-        <div class="prep-pill"><strong>Specimen count</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.specimen_prep.count_text }}</div></div>
-        <div class="prep-pill"><strong>Length basis</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.specimen_prep.length_basis }}</div></div>
-        <div class="prep-pill"><strong>Preparation focus</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.specimen_prep.overview }}</div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back to qualification</a>
+        <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Regression center</a>
       </div>
-      <div class="prep-note">The system should decide specimen validity from traceability, setup basis, conditioning record, and release checkpoints — not from a manual “done” tick.</div>
     </div>
+    <div class="detail-kpis" style="margin-top:14px;">
+      <div class="detail-kpi"><b>Clause</b>{{ test.clause_ref }}</div>
+      <div class="detail-kpi"><b>Specimen requirement</b>{{ prep.min_specimens }}</div>
+      <div class="detail-kpi"><b>Applicability</b>{{ test.applicability }}</div>
+      <div class="detail-kpi"><b>Status</b>{{ test.status.replace('_',' ') }}</div>
+    </div>
+  </section>
 
-    <div id="prep-conditioning" class="prep-panel">
-      <div class="prep-kpis">
-        <div class="prep-pill"><strong>Conditioning required?</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.specimen_prep.conditioning.required }}</div></div>
-        <div class="prep-pill"><strong>Reconditioning after prep?</strong><div class="muted-sm" style="margin-top:6px;">{{ rulebook.specimen_prep.conditioning.reconditioning }}</div></div>
-        <div class="prep-pill"><strong>Why it matters</strong><div class="muted-sm" style="margin-top:6px;">Conditioning keeps the specimen state controlled before the result is used for qualification.</div></div>
-      </div>
-      <div class="td-box" style="margin-top:12px;"><strong>Conditioning guidance</strong><ul class="td-list">{% for item in rulebook.specimen_prep.conditioning.guidance %}<li>{{ item }}</li>{% endfor %}</ul></div>
-    </div>
+  <section class="detail-grid">
+    <article class="detail-card">
+      <h2 style="margin-top:0;">What this test is checking</h2>
+      <div class="detail-note">{{ test.description }}</div>
+      <p class="muted-sm" style="margin-top:12px;">Use this page before cutting any specimens. The purpose here is to make the operator understand the geometry basis, the effective length, and whether conditioning or reconditioning is required before the test begins.</p>
+    </article>
 
-    <div id="prep-release" class="prep-panel">
-      <div class="td-box"><strong>Pre-test release checklist</strong>
-        <div class="prep-check">
-          {% for item in rulebook.specimen_prep.checkpoints %}
-          <div>{{ item }}</div>
-          {% endfor %}
-        </div>
+    <article class="detail-card">
+      <h2 style="margin-top:0;">Specimen geometry & conditioning basis</h2>
+      <div class="detail-kpis">
+        <div class="detail-kpi"><b>Effective test length</b>{{ prep.effective_length }}</div>
+        <div class="detail-kpi"><b>End allowance each side</b>{{ prep.end_allowance_each_side }}</div>
+        <div class="detail-kpi"><b>Total cut length basis</b>{{ prep.total_length_formula }}</div>
+        <div class="detail-kpi"><b>Conditioning</b>{% if prep.conditioning.required == True %}Required{% elif prep.conditioning.required == False %}Not required by default{% else %}Depends on route{% endif %}</div>
       </div>
-      <div class="prep-note">{{ rulebook.specimen_prep.release_note }}</div>
-    </div>
+      <div class="detail-note" style="margin-top:14px;">
+        <strong>Conditioning / reconditioning guidance</strong><br>
+        {{ prep.conditioning.notes }}<br><br>
+        <strong>Reconditioning</strong><br>
+        {{ prep.conditioning.reconditioning }}
+      </div>
+    </article>
+  </section>
+
+  <section class="detail-grid">
+    <article class="detail-card">
+      <h2 style="margin-top:0;">Guided specimen preparation panel</h2>
+      <ol class="detail-list">
+        {% for step in prep.preparation_steps %}<li>{{ step }}</li>{% endfor %}
+      </ol>
+    </article>
+
+    <article class="detail-card">
+      <h2 style="margin-top:0;">Pre-test release checklist</h2>
+      <ul class="detail-list">
+        {% for item in prep.release_checks %}<li>{{ item }}</li>{% endfor %}
+      </ul>
+    </article>
   </section>
 </div>
-<script>
-  document.querySelectorAll('.prep-tab').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      document.querySelectorAll('.prep-tab').forEach(function(x){ x.classList.remove('active'); });
-      document.querySelectorAll('.prep-panel').forEach(function(x){ x.classList.remove('active'); });
-      btn.classList.add('active');
-      var panel = document.getElementById(btn.dataset.panel);
-      if(panel){ panel.classList.add('active'); }
-    });
-  });
-</script>
 {% endblock %}
