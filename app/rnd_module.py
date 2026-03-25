@@ -680,13 +680,51 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
     program = session.get(RndQualificationProgram, program_id)
     if not program:
         raise HTTPException(404, 'Program not found')
-    _seed_test_matrix(session, program)
-    materials = session.exec(select(RndMaterialQualification).where(RndMaterialQualification.program_id == program_id).order_by(RndMaterialQualification.id.asc())).all()
-    specimens = session.exec(select(RndQualificationSpecimen).where(RndQualificationSpecimen.program_id == program_id).order_by(RndQualificationSpecimen.created_at.desc())).all()
-    tests = session.exec(select(RndQualificationTest).where(RndQualificationTest.program_id == program_id).order_by(RndQualificationTest.sort_order.asc(), RndQualificationTest.id.asc())).all()
-    flow = _active_stage(program, materials, specimens)
-    return TEMPLATES.TemplateResponse(request=request, name='rnd_program_view.html', context={'request': request, 'user': user, 'program': program, 'materials': materials, 'specimens': specimens, 'tests': tests, 'flow': flow, 'wizard': flow['wizard'], 'material_state': flow['materials'], 'burst_state': flow['burst'], 'static_reg': flow['static_reg'], 'threshold_mpa': _burst_threshold(program), 'rcrt_hours': RCRT_HOURS, 'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC})
 
+    _seed_test_matrix(session, program)
+
+    materials = session.exec(
+        select(RndMaterialQualification)
+        .where(RndMaterialQualification.program_id == program_id)
+        .order_by(RndMaterialQualification.id.asc())
+    ).all()
+
+    specimens = session.exec(
+        select(RndQualificationSpecimen)
+        .where(RndQualificationSpecimen.program_id == program_id)
+        .order_by(RndQualificationSpecimen.created_at.desc())
+    ).all()
+
+    tests = session.exec(
+        select(RndQualificationTest)
+        .where(RndQualificationTest.program_id == program_id)
+        .order_by(RndQualificationTest.sort_order.asc(), RndQualificationTest.id.asc())
+    ).all()
+
+    flow = _active_stage(program, materials, specimens)
+    guide = _qualification_guide(program)
+
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name='rnd_program_view.html',
+        context={
+            'request': request,
+            'user': user,
+            'program': program,
+            'materials': materials,
+            'specimens': specimens,
+            'tests': tests,
+            'guide': guide,
+            'flow': flow,
+            'wizard': flow['wizard'],
+            'material_state': flow['materials'],
+            'burst_state': flow['burst'],
+            'static_reg': flow['static_reg'],
+            'threshold_mpa': _burst_threshold(program),
+            'rcrt_hours': RCRT_HOURS,
+            'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC,
+        }
+    )
 
 @router.post('/qualifications/{program_id}/wizard/save')
 def rnd_save_wizard(program_id: int, session: Session = Depends(get_session), user: User = Depends(_require_user), launch_size_in: str = Form(...), sister_size_in: str = Form('6'), service_route: str = Form('static_liquid'), cyclic_service: str = Form('no'), intended_service: str = Form('Static water service'), npr_mpa: float = Form(...), maot_c: float = Form(...), pfr_or_pv: str = Form('PFR')):
