@@ -124,7 +124,6 @@ SPECIMEN_PREP_RULES = {
             "required": True,
             "notes": "Stabilize specimens at the lowest required temperature before testing or follow-on loading.",
             "reconditioning": "Not usually needed unless the low-temperature exposure is interrupted.",
-",
         },
     },
     "IMPACT": {
