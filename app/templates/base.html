@@ -5,6 +5,101 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Inspection ERP</title>
   <link rel="stylesheet" href="/static/styles.css">
+
+  <style>
+    .pdf-preview-backdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,.38);
+      z-index:2000;
+    }
+    .pdf-preview-card{
+      position:fixed;
+      top:72px;
+      left:80px;
+      width:min(1100px, calc(100vw - 120px));
+      height:min(78vh, calc(100vh - 120px));
+      min-width:520px;
+      min-height:360px;
+      max-width:calc(100vw - 24px);
+      max-height:calc(100vh - 24px);
+      background:#fff;
+      border:1px solid rgba(148,163,184,.35);
+      border-radius:16px;
+      box-shadow:0 24px 60px rgba(15,23,42,.24);
+      display:flex;
+      flex-direction:column;
+      overflow:hidden;
+      resize:both;
+    }
+    .pdf-preview-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      padding:12px 14px;
+      border-bottom:1px solid #e2e8f0;
+      background:linear-gradient(180deg,#f8fafc 0%,#fff 100%);
+      cursor:move;
+      user-select:none;
+    }
+    .pdf-preview-title{
+      font-weight:800;
+      color:#0f172a;
+      letter-spacing:.01em;
+    }
+    .pdf-preview-actions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .pdf-preview-body{
+      flex:1;
+      min-height:0;
+      background:#f8fafc;
+    }
+    .pdf-preview-frame{
+      width:100%;
+      height:100%;
+      border:0;
+      background:#fff;
+    }
+    .pdf-preview-resize-note{
+      font-size:12px;
+      color:#64748b;
+      margin-right:6px;
+      white-space:nowrap;
+    }
+    .pdf-preview-card::after{
+      content:"";
+      position:absolute;
+      right:10px;
+      bottom:10px;
+      width:16px;
+      height:16px;
+      background:
+        linear-gradient(135deg, transparent 0 45%, #94a3b8 45% 55%, transparent 55% 100%),
+        linear-gradient(135deg, transparent 0 65%, #cbd5e1 65% 75%, transparent 75% 100%);
+      pointer-events:none;
+      opacity:.9;
+    }
+    @media (max-width: 900px){
+      .pdf-preview-card{
+        top:12px !important;
+        left:12px !important;
+        width:calc(100vw - 24px) !important;
+        height:calc(100vh - 24px) !important;
+        min-width:0;
+        min-height:0;
+        border-radius:14px;
+      }
+      .pdf-preview-resize-note{
+        display:none;
+      }
+    }
+  </style>
+
 </head>
 <body>
   {% set current_path = request.url.path if request and request.url else '' %}
@@ -105,6 +200,10 @@
                 <span class="erp-sidebar-link-icon">△</span>
                 <span>In-Process Inspection</span>
               </a>
+              <a class="erp-sidebar-link {% if current_path.startswith('/rnd') %}active{% endif %}" href="/rnd">
+                <span class="erp-sidebar-link-icon">⌬</span>
+                <span>R&amp;D Qualification</span>
+              </a>
             </nav>
           </div>
         </div>
@@ -187,11 +286,13 @@
     </div>
   </div>
 
+  
   <div id="pdfPreviewModal" class="pdf-preview-backdrop" style="display:none;">
-    <div class="pdf-preview-card">
-      <div class="pdf-preview-head">
+    <div id="pdfPreviewCard" class="pdf-preview-card" role="dialog" aria-modal="true" aria-label="PDF Preview">
+      <div id="pdfPreviewHead" class="pdf-preview-head">
         <div class="pdf-preview-title">PDF Preview</div>
         <div class="pdf-preview-actions">
+          <span class="pdf-preview-resize-note">Drag the header to move. Drag the corner to resize.</span>
           <a id="pdfPreviewOpenNewTab" class="btn btn-ghost" href="#" target="_blank" rel="noopener">Open in New Tab</a>
           <button class="btn btn-primary" type="button" onclick="closePdfPreview()">Close</button>
         </div>
@@ -207,6 +308,7 @@
       </div>
     </div>
   </div>
+
 
 <script>
   const SIDEBAR_MODULES = {
@@ -242,19 +344,19 @@
           <span class="erp-sidebar-link-icon">△</span>
           <span>In-Process Inspection</span>
         </a>
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rnd') ? 'active' : ''}" href="/rnd">
+          <span class="erp-sidebar-link-icon">⌬</span>
+          <span>R&amp;D Qualification</span>
+        </a>
       `
     },
     rnd: {
       title: "R&D",
       badge: "⌬",
       links: `
-        <a class="erp-sidebar-link ${window.location.pathname === '/rnd' || window.location.pathname === '/rnd/qualifications' ? 'active' : ''}" href="/rnd/qualifications">
-          <span class="erp-sidebar-link-icon">⌂</span>
-          <span>Overview</span>
-        </a>
-        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rnd/qualifications') ? 'active' : ''}" href="/rnd/qualifications">
-          <span class="erp-sidebar-link-icon">⌬</span>
-          <span>Monogram Qualifier</span>
+        <a class="erp-sidebar-link" href="javascript:void(0)">
+          <span class="erp-sidebar-link-icon">•</span>
+          <span>Coming Soon</span>
         </a>
       `
     },
@@ -481,16 +583,81 @@
     }
   }, true);
 
+  let pdfPreviewDrag = null;
+
+  function clampPdfPreviewCard(card) {
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
+    const maxTop = Math.max(8, window.innerHeight - rect.height - 8);
+    const nextLeft = Math.min(Math.max(rect.left, 8), maxLeft);
+    const nextTop = Math.min(Math.max(rect.top, 8), maxTop);
+    card.style.left = `${nextLeft}px`;
+    card.style.top = `${nextTop}px`;
+  }
+
+  function bindPdfPreviewDrag() {
+    const card = document.getElementById("pdfPreviewCard");
+    const head = document.getElementById("pdfPreviewHead");
+    if (!card || !head || head.dataset.dragBound === "1") return;
+
+    head.dataset.dragBound = "1";
+
+    head.addEventListener("pointerdown", function(e) {
+      if (e.target.closest("a, button")) return;
+      const rect = card.getBoundingClientRect();
+      pdfPreviewDrag = {
+        dx: e.clientX - rect.left,
+        dy: e.clientY - rect.top
+      };
+      head.setPointerCapture?.(e.pointerId);
+      card.style.left = `${rect.left}px`;
+      card.style.top = `${rect.top}px`;
+      card.style.margin = "0";
+    });
+
+    head.addEventListener("pointermove", function(e) {
+      if (!pdfPreviewDrag) return;
+      const cardRect = card.getBoundingClientRect();
+      const maxLeft = Math.max(8, window.innerWidth - cardRect.width - 8);
+      const maxTop = Math.max(8, window.innerHeight - cardRect.height - 8);
+      const left = Math.min(Math.max(e.clientX - pdfPreviewDrag.dx, 8), maxLeft);
+      const top = Math.min(Math.max(e.clientY - pdfPreviewDrag.dy, 8), maxTop);
+      card.style.left = `${left}px`;
+      card.style.top = `${top}px`;
+    });
+
+    const stopDrag = function(e) {
+      if (!pdfPreviewDrag) return;
+      pdfPreviewDrag = null;
+      try { head.releasePointerCapture?.(e.pointerId); } catch (_) {}
+    };
+
+    head.addEventListener("pointerup", stopDrag);
+    head.addEventListener("pointercancel", stopDrag);
+    window.addEventListener("resize", function(){ clampPdfPreviewCard(card); });
+  }
+
   function openPdfPreview(url) {
     const modal = document.getElementById("pdfPreviewModal");
+    const card = document.getElementById("pdfPreviewCard");
     const frame = document.getElementById("pdfPreviewFrame");
     const openNewTab = document.getElementById("pdfPreviewOpenNewTab");
 
-    if (!modal || !frame || !openNewTab || !url) return;
+    if (!modal || !card || !frame || !openNewTab || !url) return;
 
+    bindPdfPreviewDrag();
     frame.src = url;
     openNewTab.href = url;
-    modal.style.display = "flex";
+    modal.style.display = "block";
+
+    const defaultWidth = Math.min(1100, window.innerWidth - 120);
+    const defaultHeight = Math.min(window.innerHeight - 120, Math.round(window.innerHeight * 0.78));
+    card.style.width = `${Math.max(defaultWidth, 520)}px`;
+    card.style.height = `${Math.max(defaultHeight, 360)}px`;
+    card.style.left = `${Math.max((window.innerWidth - parseFloat(card.style.width)) / 2, 24)}px`;
+    card.style.top = `${Math.max((window.innerHeight - parseFloat(card.style.height)) / 2, 24)}px`;
+
     document.body.style.overflow = "hidden";
   }
 
@@ -501,9 +668,18 @@
     if (frame) frame.src = "about:blank";
     if (modal) modal.style.display = "none";
     document.body.style.overflow = "";
+    pdfPreviewDrag = null;
   }
 
+
   document.addEventListener("click", function(e) {
+    const modal = document.getElementById("pdfPreviewModal");
+    const card = document.getElementById("pdfPreviewCard");
+    if (modal && modal.style.display !== "none" && e.target === modal) {
+      closePdfPreview();
+      return;
+    }
+
     const link = e.target.closest("a");
     if (!link) return;
 
