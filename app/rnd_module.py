@@ -516,12 +516,12 @@ def rnd_dashboard(request: Request, session: Session = Depends(get_session), use
         counts = _matrix_counts(tests)
         dashboard.append({'program': program, 'tests': tests, 'specimens': specimens, 'counts': counts, 'progress_pct': _status_pct(counts, len(tests)), 'static_reg': static_reg, 'cyclic_reg': cyclic_reg})
     guide = _qualification_guide()
-    return TEMPLATES.TemplateResponse('rnd_dashboard.html', {'request': request, 'user': user, 'dashboard': dashboard, 'guide': guide, 'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC, 'rcrt_hours': RCRT_HOURS})
+    return TEMPLATES.TemplateResponse(request,'rnd_dashboard.html', {'request': request, 'user': user, 'dashboard': dashboard, 'guide': guide, 'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC, 'rcrt_hours': RCRT_HOURS})
 
 
 @router.get('/qualifications/new')
 def rnd_new_program_form(request: Request, user: User = Depends(_require_user)):
-    return TEMPLATES.TemplateResponse('rnd_program_form.html', {'request': request, 'user': user})
+    return TEMPLATES.TemplateResponse(request,'rnd_program_form.html', {'request': request, 'user': user})
 
 
 @router.post('/qualifications/new')
@@ -553,7 +553,7 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
     cyclic_reg = _regression_from_specimens(specimens, 'CYCLIC_REGRESSION', program.npr_mpa)
     counts = _matrix_counts(tests)
     guide = _qualification_guide(program)
-    return TEMPLATES.TemplateResponse('rnd_program_view.html', {'request': request, 'user': user, 'program': program, 'tests': tests, 'specimens': specimens, 'materials': materials, 'attachments': attachments, 'static_reg': static_reg, 'cyclic_reg': cyclic_reg, 'counts': counts, 'progress_pct': _status_pct(counts, len(tests)), 'guide': guide, 'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC, 'rcrt_hours': RCRT_HOURS})
+    return TEMPLATES.TemplateResponse(request,'rnd_program_view.html', {'request': request, 'user': user, 'program': program, 'tests': tests, 'specimens': specimens, 'materials': materials, 'attachments': attachments, 'static_reg': static_reg, 'cyclic_reg': cyclic_reg, 'counts': counts, 'progress_pct': _status_pct(counts, len(tests)), 'guide': guide, 'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC, 'rcrt_hours': RCRT_HOURS})
 
 
 @router.post('/qualifications/{program_id}/status')
@@ -639,7 +639,7 @@ def rnd_regression_view(program_id: int, request: Request, session: Session = De
             ratio = (program.npr_mpa / parent.npr_mpa) if parent.npr_mpa else None
             pv_formula = {'pfr_code': parent.program_code, 'npr_pv': program.npr_mpa, 'npr_pfr': parent.npr_mpa, 'formula': 'PPV1000 = PPFR1000 x (NPR_PV / NPR_PFR)', 'ratio': ratio}
     guide = _qualification_guide(program)
-    return TEMPLATES.TemplateResponse('rnd_regression_view.html', {'request': request, 'user': user, 'program': program, 'specimens': specimens, 'static_reg': static_reg, 'cyclic_reg': cyclic_reg, 'pv_formula': pv_formula, 'guide': guide, 'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC, 'rcrt_hours': RCRT_HOURS})
+    return TEMPLATES.TemplateResponse(request,'rnd_regression_view.html', {'request': request, 'user': user, 'program': program, 'specimens': specimens, 'static_reg': static_reg, 'cyclic_reg': cyclic_reg, 'pv_formula': pv_formula, 'guide': guide, 'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC, 'rcrt_hours': RCRT_HOURS})
 
 
 @router.get('/qualifications/{program_id}/tests/{test_id}')
@@ -651,4 +651,4 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
     if not test or test.program_id != program_id:
         raise HTTPException(404, 'Test not found')
     prep = get_specimen_prep(test.code)
-    return TEMPLATES.TemplateResponse('rnd_test_detail.html', {'request': request, 'user': user, 'program': program, 'test': test, 'prep': prep})
+    return TEMPLATES.TemplateResponse(request,'rnd_test_detail.html', {'request': request, 'user': user, 'program': program, 'test': test, 'prep': prep})
