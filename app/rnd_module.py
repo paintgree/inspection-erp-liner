@@ -293,6 +293,7 @@ class RndQualificationSpecimen(SQLModel, table=True):
     nominal_size_in: float = Field(default=0.0)
     confirmed_od_mm: Optional[float] = Field(default=None)
     preparation_rule_basis: str = Field(default="")
+
     pressure_mpa: float = Field(default=0.0)
     temperature_c: float = Field(default=0.0)
     failure_hours: Optional[float] = Field(default=None)
@@ -309,14 +310,13 @@ class RndQualificationSpecimen(SQLModel, table=True):
     notes: str = Field(default="")
 
     batch_ref: str = Field(default="", index=True)
-    material_ref: str = Field(default="")
+    source_pipe_ref: str = Field(default="", index=True)
     cut_by: str = Field(default="")
     total_cut_length_mm: Optional[float] = Field(default=None)
     effective_length_mm: Optional[float] = Field(default=None)
-    left_end_allowance_mm: Optional[float] = Field(default=None)
-    right_end_allowance_mm: Optional[float] = Field(default=None)
+    end_allowance_each_side_mm: Optional[float] = Field(default=None)
     trimming_margin_mm: Optional[float] = Field(default=None)
-    conditioning_required: bool = Field(default=False)
+
     conditioning_complete: bool = Field(default=False)
     pretest_visual_ok: bool = Field(default=False)
     released_for_test: bool = Field(default=False)
@@ -539,16 +539,20 @@ def _evidence_status(test_code: str, attachments: list) -> dict:
     }
 
 
-def _specimen_readiness(specimens: list) -> dict:
+def _specimen_readiness(specimens: list, prep: dict | None = None) -> dict:
     total = len(specimens)
     released = 0
     conditioning_pending = 0
     visual_pending = 0
 
+    preconditioning_required = None
+    if prep:
+        preconditioning_required = prep.get("preconditioning", {}).get("required")
+
     for s in specimens:
         if s.released_for_test:
             released += 1
-        if s.conditioning_required and not s.conditioning_complete:
+        if preconditioning_required is True and not s.conditioning_complete:
             conditioning_pending += 1
         if not s.pretest_visual_ok:
             visual_pending += 1
@@ -1124,7 +1128,7 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
     execution = _execution_requirements(test.code)
     acceptance = _acceptance_criteria(test.code)
     evidence = _evidence_status(test.code, attachments)
-    specimen_state = _specimen_readiness(specimens)
+    specimen_state = _specimen_readiness(specimens, prep)
 
     return TEMPLATES.TemplateResponse(
         request,
@@ -1156,14 +1160,12 @@ def rnd_add_test_specimen(
     confirmed_od_mm: Optional[float] = Form(None),
     preparation_rule_basis: str = Form(''),
     batch_ref: str = Form(''),
-    material_ref: str = Form(''),
+    source_pipe_ref: str = Form(''),
     cut_by: str = Form(''),
     total_cut_length_mm: Optional[float] = Form(None),
     effective_length_mm: Optional[float] = Form(None),
-    left_end_allowance_mm: Optional[float] = Form(None),
-    right_end_allowance_mm: Optional[float] = Form(None),
+    end_allowance_each_side_mm: Optional[float] = Form(None),
     trimming_margin_mm: Optional[float] = Form(None),
-    conditioning_required: Optional[str] = Form(None),
     conditioning_complete: Optional[str] = Form(None),
     pretest_visual_ok: Optional[str] = Form(None),
     released_for_test: Optional[str] = Form(None),
@@ -1187,14 +1189,12 @@ def rnd_add_test_specimen(
         confirmed_od_mm=confirmed_od_mm,
         preparation_rule_basis=preparation_rule_basis,
         batch_ref=batch_ref,
-        material_ref=material_ref,
+        source_pipe_ref=source_pipe_ref,
         cut_by=cut_by,
         total_cut_length_mm=total_cut_length_mm,
         effective_length_mm=effective_length_mm,
-        left_end_allowance_mm=left_end_allowance_mm,
-        right_end_allowance_mm=right_end_allowance_mm,
+        end_allowance_each_side_mm=end_allowance_each_side_mm,
         trimming_margin_mm=trimming_margin_mm,
-        conditioning_required=bool(conditioning_required),
         conditioning_complete=bool(conditioning_complete),
         pretest_visual_ok=bool(pretest_visual_ok),
         released_for_test=bool(released_for_test),
