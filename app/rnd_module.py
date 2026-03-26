@@ -20,69 +20,69 @@ CYCLIC_BASIS_CYCLES = 1_000_000.0
 DESIGN_FACTOR_NONMETALLIC = 0.67
 
 DEFAULT_SPECIMEN_RULE = {
-    "min_specimens": "Defined by test requirement",
-    "minimum_cut_length": "Use the total cut-length basis below. Do not cut to effective length only.",
-    "effective_length": "Active section defined by the test setup or fixture arrangement.",
-    "end_allowance_each_side": "Use enough extra length for gripping, sealing, end fittings, and trimming. Baseline guide: not less than 1.0 x OD each side unless test-specific rule is stricter.",
-    "total_length_formula": "Total cut length = effective test length + left end allowance + right end allowance + trimming margin",
+    "min_specimens": "As defined by the applicable qualification test requirement.",
+    "minimum_cut_length": "Specimens shall be cut on the basis of total cut length and shall not be cut to active or effective test length only.",
+    "effective_length": "The effective test length shall be the active section defined by the applicable test setup, fixture arrangement, support span, or pressurized free length.",
+    "end_allowance_each_side": "Unless a stricter test-specific requirement applies, each specimen shall include an end allowance on both sides sufficient for gripping, sealing, end fittings, support, trimming, and handling. The baseline preparation allowance shall be not less than 1.0 x outside diameter on each side.",
+    "total_length_formula": "Total cut length = effective test length + left end allowance + right end allowance + trimming margin.",
     "marking_requirements": [
-        "Assign a unique specimen ID before cutting",
-        "Mark pipe size, batch or lot, and intended test code",
-        "Mark the active test section centerline where applicable",
-        "Keep markings outside the critical failure observation area when possible",
+        "Each specimen shall be assigned a unique identification number before cutting.",
+        "Each specimen shall be marked with pipe size, batch or lot reference, and intended test code.",
+        "Where applicable, the centerline or active test section shall be marked prior to preparation.",
+        "Identification markings should be placed outside the critical observation or expected failure zone whenever practical."
     ],
     "visual_acceptance": [
-        "No visible cuts, gouges, cracks, or crushed areas",
-        "No obvious ovality or damage from handling",
-        "Ends are square and suitable for end preparation",
-        "Traceability marking remains readable after preparation",
+        "Specimens shall be free from visible cuts, gouges, cracks, crushed areas, and other preparation damage.",
+        "Specimens shall be free from obvious ovality or deformation caused by handling.",
+        "Cut ends shall be square and suitable for the required end preparation.",
+        "Traceability markings shall remain legible after preparation."
     ],
     "preconditioning": {
         "required": "depends",
-        "when_required": "Apply when the test method or qualification basis requires stabilization at a specific temperature or environment before testing.",
-        "medium": "Ambient air unless the test setup or internal method specifies otherwise",
-        "target_temperature": "As required by the selected test condition",
+        "when_required": "Preconditioning shall be applied whenever required by the qualification basis, applicable procedure, test condition, or environmental exposure requirement.",
+        "medium": "Ambient air unless otherwise required by the applicable test method or internal procedure.",
+        "target_temperature": "As required by the selected test condition.",
         "minimum_process": [
-            "Prepare and identify the specimen",
-            "Verify dimensions and end preparation before conditioning",
-            "Place the specimen in the conditioning environment at the target temperature",
-            "Allow the specimen to stabilize before test start",
-            "Record start time, target temperature, actual temperature, and operator",
-            "Do not begin the test until the specimen is confirmed stabilized",
+            "Prepare, cut, and identify the specimen.",
+            "Verify dimensions, cut quality, and end preparation before conditioning.",
+            "Place the specimen in the required conditioning environment at the specified target temperature.",
+            "Allow the specimen to stabilize before commencement of testing.",
+            "Record conditioning start time, target temperature, observed temperature, and responsible operator.",
+            "Testing shall not begin until specimen stabilization has been confirmed."
         ],
         "records_required": [
             "Conditioning start time",
             "Conditioning end time or release time",
             "Target temperature",
             "Observed temperature",
-            "Medium or environment",
-            "Operator or approver",
+            "Conditioning medium or environment",
+            "Operator or approver"
         ],
     },
     "technician_tips": [
-        "Never cut the specimen to the active test length only; include end allowances and trimming margin",
-        "Record both the total cut length and the intended effective test length",
-        "If there is any uncertainty in the fixture engagement length, confirm it before cutting",
-        "Reject specimens with damage introduced during cutting or handling",
+        "Do not cut specimens to effective test length only.",
+        "Record both total cut length and effective test length before release for test.",
+        "Where fixture or fitting engagement length is uncertain, confirm the requirement before cutting.",
+        "Reject any specimen damaged during cutting, machining, or handling."
     ],
     "release_checks": [
-        "Specimen ID assigned and traceable to batch",
-        "Total cut length measured and recorded",
-        "Effective test length identified",
-        "End preparation completed",
-        "No visible damage after preparation",
-        "Preconditioning completed where required",
-        "Specimen released for test by responsible person",
+        "Specimen identification is assigned and traceable to production batch.",
+        "Total cut length is measured and recorded.",
+        "Effective test length is identified.",
+        "End preparation is complete.",
+        "No visible damage is present after preparation.",
+        "Preconditioning is complete where required.",
+        "Specimen is released for testing by the responsible person."
     ],
 }
 
 SPECIMEN_PREP_RULES = {
     "mpr_reg": {
         "min_specimens": 18,
-        "minimum_cut_length": "Cut enough length to maintain a consistent active free length for the regression setup and enough extra length for both end terminations, sealing, and trimming.",
-        "effective_length": "The free pressurized section between end terminations used for long-term hydrostatic exposure.",
-        "end_allowance_each_side": "Use not less than 1.5 x OD each side as a baseline when long-term end termination and sealing space are needed; increase if the termination system requires more.",
-        "total_length_formula": "Total cut length = effective regression section + 2 x termination allowance + trimming margin",
+        "minimum_cut_length": "Specimens for long-term hydrostatic regression shall be cut to provide a consistent free pressurized section for the regression setup together with sufficient additional length for end terminations, sealing, and trimming.",
+        "effective_length": "The effective length shall be the free pressurized section between end terminations used for long-term hydrostatic exposure.",
+        "end_allowance_each_side": "A preparation allowance of not less than 1.5 x outside diameter shall be provided on each side as a baseline for long-term end termination and sealing requirements. Greater allowance shall be used where the termination system requires additional engagement length.",
+        "total_length_formula": "Total cut length = effective regression section + 2 x termination allowance + trimming margin.",
         "preconditioning": {
             "required": True,
             "when_required": "Required before pressurization at the selected regression test temperature.",
@@ -92,75 +92,115 @@ SPECIMEN_PREP_RULES = {
     },
     "pv_1000h": {
         "min_specimens": 2,
-        "minimum_cut_length": "Cut enough length to achieve the required active section and full end-sealing allowance for the 1000-hour pressure hold.",
-        "effective_length": "The active pressurized section between end fittings for the PV confirmation specimen.",
-        "end_allowance_each_side": "Not less than 1.0 x OD each side as baseline sealing allowance.",
-        "preconditioning": {"required": True, "when_required": "Condition before the 1000-hour hold at selected test temperature.", "medium": "Controlled environment", "target_temperature": "Selected PV confirmation temperature"},
+        "minimum_cut_length": "Specimens for the 1000-hour pressure confirmation test shall be cut to provide the required active pressurized section together with full end-sealing allowance.",
+        "effective_length": "The effective length shall be the active pressurized section between end fittings for the PV confirmation specimen.",
+        "end_allowance_each_side": "A baseline sealing allowance of not less than 1.0 x outside diameter shall be provided on each side.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Condition before the 1000-hour hold at the selected test temperature.",
+            "medium": "Controlled environment",
+            "target_temperature": "Selected PV confirmation temperature"
+        },
     },
     "temp_elev": {
         "min_specimens": 1,
-        "minimum_cut_length": "Cut enough length for the active elevated-temperature section plus end engagement and trimming margin.",
-        "effective_length": "The section exposed to elevated temperature and pressure condition.",
-        "preconditioning": {"required": True, "when_required": "Elevated-temperature stabilization required before test start.", "medium": "Controlled temperature environment", "target_temperature": "Selected elevated test temperature"},
+        "minimum_cut_length": "Specimens shall be cut to provide the active elevated-temperature test section together with sufficient end engagement and trimming allowance.",
+        "effective_length": "The effective length shall be the section exposed to the elevated temperature and pressure condition.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Elevated-temperature stabilization is required before test start.",
+            "medium": "Controlled temperature environment",
+            "target_temperature": "Selected elevated test temperature"
+        },
     },
     "temp_cycle": {
         "min_specimens": 2,
-        "minimum_cut_length": "Cut enough length for the active cycling section and secure end engagement.",
-        "effective_length": "The section subjected to thermal cycling.",
-        "preconditioning": {"required": True, "when_required": "Stabilize at starting temperature before thermal cycling begins.", "medium": "Controlled temperature environment", "target_temperature": "Cycle start temperature"},
+        "minimum_cut_length": "Specimens shall be cut to provide the active thermal cycling section together with secure end engagement for the cycling setup.",
+        "effective_length": "The effective length shall be the section subjected to thermal cycling.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Stabilization at the starting temperature is required before thermal cycling begins.",
+            "medium": "Controlled temperature environment",
+            "target_temperature": "Cycle start temperature"
+        },
     },
     "rapid_decomp": {
         "min_specimens": 1,
-        "minimum_cut_length": "Cut enough length for the decompression exposure section plus safe end engagement.",
-        "effective_length": "The pressurized section exposed to gas decompression.",
-        "preconditioning": {"required": True, "when_required": "Condition as required by gas charging and temperature setup.", "medium": "Gas exposure environment", "target_temperature": "Selected rapid decompression temperature"},
+        "minimum_cut_length": "Specimens shall be cut to provide the decompression exposure section together with safe end engagement and sealing allowance.",
+        "effective_length": "The effective length shall be the pressurized section exposed to gas decompression.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Conditioning shall be applied as required by the gas charging and temperature setup.",
+            "medium": "Gas exposure environment",
+            "target_temperature": "Selected rapid decompression temperature"
+        },
     },
     "operating_mbr": {
         "min_specimens": 2,
-        "minimum_cut_length": "Use full specimen length required to achieve the bending radius and handling arrangement safely.",
-        "effective_length": "The full section involved in bending or respooling exposure.",
-        "end_allowance_each_side": "Include extra length for gripping, handling, and fixture engagement.",
+        "minimum_cut_length": "Specimens shall be prepared using the full length required to achieve the specified bending radius and safe handling arrangement.",
+        "effective_length": "The effective length shall be the full section involved in bending or respooling exposure.",
+        "end_allowance_each_side": "Additional length shall be included as required for gripping, handling, and fixture engagement.",
     },
     "axial_load": {
         "min_specimens": 2,
-        "minimum_cut_length": "Cut enough length to achieve the required gauge section plus end gripping allowance.",
-        "effective_length": "The section over which axial response is evaluated.",
+        "minimum_cut_length": "Specimens shall be cut to provide the required gauge section together with sufficient end gripping allowance.",
+        "effective_length": "The effective length shall be the section over which axial response is evaluated.",
     },
     "crush": {
         "min_specimens": 3,
-        "minimum_cut_length": "Cut enough length to fit the crush setup with proper support and alignment.",
-        "effective_length": "The section under radial external loading.",
+        "minimum_cut_length": "Specimens shall be cut to a length sufficient to suit the crush test arrangement with proper support and alignment.",
+        "effective_length": "The effective length shall be the section subjected to radial external loading.",
     },
     "laot": {
         "min_specimens": 2,
-        "minimum_cut_length": "Cut enough length to run the low-temperature qualification section with correct end engagement.",
-        "effective_length": "The section exposed to lowest allowable operating temperature qualification.",
-        "preconditioning": {"required": True, "when_required": "Condition at the selected low temperature before test start.", "medium": "Low-temperature environment", "target_temperature": "Selected LAOT"},
+        "minimum_cut_length": "Specimens shall be cut to provide the low-temperature qualification section together with the required end engagement.",
+        "effective_length": "The effective length shall be the section exposed to the lowest allowable operating temperature qualification condition.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Condition at the selected low temperature before test start.",
+            "medium": "Low-temperature environment",
+            "target_temperature": "Selected LAOT"
+        },
     },
     "impact": {
         "min_specimens": 2,
-        "minimum_cut_length": "Cut enough length to provide the required support span or impact location plus trimming margin.",
-        "effective_length": "The supported test section containing the impact location.",
-        "end_allowance_each_side": "Based on support arrangement rather than pressure sealing needs.",
-        "preconditioning": {"required": True, "when_required": "Required when impact is performed at a controlled test temperature.", "medium": "Conditioning environment at test temperature", "target_temperature": "Selected impact test temperature"},
+        "minimum_cut_length": "Specimens shall be cut to provide the required support span or impact location together with trimming margin.",
+        "effective_length": "The effective length shall be the supported test section containing the impact location.",
+        "end_allowance_each_side": "Preparation allowance shall be based on the support arrangement rather than pressure sealing requirements.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Required when impact testing is performed at a controlled test temperature.",
+            "medium": "Conditioning environment at test temperature",
+            "target_temperature": "Selected impact test temperature"
+        },
     },
     "tec": {
         "min_specimens": 2,
-        "minimum_cut_length": "Cut enough length to measure axial response over the defined gauge or effective section.",
-        "effective_length": "The section used for TEC measurement.",
-        "preconditioning": {"required": True, "when_required": "Thermal stabilization required before TEC measurement.", "medium": "Controlled temperature environment", "target_temperature": "Selected TEC temperature"},
+        "minimum_cut_length": "Specimens shall be cut to provide sufficient length for axial response measurement over the defined gauge or effective section.",
+        "effective_length": "The effective length shall be the section used for thermal expansion coefficient measurement.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Thermal stabilization is required before thermal expansion measurement.",
+            "medium": "Controlled temperature environment",
+            "target_temperature": "Selected TEC temperature"
+        },
     },
     "growth": {
         "min_specimens": 2,
-        "minimum_cut_length": "Cut enough length to measure growth or shrinkage over the intended gauge section.",
-        "effective_length": "The section over which dimensional response is recorded.",
+        "minimum_cut_length": "Specimens shall be cut to provide sufficient length for measurement of growth or shrinkage over the intended gauge section.",
+        "effective_length": "The effective length shall be the section over which dimensional response is recorded.",
     },
     "cyclic_reg": {
         "min_specimens": 18,
-        "minimum_cut_length": "Cut enough length to achieve the active cycling section and full termination or fitting allowance.",
-        "effective_length": "The active section subjected to repeated pressure cycling.",
-        "end_allowance_each_side": "Use enough length for termination and sealing; do not compromise the active cycling section.",
-        "preconditioning": {"required": True, "when_required": "Required when cyclic test is run at controlled temperature or conditioned service state.", "medium": "Controlled environment as required by the test condition", "target_temperature": "Selected cyclic qualification temperature"},
+        "minimum_cut_length": "Specimens for cyclic pressure regression shall be cut to provide the active cycling section together with full termination or fitting allowance.",
+        "effective_length": "The effective length shall be the active section subjected to repeated pressure cycling.",
+        "end_allowance_each_side": "Sufficient length shall be provided for termination and sealing without compromising the active cycling section.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Required when the cyclic test is conducted at controlled temperature or conditioned service state.",
+            "medium": "Controlled environment as required by the test condition",
+            "target_temperature": "Selected cyclic qualification temperature"
+        },
     },
 }
 
