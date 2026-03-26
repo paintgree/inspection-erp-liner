@@ -25,6 +25,17 @@
             <strong>Specimen readiness:</strong>
             {{ specimen_state.released }} released / {{ specimen_state.total }} total
           </div>
+          <div class="alert alert-light border mt-3 mb-0">
+            <strong>What to do now</strong>
+            <ol class="mb-0 mt-2">
+              <li>Confirm the source pipe or production lot for the specimen.</li>
+              <li>Confirm the actual outside diameter (OD) in millimetres.</li>
+              <li>Apply the specimen preparation rule shown below.</li>
+              <li>Complete preconditioning if the test requires it.</li>
+              <li>Register the specimen and release it for test.</li>
+              <li>Register the required evidence documents.</li>
+            </ol>
+          </div>
           <div class="alert {% if evidence.complete %}alert-success{% else %}alert-warning{% endif %} mb-0">
             <strong>Evidence completeness:</strong>
             {% if evidence.complete %}
@@ -43,18 +54,105 @@
     <div class="card-body">
       <div class="row g-4">
         <div class="col-md-6">
-          <p><strong>Minimum specimens</strong><br>{{ prep.min_specimens }}</p>
-          <p><strong>Minimum cut length</strong><br>{{ prep.minimum_cut_length }}</p>
-          <p><strong>Effective test length</strong><br>{{ prep.effective_length }}</p>
-          <div class="alert alert-warning">
-            <strong>OD confirmation required before cutting</strong><br>
-            {{ prep.od_basis_notice }}
-          </div>
+          <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/specimens/new" class="mb-4">
+            <div class="row g-3">
+              <div class="col-12">
+                <div class="alert alert-light border mb-0">
+                  <strong>Inherited qualification materials</strong><br>
+                  Use the approved material set from the qualification's Materials Control section. Do not re-enter liner, reinforcement, or outer layer materials here. This register is for specimen cutting, traceability, and release only.
+                </div>
+              </div>
           
-          <p><strong>Diameter-based calculation rule</strong><br>{{ prep.calculation_rule_notice }}</p>
-          <p><strong>Recorded dimensional controls</strong><br>{{ prep.recorded_dimensions_notice }}</p>
-          <p><strong>End allowance each side</strong><br>{{ prep.end_allowance_each_side }}</p>
-          <p><strong>Total cut length basis</strong><br>{{ prep.total_length_formula }}</p>
+              <div class="col-md-4">
+                <label class="form-label">Specimen ID</label>
+                <input class="form-control" type="text" name="specimen_id" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Sample Date</label>
+                <input class="form-control" type="date" name="sample_date" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Nominal Size (in)</label>
+                <input class="form-control" type="number" step="0.01" name="nominal_size_in" value="{{ program.nominal_size_in }}">
+              </div>
+          
+              <div class="col-md-4">
+                <label class="form-label">Confirmed OD (mm)</label>
+                <input class="form-control" type="number" step="0.01" name="confirmed_od_mm">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Rule Basis</label>
+                <input class="form-control" type="text" name="preparation_rule_basis" placeholder="e.g. 5D, 3D, 1.5 x OD">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Source Pipe / Spool Ref</label>
+                <input class="form-control" type="text" name="source_pipe_ref" placeholder="Pipe length, spool, or production lot reference">
+              </div>
+          
+              <div class="col-md-4">
+                <label class="form-label">Batch Ref</label>
+                <input class="form-control" type="text" name="batch_ref">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Cut By</label>
+                <input class="form-control" type="text" name="cut_by">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Effective Length (mm)</label>
+                <input class="form-control" type="number" step="0.01" name="effective_length_mm">
+              </div>
+          
+              <div class="col-md-4">
+                <label class="form-label">End Allowance Each Side (mm)</label>
+                <input class="form-control" type="number" step="0.01" name="end_allowance_each_side_mm">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Trimming Margin (mm)</label>
+                <input class="form-control" type="number" step="0.01" name="trimming_margin_mm">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Total Cut Length (mm)</label>
+                <input class="form-control" type="number" step="0.01" name="total_cut_length_mm">
+              </div>
+          
+              <div class="col-12">
+                <div class="alert {% if prep.preconditioning.required == True %}alert-warning{% else %}alert-light border{% endif %}">
+                  <strong>Preconditioning</strong><br>
+                  {% if prep.preconditioning.required == False %}
+                    This test does not require preconditioning by default. {{ prep.preconditioning.when_required }}
+                  {% elif prep.preconditioning.required == True %}
+                    This test requires preconditioning. {{ prep.preconditioning.when_required }}
+                  {% else %}
+                    Preconditioning depends on the applicable procedure or test condition. {{ prep.preconditioning.when_required }}
+                  {% endif %}
+                </div>
+              </div>
+          
+              <div class="col-md-12">
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" name="conditioning_complete" value="1" id="condDone">
+                  <label class="form-check-label" for="condDone">Preconditioning complete</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" name="pretest_visual_ok" value="1" id="visualOk">
+                  <label class="form-check-label" for="visualOk">Pre-test visual accepted</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" name="released_for_test" value="1" id="releasedForTest">
+                  <label class="form-check-label" for="releasedForTest">Released for test</label>
+                </div>
+              </div>
+          
+              <div class="col-md-12">
+                <label class="form-label">Notes</label>
+                <textarea class="form-control" name="notes" rows="2"></textarea>
+              </div>
+          
+              <div class="col-12">
+                <button class="btn btn-primary" type="submit">Add Specimen</button>
+              </div>
+            </div>
+          </form>
         </div>
         <div class="col-md-6">
           <p class="mb-2"><strong>Marking / Traceability</strong></p>
@@ -141,7 +239,7 @@
   <div class="row g-4 mb-4">
     <div class="col-lg-6">
       <div class="card shadow-sm h-100">
-        <div class="card-header"><strong>Specimen Register</strong></div>
+        <div class="card-header"><strong>Specimen Cutting & Release Register</strong></div>
         <div class="card-body">
           <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/specimens/new" class="mb-4">
             <div class="row g-2">
@@ -228,16 +326,27 @@
           {% if specimens %}
           <div class="table-responsive">
             <table class="table table-sm align-middle">
-              <thead>
+              <tbody>
+                {% for s in specimens %}
                 <tr>
-                  <th>Specimen</th>
-                  <th>OD / Basis</th>
-                  <th>Batch</th>
-                  <th>Total Cut</th>
-                  <th>Visual</th>
-                  <th>Released</th>
+                  <td>
+                    <strong>{{ s.specimen_id }}</strong><br>
+                    <small class="text-muted">{{ s.sample_date }}</small>
+                  </td>
+                  <td>
+                    {{ s.confirmed_od_mm or "-" }} mm<br>
+                    <small class="text-muted">{{ s.preparation_rule_basis or "-" }}</small>
+                  </td>
+                  <td>
+                    {{ s.source_pipe_ref or "-" }}<br>
+                    <small class="text-muted">Batch: {{ s.batch_ref or "-" }}</small>
+                  </td>
+                  <td>{{ s.total_cut_length_mm or "-" }}</td>
+                  <td>{{ "YES" if s.pretest_visual_ok else "NO" }}</td>
+                  <td>{{ "YES" if s.released_for_test else "NO" }}</td>
                 </tr>
-              </thead>
+                {% endfor %}
+              </tbody>
               <tbody>
                 {% for s in specimens %}
                 <tr>
