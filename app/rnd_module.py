@@ -503,6 +503,33 @@ def _qualification_guide(program: Optional[RndQualificationProgram] = None) -> d
 def rnd_home() -> RedirectResponse:
     return RedirectResponse(url='/rnd/qualifications', status_code=303)
 
+def _active_stage(program: RndQualificationProgram, materials: List[RndMaterialQualification], specimens: List[RndQualificationSpecimen]) -> dict:
+    wizard = _wizard_state(program)
+    material_state = _material_screening_state(materials)
+    burst_state = _burst_state(program, specimens)
+    static_reg = _regression_from_specimens(specimens, 'STATIC_REGRESSION', program.npr_mpa)
+
+    if not material_state['complete']:
+        current = 'materials'
+        percent = 33
+    elif not burst_state['complete']:
+        current = 'burst'
+        percent = 58
+    elif static_reg['count'] < static_reg['required_minimum']:
+        current = 'regression'
+        percent = 78
+    else:
+        current = 'review'
+        percent = 100
+
+    return {
+        'wizard': wizard,
+        'materials': material_state,
+        'burst': burst_state,
+        'static_reg': static_reg,
+        'current': current,
+        'progress_pct': percent,
+    }
 
 @router.get('/qualifications')
 def rnd_dashboard(request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
