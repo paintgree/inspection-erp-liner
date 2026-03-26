@@ -498,6 +498,149 @@ def _qualification_guide(program: Optional[RndQualificationProgram] = None) -> d
         ],
     }
 
+def _program_answers(program: RndQualificationProgram) -> dict:
+    raw = (program.notes or '').strip()
+    if raw.startswith('__RNDJSON__'):
+        try:
+            return json.loads(raw[len('__RNDJSON__'):])
+        except Exception:
+            return {}
+    return {}
+
+
+def _save_program_answers(program: RndQualificationProgram, answers: dict) -> None:
+    program.notes = '__RNDJSON__' + json.dumps(answers, ensure_ascii=False)
+    _touch_program(program)
+
+
+def _wizard_state(program: RndQualificationProgram) -> dict:
+    answers = _program_answers(program)
+    launch_size = answers.get('launch_size_in') or f"{program.nominal_size_in:g}"
+    sister_size = answers.get('sister_size_in') or '6'
+    service_route = answers.get('service_route') or (
+        'gas_multiphase' if 'gas' in (program.intended_service or '').lower() else 'static_liquid'
+    )
+    cyclic_service = answers.get('cyclic_service', 'no')
+
+    decision = {
+        'launch_size': launch_size,
+        'sister_size': sister_size,
+        'service_route': service_route,
+        'cyclic_service': cyclic_service,
+        'family_decision': f'Use {launch_size} in as the main qualified size and handle {sister_size} in as a PV only if materials, pressure class, and construction remain matched.',
+        'service_decision': 'Rapid decompression is required.' if service_route == 'gas_multiphase' else 'Rapid decompression is not required for static liquid service.',
+        'cyclic_decision': 'Cyclic regression route is required.' if cyclic_service == 'yes' else 'Cyclic route is not required unless the field duty exceeds the API cyclic trigger.',
+        'temperature_decision': f'Qualification temperature should be at least the claimed MAOT of {program.maot_c:g} °C. Higher claims need their own basis.',
+        'wizard_complete': True,
+    }
+    return {'answers': answers, 'decision': decision}
+
+
+def _material_screening_state(materials: List[RndMaterialQualification]) -> dict:
+    rows = []
+    all_ready = True
+    for m in materials:
+        missing = []
+        if not (m.material_name or '').strip():
+            missing.append('material name')
+        if not (m.supplier_name or '').strip():
+            missing.append('supplier')
+        if not (m.grade_name or '').strip():
+            missing.append('grade')
+        if not (m.certificate_ref or '').strip():
+            missing.append('certificate ref')
+        if not (m.batch_ref or '').strip():
+            missing.append('batch ref')
+        if not (m.notes or '').strip():
+            missing.append('screening note')
+
+        ready = len(missing) == 0
+        all_ready = all_ready and ready
+        rows.append({'row': m, 'missing': missing, 'ready': ready})
+
+    return {
+        'rows': rows,
+        'complete': all_ready and len(rows) >= 3,
+        'status_label': 'Accepted' if all_ready and len(rows) >= 3 else 'More data required',
+        'headline': 'Record traceable grade, supplier, certificate, batch, and a short screening note for each material before structural testing starts.',
+    }
+
+
+def _burst_threshold(program: RndQualificationProgram) -> float:
+    if program.npr_mpa <= 0:
+        return 0.0
+    return round(program.npr_mpa / DESIGN_FACTOR_NONMETALLIC, 3)
+
+
+def _burst_state(program: RndQualificationProgram, specimens: List[RndQualificationSpecimen]) -> dict:
+    burst_rows = [s for s in specimens if (s.test_type or '').upper() == 'BURST_QUALIFICATION']
+    threshold = _burst_threshold(program)
+    evaluated = []
+    accepted = 0
+    review_needed = 0
+
+    for s in burst_rows:
+        flags = []
+        if s.pressure_mpa <= 0:
+            flags.append('Burst pressure missing.')
+        if s.temperature_c and abs(float(s.temperature_c) - float(program.maot_c)) > 5.0:
+            flags.append(f'Test temperature {s.temperature_c:g} °C is outside the ±5 °C window around the qualification basis.')
+        mode = (s.failure_mode or '').strip().lower()
+        if mode and mode not in {'burst', 'rupture'}:
+            flags.append('Failure mode is not a clear burst/rupture and needs engineering review.')
+        if s.pressure_mpa and s.pressure_mpa < threshold:
+            flags.append(f'Burst pressure is below the minimum screen threshold of {threshold:.3f} MPa.')
+
+        status = 'ACCEPTED' if not flags else 'REVIEW'
+        if status == 'ACCEPTED':
+            accepted += 1
+        else:
+            review_needed += 1
+
+        evaluated.append({'specimen': s, 'flags': flags, 'status': status})
+
+    require_count = 5
+    complete = accepted >= require_count and review_needed == 0
+
+    return {
+        'threshold_mpa': threshold,
+        'required_count': require_count,
+        'accepted_count': accepted,
+        'review_count': review_needed,
+        'rows': evaluated,
+        'complete': complete,
+        'headline': 'Run burst testing first as a design screen. The system will only unlock the next step once five acceptable specimens are recorded against the minimum burst threshold.',
+    }
+
+
+def _active_stage(program: RndQualificationProgram, materials: List[RndMaterialQualification], specimens: List[RndQualificationSpecimen]) -> dict:
+    wizard = _wizard_state(program)
+    material_state = _material_screening_state(materials)
+    burst_state = _burst_state(program, specimens)
+    static_reg = _regression_from_specimens(specimens, 'STATIC_REGRESSION', program.npr_mpa)
+
+    if not material_state['complete']:
+        current = 'materials'
+        percent = 33
+    elif not burst_state['complete']:
+        current = 'burst'
+        percent = 58
+    elif static_reg['count'] < static_reg['required_minimum']:
+        current = 'regression'
+        percent = 78
+    else:
+        current = 'review'
+        percent = 100
+
+    return {
+        'wizard': wizard,
+        'materials': material_state,
+        'burst': burst_state,
+        'static_reg': static_reg,
+        'current': current,
+        'progress_pct': percent,
+    }
+
 
 @router.get('')
 def rnd_home() -> RedirectResponse:
