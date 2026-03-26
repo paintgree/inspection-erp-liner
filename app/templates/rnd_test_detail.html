@@ -46,6 +46,13 @@
           <p><strong>Minimum specimens</strong><br>{{ prep.min_specimens }}</p>
           <p><strong>Minimum cut length</strong><br>{{ prep.minimum_cut_length }}</p>
           <p><strong>Effective test length</strong><br>{{ prep.effective_length }}</p>
+          <div class="alert alert-warning">
+            <strong>OD confirmation required before cutting</strong><br>
+            {{ prep.od_basis_notice }}
+          </div>
+          
+          <p><strong>Diameter-based calculation rule</strong><br>{{ prep.calculation_rule_notice }}</p>
+          <p><strong>Recorded dimensional controls</strong><br>{{ prep.recorded_dimensions_notice }}</p>
           <p><strong>End allowance each side</strong><br>{{ prep.end_allowance_each_side }}</p>
           <p><strong>Total cut length basis</strong><br>{{ prep.total_length_formula }}</p>
         </div>
@@ -151,6 +158,14 @@
                 <input class="form-control" type="number" step="0.01" name="nominal_size_in" value="{{ program.nominal_size_in }}">
               </div>
               <div class="col-md-4">
+                <label class="form-label">Confirmed OD (mm)</label>
+                <input class="form-control" type="number" step="0.01" name="confirmed_od_mm">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Rule Basis</label>
+                <input class="form-control" type="text" name="preparation_rule_basis" placeholder="e.g. 5D, 3D, 1.5 x OD">
+              </div>
+              <div class="col-md-4">
                 <label class="form-label">Batch Ref</label>
                 <input class="form-control" type="text" name="batch_ref">
               </div>
@@ -216,6 +231,7 @@
               <thead>
                 <tr>
                   <th>Specimen</th>
+                  <th>OD / Basis</th>
                   <th>Batch</th>
                   <th>Total Cut</th>
                   <th>Visual</th>
@@ -228,6 +244,15 @@
                   <td>
                     <strong>{{ s.specimen_id }}</strong><br>
                     <small class="text-muted">{{ s.sample_date }}</small>
+                  </td>
+                  <td>
+                    {% if s.confirmed_od_mm %}
+                      {{ s.confirmed_od_mm }} mm
+                    {% else %}
+                      -
+                    {% endif %}
+                    <br>
+                    <small class="text-muted">{{ s.preparation_rule_basis or "-" }}</small>
                   </td>
                   <td>{{ s.batch_ref or "-" }}</td>
                   <td>{{ s.total_cut_length_mm or "-" }}</td>
