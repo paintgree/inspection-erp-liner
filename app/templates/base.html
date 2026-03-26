@@ -5,18 +5,6 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Inspection ERP</title>
   <link rel="stylesheet" href="/static/styles.css">
-
-  <style>
-    .pdf-preview-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.28);z-index:2000}
-    .pdf-floating-card{position:fixed;top:72px;left:calc(50% - 420px);width:min(980px,calc(100vw - 64px));height:min(78vh,760px);background:#fff;border:1px solid #dbe3ef;border-radius:18px;box-shadow:0 24px 70px rgba(15,23,42,.28);display:flex;flex-direction:column;overflow:hidden;min-width:520px;min-height:360px}
-    .pdf-drag-handle{cursor:move;user-select:none}
-    .pdf-preview-head{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:#f8fbff;border-bottom:1px solid #dbe3ef;gap:12px}
-    .pdf-preview-title{font-weight:800;color:#12324a}
-    .pdf-preview-actions{display:flex;gap:8px;align-items:center}
-    .pdf-preview-body{flex:1;min-height:0;background:#eef4fb}
-    .pdf-preview-frame{width:100%;height:100%;border:0;background:#fff}
-    .pdf-resize-handle{position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:nwse-resize;background:linear-gradient(135deg,transparent 0 45%,#8aa4bf 45% 55%,transparent 55% 100%)}
-  </style>
 </head>
 <body>
   {% set current_path = request.url.path if request and request.url else '' %}
@@ -200,19 +188,24 @@
   </div>
 
   <div id="pdfPreviewModal" class="pdf-preview-backdrop" style="display:none;">
-    <div id="pdfPreviewCard" class="pdf-preview-card pdf-floating-card">
-      <div id="pdfPreviewDragHandle" class="pdf-preview-head pdf-drag-handle">
+    <div id="pdfPreviewCard" class="pdf-preview-card" style="position:fixed; top:6vh; left:8vw; width:min(1100px,84vw); height:82vh; resize:both; overflow:hidden;">
+      <div id="pdfPreviewDragHandle" class="pdf-preview-head" style="cursor:move; user-select:none;">
         <div class="pdf-preview-title">PDF Preview</div>
         <div class="pdf-preview-actions">
           <a id="pdfPreviewOpenNewTab" class="btn btn-ghost" href="#" target="_blank" rel="noopener">Open in New Tab</a>
-          <button id="pdfPreviewReset" class="btn btn-ghost" type="button">Reset</button>
+          <button class="btn btn-ghost" type="button" onclick="resetPdfPreviewWindow()">Reset</button>
           <button class="btn btn-primary" type="button" onclick="closePdfPreview()">Close</button>
         </div>
       </div>
+
       <div class="pdf-preview-body">
-        <iframe id="pdfPreviewFrame" class="pdf-preview-frame" src="about:blank" loading="lazy"></iframe>
+        <iframe
+          id="pdfPreviewFrame"
+          class="pdf-preview-frame"
+          src="about:blank"
+          loading="lazy">
+        </iframe>
       </div>
-      <div id="pdfPreviewResizeHandle" class="pdf-resize-handle" aria-hidden="true"></div>
     </div>
   </div>
 
@@ -250,23 +243,19 @@
           <span class="erp-sidebar-link-icon">△</span>
           <span>In-Process Inspection</span>
         </a>
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rnd') ? 'active' : ''}" href="/rnd">
+          <span class="erp-sidebar-link-icon">⌬</span>
+          <span>R&amp;D Qualification</span>
+        </a>
       `
     },
     rnd: {
       title: "R&D",
       badge: "⌬",
       links: `
-        <a class="erp-sidebar-link ${window.location.pathname === '/rnd' || window.location.pathname === '/rnd/' || window.location.pathname.startsWith('/rnd/qualifications') ? 'active' : ''}" href="/rnd/qualifications">
-          <span class="erp-sidebar-link-icon">⌂</span>
-          <span>Overview</span>
-        </a>
-        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rnd/qualifications') ? 'active' : ''}" href="/rnd/qualifications">
-          <span class="erp-sidebar-link-icon">◎</span>
-          <span>Monogram Qualifier</span>
-        </a>
-        <a class="erp-sidebar-link ${window.location.pathname.includes('/regression') ? 'active' : ''}" href="/rnd/qualifications">
-          <span class="erp-sidebar-link-icon">◔</span>
-          <span>Regression Center</span>
+        <a class="erp-sidebar-link" href="javascript:void(0)">
+          <span class="erp-sidebar-link-icon">•</span>
+          <span>Coming Soon</span>
         </a>
       `
     },
@@ -540,62 +529,6 @@
       closePdfPreview();
     }
   });
-
-  
-  (function(){
-    let drag=null, resize=null;
-    const modal=document.getElementById("pdfPreviewModal");
-    const card=document.getElementById("pdfPreviewCard");
-    const handle=document.getElementById("pdfPreviewDragHandle");
-    const resizeHandle=document.getElementById("pdfPreviewResizeHandle");
-    const resetBtn=document.getElementById("pdfPreviewReset");
-    if(!modal||!card||!handle||!resizeHandle) return;
-    function resetCard(){
-      card.style.top='72px';
-      card.style.left='calc(50% - 420px)';
-      card.style.width='min(980px,calc(100vw - 64px))';
-      card.style.height='min(78vh,760px)';
-    }
-    function clamp(){
-      const rect=card.getBoundingClientRect();
-      const maxLeft=window.innerWidth-120;
-      const maxTop=window.innerHeight-80;
-      if(rect.left<0) card.style.left='0px';
-      if(rect.top<0) card.style.top='0px';
-      if(rect.left>maxLeft) card.style.left=maxLeft+'px';
-      if(rect.top>maxTop) card.style.top=maxTop+'px';
-    }
-    handle.addEventListener('mousedown',e=>{
-      if(e.target.closest('button,a')) return;
-      const rect=card.getBoundingClientRect();
-      drag={x:e.clientX,y:e.clientY,left:rect.left,top:rect.top};
-      document.body.style.userSelect='none';
-    });
-    resizeHandle.addEventListener('mousedown',e=>{
-      const rect=card.getBoundingClientRect();
-      resize={x:e.clientX,y:e.clientY,w:rect.width,h:rect.height};
-      e.preventDefault();
-      document.body.style.userSelect='none';
-    });
-    window.addEventListener('mousemove',e=>{
-      if(drag){
-        card.style.left=(drag.left + e.clientX - drag.x)+'px';
-        card.style.top=(drag.top + e.clientY - drag.y)+'px';
-        clamp();
-      }
-      if(resize){
-        card.style.width=Math.max(520, resize.w + e.clientX - resize.x)+'px';
-        card.style.height=Math.max(360, resize.h + e.clientY - resize.y)+'px';
-        clamp();
-      }
-    });
-    window.addEventListener('mouseup',()=>{drag=null;resize=null;document.body.style.userSelect='';});
-    window.addEventListener('resize',clamp);
-    if(resetBtn) resetBtn.addEventListener('click', resetCard);
-    const originalOpen=window.openPdfPreview;
-    window.openPdfPreview=function(url){ resetCard(); if(originalOpen) originalOpen(url); };
-  })();
-
 
   window.addEventListener("load", function() {
     initSidebarState();
