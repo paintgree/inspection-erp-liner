@@ -1,11 +1,117 @@
 {% extends "base.html" %}
+
 {% block content %}
-<div class="page-header"><div><h1>Test Detail: {{ test.code }}</h1><div class="section-subtext">{{ test.title }}</div></div><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back to Qualification</a></div>
-<div class="rp-card" style="margin-bottom:16px;"><div class="section-head"><h2 style="margin:0;">Why this test is required</h2></div><p>{{ test.description }}</p><p><strong>Basis:</strong> {{ test.clause_ref }}</p></div>
-<div class="rp-grid">
-<div class="rp-card"><div class="section-head"><h2 style="margin:0;">Specimen Preparation</h2></div><p><strong>Minimum specimens</strong><br>{{ prep.min_specimens }}</p><p><strong>Minimum cut length</strong><br>{{ prep.minimum_cut_length }}</p><p><strong>Effective test length</strong><br>{{ prep.effective_length }}</p><p><strong>End allowance each side</strong><br>{{ prep.end_allowance_each_side }}</p><p><strong>Total cut length basis</strong><br>{{ prep.total_length_formula }}</p><p class="section-subtext">This page shows the cutting and preparation basis so the operator does not prepare the sample blindly.</p></div>
-<div class="rp-card"><div class="section-head"><h2 style="margin:0;">Marking / Traceability</h2></div><ul>{% for item in prep.marking_requirements %}<li>{{ item }}</li>{% endfor %}</ul><div class="section-head"><h2 style="margin:0;">Visual Acceptance</h2></div><ul>{% for item in prep.visual_acceptance %}<li>{{ item }}</li>{% endfor %}</ul></div>
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-1">Test Detail: {{ test.code }}</h2>
+      <p class="text-muted mb-0">{{ test.title }}</p>
+    </div>
+    <a href="/rnd/qualifications/{{ program.id }}" class="btn btn-outline-secondary">Back to Qualification</a>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header"><strong>Why this test is required</strong></div>
+    <div class="card-body">
+      <p class="mb-2">{{ test.description or "Qualification requirement under the selected route." }}</p>
+      {% if test.clause_ref %}
+      <p class="mb-0"><strong>Basis:</strong> {{ test.clause_ref }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header"><strong>Specimen Preparation</strong></div>
+    <div class="card-body">
+      <div class="row g-4">
+        <div class="col-md-6">
+          <p><strong>Minimum specimens</strong><br>{{ prep.min_specimens }}</p>
+          <p><strong>Minimum cut length</strong><br>{{ prep.minimum_cut_length }}</p>
+          <p><strong>Effective test length</strong><br>{{ prep.effective_length }}</p>
+          <p><strong>End allowance each side</strong><br>{{ prep.end_allowance_each_side }}</p>
+          <p><strong>Total cut length basis</strong><br>{{ prep.total_length_formula }}</p>
+        </div>
+        <div class="col-md-6">
+          <p class="mb-2"><strong>Marking / Traceability</strong></p>
+          <ul class="mb-0">
+            {% for item in prep.marking_requirements %}
+            <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header"><strong>Preconditioning Process</strong></div>
+    <div class="card-body">
+      <p>
+        <strong>Required?</strong><br>
+        {% if prep.preconditioning.required == False %}
+          No — {{ prep.preconditioning.when_required }}
+        {% elif prep.preconditioning.required == True %}
+          Yes — {{ prep.preconditioning.when_required }}
+        {% else %}
+          Depends — {{ prep.preconditioning.when_required }}
+        {% endif %}
+      </p>
+
+      <div class="row g-4">
+        <div class="col-md-6">
+          <p><strong>Medium / environment</strong><br>{{ prep.preconditioning.medium }}</p>
+          <p><strong>Target temperature</strong><br>{{ prep.preconditioning.target_temperature }}</p>
+
+          <p class="mb-2"><strong>Minimum process steps</strong></p>
+          <ol class="mb-0">
+            {% for step in prep.preconditioning.minimum_process %}
+            <li>{{ step }}</li>
+            {% endfor %}
+          </ol>
+        </div>
+        <div class="col-md-6">
+          <p class="mb-2"><strong>Records required before test start</strong></p>
+          <ul class="mb-0">
+            {% for item in prep.preconditioning.records_required %}
+            <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header"><strong>Visual Acceptance Before Test</strong></div>
+    <div class="card-body">
+      <ul class="mb-0">
+        {% for item in prep.visual_acceptance %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header"><strong>Release Checklist</strong></div>
+    <div class="card-body">
+      <ul class="mb-0">
+        {% for item in prep.release_checks %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header"><strong>Technician Tips</strong></div>
+    <div class="card-body">
+      <ul class="mb-0">
+        {% for item in prep.technician_tips %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
 </div>
-<div class="rp-card" style="margin-top:16px;"><div class="section-head"><h2 style="margin:0;">Preconditioning Process</h2></div><p><strong>Required?</strong><br>{% if prep.preconditioning.required == False %}No — {{ prep.preconditioning.when_required }}{% elif prep.preconditioning.required == True %}Yes — {{ prep.preconditioning.when_required }}{% else %}Depends — {{ prep.preconditioning.when_required }}{% endif %}</p><div class="rp-grid"><div><p><strong>Medium / environment</strong><br>{{ prep.preconditioning.medium }}</p><p><strong>Target temperature</strong><br>{{ prep.preconditioning.target_temperature }}</p><p><strong>Minimum process steps</strong></p><ol>{% for step in prep.preconditioning.minimum_process %}<li>{{ step }}</li>{% endfor %}</ol></div><div><p><strong>Records required before test start</strong></p><ul>{% for item in prep.preconditioning.records_required %}<li>{{ item }}</li>{% endfor %}</ul></div></div></div>
-<div class="rp-grid" style="margin-top:16px;"><div class="rp-card"><div class="section-head"><h2 style="margin:0;">Release Checklist</h2></div><ul>{% for item in prep.release_checks %}<li>{{ item }}</li>{% endfor %}</ul></div><div class="rp-card"><div class="section-head"><h2 style="margin:0;">Technician Tips</h2></div><ul>{% for item in prep.technician_tips %}<li>{{ item }}</li>{% endfor %}</ul></div></div>
 {% endblock %}
