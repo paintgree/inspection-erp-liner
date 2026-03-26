@@ -23,6 +23,9 @@ DEFAULT_SPECIMEN_RULE = {
     "min_specimens": "As defined by the applicable qualification test requirement.",
     "minimum_cut_length": "Specimens shall be cut on the basis of total cut length and shall not be cut to active or effective test length only.",
     "effective_length": "The effective test length shall be the active section defined by the applicable test setup, fixture arrangement, support span, or pressurized free length.",
+    "od_basis_notice": "Before any diameter-based preparation rule is applied, the actual qualified pipe outside diameter (OD) shall be confirmed from the controlled product definition, dimensional record, or approved size specification. Diameter-based rules shall not be calculated from nominal size designation alone unless the nominal size has already been mapped to a controlled OD value in the qualification basis.",
+    "calculation_rule_notice": "Any preparation rule expressed as D, OD, 1D, 3D, 5D, or 1.5 x OD shall be calculated using the confirmed pipe outside diameter and then converted into millimetres for specimen release and cutting control.",
+    "recorded_dimensions_notice": "Before cutting, the specimen register shall record the confirmed pipe OD, the rule basis used, the calculated effective length, the end allowances, the trimming margin, and the total cut length in millimetres.",
     "end_allowance_each_side": "Unless a stricter test-specific requirement applies, each specimen shall include an end allowance on both sides sufficient for gripping, sealing, end fittings, support, trimming, and handling. The baseline preparation allowance shall be not less than 1.0 x outside diameter on each side.",
     "total_length_formula": "Total cut length = effective test length + left end allowance + right end allowance + trimming margin.",
     "marking_requirements": [
@@ -288,6 +291,8 @@ class RndQualificationSpecimen(SQLModel, table=True):
     sample_date: date = Field(default_factory=date.today)
 
     nominal_size_in: float = Field(default=0.0)
+    confirmed_od_mm: Optional[float] = Field(default=None)
+    preparation_rule_basis: str = Field(default="")
     pressure_mpa: float = Field(default=0.0)
     temperature_c: float = Field(default=0.0)
     failure_hours: Optional[float] = Field(default=None)
@@ -1148,6 +1153,8 @@ def rnd_add_test_specimen(
     specimen_id: str = Form(...),
     sample_date: date = Form(...),
     nominal_size_in: float = Form(0.0),
+    confirmed_od_mm: Optional[float] = Form(None),
+    preparation_rule_basis: str = Form(''),
     batch_ref: str = Form(''),
     material_ref: str = Form(''),
     cut_by: str = Form(''),
@@ -1177,6 +1184,8 @@ def rnd_add_test_specimen(
         test_type=(test.code or '').strip().upper(),
         sample_date=sample_date,
         nominal_size_in=nominal_size_in or program.nominal_size_in,
+        confirmed_od_mm=confirmed_od_mm,
+        preparation_rule_basis=preparation_rule_basis,
         batch_ref=batch_ref,
         material_ref=material_ref,
         cut_by=cut_by,
