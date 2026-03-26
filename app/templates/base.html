@@ -192,6 +192,8 @@
       <div id="pdfPreviewDragHandle" class="pdf-preview-head" style="cursor:move; user-select:none;">
         <div class="pdf-preview-title">PDF Preview</div>
         <div class="pdf-preview-actions">
+          <button class="btn btn-ghost" type="button" onclick="minimizePdfPreview()">Minimize</button>
+          <button id="pdfPreviewMaxBtn" class="btn btn-ghost" type="button" onclick="toggleMaximizePdfPreview()">Maximize</button>
           <a id="pdfPreviewOpenNewTab" class="btn btn-ghost" href="#" target="_blank" rel="noopener">Open in New Tab</a>
           <button class="btn btn-ghost" type="button" onclick="resetPdfPreviewWindow()">Reset</button>
           <button class="btn btn-primary" type="button" onclick="closePdfPreview()">Close</button>
@@ -449,20 +451,102 @@
   function closePdfPreview() {
     const modal = document.getElementById("pdfPreviewModal");
     const frame = document.getElementById("pdfPreviewFrame");
-
-    if (frame) frame.src = "about:blank";
+    const maxBtn = document.getElementById("pdfPreviewMaxBtn");
+  
+    if (frame) {
+      frame.src = "about:blank";
+      frame.style.display = "block";
+    }
     if (modal) modal.style.display = "none";
+  
+    pdfPreviewMinimized = false;
+    pdfPreviewMaximized = false;
+    pdfPreviewLastRect = null;
+  
+    if (maxBtn) maxBtn.innerText = "Maximize";
     document.body.style.overflow = "";
   }
 
+  let pdfPreviewMinimized = false;
+  let pdfPreviewMaximized = false;
+  let pdfPreviewLastRect = null;
+  
   function resetPdfPreviewWindow() {
     const card = document.getElementById("pdfPreviewCard");
+    const frame = document.getElementById("pdfPreviewFrame");
+    const maxBtn = document.getElementById("pdfPreviewMaxBtn");
     if (!card) return;
+  
+    pdfPreviewMinimized = false;
+    pdfPreviewMaximized = false;
+    pdfPreviewLastRect = null;
+  
     card.style.top = "6vh";
     card.style.left = "8vw";
     card.style.width = "min(1100px,84vw)";
     card.style.height = "82vh";
+  
+    if (frame) frame.style.display = "block";
+    if (maxBtn) maxBtn.innerText = "Maximize";
   }
+  
+  function minimizePdfPreview() {
+    const card = document.getElementById("pdfPreviewCard");
+    const frame = document.getElementById("pdfPreviewFrame");
+    if (!card || !frame) return;
+  
+    if (!pdfPreviewMinimized) {
+      pdfPreviewMinimized = true;
+      frame.style.display = "none";
+      card.style.height = "56px";
+      card.style.width = "420px";
+    } else {
+      pdfPreviewMinimized = false;
+      frame.style.display = "block";
+      if (pdfPreviewMaximized) {
+        card.style.top = "12px";
+        card.style.left = "12px";
+        card.style.width = "calc(100vw - 24px)";
+        card.style.height = "calc(100vh - 24px)";
+      } else {
+        card.style.height = "82vh";
+        card.style.width = "min(1100px,84vw)";
+      }
+    }
+  }
+
+function toggleMaximizePdfPreview() {
+  const card = document.getElementById("pdfPreviewCard");
+  const frame = document.getElementById("pdfPreviewFrame");
+  const maxBtn = document.getElementById("pdfPreviewMaxBtn");
+  if (!card) return;
+
+  if (!pdfPreviewMaximized) {
+    pdfPreviewLastRect = {
+      top: card.style.top || "6vh",
+      left: card.style.left || "8vw",
+      width: card.style.width || "min(1100px,84vw)",
+      height: card.style.height || "82vh"
+    };
+    pdfPreviewMaximized = true;
+    pdfPreviewMinimized = false;
+    card.style.top = "12px";
+    card.style.left = "12px";
+    card.style.width = "calc(100vw - 24px)";
+    card.style.height = "calc(100vh - 24px)";
+    if (frame) frame.style.display = "block";
+    if (maxBtn) maxBtn.innerText = "Restore";
+  } else {
+    pdfPreviewMaximized = false;
+    pdfPreviewMinimized = false;
+    card.style.top = pdfPreviewLastRect?.top || "6vh";
+    card.style.left = pdfPreviewLastRect?.left || "8vw";
+    card.style.width = pdfPreviewLastRect?.width || "min(1100px,84vw)";
+    card.style.height = pdfPreviewLastRect?.height || "82vh";
+    if (frame) frame.style.display = "block";
+    if (maxBtn) maxBtn.innerText = "Maximize";
+  }
+}
 
   (function initPdfDrag() {
     let isDragging = false;
