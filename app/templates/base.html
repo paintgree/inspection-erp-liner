@@ -198,12 +198,13 @@
         </div>
       </div>
 
-      <div class="pdf-preview-body">
+      <div class="pdf-preview-body" style="height:calc(100% - 56px);">
         <iframe
           id="pdfPreviewFrame"
           class="pdf-preview-frame"
           src="about:blank"
-          loading="lazy">
+          loading="lazy"
+          style="width:100%; height:100%; border:0;">
         </iframe>
       </div>
     </div>
@@ -243,19 +244,23 @@
           <span class="erp-sidebar-link-icon">△</span>
           <span>In-Process Inspection</span>
         </a>
-        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rnd') ? 'active' : ''}" href="/rnd">
-          <span class="erp-sidebar-link-icon">⌬</span>
-          <span>R&amp;D Qualification</span>
-        </a>
       `
     },
     rnd: {
       title: "R&D",
       badge: "⌬",
       links: `
-        <a class="erp-sidebar-link" href="javascript:void(0)">
-          <span class="erp-sidebar-link-icon">•</span>
-          <span>Coming Soon</span>
+        <a class="erp-sidebar-link ${window.location.pathname === '/rnd/qualifications' ? 'active' : ''}" href="/rnd/qualifications">
+          <span class="erp-sidebar-link-icon">⌂</span>
+          <span>Qualification Dashboard</span>
+        </a>
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rnd/qualifications/new') ? 'active' : ''}" href="/rnd/qualifications/new">
+          <span class="erp-sidebar-link-icon">＋</span>
+          <span>New Qualification</span>
+        </a>
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rnd') && !window.location.pathname.startsWith('/rnd/qualifications/new') && window.location.pathname !== '/rnd/qualifications' ? 'active' : ''}" href="/rnd/qualifications">
+          <span class="erp-sidebar-link-icon">☷</span>
+          <span>Qualification Programs</span>
         </a>
       `
     },
@@ -345,14 +350,7 @@
   }
 
   function showGlobalModal(title, message) {
-    document.getElementById("globalModalTitle").innerText = title || "Notice";
-    document.getElementById("globalModalBody").innerText = message || "Action not allowed.";
-    const m = document.getElementById("globalModal");
-    m.style.display = "flex";
-  }
-
-  function hideGlobalModal() {
-    document.getElementById("globalModal").style.display = "none";
+    alert((title || "Notice") + "\n\n" + (message || "Action not allowed."));
   }
 
   function toggleUserMenu() {
@@ -427,60 +425,13 @@
     const bell = document.getElementById("headerNotifications");
     const bellBtn = document.querySelector(".app-bell-btn");
     if (bell && bellBtn && !bell.contains(e.target) && !bellBtn.contains(e.target)) bell.style.display = "none";
-  });
 
-  document.addEventListener("submit", async function (e) {
-    const form = e.target;
-    if (!form || form.tagName !== "FORM") return;
-    const method = (form.getAttribute("method") || "get").toLowerCase();
-    if (method !== "post") return;
-    if (form.dataset && form.dataset.noajax === "1") return;
-
-    e.preventDefault();
-
-    try {
-      const action = form.getAttribute("action") || window.location.pathname;
-      const formData = new FormData(form);
-
-      const res = await fetch(action, {
-        method: "POST",
-        body: formData,
-        headers: { "X-Requested-With": "fetch" },
-        credentials: "same-origin"
-      });
-
-      if (!res.ok) {
-        let msg = "Action not allowed.";
-        const ct = (res.headers.get("content-type") || "").toLowerCase();
-
-        if (ct.includes("application/json")) {
-          const data = await res.json();
-          function formatDetail(detail){
-            if(!detail) return "";
-            if(typeof detail === "string") return detail;
-            if(Array.isArray(detail)) return detail.map(e => e.msg || JSON.stringify(e)).join("\n");
-            if(typeof detail === "object") return detail.msg || JSON.stringify(detail);
-            return String(detail);
-          }
-          msg = formatDetail(data.detail) || data.message || msg;
-        } else {
-          const text = await res.text();
-          msg = text ? text.slice(0, 300) : msg;
-        }
-
-        showGlobalModal("Action blocked", msg);
-        return;
-      }
-
-      if (res.redirected && res.url) {
-        window.location.href = res.url;
-      } else {
-        window.location.reload();
-      }
-    } catch (err) {
-      showGlobalModal("Error", "Network/server error. Please try again.");
+    const modal = document.getElementById("pdfPreviewModal");
+    const card = document.getElementById("pdfPreviewCard");
+    if (modal && card && e.target === modal) {
+      closePdfPreview();
     }
-  }, true);
+  });
 
   function openPdfPreview(url) {
     const modal = document.getElementById("pdfPreviewModal");
@@ -503,6 +454,54 @@
     if (modal) modal.style.display = "none";
     document.body.style.overflow = "";
   }
+
+  function resetPdfPreviewWindow() {
+    const card = document.getElementById("pdfPreviewCard");
+    if (!card) return;
+    card.style.top = "6vh";
+    card.style.left = "8vw";
+    card.style.width = "min(1100px,84vw)";
+    card.style.height = "82vh";
+  }
+
+  (function initPdfDrag() {
+    let isDragging = false;
+    let startX = 0;
+    let startY = 0;
+    let startLeft = 0;
+    let startTop = 0;
+
+    document.addEventListener("mousedown", function(e) {
+      const handle = document.getElementById("pdfPreviewDragHandle");
+      const card = document.getElementById("pdfPreviewCard");
+      if (!handle || !card) return;
+      if (!handle.contains(e.target)) return;
+
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = card.offsetLeft;
+      startTop = card.offsetTop;
+      document.body.style.userSelect = "none";
+    });
+
+    document.addEventListener("mousemove", function(e) {
+      if (!isDragging) return;
+      const card = document.getElementById("pdfPreviewCard");
+      if (!card) return;
+
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      card.style.left = (startLeft + dx) + "px";
+      card.style.top = (startTop + dy) + "px";
+    });
+
+    document.addEventListener("mouseup", function() {
+      isDragging = false;
+      document.body.style.userSelect = "";
+    });
+  })();
 
   document.addEventListener("click", function(e) {
     const link = e.target.closest("a");
