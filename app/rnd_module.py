@@ -303,6 +303,18 @@ class RndQualificationSpecimen(SQLModel, table=True):
     witness_name: str = Field(default="")
     notes: str = Field(default="")
 
+    batch_ref: str = Field(default="", index=True)
+    material_ref: str = Field(default="")
+    cut_by: str = Field(default="")
+    total_cut_length_mm: Optional[float] = Field(default=None)
+    effective_length_mm: Optional[float] = Field(default=None)
+    left_end_allowance_mm: Optional[float] = Field(default=None)
+    right_end_allowance_mm: Optional[float] = Field(default=None)
+    trimming_margin_mm: Optional[float] = Field(default=None)
+    conditioning_required: bool = Field(default=False)
+    conditioning_complete: bool = Field(default=False)
+    pretest_visual_ok: bool = Field(default=False)
+    released_for_test: bool = Field(default=False)
 
 class RndMaterialQualification(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -325,10 +337,17 @@ class RndAttachmentRegister(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     program_id: int = Field(index=True)
-    category: str = Field(default="REPORT")
+    test_id: Optional[int] = Field(default=None, index=True)
+    specimen_id: Optional[int] = Field(default=None, index=True)
+
+    category: str = Field(default="REPORT", index=True)
     title: str = Field(default="")
     reference_no: str = Field(default="")
     file_note: str = Field(default="")
+    document_type: str = Field(default="", index=True)
+    is_mandatory: bool = Field(default=False)
+    uploaded_by_name: str = Field(default="")
+    approval_status: str = Field(default="PENDING", index=True)
 
 
 def _require_user(session: Session = Depends(get_session)) -> User:
@@ -344,6 +363,198 @@ def _touch_program(program: RndQualificationProgram) -> None:
 
 def _touch_row(row) -> None:
     row.updated_at = datetime.utcnow()
+
+def _required_attachment_types(test_code: str) -> list[str]:
+    common = [
+        "TEST_PROCEDURE",
+        "SPECIMEN_PHOTO",
+        "DIMENSION_RECORD",
+        "CALIBRATION_CERTIFICATE",
+        "RESULT_SHEET",
+    ]
+    specific = {
+        "MPR_REG": ["PRESSURE_LOG", "TEMPERATURE_LOG", "REGRESSION_REPORT"],
+        "PV_1000H": ["PRESSURE_LOG", "TEMPERATURE_LOG"],
+        "TEMP_ELEV": ["TEMPERATURE_LOG", "SETUP_PHOTO"],
+        "TEMP_CYCLE": ["TEMPERATURE_LOG", "CYCLE_LOG", "SETUP_PHOTO"],
+        "RAPID_DECOMP": ["GAS_CHARGE_RECORD", "TEMPERATURE_LOG", "SETUP_PHOTO"],
+        "OPERATING_MBR": ["SETUP_PHOTO", "BEND_LAYOUT", "RESULT_SHEET"],
+        "AXIAL_LOAD": ["SETUP_PHOTO", "LOAD_RECORD"],
+        "CRUSH": ["SETUP_PHOTO", "LOAD_RECORD"],
+        "LAOT": ["TEMPERATURE_LOG", "SETUP_PHOTO"],
+        "IMPACT": ["SETUP_PHOTO", "IMPACT_RECORD"],
+        "TEC": ["TEMPERATURE_LOG", "MEASUREMENT_RECORD"],
+        "GROWTH": ["PRESSURE_LOG", "MEASUREMENT_RECORD"],
+        "CYCLIC_REG": ["PRESSURE_LOG", "CYCLE_LOG", "REGRESSION_REPORT"],
+    }
+    return common + specific.get((test_code or "").upper(), [])
+
+
+def _execution_requirements(test_code: str) -> dict:
+    code = (test_code or "").upper()
+    base = {
+        "equipment": [
+            "Calibrated test rig suitable for the test type",
+            "Calibrated pressure, temperature, and dimensional measuring devices as applicable",
+            "Controlled fixtures, grips, supports, or end terminations suited to the specimen",
+        ],
+        "records": [
+            "Operator name",
+            "Test date and time",
+            "Specimen identification",
+            "Applied test conditions",
+            "Observed result",
+            "Acceptance decision",
+        ],
+        "hold_points": [
+            "Specimen preparation completed",
+            "Pre-test visual verification completed",
+            "Conditioning completed where required",
+            "Calibration validity verified before test",
+        ],
+    }
+
+    specific = {
+        "MPR_REG": {
+            "equipment": [
+                "Long-term hydrostatic pressure system",
+                "Controlled temperature environment",
+                "Qualified end terminations for long-duration exposure",
+            ],
+            "records": [
+                "Pressure level",
+                "Temperature",
+                "Failure time in hours",
+                "Failure mode",
+                "Runout status",
+            ],
+        },
+        "PV_1000H": {
+            "equipment": [
+                "Constant pressure hold system",
+                "Controlled temperature environment",
+            ],
+            "records": [
+                "Pressure hold value",
+                "Temperature",
+                "Exposure duration",
+                "Result after 1000 hours",
+            ],
+        },
+        "TEMP_CYCLE": {
+            "records": [
+                "Cycle start temperature",
+                "Cycle end temperature",
+                "Cycle count",
+                "Leakage or damage observation",
+            ],
+        },
+        "IMPACT": {
+            "records": [
+                "Impact location",
+                "Impact energy or setup basis",
+                "Post-impact condition",
+                "Follow-up acceptance result",
+            ],
+        },
+    }
+
+    merged = dict(base)
+    extra = specific.get(code, {})
+    if "equipment" in extra:
+        merged["equipment"] = extra["equipment"]
+    if "records" in extra:
+        merged["records"] = extra["records"]
+    return merged
+
+
+def _acceptance_criteria(test_code: str) -> list[str]:
+    code = (test_code or "").upper()
+    criteria = {
+        "MPR_REG": [
+            "Only valid and permissible failures shall be included in the regression data set.",
+            "Excluded points shall be documented with technical justification.",
+            "Regression output shall satisfy the qualification basis and required confidence treatment.",
+        ],
+        "PV_1000H": [
+            "Required specimens shall complete the 1000-hour confirmation without disqualifying failure.",
+        ],
+        "TEMP_ELEV": [
+            "Specimen shall maintain integrity under the elevated-temperature qualification condition.",
+        ],
+        "TEMP_CYCLE": [
+            "Specimen shall complete the required thermal cycling without disqualifying damage or leakage.",
+        ],
+        "RAPID_DECOMP": [
+            "Specimen shall meet the acceptance basis defined for decompression resistance.",
+        ],
+        "OPERATING_MBR": [
+            "Pipe shall demonstrate acceptable performance at the qualified operating bending radius.",
+        ],
+        "AXIAL_LOAD": [
+            "Specimen shall satisfy the required axial load capability without disqualifying failure.",
+        ],
+        "CRUSH": [
+            "Specimen shall satisfy the external load or crush acceptance basis.",
+        ],
+        "LAOT": [
+            "Specimen shall satisfy qualification at the lowest allowable operating temperature.",
+        ],
+        "IMPACT": [
+            "Specimen shall satisfy impact acceptance and any required follow-up confirmation.",
+        ],
+        "TEC": [
+            "Measured thermal expansion values shall be recorded and accepted against the qualification basis.",
+        ],
+        "GROWTH": [
+            "Measured dimensional growth or shrinkage shall remain within the acceptance basis.",
+        ],
+        "CYCLIC_REG": [
+            "Cyclic regression data shall satisfy the qualification basis and required confidence treatment.",
+        ],
+    }
+    return criteria.get(code, ["Test shall comply with the approved qualification basis and internal acceptance procedure."])
+
+
+def _evidence_status(test_code: str, attachments: list) -> dict:
+    required = _required_attachment_types(test_code)
+    uploaded = {(a.document_type or "").upper() for a in attachments}
+    rows = []
+    missing = []
+    for item in required:
+        ok = item in uploaded
+        rows.append({"document_type": item, "present": ok})
+        if not ok:
+            missing.append(item)
+    return {
+        "required": required,
+        "rows": rows,
+        "missing": missing,
+        "complete": len(missing) == 0,
+    }
+
+
+def _specimen_readiness(specimens: list) -> dict:
+    total = len(specimens)
+    released = 0
+    conditioning_pending = 0
+    visual_pending = 0
+
+    for s in specimens:
+        if s.released_for_test:
+            released += 1
+        if s.conditioning_required and not s.conditioning_complete:
+            conditioning_pending += 1
+        if not s.pretest_visual_ok:
+            visual_pending += 1
+
+    return {
+        "total": total,
+        "released": released,
+        "conditioning_pending": conditioning_pending,
+        "visual_pending": visual_pending,
+        "complete": total > 0 and conditioning_pending == 0 and visual_pending == 0,
+    }
 
 
 def _default_test_matrix(pfr_or_pv: str) -> list[dict]:
@@ -884,8 +1095,145 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
     program = session.get(RndQualificationProgram, program_id)
     if not program:
         raise HTTPException(404, 'Program not found')
+
     test = session.get(RndQualificationTest, test_id)
     if not test or test.program_id != program_id:
         raise HTTPException(404, 'Test not found')
+
     prep = get_specimen_prep(test.code)
-    return TEMPLATES.TemplateResponse(request,'rnd_test_detail.html', {'request': request, 'user': user, 'program': program, 'test': test, 'prep': prep})
+
+    specimens = session.exec(
+        select(RndQualificationSpecimen)
+        .where(RndQualificationSpecimen.program_id == program_id)
+        .where(RndQualificationSpecimen.test_id == test_id)
+        .order_by(RndQualificationSpecimen.created_at.desc())
+    ).all()
+
+    attachments = session.exec(
+        select(RndAttachmentRegister)
+        .where(RndAttachmentRegister.program_id == program_id)
+        .where(RndAttachmentRegister.test_id == test_id)
+        .order_by(RndAttachmentRegister.created_at.desc())
+    ).all()
+
+    execution = _execution_requirements(test.code)
+    acceptance = _acceptance_criteria(test.code)
+    evidence = _evidence_status(test.code, attachments)
+    specimen_state = _specimen_readiness(specimens)
+
+    return TEMPLATES.TemplateResponse(
+        request,
+        'rnd_test_detail.html',
+        {
+            'request': request,
+            'user': user,
+            'program': program,
+            'test': test,
+            'prep': prep,
+            'specimens': specimens,
+            'attachments': attachments,
+            'execution': execution,
+            'acceptance': acceptance,
+            'evidence': evidence,
+            'specimen_state': specimen_state,
+        }
+    )
+
+@router.post('/qualifications/{program_id}/tests/{test_id}/specimens/new')
+def rnd_add_test_specimen(
+    program_id: int,
+    test_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+    specimen_id: str = Form(...),
+    sample_date: date = Form(...),
+    nominal_size_in: float = Form(0.0),
+    batch_ref: str = Form(''),
+    material_ref: str = Form(''),
+    cut_by: str = Form(''),
+    total_cut_length_mm: Optional[float] = Form(None),
+    effective_length_mm: Optional[float] = Form(None),
+    left_end_allowance_mm: Optional[float] = Form(None),
+    right_end_allowance_mm: Optional[float] = Form(None),
+    trimming_margin_mm: Optional[float] = Form(None),
+    conditioning_required: Optional[str] = Form(None),
+    conditioning_complete: Optional[str] = Form(None),
+    pretest_visual_ok: Optional[str] = Form(None),
+    released_for_test: Optional[str] = Form(None),
+    notes: str = Form(''),
+):
+    program = session.get(RndQualificationProgram, program_id)
+    if not program:
+        raise HTTPException(404, 'Program not found')
+
+    test = session.get(RndQualificationTest, test_id)
+    if not test or test.program_id != program_id:
+        raise HTTPException(404, 'Test not found')
+
+    specimen = RndQualificationSpecimen(
+        program_id=program_id,
+        test_id=test_id,
+        specimen_id=(specimen_id or '').strip().upper(),
+        test_type=(test.code or '').strip().upper(),
+        sample_date=sample_date,
+        nominal_size_in=nominal_size_in or program.nominal_size_in,
+        batch_ref=batch_ref,
+        material_ref=material_ref,
+        cut_by=cut_by,
+        total_cut_length_mm=total_cut_length_mm,
+        effective_length_mm=effective_length_mm,
+        left_end_allowance_mm=left_end_allowance_mm,
+        right_end_allowance_mm=right_end_allowance_mm,
+        trimming_margin_mm=trimming_margin_mm,
+        conditioning_required=bool(conditioning_required),
+        conditioning_complete=bool(conditioning_complete),
+        pretest_visual_ok=bool(pretest_visual_ok),
+        released_for_test=bool(released_for_test),
+        notes=notes,
+    )
+    session.add(specimen)
+    _touch_program(program)
+    session.add(program)
+    session.commit()
+    return RedirectResponse(url=f'/rnd/qualifications/{program_id}/tests/{test_id}', status_code=303)
+
+
+@router.post('/qualifications/{program_id}/tests/{test_id}/attachments/new')
+def rnd_add_test_attachment(
+    program_id: int,
+    test_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+    category: str = Form('REPORT'),
+    document_type: str = Form(...),
+    title: str = Form(...),
+    reference_no: str = Form(''),
+    file_note: str = Form(''),
+    is_mandatory: Optional[str] = Form(None),
+    approval_status: str = Form('PENDING'),
+):
+    program = session.get(RndQualificationProgram, program_id)
+    if not program:
+        raise HTTPException(404, 'Program not found')
+
+    test = session.get(RndQualificationTest, test_id)
+    if not test or test.program_id != program_id:
+        raise HTTPException(404, 'Test not found')
+
+    row = RndAttachmentRegister(
+        program_id=program_id,
+        test_id=test_id,
+        category=(category or 'REPORT').strip().upper(),
+        document_type=(document_type or '').strip().upper(),
+        title=title,
+        reference_no=reference_no,
+        file_note=file_note,
+        is_mandatory=bool(is_mandatory),
+        uploaded_by_name=(getattr(user, 'display_name', '') or getattr(user, 'username', '') or ''),
+        approval_status=(approval_status or 'PENDING').strip().upper(),
+    )
+    session.add(row)
+    _touch_program(program)
+    session.add(program)
+    session.commit()
+    return RedirectResponse(url=f'/rnd/qualifications/{program_id}/tests/{test_id}', status_code=303)
