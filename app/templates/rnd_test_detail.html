@@ -4,26 +4,35 @@
 <div class="container py-4">
   <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-      <h2 class="mb-1">Test Detail: {{ test_code|capitalize }}</h2>
-      <p class="text-muted mb-0">Specimen preparation, preconditioning process, and release guidance</p>
+      <h2 class="mb-1">Test Detail: {{ test.code }}</h2>
+      <p class="text-muted mb-0">{{ test.title }}</p>
+    </div>
+    <a href="/rnd/qualifications/{{ program.id }}" class="btn btn-outline-secondary">Back to Qualification</a>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header"><strong>Why this test is required</strong></div>
+    <div class="card-body">
+      <p class="mb-2">{{ test.why_required or "Qualification requirement under the selected route." }}</p>
+      {% if test.standard_basis %}
+      <p class="mb-0"><strong>Basis:</strong> {{ test.standard_basis }}</p>
+      {% endif %}
     </div>
   </div>
 
   <div class="card shadow-sm mb-4">
-    <div class="card-header">
-      <strong>Specimen Geometry & Preparation</strong>
-    </div>
+    <div class="card-header"><strong>Specimen Preparation</strong></div>
     <div class="card-body">
       <div class="row g-4">
         <div class="col-md-6">
           <p><strong>Minimum specimens</strong><br>{{ prep.min_specimens }}</p>
-          <p><strong>Minimum cut length rule</strong><br>{{ prep.minimum_cut_length }}</p>
+          <p><strong>Minimum cut length</strong><br>{{ prep.minimum_cut_length }}</p>
           <p><strong>Effective test length</strong><br>{{ prep.effective_length }}</p>
           <p><strong>End allowance each side</strong><br>{{ prep.end_allowance_each_side }}</p>
           <p><strong>Total cut length basis</strong><br>{{ prep.total_length_formula }}</p>
         </div>
         <div class="col-md-6">
-          <p class="mb-2"><strong>Marking / traceability</strong></p>
+          <p class="mb-2"><strong>Marking / Traceability</strong></p>
           <ul class="mb-0">
             {% for item in prep.marking_requirements %}
             <li>{{ item }}</li>
@@ -35,11 +44,10 @@
   </div>
 
   <div class="card shadow-sm mb-4">
-    <div class="card-header">
-      <strong>Preconditioning Process</strong>
-    </div>
+    <div class="card-header"><strong>Preconditioning Process</strong></div>
     <div class="card-body">
-      <p><strong>Required?</strong><br>
+      <p>
+        <strong>Required?</strong><br>
         {% if prep.preconditioning.required == False %}
           No — {{ prep.preconditioning.when_required }}
         {% elif prep.preconditioning.required == True %}
@@ -53,6 +61,7 @@
         <div class="col-md-6">
           <p><strong>Medium / environment</strong><br>{{ prep.preconditioning.medium }}</p>
           <p><strong>Target temperature</strong><br>{{ prep.preconditioning.target_temperature }}</p>
+
           <p class="mb-2"><strong>Minimum process steps</strong></p>
           <ol class="mb-0">
             {% for step in prep.preconditioning.minimum_process %}
@@ -73,9 +82,7 @@
   </div>
 
   <div class="card shadow-sm mb-4">
-    <div class="card-header">
-      <strong>Visual Acceptance Before Test</strong>
-    </div>
+    <div class="card-header"><strong>Visual Acceptance Before Test</strong></div>
     <div class="card-body">
       <ul class="mb-0">
         {% for item in prep.visual_acceptance %}
@@ -86,9 +93,7 @@
   </div>
 
   <div class="card shadow-sm mb-4">
-    <div class="card-header">
-      <strong>Release Checklist</strong>
-    </div>
+    <div class="card-header"><strong>Release Checklist</strong></div>
     <div class="card-body">
       <ul class="mb-0">
         {% for item in prep.release_checks %}
@@ -99,9 +104,7 @@
   </div>
 
   <div class="card shadow-sm">
-    <div class="card-header">
-      <strong>Technician Tips</strong>
-    </div>
+    <div class="card-header"><strong>Technician Tips</strong></div>
     <div class="card-body">
       <ul class="mb-0">
         {% for item in prep.technician_tips %}
