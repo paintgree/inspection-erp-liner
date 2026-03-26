@@ -1,66 +1,114 @@
 {% extends "base.html" %}
-{% block title %}Specimen Preparation · {{ test.title }}{% endblock %}
+
 {% block content %}
-<style>
-.detail-wrap{display:grid;gap:18px}.detail-card{background:#fff;border:1px solid #e5e7eb;border-radius:22px;box-shadow:0 10px 28px rgba(15,23,42,.05);padding:18px}.detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.detail-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.detail-kpi{border:1px solid #e5e7eb;border-radius:16px;padding:14px;background:#fcfcff}.detail-kpi b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}.detail-note{padding:14px 16px;border-radius:16px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}.detail-list{display:grid;gap:8px;padding-left:18px;margin:8px 0 0 0}.muted-sm{color:#64748b;font-size:13px}@media (max-width:980px){.detail-grid,.detail-kpis{grid-template-columns:1fr}}</style>
-<div class="detail-wrap">
-  <section class="detail-card">
-    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
-      <div>
-        <h1 style="margin:0 0 6px 0;">{{ test.title }}</h1>
-        <div class="muted-sm">{{ program.program_code }} · {{ program.title }}</div>
-      </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;">
-        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back to qualification</a>
-        <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Regression center</a>
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h2 class="mb-1">Test Detail: {{ test_code|capitalize }}</h2>
+      <p class="text-muted mb-0">Specimen preparation, preconditioning process, and release guidance</p>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header">
+      <strong>Specimen Geometry & Preparation</strong>
+    </div>
+    <div class="card-body">
+      <div class="row g-4">
+        <div class="col-md-6">
+          <p><strong>Minimum specimens</strong><br>{{ prep.min_specimens }}</p>
+          <p><strong>Minimum cut length rule</strong><br>{{ prep.minimum_cut_length }}</p>
+          <p><strong>Effective test length</strong><br>{{ prep.effective_length }}</p>
+          <p><strong>End allowance each side</strong><br>{{ prep.end_allowance_each_side }}</p>
+          <p><strong>Total cut length basis</strong><br>{{ prep.total_length_formula }}</p>
+        </div>
+        <div class="col-md-6">
+          <p class="mb-2"><strong>Marking / traceability</strong></p>
+          <ul class="mb-0">
+            {% for item in prep.marking_requirements %}
+            <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
       </div>
     </div>
-    <div class="detail-kpis" style="margin-top:14px;">
-      <div class="detail-kpi"><b>Clause</b>{{ test.clause_ref }}</div>
-      <div class="detail-kpi"><b>Specimen requirement</b>{{ prep.min_specimens }}</div>
-      <div class="detail-kpi"><b>Applicability</b>{{ test.applicability }}</div>
-      <div class="detail-kpi"><b>Status</b>{{ test.status.replace('_',' ') }}</div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header">
+      <strong>Preconditioning Process</strong>
     </div>
-  </section>
+    <div class="card-body">
+      <p><strong>Required?</strong><br>
+        {% if prep.preconditioning.required == False %}
+          No — {{ prep.preconditioning.when_required }}
+        {% elif prep.preconditioning.required == True %}
+          Yes — {{ prep.preconditioning.when_required }}
+        {% else %}
+          Depends — {{ prep.preconditioning.when_required }}
+        {% endif %}
+      </p>
 
-  <section class="detail-grid">
-    <article class="detail-card">
-      <h2 style="margin-top:0;">What this test is checking</h2>
-      <div class="detail-note">{{ test.description }}</div>
-      <p class="muted-sm" style="margin-top:12px;">Use this page before cutting any specimens. The purpose here is to make the operator understand the geometry basis, the effective length, and whether conditioning or reconditioning is required before the test begins.</p>
-    </article>
-
-    <article class="detail-card">
-      <h2 style="margin-top:0;">Specimen geometry & conditioning basis</h2>
-      <div class="detail-kpis">
-        <div class="detail-kpi"><b>Effective test length</b>{{ prep.effective_length }}</div>
-        <div class="detail-kpi"><b>End allowance each side</b>{{ prep.end_allowance_each_side }}</div>
-        <div class="detail-kpi"><b>Total cut length basis</b>{{ prep.total_length_formula }}</div>
-        <div class="detail-kpi"><b>Conditioning</b>{% if prep.conditioning.required == True %}Required{% elif prep.conditioning.required == False %}Not required by default{% else %}Depends on route{% endif %}</div>
+      <div class="row g-4">
+        <div class="col-md-6">
+          <p><strong>Medium / environment</strong><br>{{ prep.preconditioning.medium }}</p>
+          <p><strong>Target temperature</strong><br>{{ prep.preconditioning.target_temperature }}</p>
+          <p class="mb-2"><strong>Minimum process steps</strong></p>
+          <ol class="mb-0">
+            {% for step in prep.preconditioning.minimum_process %}
+            <li>{{ step }}</li>
+            {% endfor %}
+          </ol>
+        </div>
+        <div class="col-md-6">
+          <p class="mb-2"><strong>Records required before test start</strong></p>
+          <ul class="mb-0">
+            {% for item in prep.preconditioning.records_required %}
+            <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
       </div>
-      <div class="detail-note" style="margin-top:14px;">
-        <strong>Conditioning / reconditioning guidance</strong><br>
-        {{ prep.conditioning.notes }}<br><br>
-        <strong>Reconditioning</strong><br>
-        {{ prep.conditioning.reconditioning }}
-      </div>
-    </article>
-  </section>
+    </div>
+  </div>
 
-  <section class="detail-grid">
-    <article class="detail-card">
-      <h2 style="margin-top:0;">Guided specimen preparation panel</h2>
-      <ol class="detail-list">
-        {% for step in prep.preparation_steps %}<li>{{ step }}</li>{% endfor %}
-      </ol>
-    </article>
-
-    <article class="detail-card">
-      <h2 style="margin-top:0;">Pre-test release checklist</h2>
-      <ul class="detail-list">
-        {% for item in prep.release_checks %}<li>{{ item }}</li>{% endfor %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header">
+      <strong>Visual Acceptance Before Test</strong>
+    </div>
+    <div class="card-body">
+      <ul class="mb-0">
+        {% for item in prep.visual_acceptance %}
+        <li>{{ item }}</li>
+        {% endfor %}
       </ul>
-    </article>
-  </section>
+    </div>
+  </div>
+
+  <div class="card shadow-sm mb-4">
+    <div class="card-header">
+      <strong>Release Checklist</strong>
+    </div>
+    <div class="card-body">
+      <ul class="mb-0">
+        {% for item in prep.release_checks %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header">
+      <strong>Technician Tips</strong>
+    </div>
+    <div class="card-body">
+      <ul class="mb-0">
+        {% for item in prep.technician_tips %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
 </div>
 {% endblock %}
