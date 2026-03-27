@@ -207,6 +207,372 @@ SPECIMEN_PREP_RULES = {
     },
 }
 
+
+TEST_GUIDANCE = {
+    "MPR_REG": {
+        "when_required": "Always for the PFR qualification route.",
+        "specimen_count": "18 specimens minimum target",
+        "api_clause": "API 15S 5.3.2",
+        "external_standard": "ASTM D1598 or ISO 1167-1; ASTM D2992-18 Procedure B",
+        "conditioning_required": "Conditional",
+        "conditioning_steps": [
+            "Either pass the applicable 5.3.8 bend / handling preconditioning route, or precondition the PFR specimens to the required handling MBR / respooling cycle condition before regression testing.",
+            "Use field fittings for PV testing where applicable.",
+            "Run the long-term hydrostatic test with unrestricted ends.",
+        ],
+        "core_process": [
+            "Run long-term hydrostatic test with unrestricted ends.",
+            "Use specimen length in accordance with the approved setup and end termination requirements.",
+            "Develop regression per ASTM D2992 Procedure B and determine LCL at RCRT.",
+            "Do not use points below 10 hours in regression calculations.",
+        ],
+        "acceptance": [
+            "MPR equals LCL RCT x 0.67.",
+            "All failures shall be reported in the qualification report.",
+            "Tensile rupture of reinforcement is permissible where allowed by the basis for non-metallic reinforcement.",
+        ],
+        "retest_logic": "Retesting per 5.5 is triggered if required preconditioning steps are not satisfied.",
+        "practical_notes": [
+            "Laboratory test fittings are allowed for MPR determination if their stated limitations are understood.",
+            "This is the core PV membership test for non-metallic reinforcement.",
+        ],
+    },
+    "PV_1000H": {
+        "when_required": "Every PV in the qualified family.",
+        "specimen_count": "2 specimens for each PV",
+        "api_clause": "API 15S 5.3.4.1 / 5.3.4.2",
+        "external_standard": "ASTM D1598 or ISO 1167-1",
+        "conditioning_required": "No standard bend preconditioning unless stated in the selected route",
+        "conditioning_steps": [
+            "Use field fittings for PV testing.",
+            "Set pressure using the selected PV basis.",
+            "Test 2 specimens at the qualification temperature for 1000 hours.",
+        ],
+        "core_process": [
+            "Run the constant-pressure exposure for 1000 hours at the qualified condition.",
+            "Record any time-to-failure and compare to the 1000-hour requirement.",
+        ],
+        "acceptance": [
+            "Both original or retest specimens shall survive to 1000 hours, otherwise full qualification is required.",
+        ],
+        "retest_logic": "If any specimen fails before 1000 hours, apply 5.5 retest logic.",
+        "practical_notes": [
+            "This is the core PV membership test for non-metallic reinforcement.",
+        ],
+    },
+    "TEMP_ELEV": {
+        "when_required": "Always for listed PFR / PV boundaries where elevated temperature confirmation applies.",
+        "specimen_count": "1 specimen per pressure / temperature condition",
+        "api_clause": "API 15S 5.3.5",
+        "external_standard": "API 15S Eq. (4) / API 15S procedure",
+        "conditioning_required": "No bend preconditioning specified",
+        "conditioning_steps": [
+            "Install unrestrained field end-fittings or couplings.",
+            "Choose test temperature above MAOT.",
+            "Set minimum test pressure to 1.5 x NDR.",
+        ],
+        "core_process": [
+            "Maintain internal medium and outer wall within the required test temperature tolerance throughout the test.",
+            "After the main test, depressurize and store at ambient for at least 24 hours.",
+            "Then leak test at 150 psi +/- 50 psi for 24 hours at ambient and check for visible leakage.",
+        ],
+        "acceptance": [
+            "No leakage through the full main test period.",
+            "No visible leakage during the 24-hour ambient leak check.",
+            "Brittle failure is not allowed.",
+        ],
+        "retest_logic": "Retest per 5.5 after resolving the brittle-failure cause if applicable.",
+        "practical_notes": [
+            "For polyethylene use alpha = 0.112 decades/C, otherwise determine alpha or assume 0.05 decades/C.",
+        ],
+    },
+    "TEMP_CYCLE": {
+        "when_required": "Always for listed PFR / PV boundaries.",
+        "specimen_count": "2 specimens",
+        "api_clause": "API 15S 5.3.6",
+        "external_standard": "API 15S procedure",
+        "conditioning_required": "Temperature conditioning is built into the test",
+        "conditioning_steps": [
+            "Condition the specimen to the fitting lowest installation temperature for at least 2.5 hours.",
+            "Install fittings per written instructions at that temperature.",
+        ],
+        "core_process": [
+            "Condition to MAOT for at least 2.5 hours, then to the lower cycle temperature for at least 2.5 hours.",
+            "Repeat the MAOT / lower-temperature sequence for a total of 3 cycles.",
+            "Return to ambient for at least 2.5 hours.",
+            "Leak test at 1.5 x NPR for at least 2 minutes.",
+        ],
+        "acceptance": [
+            "No leakage during the final leak test.",
+        ],
+        "retest_logic": "Retest per 5.5.",
+        "practical_notes": [
+            "Installation temperature limits may differ from operating temperature limits.",
+        ],
+    },
+    "RAPID_DECOMP": {
+        "when_required": "Only for gas or multiphase service where the selected PV is susceptible.",
+        "specimen_count": "1 selected PV specimen",
+        "api_clause": "API 15S 5.3.7 and Annex B",
+        "external_standard": "API 15S Annex B",
+        "conditioning_required": "No separate bend preconditioning specified",
+        "conditioning_steps": [
+            "Select the PV with the highest susceptibility to rapid decompression damage.",
+            "Run the decompression test at maximum design temperature using Annex B laboratory method.",
+        ],
+        "core_process": [
+            "Inspect for collapse, blistering, cover blow-off, and disbondment after decompression.",
+        ],
+        "acceptance": [
+            "No collapse, blistering, or cover blow-off.",
+            "No disbondment beyond manufacturer acceptance criteria.",
+        ],
+        "retest_logic": "Not intended for gas or multiphase service if unsuccessful; check class or service applicability.",
+        "practical_notes": [
+            "Pipe not intended for gas or multiphase service must be clearly marked accordingly.",
+        ],
+    },
+    "OPERATING_MBR": {
+        "when_required": "Always where operating MBR confirmation is required.",
+        "specimen_count": "2 specimens",
+        "api_clause": "API 15S 5.3.8.1",
+        "external_standard": "Follow-on test: 5.3.4.2",
+        "conditioning_required": "Yes",
+        "conditioning_steps": [
+            "Place the specimen in a fixture at the operating MBR.",
+            "No prior bend cycles are required unless triggered elsewhere.",
+        ],
+        "core_process": [
+            "Hold the specimen at operating MBR during the 1000-hour follow-on proof test.",
+        ],
+        "acceptance": [
+            "Pass the follow-on 1000-hour proof test or an allowed alternative on PVs if justified.",
+        ],
+        "retest_logic": "Retest per 5.5.",
+        "practical_notes": [
+            "This is the actual confirmation of installed / pressurized bend capability.",
+        ],
+    },
+    "HANDLING_MBR": {
+        "when_required": "Only if handling MBR is smaller than operating MBR.",
+        "specimen_count": "2 qualification specimens",
+        "api_clause": "API 15S 5.3.8.2",
+        "external_standard": "Uses 5.3.8.1 follow-on test",
+        "conditioning_required": "Yes",
+        "conditioning_steps": [
+            "Pre-bend the specimen to handling MBR.",
+            "Then hold at operating MBR during the 1000-hour proof test.",
+        ],
+        "core_process": [
+            "Perform the operating MBR confirmation of 5.3.8.1 after handling-MBR preconditioning.",
+        ],
+        "acceptance": [
+            "Pass the follow-on proof test.",
+        ],
+        "retest_logic": "If unsuccessful, all PFR MPR specimens must be preconditioned to handling MBR before full qualification.",
+        "practical_notes": [
+            "If handling MBR is greater than or equal to operating MBR, no extra preconditioning step beyond 5.3.8.1 is needed.",
+        ],
+    },
+    "HANDLING_AND_SPOOLING": {
+        "when_required": "Always for PFR where handling/spooling damage screening is required.",
+        "specimen_count": "2 PFR specimens",
+        "api_clause": "API 15S 5.3.8.3",
+        "external_standard": "Follow-on test: 5.3.4.2",
+        "conditioning_required": "Yes",
+        "conditioning_steps": [
+            "Precondition 2 PFR specimens with 10 bending cycles to operating MBR or smaller.",
+            "If handling MBR is smaller than operating MBR, 1 of the 10 cycles shall be at handling MBR.",
+        ],
+        "core_process": [
+            "After preconditioning, run the 1000-hour follow-on proof test.",
+        ],
+        "acceptance": [
+            "Pass the follow-on 1000-hour proof test.",
+        ],
+        "retest_logic": "If unsuccessful, or if preferred, full PFR qualification specimens shall be conditioned with 1 cycle at qualification MBR and full PFR qualification repeated.",
+        "practical_notes": [
+            "This is a key durability / damage-screening step before full PFR qualification.",
+        ],
+    },
+    "RESPOOLING": {
+        "when_required": "Only if respooling is allowed / claimed.",
+        "specimen_count": "2 PFR specimens",
+        "api_clause": "API 15S 5.3.8.4",
+        "external_standard": "Follow-on test: 5.3.4.2",
+        "conditioning_required": "Yes",
+        "conditioning_steps": [
+            "Precondition 2 PFR specimens to the stated allowable number of cycles at the applicable respooling MBR.",
+        ],
+        "core_process": [
+            "After respooling preconditioning, run the 1000-hour follow-on proof test.",
+        ],
+        "acceptance": [
+            "Pass the follow-on 1000-hour proof test.",
+        ],
+        "retest_logic": "If unsuccessful, all PFR MPR specimens must be preconditioned to respooling MBR before full qualification per 5.3.2.",
+        "practical_notes": [
+            "If respooling cycles are 10 or more and respooling MBR is less than or equal to operating MBR, this can also satisfy 5.3.8.3.",
+        ],
+    },
+    "AXIAL_LOAD": {
+        "when_required": "Always where installation load conditioning applies.",
+        "specimen_count": "2 specimens",
+        "api_clause": "API 15S 5.3.9",
+        "external_standard": "Follow-on test: 5.3.4.2 or 5.3.4.2 burst alternative if justified",
+        "conditioning_required": "Yes (axial load conditioning)",
+        "conditioning_steps": [
+            "If installation uses pulling pipe with attached fittings / couplings, test the assembled pipe body.",
+            "Apply allowable axial tension load at less than or equal to 50% of the lowest measured or calculated failure tension.",
+            "Reach target load in 1 to 20 minutes and hold for at least 1 hour with no internal pressure.",
+        ],
+        "core_process": [
+            "Run the 1000-hour follow-on proof test after axial load conditioning.",
+        ],
+        "acceptance": [
+            "Pass the follow-on 1000-hour proof test.",
+        ],
+        "retest_logic": "Retest per 5.5.",
+        "practical_notes": [
+            "This is conditioning before proof testing, not bend preconditioning.",
+        ],
+    },
+    "CRUSH": {
+        "when_required": "Mandatory only for selected PV characterization cases.",
+        "specimen_count": "3 specimens",
+        "api_clause": "API 15S 5.3.10",
+        "external_standard": "ASTM D2412",
+        "conditioning_required": "No specific preconditioning stated",
+        "conditioning_steps": [
+            "No specific conditioning step defined beyond approved setup preparation.",
+        ],
+        "core_process": [
+            "Characterize external load performance using ASTM D2412 with 3 specimens that may be cut from the same pipe.",
+        ],
+        "acceptance": [
+            "Characterization data shall be obtained per ASTM D2412.",
+        ],
+        "retest_logic": "No special retest language beyond general engineering disposition.",
+        "practical_notes": [
+            "This frames the characterization rather than a detailed pass/fail formula in the clause.",
+        ],
+    },
+    "LAOT": {
+        "when_required": "Mandatory for listed PV boundaries.",
+        "specimen_count": "2 specimens",
+        "api_clause": "API 15S 5.3.11",
+        "external_standard": "API 15S procedure",
+        "conditioning_required": "Yes (temperature conditioning)",
+        "conditioning_steps": [
+            "Condition specimen to steady state at LAOT and hold for at least 2.5 hours.",
+        ],
+        "core_process": [
+            "Use only field-fittings qualified by the pipe manufacturer.",
+            "Then perform leak test at MPR for at least 60 minutes.",
+            "Then perform leak test at 150 psi +/- 50 psi for at least 10 minutes at LAOT.",
+        ],
+        "acceptance": [
+            "All specimens shall survive without leakage for the full test period.",
+        ],
+        "retest_logic": "Retest per 5.5.",
+        "practical_notes": [
+            "Use only qualified field-fittings.",
+        ],
+    },
+    "IMPACT": {
+        "when_required": "Always for listed PFR / PV boundaries.",
+        "specimen_count": "2 specimens",
+        "api_clause": "API 15S 5.3.12",
+        "external_standard": "ASTM D2444 Tup B or equivalent; follow-on 5.3.4.2",
+        "conditioning_required": "Yes (test at lowest allowable installation temperature)",
+        "conditioning_steps": [
+            "Condition the specimens to the lowest allowable installation temperature before impact.",
+        ],
+        "core_process": [
+            "Impact 2 specimens using applicable sections of ASTM D2444 Tup B or equivalent.",
+            "After impact, run the 1000-hour follow-on proof test.",
+            "Inspect the cover for breach.",
+        ],
+        "acceptance": [
+            "Follow-on proof test shall pass.",
+            "The cover shall not be breached.",
+        ],
+        "retest_logic": "Retest per 5.5.",
+        "practical_notes": [
+            "Impact energy / report can help establish deployment-condition impact resistance.",
+        ],
+    },
+    "TEC": {
+        "when_required": "Always for listed PFR / PV boundaries.",
+        "specimen_count": "2 specimens",
+        "api_clause": "API 15S 5.3.13",
+        "external_standard": "API 15S procedure",
+        "conditioning_required": "Optional",
+        "conditioning_steps": [
+            "Specimens may be preconditioned if desired or needed by the manufacturer; document the method if used.",
+        ],
+        "core_process": [
+            "Use specimen length greater than or equal to 6 x nominal diameter.",
+            "Measure axial thermal expansion coefficient over at least 50 F (28 C) range.",
+            "Measurements shall be conducted unpressurized and at NPR as required by the design basis.",
+            "Where OD clearance is critical, determine hoop TEC.",
+        ],
+        "acceptance": [
+            "Measured and reported TEC values shall be established.",
+        ],
+        "retest_logic": "No explicit pass/fail formula in the clause; use results in design and installation basis.",
+        "practical_notes": [
+            "API notes that preconditioning may affect TEC for some designs.",
+        ],
+    },
+    "GROWTH": {
+        "when_required": "Always for listed PFR / PV boundaries.",
+        "specimen_count": "2 specimens",
+        "api_clause": "API 15S 5.3.14",
+        "external_standard": "API 15S procedure",
+        "conditioning_required": "No specific preconditioning stated",
+        "conditioning_steps": [
+            "No separate conditioning is specified beyond approved preparation and setup.",
+        ],
+        "core_process": [
+            "Use specimen length greater than or equal to 6 x nominal diameter.",
+            "Measure change in length and diameter from ambient to expected field hydrotest pressure or included pressure condition.",
+            "Keep specimen unconstrained so values represent likely field behavior.",
+        ],
+        "acceptance": [
+            "Measured and reported growth / shrinkage values shall be established.",
+        ],
+        "retest_logic": "No explicit pass/fail formula in the clause; use results for installation and restraint design.",
+        "practical_notes": [
+            "Useful for anchor spacing, tie-in movement, and field hydrotest planning.",
+        ],
+    },
+    "CYCLIC_REG": {
+        "when_required": "Only if the product is intended for cyclic service.",
+        "specimen_count": "Per Annex D / at least 18 pipe regression points plus 2 preconditioned burst specimens where required",
+        "api_clause": "API 15S 5.3.16 and Annex D",
+        "external_standard": "Annex D; ASTM D2992-18 Procedure A; ASTM E466 / ASTM D3479 route for reinforcement materials",
+        "conditioning_required": "Conditional",
+        "conditioning_steps": [
+            "Confirm the product is intended for cyclic service (>7000 cycles and dP/NPR >= 6%).",
+            "Choose cyclic route for pipe, reinforcement, or material validation as applicable.",
+            "Precondition at least 2 pipe specimens with field-fittings to the allowable number of cycles at MAOT where required for the service-factor check.",
+        ],
+        "core_process": [
+            "For pipe route, regression requires at least 18 points at MAOT with Annex D exceptions.",
+            "Apply service factor <= 0.1 to cycles from LCL where required.",
+            "Run the preconditioned burst check after establishing the cyclic regression basis where applicable.",
+        ],
+        "acceptance": [
+            "Final preconditioned burst result is reported but is not itself a direct pass/fail criterion.",
+        ],
+        "retest_logic": "If retest is failed in the screening step, full cyclic regression testing is required.",
+        "practical_notes": [
+            "Only include this row in qualification planning when cyclic service is claimed or expected.",
+        ],
+    },
+}
+
 def get_specimen_prep(test_code: str):
     key = (test_code or '').strip().lower()
     base = {
@@ -229,6 +595,21 @@ def get_specimen_prep(test_code: str):
             base[k] = v
     return base
 
+
+def get_test_guidance(test_code: str) -> dict:
+    code = (test_code or "").strip().upper()
+    return TEST_GUIDANCE.get(code, {
+        "when_required": "Refer to the approved qualification basis.",
+        "specimen_count": "As required by the approved route.",
+        "api_clause": "",
+        "external_standard": "",
+        "conditioning_required": "Refer to applicable procedure",
+        "conditioning_steps": ["Refer to the approved procedure and setup instructions."],
+        "core_process": ["Perform the test in accordance with the approved method."],
+        "acceptance": ["Apply the approved acceptance basis."],
+        "retest_logic": "Follow the approved retest logic.",
+        "practical_notes": [],
+    })
 
 class RndQualificationProgram(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -1110,6 +1491,7 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
         raise HTTPException(404, 'Test not found')
 
     prep = get_specimen_prep(test.code)
+    guidance = get_test_guidance(test.code)
 
     specimens = session.exec(
         select(RndQualificationSpecimen)
@@ -1145,6 +1527,7 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
             'acceptance': acceptance,
             'evidence': evidence,
             'specimen_state': specimen_state,
+            'guidance': guidance,
         }
     )
 
