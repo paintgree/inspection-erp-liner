@@ -4517,7 +4517,8 @@ def _draw_specimen_blocks(c, report, samples, start_y):
         c.setFillColor(colors.black)
         sample_len_mm = float(getattr(s, "sample_length_m", 0.0) or 0.0) * 1000.0
         c.drawString(x0 + 10 * mm, row_y - 3 * mm, f"{sample_len_mm:.1f} mm" if sample_len_mm > 0 else "-")
-        c.drawString(x0 + 78 * mm, row_y - 3 * mm, f"{_txt(getattr(s, 'effective_length_m', ''))} mm")
+        effective_len_mm = float(getattr(s, 'effective_length_m', 0.0) or 0.0) * 1000.0
+        c.drawString(x0 + 78 * mm, row_y - 3 * mm, f"{effective_len_mm:.1f} mm" if effective_len_mm > 0 else '-')
 
         y = y - block_h - 8 * mm
 
@@ -4561,7 +4562,7 @@ def _draw_results_table(c, samples, y):
         c.setFillColor(colors.black)
         c.drawString(xs[0], ry, str(i))
         c.drawString(xs[1], ry, _txt(getattr(s, "sample_serial_number", "")) or "-")
-        c.drawString(xs[2], ry, f"{_txt(getattr(s, 'actual_burst_psi', ''))} MPa")
+        c.drawString(xs[2], ry, f"{_txt(getattr(s, 'actual_burst_MPa', ''))} MPa")
         c.drawString(xs[3], ry, f"{_txt(getattr(s, 'pressurization_time_s', ''))} s")
 
         result_txt = (_txt(getattr(s, "test_result", "")) or "").strip().upper()
