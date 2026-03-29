@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}{{ program.program_code }} - Qualification Center{% endblock %}
+{% block content %}
+<style>
+.qc-wrap{display:grid;gap:18px}.qc-card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:16px;box-shadow:0 8px 28px rgba(15,23,42,.05)}
+.qc-hero{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}.qc-mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.qc-mini div,.phase-box{border:1px solid #e5e7eb;border-radius:14px;padding:12px;background:#fbfdff}.qc-mini b,.phase-box b{display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.phase-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}.phase-status{font-size:12px;font-weight:800}.phase-open{color:#92400e}.phase-complete{color:#166534}.phase-ready{color:#1d4ed8}
+.qc-table{width:100%;border-collapse:collapse}.qc-table th,.qc-table td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top;font-size:13px}.qc-table th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b}.ok{color:#166534;font-weight:800}.pending{color:#b45309;font-weight:800}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.grid2 label,.grid3 label{display:grid;gap:6px;font-size:13px;font-weight:700;color:#334155}.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.toolbar{display:flex;gap:10px;flex-wrap:wrap}.mutelist{margin:0;padding-left:18px;display:grid;gap:6px}
+@media (max-width:1100px){.qc-hero,.phase-grid,.qc-mini,.grid2,.grid3{grid-template-columns:1fr}}
+</style>
+<div class="qc-wrap">
+  <section class="qc-hero">
+    <div class="qc-card">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+        <div>
+          <h1 style="margin:0;">{{ program.program_code }}</h1>
+          <div class="muted">{{ program.title }} · {{ program.qualification_standard }} · {{ program.pfr_or_pv }}</div>
+        </div>
+        <div class="toolbar">
+          <a class="btn btn-ghost" href="/rnd/qualifications">Back</a>
+          <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/regression">Regression</a>
+          <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/reports/final">Final report</a>
+        </div>
+      </div>
+      <div class="qc-mini" style="margin-top:14px;">
+        <div><b>NPR / MAOT</b>{{ program.npr_mpa }} MPa · {{ program.maot_c }} °C</div>
+        <div><b>Checklist tests</b>{{ checklist_rows|length }}</div>
+        <div><b>Materials</b>{{ material_state.status_label }}</div>
+        <div><b>Burst screen</b>{{ burst.accepted_count }}/{{ burst.required_count }}</div>
+      </div>
+    </div>
+    <div class="qc-card">
+      <h3 style="margin-top:0;">Program summary</h3>
+      <div class="muted">{{ guide.summary }}</div>
+      <ul class="mutelist" style="margin-top:10px;">
+        <li><b>Intended service:</b> {{ program.intended_service }}</li>
+        <li><b>Material stack:</b> {{ program.liner_material }} / {{ program.reinforcement_material }} / {{ program.cover_material }}</li>
+        <li><b>Client scope:</b> {{ answers.get('client_scope') or '-' }}</li>
+        <li><b>Closure note:</b> {{ answers.get('closure_note') or '-' }}</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="qc-card">
+    <h2 style="margin-top:0;">Qualification phases</h2>
+    <div class="phase-grid">
+      {% for phase in phases %}
+      <div class="phase-box">
+        <b>{{ phase.name }}</b>
+        <div class="phase-status {% if phase.status == 'COMPLETE' %}phase-complete{% elif phase.status == 'READY' %}phase-ready{% else %}phase-open{% endif %}">{{ phase.status }}</div>
+        <div class="muted" style="margin-top:6px;">{{ phase.detail }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="qc-card">
+    <h2 style="margin-top:0;">Definition</h2>
+    <form method="post" action="/rnd/qualifications/{{ program.id }}/basis" class="grid2">
+      <label>Program Code<input name="program_code" value="{{ program.program_code }}"></label>
+      <label>Title<input name="title" value="{{ program.title }}"></label>
+      <label>Qualification Standard<input name="qualification_standard" value="{{ program.qualification_standard }}"></label>
+      <label>Program Type<input name="pfr_or_pv" value="{{ program.pfr_or_pv }}"></label>
+      <label>Nominal Size (in)<input name="nominal_size_in" type="number" step="0.01" value="{{ program.nominal_size_in }}"></label>
+      <label>NPR (MPa)<input name="npr_mpa" type="number" step="0.01" value="{{ program.npr_mpa }}"></label>
+      <label>MAOT (°C)<input name="maot_c" type="number" step="0.1" value="{{ program.maot_c }}"></label>
+      <label>LAOT (°C)<input name="laot_c" type="number" step="0.1" value="{{ program.laot_c }}"></label>
+      <label>Intended Service<input name="intended_service" value="{{ program.intended_service }}"></label>
+      <label>Phase Owner<input name="phase_owner" value="{{ answers.get('phase_owner','') }}"></label>
+      <label>Liner Material<input name="liner_material" value="{{ program.liner_material }}"></label>
+      <label>Reinforcement Material<input name="reinforcement_material" value="{{ program.reinforcement_material }}"></label>
+      <label>Cover Material<input name="cover_material" value="{{ program.cover_material }}"></label>
+      <label>Client Scope<textarea name="client_scope" rows="3">{{ answers.get('client_scope','') }}</textarea></label>
+      <label style="grid-column:1 / -1;">General Notes<textarea name="notes" rows="4">{{ answers.get('free_notes','') }}</textarea></label>
+      <label style="grid-column:1 / -1;">Closure Note<textarea name="closure_note" rows="3">{{ answers.get('closure_note','') }}</textarea></label>
+      <div style="grid-column:1 / -1;"><button class="btn btn-primary" type="submit">Save program basis</button></div>
+    </form>
+  </section>
+
+  <section class="qc-card">
+    <h2 style="margin-top:0;">Material control</h2>
+    <table class="qc-table">
+      <thead><tr><th>Component</th><th>Material</th><th>Supplier / Grade</th><th>Certificate / Batch</th><th>Status</th><th>Notes</th><th>Save</th></tr></thead>
+      <tbody>
+        {% for row in material_state.rows %}
+        <tr>
+          <form method="post" action="/rnd/qualifications/{{ program.id }}/materials/{{ row.row.id }}">
+            <td>{{ row.row.component }}</td>
+            <td><input name="material_name" value="{{ row.row.material_name }}"></td>
+            <td><input name="supplier_name" value="{{ row.row.supplier_name }}"><input name="grade_name" value="{{ row.row.grade_name }}" placeholder="Grade"></td>
+            <td><input name="certificate_ref" value="{{ row.row.certificate_ref }}"><input name="batch_ref" value="{{ row.row.batch_ref }}" placeholder="Batch"></td>
+            <td><select name="status"><option {% if row.row.status == 'PLANNED' %}selected{% endif %}>PLANNED</option><option {% if row.row.status == 'IN_PROGRESS' %}selected{% endif %}>IN_PROGRESS</option><option {% if row.row.status == 'PASSED' %}selected{% endif %}>PASSED</option></select></td>
+            <td><textarea name="notes" rows="2">{{ row.row.notes }}</textarea>{% if row.missing %}<div class="pending">Missing: {{ row.missing|join(', ') }}</div>{% else %}<div class="ok">Ready</div>{% endif %}</td>
+            <td><button class="btn btn-ghost" type="submit">Save</button></td>
+          </form>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="qc-card">
+    <h2 style="margin-top:0;">Checklist dashboard</h2>
+    <table class="qc-table">
+      <thead><tr><th>Phase</th><th>Test</th><th>Category</th><th>Samples</th><th>Inputs</th><th>Uploads</th><th>Result</th><th>Status</th><th>Open</th></tr></thead>
+      <tbody>
+        {% for row in checklist_rows %}
+        <tr>
+          <td>{{ row.plan.phase }}</td>
+          <td><b>{{ row.test.title }}</b><br><span class="muted">{{ row.test.code }} · {{ row.test.clause_ref }}</span></td>
+          <td>{{ row.plan.category }}</td>
+          <td>{{ row.plan.samples_required }}</td>
+          <td>{% if row.inputs_complete %}<span class="ok">Complete</span>{% else %}<span class="pending">Pending</span>{% endif %}<br><span class="muted">{{ row.specimens|length }} entered</span></td>
+          <td>{% if row.evidence.complete %}<span class="ok">Complete</span>{% else %}<span class="pending">{{ row.evidence.missing|length }} missing</span>{% endif %}</td>
+          <td>{% if row.results_complete %}<span class="ok">Recorded</span>{% else %}<span class="pending">Pending</span>{% endif %}</td>
+          <td>{{ row.test.status }}</td>
+          <td><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/tests/{{ row.test.id }}">Guidance</a></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9">No tests in the checklist yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="qc-card">
+    <h2 style="margin-top:0;">Add custom qualification test</h2>
+    <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/custom" class="grid3">
+      <label>Common Test Type<select name="common_test_type"><option value="OTHER">Other / Fully Custom</option>{% for key, preset in custom_library %}<option value="{{ key }}">{{ preset.title }}</option>{% endfor %}</select></label>
+      <label>Code<input name="code" value="OTHER"></label>
+      <label>Clause / Reference<input name="clause_ref" value="CUSTOM"></label>
+      <label>Title<input name="title" placeholder="Client witness burst test"></label>
+      <label>Category<input name="category" value="Custom Qualification"></label>
+      <label>Phase<select name="phase"><option>Definition</option><option>Material Control</option><option>Test Planning</option><option selected>Execution</option><option>Evidence Review</option><option>Closure</option></select></label>
+      <label>Execution Mode<select name="execution_mode"><option value="numeric_and_result">Numeric + result</option><option value="text_confirmation">Text confirmation</option><option value="checklist_and_result">Checklist + result</option></select></label>
+      <label>Result Mode<select name="result_mode"><option value="pass_fail_with_note">Pass / Fail + note</option><option value="text_summary">Text summary</option><option value="numeric_summary">Numeric summary</option></select></label>
+      <label>Samples Required<input name="specimen_requirement" value="As required"></label>
+      <label style="grid-column:1 / -1;">Description<textarea name="description" rows="3"></textarea></label>
+      <label style="grid-column:1 / -1;">Guidance<textarea name="guidance_text" rows="3" placeholder="What to do, how to prepare, what to observe, and any warnings."></textarea></label>
+      <label style="grid-column:1 / -1;">Formula / Acceptance Notes<textarea name="formula_text" rows="2" placeholder="Formula, client acceptance note, or engineering note."></textarea></label>
+      <label style="grid-column:1 / -1;">Required Uploads CSV<input name="required_uploads_csv" placeholder="REPORT, PHOTO, RAW_DATA, SIGNED_FORM"></label>
+      <div style="grid-column:1 / -1;"><button class="btn btn-primary" type="submit">Add custom test</button></div>
+    </form>
+  </section>
+</div>
+{% endblock %}

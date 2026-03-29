@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+.twrap{display:grid;gap:18px}.tcard{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:16px;box-shadow:0 8px 28px rgba(15,23,42,.05)}
+.tgrid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px}.mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.mini div{border:1px solid #e5e7eb;border-radius:14px;padding:10px;background:#fbfdff}.mini b{display:block;font-size:11px;color:#64748b;text-transform:uppercase;letter-spacing:.08em;margin-bottom:5px}
+.tbl{width:100%;border-collapse:collapse}.tbl th,.tbl td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top;font-size:13px}.tbl th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b}.grid2,.grid3{display:grid;gap:12px}.grid2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.grid2 label,.grid3 label{display:grid;gap:6px;font-size:13px;font-weight:700;color:#334155}.pill{display:inline-flex;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800}.ok{background:#dcfce7;color:#166534}.warn{background:#fef3c7;color:#92400e}.mutelist{margin:0;padding-left:18px;display:grid;gap:6px}
+@media (max-width:1000px){.tgrid,.mini,.grid2,.grid3{grid-template-columns:1fr}}
+</style>
+<div class="twrap">
+  <section class="tcard">
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+      <div>
+        <h1 style="margin:0;">{{ test.title }}</h1>
+        <div class="muted">{{ test.code }} · {{ plan.phase }} · {{ plan.category }}</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back</a>
+        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/reports/final">Final report</a>
+      </div>
+    </div>
+    <div class="mini" style="margin-top:14px;">
+      <div><b>Status</b>{{ test.status }}</div>
+      <div><b>Samples required</b>{{ plan.samples_required }}</div>
+      <div><b>Inputs</b>{% if specimen_state.total %}{{ specimen_state.total }} recorded{% else %}Not started{% endif %}</div>
+      <div><b>Evidence</b>{% if evidence.complete %}Complete{% else %}{{ evidence.missing|length }} missing{% endif %}</div>
+    </div>
+  </section>
+
+  <section class="tgrid">
+    <div class="tcard">
+      <h2 style="margin-top:0;">Guidance</h2>
+      <p>{{ plan.guidance_text or test.description or 'Qualification requirement under the selected route.' }}</p>
+      <div class="grid2">
+        <div>
+          <b>When required</b>
+          <div>{{ guidance.when_required }}</div>
+        </div>
+        <div>
+          <b>Conditioning / setup decision</b>
+          <div>{{ plan.conditioning_note or guidance.conditioning_required }}</div>
+        </div>
+        <div>
+          <b>Acceptance basis</b>
+          <div>{{ plan.acceptance_note }}</div>
+        </div>
+        <div>
+          <b>Formula / note</b>
+          <div>{{ plan.formula_text or '-' }}</div>
+        </div>
+      </div>
+      <h3>Execution steps</h3>
+      <ol class="mutelist">
+        {% for item in guidance.conditioning_steps %}<li>{{ item }}</li>{% endfor %}
+        {% for item in guidance.core_process %}<li>{{ item }}</li>{% endfor %}
+      </ol>
+      <h3>Acceptance & retest</h3>
+      <ul class="mutelist">
+        {% for item in acceptance %}<li>{{ item }}</li>{% endfor %}
+        <li>{{ guidance.retest_logic }}</li>
+      </ul>
+    </div>
+
+    <div class="tcard">
+      <h2 style="margin-top:0;">Checklist monitor</h2>
+      <div style="display:grid;gap:8px;">
+        <div><span class="pill {% if specimen_state.total %}ok{% else %}warn{% endif %}">Specimens</span> {{ specimen_state.total }} entered / {{ specimen_state.released }} released</div>
+        <div><span class="pill {% if evidence.complete %}ok{% else %}warn{% endif %}">Evidence</span> {% if evidence.complete %}All required uploads registered{% else %}Missing {{ evidence.missing|join(', ') }}{% endif %}</div>
+        <div><span class="pill {% if plan.summary or test.status in ['PASSED','FAILED','WAIVED'] %}ok{% else %}warn{% endif %}">Result</span> {{ plan.summary or 'Result not recorded yet' }}</div>
+      </div>
+      <h3 style="margin-top:14px;">Required uploads</h3>
+      <ul class="mutelist">
+        {% for row in evidence.rows %}<li>{{ row.document_type }} — {% if row.present %}<span class="ok">complete</span>{% else %}<span class="warn">pending</span>{% endif %}</li>{% endfor %}
+      </ul>
+    </div>
+  </section>
+
+  <section class="tcard">
+    <h2 style="margin-top:0;">Result & control update</h2>
+    <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}" class="grid3">
+      <label>Status<select name="status"><option {% if test.status == 'PLANNED' %}selected{% endif %}>PLANNED</option><option {% if test.status == 'IN_PROGRESS' %}selected{% endif %}>IN_PROGRESS</option><option {% if test.status == 'PASSED' %}selected{% endif %}>PASSED</option><option {% if test.status == 'FAILED' %}selected{% endif %}>FAILED</option><option {% if test.status == 'WAIVED' %}selected{% endif %}>WAIVED</option></select></label>
+      <label>Category<input name="category" value="{{ plan.category }}"></label>
+      <label>Phase<select name="phase">{% for item in ['Definition','Material Control','Test Planning','Execution','Evidence Review','Closure'] %}<option value="{{ item }}" {% if plan.phase == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+      <label>Execution Mode<select name="execution_mode">{% for item in ['numeric_and_result','text_confirmation','checklist_and_result'] %}<option value="{{ item }}" {% if plan.execution_mode == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+      <label>Result Mode<select name="result_mode">{% for item in ['pass_fail_with_note','text_summary','numeric_summary'] %}<option value="{{ item }}" {% if plan.result_mode == item %}selected{% endif %}>{{ item }}</option>{% endfor %}</select></label>
+      <label>Samples Required<input name="samples_required" value="{{ plan.samples_required }}"></label>
+      <label style="grid-column:1 / -1;">Result Summary<textarea name="result_summary" rows="3">{{ plan.summary }}</textarea></label>
+      <label style="grid-column:1 / -1;">Guidance<textarea name="guidance_text" rows="3">{{ plan.guidance_text }}</textarea></label>
+      <label style="grid-column:1 / -1;">Conditioning Note<textarea name="conditioning_note" rows="2">{{ plan.conditioning_note }}</textarea></label>
+      <label style="grid-column:1 / -1;">Acceptance Note<textarea name="acceptance_note" rows="2">{{ plan.acceptance_note }}</textarea></label>
+      <label style="grid-column:1 / -1;">Formula / Engineering Note<textarea name="formula_text" rows="2">{{ plan.formula_text }}</textarea></label>
+      <label style="grid-column:1 / -1;">Required Uploads CSV<input name="required_uploads_csv" value="{{ plan.required_uploads|join(', ') }}"></label>
+      <div style="grid-column:1 / -1;"><button class="btn btn-primary" type="submit">Save test control</button></div>
+    </form>
+  </section>
+
+  <section class="tcard">
+    <h2 style="margin-top:0;">Specimen cutting & release register</h2>
+    <div class="muted" style="margin-bottom:10px;">Materials are inherited from Material Control. This register is only for specimen traceability, preparation, release, and test-related values.</div>
+    <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/specimens/new" class="grid3">
+      <label>Specimen ID<input name="specimen_id" required></label>
+      <label>Sample Date<input type="date" name="sample_date" required></label>
+      <label>Nominal Size (in)<input name="nominal_size_in" type="number" step="0.01" value="{{ program.nominal_size_in }}"></label>
+      <label>Confirmed OD (mm)<input name="confirmed_od_mm" type="number" step="0.01"></label>
+      <label>Rule Basis<input name="preparation_rule_basis" placeholder="5D, 3D, 1.5 x OD"></label>
+      <label>Source Pipe / Spool Ref<input name="source_pipe_ref"></label>
+      <label>Batch Ref<input name="batch_ref"></label>
+      <label>Cut By<input name="cut_by"></label>
+      <label>Total Cut Length (mm)<input name="total_cut_length_mm" type="number" step="0.01"></label>
+      <label>Effective Length (mm)<input name="effective_length_mm" type="number" step="0.01"></label>
+      <label>End Allowance Each Side (mm)<input name="end_allowance_each_side_mm" type="number" step="0.01"></label>
+      <label>Trimming Margin (mm)<input name="trimming_margin_mm" type="number" step="0.01"></label>
+      <label style="grid-column:1 / -1;">Notes<textarea name="notes" rows="2"></textarea></label>
+      <div style="grid-column:1 / -1;display:flex;gap:18px;flex-wrap:wrap;">
+        <label><input type="checkbox" name="conditioning_complete" value="1"> Conditioning / setup complete</label>
+        <label><input type="checkbox" name="pretest_visual_ok" value="1"> Pre-test visual accepted</label>
+        <label><input type="checkbox" name="released_for_test" value="1"> Released for test</label>
+      </div>
+      <div style="grid-column:1 / -1;"><button class="btn btn-primary" type="submit">Add specimen</button></div>
+    </form>
+    <table class="tbl" style="margin-top:16px;">
+      <thead><tr><th>Specimen</th><th>Preparation</th><th>Traceability</th><th>Release</th></tr></thead>
+      <tbody>
+        {% for s in specimens %}
+        <tr>
+          <td><b>{{ s.specimen_id }}</b><br><span class="muted">{{ s.sample_date }}</span></td>
+          <td>{{ s.confirmed_od_mm or '-' }} mm · {{ s.preparation_rule_basis or '-' }}<br><span class="muted">Total {{ s.total_cut_length_mm or '-' }} / Effective {{ s.effective_length_mm or '-' }}</span></td>
+          <td>{{ s.source_pipe_ref or '-' }}<br><span class="muted">Batch {{ s.batch_ref or '-' }} · Cut by {{ s.cut_by or '-' }}</span></td>
+          <td>{% if s.pretest_visual_ok %}<span class="ok">Visual OK</span>{% else %}<span class="pending">Visual pending</span>{% endif %}<br>{% if s.released_for_test %}<span class="ok">Released</span>{% else %}<span class="pending">Not released</span>{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4">No specimens registered yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="tcard">
+    <h2 style="margin-top:0;">Evidence / upload register</h2>
+    <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/attachments/new" class="grid3">
+      <label>Category<input name="category" value="REPORT"></label>
+      <label>Document Type<input name="document_type" required></label>
+      <label>Approval Status<select name="approval_status"><option>PENDING</option><option>APPROVED</option><option>REJECTED</option></select></label>
+      <label style="grid-column:1 / span 2;">Title<input name="title" required></label>
+      <label>Reference No.<input name="reference_no"></label>
+      <label style="grid-column:1 / -1;">Notes<textarea name="file_note" rows="2"></textarea></label>
+      <label style="grid-column:1 / -1;"><input type="checkbox" name="is_mandatory" value="1"> Mandatory evidence</label>
+      <div style="grid-column:1 / -1;"><button class="btn btn-primary" type="submit">Add evidence row</button></div>
+    </form>
+    <table class="tbl" style="margin-top:16px;">
+      <thead><tr><th>Type</th><th>Title</th><th>Status</th><th>Note</th></tr></thead>
+      <tbody>
+        {% for a in attachments %}
+        <tr><td>{{ a.document_type or a.category }}</td><td><b>{{ a.title }}</b><br><span class="muted">{{ a.reference_no or '-' }}</span></td><td>{{ a.approval_status }}</td><td>{{ a.file_note or '-' }}</td></tr>
+        {% else %}
+        <tr><td colspan="4">No evidence records yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

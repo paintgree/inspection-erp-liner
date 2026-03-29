@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block content %}
+
+<a href="/dashboard" class="burst-back-btn">← Back</a>
+
+<div class="page-head burst-head">
+  <h2>Final Inspection</h2>
+  <div class="muted">Phase-based dispatch inspection and approval.</div>
+</div>
+
+<div class="card">
+  {% if summaries %}
+    <div class="tablewrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Batch</th>
+            <th>Client</th>
+            <th>Spec</th>
+            <th>Produced</th>
+            <th>Burst Used</th>
+            <th>Expected After Burst</th>
+            <th>Approved Total</th>
+            <th>All Phase Total</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in summaries %}
+            <tr>
+              <td><strong>{{ s.batch_no }}</strong></td>
+              <td>{{ s.client_name or '-' }}</td>
+              <td>{{ s.pipe_specification or '-' }}</td>
+              <td>{{ '%.1f'|format(s.produced_length_m) }} m</td>
+              <td>{{ '%.1f'|format(s.burst_used_m) }} m</td>
+              <td>{{ '%.1f'|format(s.expected_after_burst_m) }} m</td>
+              <td>{{ '%.1f'|format(s.approved_total_m) }} m</td>
+              <td>{{ '%.1f'|format(s.all_reels_total_m) }} m</td>
+              <td>
+                <div class="toolbar">
+                  <a class="btn btn-sm btn-primary" href="/final/batch/{{ s.batch_no }}">Open Batch</a>
+                  <a class="btn btn-sm" href="/final/batch/{{ s.batch_no }}/pdf" target="_blank">PDF</a>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="muted">No batches available for final inspection yet.</div>
+  {% endif %}
+</div>
+
+{% endblock %}
