@@ -977,6 +977,11 @@ def _seed_test_matrix(session: Session, program: RndQualificationProgram) -> Non
     existing = session.exec(select(RndQualificationTest).where(RndQualificationTest.program_id == program.id)).all()
     if existing:
         return
+    if (program.qualification_standard or '').strip().upper().startswith('OTHER'):
+        for component, material in [('LINER', program.liner_material), ('REINFORCEMENT', program.reinforcement_material), ('COVER', program.cover_material)]:
+            session.add(RndMaterialQualification(program_id=program.id, component=component, material_name=material))
+        session.commit()
+        return
     for idx, item in enumerate(_default_test_matrix(program.pfr_or_pv), start=1):
         session.add(RndQualificationTest(program_id=program.id, sort_order=idx, clause_ref=item['clause_ref'], code=item['code'], title=item['title'], description=item['description'], specimen_requirement=item['specimen_requirement'], applicability=item['applicability']))
     for component, material in [('LINER', program.liner_material), ('REINFORCEMENT', program.reinforcement_material), ('COVER', program.cover_material)]:
@@ -1110,7 +1115,7 @@ def _qualification_guide(program: Optional[RndQualificationProgram] = None) -> d
     npr = f"{program.npr_mpa:g} MPa" if program else '10 MPa'
     maot = f"{program.maot_c:g} °C" if program else '65 °C'
     return {
-        'summary': f'This workspace organizes API 15S qualification for LLRTP with PE-RT liner, polyester fiber reinforcement, and PE100 cover. It guides the user through product definition, test matrix, specimen tracking, and regression review for {size} / {npr} / {maot}.',
+        'summary': (f'This workspace organizes API 15S qualification for LLRTP with PE-RT liner, polyester fiber reinforcement, and PE100 cover. It guides the user through product definition, test matrix, specimen tracking, and regression review for {size} / {npr} / {maot}.' if (program and not (program.qualification_standard or '').strip().upper().startswith('OTHER')) else f'This workspace organizes a custom qualification program with checklist tracking, evidence collection, test guidance, and result review for {size} / {npr} / {maot}.'),
         'steps': [
             {'title': '1. Define the qualification basis', 'text': 'Create the program as PFR or PV, set size, NPR, MAOT, service, and material stack. Use the most demanding representative as the PFR when possible.'},
             {'title': '2. Lock the material system', 'text': 'Record liner, reinforcement, and cover grade, supplier, batch, and certificate references before test execution.'},
@@ -1363,8 +1368,8 @@ def rnd_new_program_form(request: Request, user: User = Depends(_require_user)):
 
 
 @router.post('/qualifications/new')
-def rnd_create_program(session: Session = Depends(get_session), user: User = Depends(_require_user), title: str = Form(...), program_code: str = Form(...), nominal_size_in: float = Form(...), npr_mpa: float = Form(...), maot_c: float = Form(...), laot_c: float = Form(0.0), pfr_or_pv: str = Form('PFR'), parent_program_id: Optional[int] = Form(None), intended_service: str = Form('Static water service'), notes: str = Form('')):
-    program = RndQualificationProgram(program_code=(program_code or '').strip().upper(), title=(title or '').strip(), nominal_size_in=nominal_size_in, npr_mpa=npr_mpa, maot_c=maot_c, laot_c=laot_c, pfr_or_pv=(pfr_or_pv or 'PFR').strip().upper(), parent_program_id=parent_program_id, intended_service=intended_service, notes=notes, created_by_name=(getattr(user, 'display_name', '') or getattr(user, 'username', '') or ''))
+def rnd_create_program(session: Session = Depends(get_session), user: User = Depends(_require_user), title: str = Form(...), program_code: str = Form(...), nominal_size_in: float = Form(...), npr_mpa: float = Form(...), maot_c: float = Form(...), laot_c: float = Form(0.0), pfr_or_pv: str = Form('PFR'), parent_program_id: Optional[int] = Form(None), intended_service: str = Form('Static water service'), qualification_standard: str = Form('API 15S R3'), notes: str = Form('')):
+    program = RndQualificationProgram(program_code=(program_code or '').strip().upper(), title=(title or '').strip(), nominal_size_in=nominal_size_in, npr_mpa=npr_mpa, maot_c=maot_c, laot_c=laot_c, pfr_or_pv=(pfr_or_pv or 'PFR').strip().upper(), parent_program_id=parent_program_id, intended_service=intended_service, qualification_standard=(qualification_standard or 'API 15S R3').strip(), notes=notes, created_by_name=(getattr(user, 'display_name', '') or getattr(user, 'username', '') or ''))
     session.add(program); session.commit(); session.refresh(program)
     if program.parent_program_id:
         parent = session.get(RndQualificationProgram, program.parent_program_id)
@@ -1461,6 +1466,24 @@ def rnd_delete_specimen(program_id: int, specimen_id: int, session: Session = De
     session.commit()
     return RedirectResponse(url=f'/rnd/qualifications/{program_id}', status_code=303)
 
+
+
+@router.post('/qualifications/{program_id}/tests/custom')
+def rnd_add_custom_test(program_id: int, title: str = Form(...), code: str = Form('OTHER'), description: str = Form(''), specimen_requirement: str = Form('As required'), clause_ref: str = Form('CUSTOM'), session: Session = Depends(get_session), user: User = Depends(_require_user)):
+    program = session.get(RndQualificationProgram, program_id)
+    if not program:
+        raise HTTPException(404, 'Program not found')
+    existing = session.exec(select(RndQualificationTest).where(RndQualificationTest.program_id == program_id).order_by(RndQualificationTest.sort_order.desc(), RndQualificationTest.id.desc())).first()
+    next_order = (existing.sort_order if existing else 0) + 1
+    norm_code = (code or 'OTHER').strip().upper()
+    if norm_code == 'OTHER':
+        norm_code = f"OTHER_{next_order}"
+    row = RndQualificationTest(program_id=program_id, sort_order=next_order, clause_ref=(clause_ref or 'CUSTOM').strip(), code=norm_code, title=(title or '').strip(), description=(description or '').strip(), specimen_requirement=(specimen_requirement or 'As required').strip(), applicability='CUSTOM', status='PLANNED')
+    session.add(row)
+    _touch_program(program)
+    session.add(program)
+    session.commit()
+    return RedirectResponse(url=f'/rnd/qualifications/{program_id}', status_code=303)
 
 @router.get('/qualifications/{program_id}/regression')
 def rnd_regression_view(program_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
