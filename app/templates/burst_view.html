@@ -568,7 +568,7 @@
         <div>
           <h1 class="burst-report-title">Short-Time Hydrostatic Burst Pressure Test Report</h1>
           <div class="burst-report-subline">
-            <span class="burst-company">DUQM HONGTONG PIPING LLC</span>
+            <span class="burst-company">OFFICIAL DOCUMENT</span>
           </div>
         </div>
 
@@ -639,7 +639,7 @@
     </div>
 
     <div class="burst-section">
-      <h2 class="burst-section-title">Specimens</h2>
+      <h2 class="burst-section-title">SPECIMEN DETAILS</h2>
 
       {% for s in samples[:rep.total_no_of_specimens] %}
         <div class="burst-spec-card">
@@ -704,7 +704,7 @@
               <div>
                 <div class="burst-mini-label">EFFECTIVE LENGTH</div>
                 <div class="burst-serial-value">
-                  {{ (s.effective_length_m|float)|round(1) }} mm
+                  {% if s.effective_length_m is not none and (s.effective_length_m|float) > 0 %}{{ ((s.effective_length_m|float) * 1000)|round(1) }} mm{% else %}-{% endif %}
                 </div>
               </div>
             </div>
@@ -715,6 +715,7 @@
     <div class="burst-section">
       
 
+      <h2 class="burst-section-title" style="margin-bottom:12px;">TEST RESULTS</h2>
       <table class="burst-results-table">
         <thead>
           <tr>
@@ -731,7 +732,7 @@
             <tr>
               <td>{{ loop.index }}</td>
               <td>{{ s.sample_serial_number or '-' }}</td>
-              <td class="burst-pass">{{ s.actual_burst_psi or '-' }} MPa</td>
+              <td class="burst-pass">{{ s.actual_burst_MPa or '-' }} MPa</td>
               <td>{{ s.pressurization_time_s or '-' }} s</td>
               <td>
                 <span class="burst-status-pill {% if s_result == 'PASS' %}pass{% else %}fail{% endif %}">
