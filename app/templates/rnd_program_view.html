@@ -18,7 +18,7 @@
 @media (max-width:640px){.qc-mini,.qc-form-grid{grid-template-columns:1fr}}
 </style>
 
-{% set qual_is_other = (program.qualification_standard or '')|upper|startswith('OTHER') %}
+{% set qual_is_other = 'OTHER' in (program.qualification_standard or '')|upper %}
 <div class="qc-wrap">
   <section class="qc-card">
     <div class="section-head" style="margin-bottom:12px;">
