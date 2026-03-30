@@ -1692,7 +1692,6 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
     )
 
 @router.post('/qualifications/{program_id}/tests/{test_id}/specimens/new')
-@router.post('/rnd/qualifications/{program_id}/tests/{test_id}/specimens/new')
 def rnd_add_test_specimen(
     request: Request,
     program_id: int,
@@ -1762,31 +1761,23 @@ def rnd_add_test_specimen(
             return None
 
     def as_bool(value):
-        if value in (True, 'true', 'True', 'on', '1', 1):
-            return True
-        if value in (False, 'false', 'False', 'off', '0', 0):
-            return False
-        return False
+        return value in (True, 'true', 'True', 'on', '1', 1)
 
     def as_date(value):
         value = (value or '').strip()
         if not value:
-            return None
+            return date.today()
         try:
             return datetime.strptime(value, '%Y-%m-%d').date()
         except Exception:
-            return None
+            return date.today()
 
-    test = (
-        session.query(RndQualificationTest)
-        .filter(
-            RndQualificationTest.id == test_id,
-            RndQualificationTest.program_id == program_id,
-        )
-        .first()
-    )
+    test = session.get(RndQualificationTest, test_id)
     if not test:
         raise HTTPException(404, 'Test not found')
+
+    if int(test.program_id) != int(program_id):
+        raise HTTPException(400, 'Test does not belong to this program')
 
     program = session.get(RndQualificationProgram, test.program_id)
     if not program:
@@ -1806,32 +1797,34 @@ def rnd_add_test_specimen(
         program_id=test.program_id,
         test_id=test.id,
         specimen_id=(specimen_id or '').strip(),
-        test_type=(test_type or 'MPR_REG').strip() or 'MPR_REG',
+        test_type=(test_type or test.code or 'MPR_REG').strip().upper(),
         sample_date=as_date(sample_date),
-        nominal_size_in=as_float(nominal_size_in),
+        material_ref=safe_material_ref,
+        conditioning_required=_conditioning_required_flag(
+            get_test_guidance(test.code).get('conditioning_required')
+        ),
+        nominal_size_in=as_float(nominal_size_in) or program.nominal_size_in,
         confirmed_od_mm=as_float(confirmed_od_mm),
         preparation_rule_basis=(preparation_rule_basis or '').strip(),
-        pressure_mpa=as_float(pressure_mpa),
-        temperature_c=as_float(temperature_c),
+        pressure_mpa=as_float(pressure_mpa) or 0.0,
+        temperature_c=as_float(temperature_c) or program.maot_c,
         failure_hours=as_float(failure_hours),
-        failure_cycles=as_int(failure_cycles),
+        failure_cycles=as_float(failure_cycles),
         failure_mode=(failure_mode or '').strip(),
-        permissible_failure=(permissible_failure or '').strip(),
+        permissible_failure=as_bool(permissible_failure),
         is_runout=as_bool(is_runout),
-        include_in_regression=as_bool(include_in_regression),
-        fitting_type=(fitting_type or '').strip(),
+        include_in_regression=True if include_in_regression is None else as_bool(include_in_regression),
+        fitting_type=(fitting_type or 'Field fitting').strip(),
         lab_name=(lab_name or '').strip(),
         witness_name=(witness_name or '').strip(),
         notes=(notes or '').strip(),
         batch_ref=safe_batch_ref,
         source_pipe_ref=safe_source_pipe_ref,
-        material_ref=safe_material_ref,
         cut_by=(cut_by or '').strip(),
         total_cut_length_mm=as_float(total_cut_length_mm),
         effective_length_mm=as_float(effective_length_mm),
         end_allowance_each_side_mm=as_float(end_allowance_each_side_mm),
         trimming_margin_mm=as_float(trimming_margin_mm),
-        conditioning_required=False,
         conditioning_complete=as_bool(conditioning_complete),
         pretest_visual_ok=as_bool(pretest_visual_ok),
         released_for_test=as_bool(released_for_test),
@@ -1845,17 +1838,26 @@ def rnd_add_test_specimen(
         failure_location=(failure_location or '').strip(),
         failure_description=(failure_description or '').strip(),
         leak_observation=(leak_observation or '').strip(),
-        result_status=(result_status or 'PENDING').strip() or 'PENDING',
-        qa_review_status=(qa_review_status or 'PENDING').strip() or 'PENDING',
+        result_status=(result_status or 'PENDING').strip().upper(),
+        qa_review_status=(qa_review_status or 'PENDING').strip().upper(),
     )
 
     session.add(specimen)
+
+    test.status = 'IN_PROGRESS'
+    _touch_row(test)
+    session.add(test)
+
+    _touch_program(program)
+    session.add(program)
+
     session.commit()
 
     return RedirectResponse(
         url=f'/rnd/qualifications/{test.program_id}/tests/{test.id}',
         status_code=303,
     )
+
 
 @router.post('/qualifications/{program_id}/tests/{test_id}/specimens/{specimen_row_id}/update')
 def rnd_update_test_specimen(
@@ -1890,8 +1892,14 @@ def rnd_update_test_specimen(
         raise HTTPException(404, 'Specimen not found')
 
     specimen.material_ref = (material_ref or specimen.material_ref or 'FINAL_PRODUCT').strip()
-    if specimen.conditioning_required is None:
-        specimen.conditioning_required = _conditioning_required_flag(get_test_guidance(test.code).get('conditioning_required'))
+    test = session.get(RndQualificationTest, test_id)
+if not test or test.program_id != program_id:
+    raise HTTPException(404, 'Test not found')
+
+if specimen.conditioning_required is None:
+    specimen.conditioning_required = _conditioning_required_flag(
+        get_test_guidance(test.code).get('conditioning_required')
+    )
     specimen.planned_pressure_mpa = planned_pressure_mpa
     specimen.actual_pressure_at_failure_mpa = actual_pressure_at_failure_mpa
     specimen.pressure_at_hold_mpa = pressure_at_hold_mpa
@@ -1914,8 +1922,6 @@ def rnd_update_test_specimen(
     _touch_row(specimen)
     session.add(specimen)
 
-    test = session.get(RndQualificationTest, test_id)
-    if test:
         all_specimens = session.exec(
             select(RndQualificationSpecimen)
             .where(RndQualificationSpecimen.program_id == program_id)
