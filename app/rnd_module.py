@@ -1692,33 +1692,91 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
     )
 
 @router.post('/qualifications/{program_id}/tests/{test_id}/specimens/new')
+@router.post('/rnd/qualifications/{program_id}/tests/{test_id}/specimens/new')
 def rnd_add_test_specimen(
+    request: Request,
     program_id: int,
     test_id: int,
-    session: Session = Depends(get_session),
-    user: User = Depends(_require_user),
     specimen_id: str = Form(...),
-    sample_date: date = Form(...),
-    nominal_size_in: float = Form(0.0),
-    confirmed_od_mm: Optional[float] = Form(None),
+    test_type: str = Form('MPR_REG'),
+    sample_date: str = Form(''),
+    nominal_size_in: str = Form(''),
+    confirmed_od_mm: str = Form(''),
     preparation_rule_basis: str = Form(''),
-    material_ref: str = Form(''),
+    pressure_mpa: str = Form(''),
+    temperature_c: str = Form(''),
+    failure_hours: str = Form(''),
+    failure_cycles: str = Form(''),
+    failure_mode: str = Form(''),
+    permissible_failure: str = Form(''),
+    is_runout: Optional[str] = Form(None),
+    include_in_regression: Optional[str] = Form(None),
+    fitting_type: str = Form(''),
+    lab_name: str = Form(''),
+    witness_name: str = Form(''),
+    notes: str = Form(''),
     batch_ref: str = Form(''),
     source_pipe_ref: str = Form(''),
     cut_by: str = Form(''),
-    total_cut_length_mm: Optional[float] = Form(None),
-    effective_length_mm: Optional[float] = Form(None),
-    end_allowance_each_side_mm: Optional[float] = Form(None),
-    trimming_margin_mm: Optional[float] = Form(None),
-    planned_pressure_mpa: Optional[float] = Form(None),
-    temperature_c: float = Form(0.0),
+    total_cut_length_mm: str = Form(''),
+    effective_length_mm: str = Form(''),
+    end_allowance_each_side_mm: str = Form(''),
+    trimming_margin_mm: str = Form(''),
     conditioning_complete: Optional[str] = Form(None),
     pretest_visual_ok: Optional[str] = Form(None),
     released_for_test: Optional[str] = Form(None),
+    planned_pressure_mpa: str = Form(''),
+    actual_pressure_at_failure_mpa: str = Form(''),
+    pressure_at_hold_mpa: str = Form(''),
+    failure_time_sec: str = Form(''),
     pre_failure_condition: str = Form(''),
     pre_failure_visual: str = Form(''),
-    notes: str = Form(''),
+    post_failure_visual: str = Form(''),
+    failure_location: str = Form(''),
+    failure_description: str = Form(''),
+    leak_observation: str = Form(''),
+    result_status: str = Form('PENDING'),
+    qa_review_status: str = Form('PENDING'),
+    session: Session = Depends(get_session),
 ):
+    def as_float(value):
+        if value is None:
+            return None
+        value = str(value).strip()
+        if value == '':
+            return None
+        try:
+            return float(value)
+        except Exception:
+            return None
+
+    def as_int(value):
+        if value is None:
+            return None
+        value = str(value).strip()
+        if value == '':
+            return None
+        try:
+            return int(float(value))
+        except Exception:
+            return None
+
+    def as_bool(value):
+        if value in (True, 'true', 'True', 'on', '1', 1):
+            return True
+        if value in (False, 'false', 'False', 'off', '0', 0):
+            return False
+        return False
+
+    def as_date(value):
+        value = (value or '').strip()
+        if not value:
+            return None
+        try:
+            return datetime.strptime(value, '%Y-%m-%d').date()
+        except Exception:
+            return None
+
     test = (
         session.query(RndQualificationTest)
         .filter(
@@ -1729,55 +1787,75 @@ def rnd_add_test_specimen(
     )
     if not test:
         raise HTTPException(404, 'Test not found')
-    
+
     program = session.get(RndQualificationProgram, test.program_id)
     if not program:
         raise HTTPException(404, 'Program not found')
 
-    test = session.get(RndQualificationTest, test_id)
-    if not test or test.program_id != program_id:
-        raise HTTPException(404, 'Test not found')
+    safe_batch_ref = (batch_ref or '').strip()
+    safe_source_pipe_ref = (source_pipe_ref or '').strip()
 
-    materials = session.exec(
-        select(RndMaterialQualification)
-        .where(RndMaterialQualification.program_id == program_id)
-        .order_by(RndMaterialQualification.component.asc(), RndMaterialQualification.id.asc())
-    ).all()
-    guidance = get_test_guidance(test.code)
+    material_ref_parts = []
+    if safe_batch_ref:
+        material_ref_parts.append(f'Batch {safe_batch_ref}')
+    if safe_source_pipe_ref:
+        material_ref_parts.append(f'Pipe {safe_source_pipe_ref}')
+    safe_material_ref = ' | '.join(material_ref_parts) or 'FINAL_PRODUCT'
 
     specimen = RndQualificationSpecimen(
         program_id=test.program_id,
-        test_id=test_id,
-        specimen_id=(specimen_id or '').strip().upper(),
-        test_type=(test.code or '').strip().upper(),
-        sample_date=sample_date,
-        material_ref=_coalesce_material_ref(material_ref, batch_ref, source_pipe_ref, materials),
-        conditioning_required=_conditioning_required_flag(guidance.get('conditioning_required')),
-        nominal_size_in=nominal_size_in or program.nominal_size_in,
-        confirmed_od_mm=confirmed_od_mm,
-        preparation_rule_basis=preparation_rule_basis,
-        batch_ref=batch_ref,
-        source_pipe_ref=source_pipe_ref,
-        cut_by=cut_by,
-        total_cut_length_mm=total_cut_length_mm,
-        effective_length_mm=effective_length_mm,
-        end_allowance_each_side_mm=end_allowance_each_side_mm,
-        trimming_margin_mm=trimming_margin_mm,
-        planned_pressure_mpa=planned_pressure_mpa,
-        temperature_c=temperature_c,
-        conditioning_complete=bool(conditioning_complete),
-        pretest_visual_ok=bool(pretest_visual_ok),
-        released_for_test=bool(released_for_test),
-        pre_failure_condition=pre_failure_condition,
-        pre_failure_visual=pre_failure_visual,
-        notes=notes,
+        test_id=test.id,
+        specimen_id=(specimen_id or '').strip(),
+        test_type=(test_type or 'MPR_REG').strip() or 'MPR_REG',
+        sample_date=as_date(sample_date),
+        nominal_size_in=as_float(nominal_size_in),
+        confirmed_od_mm=as_float(confirmed_od_mm),
+        preparation_rule_basis=(preparation_rule_basis or '').strip(),
+        pressure_mpa=as_float(pressure_mpa),
+        temperature_c=as_float(temperature_c),
+        failure_hours=as_float(failure_hours),
+        failure_cycles=as_int(failure_cycles),
+        failure_mode=(failure_mode or '').strip(),
+        permissible_failure=(permissible_failure or '').strip(),
+        is_runout=as_bool(is_runout),
+        include_in_regression=as_bool(include_in_regression),
+        fitting_type=(fitting_type or '').strip(),
+        lab_name=(lab_name or '').strip(),
+        witness_name=(witness_name or '').strip(),
+        notes=(notes or '').strip(),
+        batch_ref=safe_batch_ref,
+        source_pipe_ref=safe_source_pipe_ref,
+        material_ref=safe_material_ref,
+        cut_by=(cut_by or '').strip(),
+        total_cut_length_mm=as_float(total_cut_length_mm),
+        effective_length_mm=as_float(effective_length_mm),
+        end_allowance_each_side_mm=as_float(end_allowance_each_side_mm),
+        trimming_margin_mm=as_float(trimming_margin_mm),
+        conditioning_required=False,
+        conditioning_complete=as_bool(conditioning_complete),
+        pretest_visual_ok=as_bool(pretest_visual_ok),
+        released_for_test=as_bool(released_for_test),
+        planned_pressure_mpa=as_float(planned_pressure_mpa),
+        actual_pressure_at_failure_mpa=as_float(actual_pressure_at_failure_mpa),
+        pressure_at_hold_mpa=as_float(pressure_at_hold_mpa),
+        failure_time_sec=as_float(failure_time_sec),
+        pre_failure_condition=(pre_failure_condition or '').strip(),
+        pre_failure_visual=(pre_failure_visual or '').strip(),
+        post_failure_visual=(post_failure_visual or '').strip(),
+        failure_location=(failure_location or '').strip(),
+        failure_description=(failure_description or '').strip(),
+        leak_observation=(leak_observation or '').strip(),
+        result_status=(result_status or 'PENDING').strip() or 'PENDING',
+        qa_review_status=(qa_review_status or 'PENDING').strip() or 'PENDING',
     )
-    session.add(specimen)
-    _touch_program(program)
-    session.add(program)
-    session.commit()
-    return RedirectResponse(url=f'/rnd/qualifications/{test.program_id}/tests/{test_id}', status_code=303)
 
+    session.add(specimen)
+    session.commit()
+
+    return RedirectResponse(
+        url=f'/rnd/qualifications/{test.program_id}/tests/{test.id}',
+        status_code=303,
+    )
 
 @router.post('/qualifications/{program_id}/tests/{test_id}/specimens/{specimen_row_id}/update')
 def rnd_update_test_specimen(
