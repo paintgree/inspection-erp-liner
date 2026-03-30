@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}{{ test.title }} - Qualification Center{% endblock %}
+{% block content %}
+<style>
+.rnd-shell{display:grid;gap:18px}.rnd-card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 10px 30px rgba(15,23,42,.05);padding:18px}.rnd-hero{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.rnd-sub{color:#64748b}.rnd-pills,.rnd-mini,.rnd-kpi{display:grid;gap:12px}.rnd-pills{grid-template-columns:repeat(4,minmax(0,1fr))}.rnd-pill,.rnd-kpi>div{border:1px solid #e5e7eb;border-radius:16px;padding:12px;background:#f8fafc}.rnd-pill b,.rnd-kpi b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}.rnd-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;align-items:start}.rnd-form-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px}.rnd-form-grid .span-3{grid-column:span 3}.rnd-form-grid .span-4{grid-column:span 4}.rnd-form-grid .span-6{grid-column:span 6}.rnd-form-grid .span-8{grid-column:span 8}.rnd-form-grid .span-12{grid-column:1 / -1}.rnd-form-grid label{display:grid;gap:6px;font-weight:700;font-size:13px;color:#334155}.rnd-form-grid input,.rnd-form-grid textarea,.rnd-form-grid select{width:100%}.rnd-kpi{grid-template-columns:repeat(4,minmax(0,1fr))}.rnd-table{width:100%;border-collapse:collapse}.rnd-table th,.rnd-table td{padding:10px;border-bottom:1px solid #e5e7eb;vertical-align:top;text-align:left}.rnd-table th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b}.rnd-note{padding:14px;border-radius:16px;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8}.rnd-alert{padding:12px 14px;border-radius:14px;border:1px solid #e5e7eb;background:#f8fafc}.rnd-badge{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid #e5e7eb;background:#fff}.rnd-badge.ok{background:#dcfce7;color:#166534;border-color:#bbf7d0}.rnd-badge.warn{background:#fef3c7;color:#92400e;border-color:#fde68a}.rnd-badge.muted{background:#e5e7eb;color:#475569}.rnd-stack{display:grid;gap:14px}.rnd-specimen{border:1px solid #e5e7eb;border-radius:18px;padding:16px;background:#fff}.rnd-specimen-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:12px}.rnd-specimen-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.rnd-section-title{margin:0 0 10px 0}.rnd-actions{display:flex;gap:10px;flex-wrap:wrap}.rnd-list{margin:0;padding-left:18px;display:grid;gap:6px}.rnd-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}@media (max-width:1100px){.rnd-grid,.rnd-pills,.rnd-kpi,.rnd-specimen-grid,.rnd-split{grid-template-columns:1fr}.rnd-form-grid .span-3,.rnd-form-grid .span-4,.rnd-form-grid .span-6,.rnd-form-grid .span-8{grid-column:1 / -1}}
+</style>
+
+<div class="rnd-shell">
+  <section class="rnd-card">
+    <div class="rnd-hero">
+      <div>
+        <h1 style="margin:0;">{{ test.title }}</h1>
+        <div class="rnd-sub">{{ test.code }} · {{ test.clause_ref or guidance.api_clause or 'Internal basis' }}</div>
+        <p style="margin:10px 0 0 0;">{{ test.description or "Qualification requirement under the selected route." }}</p>
+      </div>
+      <div class="rnd-actions">
+        <span class="rnd-badge">{{ test.status.replace('_',' ') }}</span>
+        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back to Program</a>
+      </div>
+    </div>
+
+    <div class="rnd-pills" style="margin-top:16px;">
+      <div class="rnd-pill"><b>Required Specimens</b>{{ test.specimen_requirement or guidance.specimen_count or prep.min_specimens }}</div>
+      <div class="rnd-pill"><b>Conditioning</b>{{ guidance.conditioning_required }}</div>
+      <div class="rnd-pill"><b>Execution Records</b>{{ specimen_lifecycle.executed }} entered / {{ specimen_lifecycle.total }} specimen(s)</div>
+      <div class="rnd-pill"><b>Evidence Check</b>{% if evidence.complete %}Complete{% else %}{{ evidence.missing|length }} missing{% endif %}</div>
+    </div>
+  </section>
+
+  <section class="rnd-grid">
+    <div class="rnd-stack">
+      <article class="rnd-card">
+        <h2 class="rnd-section-title">Execution Workflow</h2>
+        <div class="rnd-note">
+          Think of this page as the working bench for the test: prepare specimen → release to lab → record pressure / failure behavior → review evidence → close result.
+        </div>
+        <div class="rnd-kpi" style="margin-top:14px;">
+          <div><b>Prepared</b>{{ specimen_lifecycle.prepared }}</div>
+          <div><b>Released</b>{{ specimen_lifecycle.released }}</div>
+          <div><b>Executed</b>{{ specimen_lifecycle.executed }}</div>
+          <div><b>QA Accepted</b>{{ specimen_lifecycle.qa_ready }}</div>
+        </div>
+      </article>
+
+      <article class="rnd-card">
+        <h2 class="rnd-section-title">1) Add specimen to the track</h2>
+        <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/specimens/new" class="rnd-form-grid">
+          <div class="span-12 rnd-alert">
+            <strong>Purpose of this register</strong><br>
+            This is where the user creates the specimen record before testing. It captures traceability, cut data, pre-test condition, and the planned target pressure so the result can later be tied to the right sample.
+          </div>
+          <label class="span-3">Specimen ID<input type="text" name="specimen_id" required></label>
+          <label class="span-3">Sample Date<input type="date" name="sample_date" required></label>
+          <label class="span-3">Nominal Size (in)<input type="number" step="0.01" name="nominal_size_in" value="{{ program.nominal_size_in }}"></label>
+          <label class="span-3">Confirmed OD (mm)<input type="number" step="0.01" name="confirmed_od_mm"></label>
+
+          <label class="span-4">Rule Basis<input type="text" name="preparation_rule_basis" placeholder="e.g. 5D or 1.5 x OD"></label>
+          <label class="span-4">Source Pipe / Spool Ref<input type="text" name="source_pipe_ref"></label>
+          <label class="span-4">Batch Ref<input type="text" name="batch_ref"></label>
+
+          <label class="span-3">Cut By<input type="text" name="cut_by"></label>
+          <label class="span-3">Effective Length (mm)<input type="number" step="0.01" name="effective_length_mm"></label>
+          <label class="span-3">End Allowance Each Side (mm)<input type="number" step="0.01" name="end_allowance_each_side_mm"></label>
+          <label class="span-3">Total Cut Length (mm)<input type="number" step="0.01" name="total_cut_length_mm"></label>
+
+          <label class="span-3">Trimming Margin (mm)<input type="number" step="0.01" name="trimming_margin_mm"></label>
+          <label class="span-3">Planned Pressure (MPa)<input type="number" step="0.01" name="planned_pressure_mpa"></label>
+          <label class="span-3">Test Temperature (°C)<input type="number" step="0.01" name="temperature_c" value="{{ program.maot_c }}"></label>
+          <label class="span-3">Pre-failure condition / setup<textarea name="pre_failure_condition" rows="2" placeholder="conditioning state, rig setup, restraint, fittings"></textarea></label>
+
+          <label class="span-12">Pre-test visual / dimensional remarks<textarea name="pre_failure_visual" rows="2" placeholder="surface condition, dimensions, markings, end fitting condition"></textarea></label>
+
+          <div class="span-12 rnd-split">
+            <div class="rnd-alert">
+              <strong>System guidance</strong><br>{{ guidance.when_required }}
+            </div>
+            <div class="rnd-alert">
+              <strong>Conditioning decision</strong><br>{{ guidance.conditioning_required }}
+            </div>
+          </div>
+
+          <div class="span-12 rnd-actions">
+            <label><input type="checkbox" name="conditioning_complete" value="1"> Conditioning complete</label>
+            <label><input type="checkbox" name="pretest_visual_ok" value="1"> Pre-test visual accepted</label>
+            <label><input type="checkbox" name="released_for_test" value="1"> Released for test</label>
+          </div>
+
+          <label class="span-12">Notes<textarea name="notes" rows="2"></textarea></label>
+          <div class="span-12"><button class="btn btn-primary" type="submit">Add specimen to qualification track</button></div>
+        </form>
+      </article>
+
+      <article class="rnd-card">
+        <h2 class="rnd-section-title">2) Capture execution + failure data</h2>
+        <p class="rnd-sub" style="margin-top:0;">This is the missing practical layer: every specimen can now hold before-failure condition, pressure at failure, leak / burst behavior, and post-failure observations.</p>
+        {% if specimens %}
+          <div class="rnd-stack">
+            {% for s in specimens %}
+            <div class="rnd-specimen">
+              <div class="rnd-specimen-head">
+                <div>
+                  <h3 style="margin:0;">{{ s.specimen_id }}</h3>
+                  <div class="rnd-sub">{{ s.sample_date }} · Source {{ s.source_pipe_ref or '-' }} · Batch {{ s.batch_ref or '-' }}</div>
+                </div>
+                <div class="rnd-actions">
+                  <span class="rnd-badge {% if s.result_status == 'PASS' %}ok{% elif s.result_status == 'FAIL' %}warn{% else %}muted{% endif %}">{{ s.result_status or 'PENDING' }}</span>
+                  <span class="rnd-badge {% if s.qa_review_status in ['ACCEPTED','APPROVED'] %}ok{% else %}muted{% endif %}">QA {{ s.qa_review_status or 'PENDING' }}</span>
+                </div>
+              </div>
+
+              <div class="rnd-specimen-grid" style="margin-bottom:12px;">
+                <div class="rnd-alert"><strong>Preparation</strong><br>OD {{ s.confirmed_od_mm or '-' }} mm · Rule {{ s.preparation_rule_basis or '-' }}</div>
+                <div class="rnd-alert"><strong>Cut data</strong><br>Total {{ s.total_cut_length_mm or '-' }} mm · Effective {{ s.effective_length_mm or '-' }} mm</div>
+                <div class="rnd-alert"><strong>Release state</strong><br>{% if s.released_for_test %}Released{% else %}Not released{% endif %} · {% if s.pretest_visual_ok %}Visual OK{% else %}Visual pending{% endif %}</div>
+              </div>
+
+              <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/specimens/{{ s.id }}/update" class="rnd-form-grid">
+                <label class="span-3">Planned Pressure (MPa)<input type="number" step="0.01" name="planned_pressure_mpa" value="{{ '' if s.planned_pressure_mpa is none else s.planned_pressure_mpa }}"></label>
+                <label class="span-3">Actual Pressure at Failure (MPa)<input type="number" step="0.01" name="actual_pressure_at_failure_mpa" value="{{ '' if s.actual_pressure_at_failure_mpa is none else s.actual_pressure_at_failure_mpa }}"></label>
+                <label class="span-3">Pressure at Hold / Stop (MPa)<input type="number" step="0.01" name="pressure_at_hold_mpa" value="{{ '' if s.pressure_at_hold_mpa is none else s.pressure_at_hold_mpa }}"></label>
+                <label class="span-3">Failure Time (sec)<input type="number" step="0.01" name="failure_time_sec" value="{{ '' if s.failure_time_sec is none else s.failure_time_sec }}"></label>
+
+                <label class="span-3">Failure Hours<input type="number" step="0.01" name="failure_hours" value="{{ '' if s.failure_hours is none else s.failure_hours }}"></label>
+                <label class="span-3">Failure Cycles<input type="number" step="0.01" name="failure_cycles" value="{{ '' if s.failure_cycles is none else s.failure_cycles }}"></label>
+                <label class="span-3">Failure Mode<input type="text" name="failure_mode" value="{{ s.failure_mode or '' }}" placeholder="burst / pinhole / fitting leak"></label>
+                <label class="span-3">Failure Location<input type="text" name="failure_location" value="{{ s.failure_location or '' }}" placeholder="mid-span / end fitting / side A"></label>
+
+                <label class="span-6">Before-failure condition<textarea name="pre_failure_condition" rows="2" placeholder="pressure ramp, conditioning state, restraint, test deviations">{{ s.pre_failure_condition or '' }}</textarea></label>
+                <label class="span-6">Before-failure visual<textarea name="pre_failure_visual" rows="2" placeholder="visible marks, swelling, fittings, dimensional state">{{ s.pre_failure_visual or '' }}</textarea></label>
+                <label class="span-6">Failure description<textarea name="failure_description" rows="2" placeholder="what physically happened at failure">{{ s.failure_description or '' }}</textarea></label>
+                <label class="span-6">Post-failure visual / leak observation<textarea name="post_failure_visual" rows="2" placeholder="split shape, reinforcement exposure, post-failure appearance">{{ s.post_failure_visual or '' }}</textarea></label>
+                <label class="span-12">Leak / burst observation<textarea name="leak_observation" rows="2" placeholder="leak path, audible burst, end fitting leak, delamination note">{{ s.leak_observation or '' }}</textarea></label>
+
+                <label class="span-3">Result Status
+                  <select name="result_status">
+                    {% for opt in ['PENDING','PASS','FAIL','CONDITIONAL'] %}
+                    <option value="{{ opt }}" {% if (s.result_status or 'PENDING') == opt %}selected{% endif %}>{{ opt }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label class="span-3">QA Review
+                  <select name="qa_review_status">
+                    {% for opt in ['PENDING','UNDER_REVIEW','ACCEPTED','REJECTED'] %}
+                    <option value="{{ opt }}" {% if (s.qa_review_status or 'PENDING') == opt %}selected{% endif %}>{{ opt }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <div class="span-6 rnd-actions" style="align-items:center;">
+                  <label><input type="checkbox" name="permissible_failure" value="1" {% if s.permissible_failure %}checked{% endif %}> Permissible failure mode</label>
+                  <label><input type="checkbox" name="is_runout" value="1" {% if s.is_runout %}checked{% endif %}> Runout / no failure</label>
+                  <label><input type="checkbox" name="include_in_regression" value="1" {% if s.include_in_regression %}checked{% endif %}> Include in regression</label>
+                </div>
+                <label class="span-12">Overall specimen notes<textarea name="notes" rows="2">{{ s.notes or '' }}</textarea></label>
+                <div class="span-12"><button class="btn btn-primary" type="submit">Save execution record</button></div>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="rnd-alert">No specimens added yet. Start with the specimen register above, then execution forms will appear here.</div>
+        {% endif %}
+      </article>
+
+      <article class="rnd-card">
+        <h2 class="rnd-section-title">3) Evidence register</h2>
+        <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/attachments/new" class="rnd-form-grid">
+          <label class="span-3">Category<input type="text" name="category" value="REPORT"></label>
+          <label class="span-3">Document Type<input type="text" name="document_type" required></label>
+          <label class="span-3">Approval Status
+            <select name="approval_status">
+              <option value="PENDING">PENDING</option>
+              <option value="APPROVED">APPROVED</option>
+              <option value="REJECTED">REJECTED</option>
+            </select>
+          </label>
+          <label class="span-3">Reference No.<input type="text" name="reference_no"></label>
+          <label class="span-8">Title<input type="text" name="title" required></label>
+          <label class="span-4" style="align-content:end;"><span></span><span><input type="checkbox" name="is_mandatory" value="1"> Mandatory evidence</span></label>
+          <label class="span-12">Notes<textarea name="file_note" rows="2"></textarea></label>
+          <div class="span-12"><button class="btn btn-primary" type="submit">Add evidence row</button></div>
+        </form>
+        <div class="rnd-split" style="margin-top:14px;">
+          <div class="rnd-alert">
+            <strong>Required evidence types</strong>
+            <ul class="rnd-list" style="margin-top:8px;">
+              {% for row in evidence.rows %}
+              <li>{{ row.document_type }} — {% if row.present %}<span style="color:#166534;">present</span>{% else %}<span style="color:#b91c1c;">missing</span>{% endif %}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          <div class="rnd-alert">
+            <strong>Acceptance basis</strong>
+            <ul class="rnd-list" style="margin-top:8px;">
+              {% for item in guidance.acceptance %}
+              <li>{{ item }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+        {% if attachments %}
+        <div style="overflow:auto;margin-top:14px;">
+          <table class="rnd-table">
+            <thead><tr><th>Type</th><th>Title</th><th>Reference</th><th>Status</th></tr></thead>
+            <tbody>
+              {% for a in attachments %}
+              <tr>
+                <td>{{ a.document_type or a.category }}</td>
+                <td>{{ a.title }}</td>
+                <td>{{ a.reference_no or '-' }}</td>
+                <td>{{ a.approval_status }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+      </article>
+    </div>
+
+    <div class="rnd-stack">
+      <article class="rnd-card">
+        <h2 class="rnd-section-title">Engineer Guidance</h2>
+        <div class="rnd-alert"><strong>When required</strong><br>{{ guidance.when_required }}</div>
+        <div class="rnd-split" style="margin-top:12px;">
+          <div>
+            <p><strong>Conditioning / setup steps</strong></p>
+            <ol class="rnd-list">
+              {% for item in guidance.conditioning_steps %}
+              <li>{{ item }}</li>
+              {% endfor %}
+            </ol>
+          </div>
+          <div>
+            <p><strong>Core process</strong></p>
+            <ul class="rnd-list">
+              {% for item in guidance.core_process %}
+              <li>{{ item }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <article class="rnd-card">
+        <h2 class="rnd-section-title">Specimen preparation basis</h2>
+        <p><strong>Minimum specimens:</strong> {{ prep.min_specimens }}</p>
+        <p><strong>Cut length basis:</strong> {{ prep.minimum_cut_length }}</p>
+        <p><strong>Effective test length:</strong> {{ prep.effective_length }}</p>
+        <p><strong>End allowance:</strong> {{ prep.end_allowance_each_side }}</p>
+        <p><strong>Total cut length rule:</strong> {{ prep.total_length_formula }}</p>
+      </article>
+
+      <article class="rnd-card">
+        <h2 class="rnd-section-title">Execution records required</h2>
+        <ul class="rnd-list">
+          {% for item in execution.records %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </article>
+
+      <article class="rnd-card">
+        <h2 class="rnd-section-title">Practical notes</h2>
+        {% if guidance.practical_notes %}
+        <ul class="rnd-list">
+          {% for item in guidance.practical_notes %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="rnd-sub">No additional practical notes.</div>
+        {% endif %}
+      </article>
+    </div>
+  </section>
+</div>
+{% endblock %}

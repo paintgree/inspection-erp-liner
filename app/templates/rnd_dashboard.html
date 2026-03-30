@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Qualification Center{% endblock %}
+{% block content %}
+<style>
+.exec-wrap{display:grid;gap:18px}.exec-hero,.exec-card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 10px 28px rgba(15,23,42,.05);padding:18px}.exec-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}.exec-list{display:grid;gap:14px}.exec-program{border:1px solid #e5e7eb;border-radius:18px;padding:16px;background:#fcfcff}.exec-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.exec-title{font-size:20px;font-weight:900}.exec-meta{color:#64748b;font-size:13px;line-height:1.5}.exec-badge{padding:6px 10px;border-radius:999px;background:#eef2ff;color:#4338ca;font-weight:800;font-size:12px}.exec-mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}.exec-box{border:1px solid #e5e7eb;border-radius:14px;padding:12px;background:#fff}.exec-box b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}.exec-progress{height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden;margin-top:12px}.exec-progress>span{display:block;height:100%;background:linear-gradient(90deg,#10b981,#4f46e5)}.exec-step{margin-top:12px;padding:12px 14px;border-radius:14px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}@media (max-width:900px){.exec-grid,.exec-mini{grid-template-columns:1fr}}
+</style>
+<div class="exec-wrap">
+  <section class="exec-hero">
+    <h1 style="margin:0 0 6px 0;">Qualification Center</h1>
+    <div class="muted">A practical R&amp;D workspace to start qualification tracks, manage specimens, record failure behavior, close reports, and move toward monogram readiness from the same system.</div>
+    <div class="btn-row"><a class="btn btn-primary" href="/rnd/qualifications/new">+ New Qualification Program</a></div>
+  </section>
+  <section class="exec-grid">
+    <div class="exec-list">
+      {% for row in dashboard %}
+      <article class="exec-program">
+        <div class="exec-top">
+          <div>
+            <div class="exec-title">{{ row.program.program_code }}</div>
+            <div class="exec-meta">{{ row.program.title }} · {{ row.program.nominal_size_in }} in · {{ row.program.npr_mpa }} MPa · {{ row.program.maot_c }} °C · {{ row.program.pfr_or_pv }}</div>
+          </div>
+          <div class="exec-badge">{{ row.flow.current|upper }}</div>
+        </div>
+        <div class="exec-mini">
+          <div class="exec-box"><b>Current step</b>{{ row.flow.current.replace('_',' ')|title }}</div>
+          <div class="exec-box"><b>Materials</b>{{ row.flow.materials.status_label }}</div>
+          <div class="exec-box"><b>Execution focus</b>Specimens + evidence + closeout</div>
+        </div>
+        <div class="exec-progress"><span style="width:{{ row.flow.progress_pct }}%"></span></div>
+        <div class="exec-step">
+          {% if row.flow.current == 'materials' %}
+            Finish material qualification first so test records inherit a controlled, traceable material set.
+          {% elif row.flow.current == 'burst' %}
+            Use the program workbench to add specimens, capture planned pressure, record pressure at failure, and store post-failure observations.
+          {% elif row.flow.current == 'regression' %}
+            Regression is active. Keep specimen execution records complete so the calculation output is technically defensible.
+          {% else %}
+            Review evidence completeness, finalize report outputs, and prepare the package for qualification closure.
+          {% endif %}
+        </div>
+        <div class="btn-row"><a class="btn btn-primary" href="/rnd/qualifications/{{ row.program.id }}">Open program</a>{% if row.flow.current == 'regression' or row.flow.current == 'review' %}<a class="btn btn-ghost" href="/rnd/qualifications/{{ row.program.id }}/regression">Regression center</a>{% endif %}</div>
+      </article>
+      {% else %}
+      <article class="exec-card"><h3 style="margin-top:0;">No programs yet</h3><p class="muted">Create a qualification program and run the whole track from specimen planning to report closure.</p></article>
+      {% endfor %}
+    </div>
+    <aside class="exec-card">
+      <h2 style="margin-top:0;">What this screen is for</h2>
+      <ol style="margin:0;padding-left:18px;display:grid;gap:10px;">
+        <li>Start a qualification route with a defined product basis.</li>
+        <li>Track materials, tests, specimens, failure records, and evidence in one place.</li>
+        <li>Use each test page as a live workbench, not a static description page.</li>
+        <li>Close the qualification with report-ready data and monogram readiness visibility.</li>
+      </ol>
+    </aside>
+  </section>
+</div>
+{% endblock %}

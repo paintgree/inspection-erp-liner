@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}{{ program.program_code }} - Qualification Center{% endblock %}
+{% block content %}
+<style>
+.qc-wrap{display:grid;gap:18px}.qc-card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:18px;box-shadow:0 10px 28px rgba(15,23,42,.05)}.qc-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px;align-items:start}.qc-mini,.qc-phase{display:grid;gap:12px}.qc-mini{grid-template-columns:repeat(4,minmax(0,1fr))}.qc-phase{grid-template-columns:repeat(3,minmax(0,1fr))}.qc-box,.qc-phase-card{border:1px solid #e5e7eb;border-radius:16px;padding:14px;background:#f8fafc}.qc-box b,.qc-phase-card b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}.qc-table{width:100%;border-collapse:collapse}.qc-table th,.qc-table td{padding:10px;border-bottom:1px solid #eaeef5;vertical-align:top;text-align:left;font-size:13px}.qc-table th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b}.qc-chip{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid #e5e7eb;background:#f8fafc;color:#334155}.qc-good{background:#dcfce7;color:#166534;border-color:#bbf7d0}.qc-mid{background:#fef3c7;color:#92400e;border-color:#fde68a}.qc-progress{height:10px;border-radius:999px;background:#e2e8f0;overflow:hidden}.qc-progress>span{display:block;height:100%;background:linear-gradient(90deg,#14b8a6,#4f46e5)}.qc-actions{display:flex;gap:10px;flex-wrap:wrap}.qc-note{padding:14px;border-radius:16px;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8}@media (max-width:1000px){.qc-grid,.qc-mini,.qc-phase{grid-template-columns:1fr}}
+</style>
+{% set qual_is_other = 'OTHER' in (program.qualification_standard or '')|upper %}
+<div class="qc-wrap">
+  <section class="qc-card">
+    <div class="section-head" style="margin-bottom:12px;">
+      <div>
+        <h1 style="margin:0;">{{ program.program_code }}</h1>
+        <div class="muted">{{ program.title }}</div>
+      </div>
+      <div class="qc-actions">
+        <span class="qc-chip">{{ program.qualification_standard or 'API 15S' }}</span>
+        <span class="qc-chip">{{ program.status.replace('_',' ') }}</span>
+        <a class="btn btn-ghost" href="/rnd/qualifications">Back</a>
+        <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Regression</a>
+      </div>
+    </div>
+
+    <div class="qc-mini">
+      <div class="qc-box"><b>Qualified Product</b>{{ program.nominal_size_in }} in / {{ program.npr_mpa }} MPa / {{ program.maot_c }} °C</div>
+      <div class="qc-box"><b>Qualification Route</b>{{ program.pfr_or_pv }}{% if program.pfr_reference_code %} · Ref {{ program.pfr_reference_code }}{% endif %}</div>
+      <div class="qc-box"><b>Intended Service</b>{{ program.intended_service or '-' }}</div>
+      <div class="qc-box"><b>Report Goal</b>Monitor tests, finalize report, then support monogram submission.</div>
+    </div>
+
+    <div style="margin-top:14px;">
+      <div class="muted" style="margin-bottom:6px;">Program completion</div>
+      <div class="qc-progress"><span style="width: {{ progress_pct }}%;"></span></div>
+    </div>
+
+    <div class="qc-note" style="margin-top:14px;">
+      This page is now the program command center: start the qualification track, monitor test execution, review evidence, close results, and prepare the final qualification package from one place.
+    </div>
+  </section>
+
+  <section class="qc-phase">
+    {% for card in phase_cards %}
+    <div class="qc-phase-card">
+      <b>{{ card.name }}</b>
+      <div style="font-weight:800; margin-bottom:6px;">{{ card.status }}</div>
+      <div class="muted">{{ card.detail }}</div>
+    </div>
+    {% endfor %}
+  </section>
+
+  <section class="qc-grid">
+    <div style="display:grid;gap:18px;">
+      <article class="qc-card">
+        <div class="section-head"><h2 style="margin:0;">Test monitor</h2></div>
+        <div style="overflow:auto;">
+          <table class="qc-table">
+            <thead>
+              <tr><th>Test</th><th>Specimens</th><th>Execution</th><th>Evidence</th><th>Closeout</th><th>Action</th></tr>
+            </thead>
+            <tbody>
+              {% for test in tests %}
+              {% set ns = namespace(spec_count=0, executed=0, qa=0, att_count=0) %}
+              {% for s in specimens %}
+                {% if s.test_id == test.id %}
+                  {% set ns.spec_count = ns.spec_count + 1 %}
+                  {% if (s.result_status or 'PENDING') != 'PENDING' %}{% set ns.executed = ns.executed + 1 %}{% endif %}
+                  {% if (s.qa_review_status or 'PENDING') in ['ACCEPTED','APPROVED'] %}{% set ns.qa = ns.qa + 1 %}{% endif %}
+                {% endif %}
+              {% endfor %}
+              {% for a in attachments %}{% if a.test_id == test.id %}{% set ns.att_count = ns.att_count + 1 %}{% endif %}{% endfor %}
+              <tr>
+                <td>
+                  <strong>{{ test.title }}</strong><br>
+                  <small class="muted">{{ test.code }} · {{ test.clause_ref or 'CUSTOM' }}</small>
+                  <div class="muted">{{ test.description }}</div>
+                </td>
+                <td>
+                  <span class="qc-chip">{{ ns.spec_count }} tracked</span><br>
+                  <small class="muted">Requirement: {{ test.specimen_requirement or '-' }}</small>
+                </td>
+                <td>
+                  <span class="qc-chip {% if ns.executed > 0 %}qc-good{% else %}qc-mid{% endif %}">{{ ns.executed }} executed</span><br>
+                  <small class="muted">{{ ns.qa }} QA accepted</small>
+                </td>
+                <td>
+                  <span class="qc-chip {% if ns.att_count > 0 %}qc-good{% else %}qc-mid{% endif %}">{{ ns.att_count }} rows</span>
+                </td>
+                <td>
+                  {% if test.result_summary %}
+                    <div style="font-weight:700;">{{ test.result_summary }}</div>
+                  {% else %}
+                    <span class="qc-chip qc-mid">Pending closeout</span>
+                  {% endif %}
+                </td>
+                <td><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}">Open workbench</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      {% if qual_is_other %}
+      <article class="qc-card">
+        <div class="section-head"><h2 style="margin:0;">Add custom test</h2></div>
+        <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/custom" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+          <label>Common Test Type
+            <select name="code">
+              <option value="BURST">Burst</option>
+              <option value="STATIC_REGRESSION">Long-term hydrostatic / regression</option>
+              <option value="IMPACT">Impact</option>
+              <option value="AXIAL">Axial</option>
+              <option value="BENDING">Bending / MBR</option>
+              <option value="THERMAL">Thermal</option>
+              <option value="LEAK">Leak</option>
+              <option value="DIMENSIONAL">Dimensional</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </label>
+          <label>Test Name<input name="title" required></label>
+          <label>Samples Required<input name="specimen_requirement" value="As required"></label>
+          <label>Reference / Clause<input name="clause_ref" value="CUSTOM"></label>
+          <label style="grid-column:1 / -1;">Description / Tips<textarea name="description" rows="4"></textarea></label>
+          <div style="grid-column:1 / -1;"><button class="btn btn-primary" type="submit">Add Test</button></div>
+        </form>
+      </article>
+      {% endif %}
+    </div>
+
+    <div style="display:grid;gap:18px;">
+      <article class="qc-card">
+        <h2 style="margin-top:0;">Materials control</h2>
+        <table class="qc-table">
+          <thead><tr><th>Component</th><th>Material</th><th>Certificate</th><th>Batch</th><th>Status</th></tr></thead>
+          <tbody>
+            {% for m in materials %}
+            <tr>
+              <td>{{ m.component }}</td>
+              <td>{{ m.material_name or '-' }}</td>
+              <td>{{ m.certificate_ref or '-' }}</td>
+              <td>{{ m.batch_ref or '-' }}</td>
+              <td>{{ m.status }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="muted">No material rows yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </article>
+
+      <article class="qc-card">
+        <h2 style="margin-top:0;">Readiness summary</h2>
+        <div class="qc-mini" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+          <div class="qc-box"><b>Total tests</b>{{ tests|length }}</div>
+          <div class="qc-box"><b>Total evidence rows</b>{{ attachments|length }}</div>
+          <div class="qc-box"><b>Static regression points</b>{{ static_reg.count }}</div>
+          <div class="qc-box"><b>Cyclic regression points</b>{{ cyclic_reg.count }}</div>
+        </div>
+        <div class="qc-note" style="margin-top:14px;">Monogram readiness should come from test closure + accepted evidence + regression outputs, not from a static newspaper page.</div>
+      </article>
+    </div>
+  </section>
+</div>
+{% endblock %}

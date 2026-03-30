@@ -1,0 +1,555 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="hydro-page-wide">
+  <a href="/hydro" class="burst-back-btn">← Back to Hydro Dashboard</a>
+
+  <div class="hydro-hero-head">
+    <div>
+      <div class="hydro-hero-kicker">Hydro Testing Module</div>
+      <h2 class="hydro-hero-title">Batch {{ summary.batch_no }}</h2>
+      <div class="hydro-hero-subtitle">
+        {{ summary.client_name or '—' }}
+        {% if summary.pipe_specification %} • {{ summary.pipe_specification }}{% endif %}
+      </div>
+    </div>
+  
+    <div class="toolbar">
+      {% if summary.records %}
+        <a class="btn" href="/hydro/batch/{{ summary.batch_no }}/pdf" target="_blank">Export All Records</a>
+      {% endif %}
+      <span class="burst-status {% if summary.status == 'COMPLETE' %}badge-editable{% elif summary.status == 'PARTIAL' %}badge-pending{% else %}badge-published{% endif %}">
+        {{ hydro_status_badge(summary.status) }}
+      </span>
+    </div>
+  </div>
+
+  {% if error %}
+    <div class="card" style="border-color:#fecaca; background:#fef2f2; color:#991b1b;">
+      {{ error }}
+    </div>
+  {% endif %}
+
+  <style>
+    .qaqc-mention-wrap{position:relative}
+    .qaqc-mention-list{
+      position:absolute; left:0; right:0; top:100%;
+      background:#fff; border:1px solid #dbe2ea; border-radius:10px;
+      box-shadow:0 10px 24px rgba(15,23,42,.08);
+      z-index:30; max-height:220px; overflow:auto; display:none;
+    }
+    .qaqc-mention-item{
+      padding:10px 12px; cursor:pointer; border-bottom:1px solid #eef2f7;
+    }
+    .qaqc-mention-item:last-child{border-bottom:none}
+    .qaqc-mention-item:hover{background:#f8fafc}
+    .qaqc-mention-user{font-weight:700}
+    .qaqc-mention-meta{font-size:12px; color:#64748b}
+    .hydro-signature-note{margin-top:6px; font-size:12px; line-height:1.45; color:#64748b}
+  </style>
+
+ <div class="hydro-detail-grid hydro-detail-grid-compact">
+  <div class="hydro-left-stack">
+    <div class="card hydro-overview-card hydro-overview-card-compact">
+      <div class="kpi-grid hydro-kpi-grid hydro-kpi-grid-strong">
+        <div class="kpi-card hydro-kpi-card">
+          <div class="kpi-label">Total Order</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.total_order_m) }} m</div>
+        </div>
+        <div class="kpi-card hydro-kpi-card">
+          <div class="kpi-label">Finished Produced</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.produced_length_m) }} m</div>
+        </div>
+        <div class="kpi-card hydro-kpi-card">
+          <div class="kpi-label">Burst Excluded</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.burst_used_m) }} m</div>
+        </div>
+        <div class="kpi-card hydro-kpi-card">
+          <div class="kpi-label">Hydrotested</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.hydro_tested_m) }} m</div>
+        </div>
+        <div class="kpi-card hydro-kpi-card">
+          <div class="kpi-label">Remaining</div>
+          <div class="kpi-value">{{ '%.1f'|format(summary.hydro_remaining_m) }} m</div>
+        </div>
+        <div class="kpi-card hydro-kpi-card">
+          <div class="kpi-label">Coverage</div>
+          <div class="kpi-value">{{ summary.coverage_pct }}%</div>
+        </div>
+      </div>
+
+      <div class="hydro-visual-compact mt">
+        <div class="hydro-legend hydro-legend-compact">
+          <span class="legend-chip legend-tested">Hydrotested</span>
+          <span class="legend-chip legend-burst">Used in Burst Test</span>
+          <span class="legend-chip legend-remaining">Remaining</span>
+        </div>
+
+        <div class="hydro-visual-head hydro-visual-head-compact">
+          <div class="hydro-section-title">Production Line Visual</div>
+          <strong>0 — {{ '%.1f'|format(summary.produced_length_m) }} m</strong>
+        </div>
+
+        <div class="hydro-scale-wrap">
+          <div class="hydro-scale-top">
+            <span>0</span>
+            <span>{{ '%.1f'|format(summary.produced_length_m * 0.25) }} m</span>
+            <span>{{ '%.1f'|format(summary.produced_length_m * 0.50) }} m</span>
+            <span>{{ '%.1f'|format(summary.produced_length_m * 0.75) }} m</span>
+            <span>{{ '%.1f'|format(summary.produced_length_m) }} m</span>
+          </div>
+
+          <div class="hydro-track hydro-track-lg hydro-track-scaled">
+            <div class="hydro-scale-mark hydro-scale-mark-0"></div>
+            <div class="hydro-scale-mark hydro-scale-mark-25"></div>
+            <div class="hydro-scale-mark hydro-scale-mark-50"></div>
+            <div class="hydro-scale-mark hydro-scale-mark-75"></div>
+            <div class="hydro-scale-mark hydro-scale-mark-100"></div>
+
+            {% for seg in summary.segments %}
+              <span
+                class="hydro-seg hydro-seg-{{ seg.kind }}"
+                title="{{ seg.kind }}: {{ '%.1f'|format(seg.start) }} to {{ '%.1f'|format(seg.end) }} m"
+                style="left: {{ '%.4f'|format(seg.left_pct) }}%; width: {{ '%.4f'|format(seg.width_pct) }}%;"
+              ></span>
+            {% endfor %}
+          </div>
+
+          <div class="hydro-scale-bottom">
+            <span>Start</span>
+            <span>1/4</span>
+            <span>1/2</span>
+            <span>3/4</span>
+            <span>End</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hydro-range-grid hydro-range-grid-under">
+      <div class="card hydro-range-card">
+        <h3 class="hydro-range-title">Remaining Hydrotest Ranges</h3>
+        {% if summary.hydro_remaining_ranges %}
+          <ul class="simple-list hydro-simple-list">
+            {% for a, b in summary.hydro_remaining_ranges %}
+              <li>{{ '%.1f'|format(a) }} m → {{ '%.1f'|format(b) }} m <span>({{ '%.1f'|format(b-a) }} m)</span></li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="muted">No remaining hydrotest range inside finished produced material.</div>
+        {% endif %}
+      </div>
+
+      <div class="card hydro-range-card hydro-range-card-warn">
+        <h3 class="hydro-range-title">Burst-Test Excluded Ranges</h3>
+        {% if summary.burst_ranges %}
+          <ul class="simple-list hydro-simple-list">
+            {% for a, b in summary.burst_ranges %}
+              <li>{{ '%.1f'|format(a) }} m → {{ '%.1f'|format(b) }} m <span>({{ '%.1f'|format(b-a) }} m)</span></li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="muted">No burst-tested consumed length found for this batch.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card hydro-form-card hydro-form-card-compact">
+    <div class="hydro-form-head">
+      <div class="hydro-form-icon">＋</div>
+      <div>
+        <h3 class="hydro-form-title">
+          {% if edit_record %}Edit Hydrotest Report #{{ edit_record.id }}{% else %}Add Hydrotest Report{% endif %}
+        </h3>
+      </div>
+    </div>
+
+    <form method="post" action="/hydro/batch/{{ summary.batch_no }}/save" enctype="multipart/form-data">
+      <input type="hidden" name="record_id" value="{{ edit_record.id if edit_record else '' }}">
+      <input type="hidden" name="assigned_qaqc_user_id" id="assigned_qaqc_user_id" value="{{ edit_record.assigned_qaqc_user_id if edit_record and edit_record.assigned_qaqc_user_id else '' }}">
+
+      <div class="grid2 hydro-form-grid">
+        <label>Reference Standard
+          <input class="input" type="text" name="reference_standard" value="{{ edit_record.reference_standard if edit_record else 'API 15S' }}">
+        </label>
+
+        <label>Reference DHTP Procedure
+          <input class="input" type="text" name="reference_dhtp_procedure" value="{{ edit_record.reference_dhtp_procedure if edit_record else 'QAW2000' }}">
+        </label>
+
+        <label>Machine Model
+          <input class="input" type="text" name="machine_model" value="{{ edit_record.machine_model if edit_record else '' }}">
+        </label>
+
+        <label>Calibration Status
+          <input class="input" type="text" name="calibration_status" value="{{ edit_record.calibration_status if edit_record else '' }}">
+        </label>
+
+        <label>Start Length (m)
+          <input class="input" type="number" step="0.001" name="start_length_m" value="{{ edit_record.start_length_m if edit_record else '' }}" required>
+        </label>
+
+        <label>End Length (m)
+          <input class="input" type="number" step="0.001" name="end_length_m" value="{{ edit_record.end_length_m if edit_record else '' }}" required>
+        </label>
+
+        <label>Testing Medium
+          <input class="input" type="text" name="test_medium" value="{{ edit_record.test_medium if edit_record else 'Water' }}">
+        </label>
+
+        <label>Laboratory Temperature
+          <input class="input" type="text" name="laboratory_temperature" value="{{ edit_record.laboratory_temperature if edit_record else '' }}">
+        </label>
+
+        <label>Test Pressure (MPa)
+          <input class="input" type="number" step="0.001" name="hydrotest_pressure_mpa" value="{{ edit_record.hydrotest_pressure_mpa if edit_record else '' }}">
+        </label>
+
+        <label>Pressure Holding Time (Min)
+          <input class="input" type="text" name="pressure_holding_time_min" value="{{ edit_record.pressure_holding_time_min if edit_record else '' }}">
+        </label>
+
+        <label>Highest Pressure Recorded (MPa)
+          <input class="input" type="number" step="0.001" name="highest_pressure_recorded_mpa" value="{{ edit_record.highest_pressure_recorded_mpa if edit_record else '' }}">
+        </label>
+
+        <label>Lowest Pressure Recorded (MPa)
+          <input class="input" type="number" step="0.001" name="lowest_pressure_recorded_mpa" value="{{ edit_record.lowest_pressure_recorded_mpa if edit_record else '' }}">
+        </label>
+
+        <label>Result
+          <select class="input" name="test_result">
+            <option value="PASS" {% if edit_record and edit_record.test_result == 'PASS' %}selected{% endif %}>PASS</option>
+            <option value="FAIL" {% if edit_record and edit_record.test_result == 'FAIL' %}selected{% endif %}>FAIL</option>
+          </select>
+        </label>
+
+        <div class="qaqc-mention-wrap">
+          <label>Assign QA/QC Approver
+            <input
+              class="input"
+              type="text"
+              name="qaqc_name"
+              id="qaqcMentionInput"
+              autocomplete="off"
+              placeholder="@type inspector or manager name"
+              value="{% if edit_record and edit_record.assigned_qaqc_username %}@{{ edit_record.assigned_qaqc_username }}{% elif edit_record %}{{ edit_record.qaqc_name }}{% endif %}"
+            >
+          </label>
+          <div class="qaqc-mention-list" id="qaqcMentionList"></div>
+          <div class="muted" style="font-size:12px; margin-top:6px;">
+            Type <strong>@</strong> then the first letters of the username or display name.
+          </div>
+        </div>
+
+
+        <label>Technician
+          <input class="input" type="text" name="technician_name" value="{{ edit_record.technician_name if edit_record else '' }}">
+        </label>
+
+        <div class="hydro-upload-block">
+          <label>Pressure Curve Chart</label>
+          <div class="hydro-upload-box">
+            <input class="input" type="file" name="chart_image" accept=".png,.jpg,.jpeg,.webp">
+            <div class="hydro-upload-text">Choose File</div>
+            <div class="hydro-upload-note">PNG, JPG, JPEG, WEBP</div>
+          </div>
+        </div>
+      </div>
+
+      {% if edit_record and edit_record.chart_image_path %}
+        <div class="mt">
+          <div class="muted">Current chart:</div>
+          <img src="{{ edit_record.chart_image_path }}" alt="Hydro chart" style="max-width:100%; max-height:240px; border:1px solid #e5e7eb; border-radius:8px;">
+        </div>
+      {% endif %}
+
+      <div class="toolbar mt">
+        <button class="btn btn-primary" type="submit">
+          {% if edit_record %}Update Hydrotest Report{% else %}Save Hydrotest Report{% endif %}
+        </button>
+
+        {% if edit_record %}
+          <a class="btn" href="/hydro/batch/{{ summary.batch_no }}">Cancel Edit</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+  <div class="hydro-records-head">
+    <h3 class="hydro-range-title">Hydrotest Records</h3>
+  </div>
+
+  <div class="tablewrap hydro-tablewrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Report No</th>
+          <th>Range</th>
+          <th>Length</th>
+          <th>Pressure</th>
+          <th>Holding Time</th>
+          <th>Result</th>
+          <th>Assigned QA/QC</th>
+          <th>Date</th>
+          <th>Approval</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in summary.records %}
+          <tr>
+            <td>#{{ r.id }}</td>
+            <td>{{ r.report_no or ('HT-%04d' % r.id) }}</td>
+            <td>{{ '%.1f'|format(r.start_length_m) }} → {{ '%.1f'|format(r.end_length_m) }} m</td>
+            <td>{{ '%.1f'|format(r.tested_length_m) }} m</td>
+            <td>{{ '%.2f'|format(r.hydrotest_pressure_mpa or 0) }} MPa</td>
+            <td>{{ r.pressure_holding_time_min or r.hold_time_s or '-' }}</td>
+            <td>
+              <span class="result-badge {% if (r.test_result or '').upper() == 'PASS' %}result-pass{% elif (r.test_result or '').upper() == 'FAIL' %}result-fail{% else %}result-empty{% endif %}">
+                {{ r.test_result or '—' }}
+              </span>
+            </td>
+            <td>{{ r.assigned_qaqc_display_name or r.qaqc_name or '-' }}</td>
+            <td>{{ r.tested_at }}</td>
+
+            <td>
+              <span class="burst-status {% if (r.approval_status or 'DRAFT') == 'APPROVED' %}badge-editable{% elif (r.approval_status or '') == 'PENDING_APPROVAL' %}badge-pending{% else %}badge-published{% endif %}">
+                {{ hydro_record_status_label(r.approval_status) }}
+              </span>
+
+              {% if (r.approval_status or '') == 'APPROVED' and r.approved_by_user_name and r.approved_at %}
+                <div class="hydro-signature-note">
+                  <strong>Digitally signed by:</strong> {{ r.approved_by_user_name }}<br>
+                  <strong>Date/Time:</strong> {{ format_oman_dt(r.approved_at) }} (Oman)
+                </div>
+              {% elif (r.approval_status or '') == 'PENDING_APPROVAL' %}
+                <div class="hydro-signature-note">
+                  Waiting for QA/QC approval
+                </div>
+              {% endif %}
+            </td>
+
+            <td>
+              <div class="toolbar">
+                <a class="btn btn-sm" href="/hydro/record/{{ r.id }}/pdf" target="_blank">PDF</a>
+
+                {% if (r.approval_status or 'DRAFT') == 'DRAFT' %}
+                  <a class="btn btn-sm" href="/hydro/batch/{{ summary.batch_no }}?edit_id={{ r.id }}">Edit</a>
+
+                  <form method="post" action="/hydro/batch/{{ summary.batch_no }}/submit/{{ r.id }}">
+                    <button class="btn btn-sm" type="submit">Submit</button>
+                  </form>
+
+                  <form method="post" action="/hydro/batch/{{ summary.batch_no }}/delete/{{ r.id }}" onsubmit="return confirm('Delete this hydrotest range?');">
+                    <button class="btn btn-sm" type="submit">Delete</button>
+                  </form>
+
+                {% elif (r.approval_status or '') == 'PENDING_APPROVAL' %}
+                  {% if can_hydro_approve %}
+                    <form method="post" action="/hydro/batch/{{ summary.batch_no }}/approve/{{ r.id }}">
+                      <button class="btn btn-sm btn-primary" type="submit">Approve</button>
+                    </form>
+                  {% else %}
+                    <span class="burst-status badge-pending">Pending QA/QC</span>
+                  {% endif %}
+
+                {% else %}
+                  <span class="burst-status badge-editable">Approved</span>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="11" class="muted">No hydrotest ranges saved yet.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="hydro-mobile-list">
+  {% for r in summary.records %}
+    <div class="hydro-mobile-card">
+      <div class="hydro-mobile-card-head">
+        <div>
+          <div class="hydro-mobile-title">{{ r.report_no or ('HT-%04d' % r.id) }}</div>
+          <div class="hydro-mobile-subtitle">Report ID #{{ r.id }}</div>
+        </div>
+
+        <span class="hydro-mobile-status burst-status {% if (r.approval_status or 'DRAFT') == 'APPROVED' %}badge-editable{% elif (r.approval_status or '') == 'PENDING_APPROVAL' %}badge-pending{% else %}badge-published{% endif %}">
+          {{ hydro_record_status_label(r.approval_status) }}
+        </span>
+      </div>
+
+      <div class="hydro-mobile-fields">
+        <div class="hydro-mobile-row">
+          <span class="hydro-mobile-label">Range</span>
+          <span class="hydro-mobile-value">{{ '%.1f'|format(r.start_length_m) }} → {{ '%.1f'|format(r.end_length_m) }} m</span>
+        </div>
+
+        <div class="hydro-mobile-row">
+          <span class="hydro-mobile-label">Length</span>
+          <span class="hydro-mobile-value">{{ '%.1f'|format(r.tested_length_m) }} m</span>
+        </div>
+
+        <div class="hydro-mobile-row">
+          <span class="hydro-mobile-label">Pressure</span>
+          <span class="hydro-mobile-value">{{ '%.2f'|format(r.hydrotest_pressure_mpa or 0) }} MPa</span>
+        </div>
+
+        <div class="hydro-mobile-row">
+          <span class="hydro-mobile-label">Hold Time</span>
+          <span class="hydro-mobile-value">{{ r.pressure_holding_time_min or r.hold_time_s or '-' }} min</span>
+        </div>
+
+        <div class="hydro-mobile-row">
+          <span class="hydro-mobile-label">Result</span>
+          <span class="hydro-mobile-value">
+            <span class="result-badge {% if (r.test_result or '').upper() == 'PASS' %}result-pass{% elif (r.test_result or '').upper() == 'FAIL' %}result-fail{% else %}result-empty{% endif %}">
+              {{ r.test_result or '—' }}
+            </span>
+          </span>
+        </div>
+
+        <div class="hydro-mobile-row">
+          <span class="hydro-mobile-label">QA/QC</span>
+          <span class="hydro-mobile-value">{{ r.assigned_qaqc_display_name or r.qaqc_name or '-' }}</span>
+        </div>
+
+        <div class="hydro-mobile-row">
+          <span class="hydro-mobile-label">Date</span>
+          <span class="hydro-mobile-value">{{ format_oman_dt(r.tested_at) if r.tested_at else '-' }}</span>
+        </div>
+      </div>
+
+      {% if (r.approval_status or '') == 'APPROVED' and r.approved_by_user_name and r.approved_at %}
+        <div class="hydro-mobile-signature">
+          <div class="hydro-mobile-signature-title">Digital approval</div>
+          <div><strong>Digitally signed by:</strong> {{ r.approved_by_user_name }}</div>
+          <div><strong>Date/Time:</strong> {{ format_oman_dt(r.approved_at) }} (Oman)</div>
+        </div>
+      {% elif (r.approval_status or '') == 'PENDING_APPROVAL' %}
+        <div class="hydro-mobile-signature">
+          <div class="hydro-mobile-signature-title">Digital approval</div>
+          <div>Waiting for QA/QC approval</div>
+        </div>
+      {% endif %}
+
+      <div class="hydro-mobile-actions">
+        <a class="btn btn-sm" href="/hydro/record/{{ r.id }}/pdf" target="_blank">PDF</a>
+
+        {% if (r.approval_status or 'DRAFT') == 'DRAFT' %}
+          <a class="btn btn-sm" href="/hydro/batch/{{ summary.batch_no }}?edit_id={{ r.id }}">Edit</a>
+
+          <form method="post" action="/hydro/batch/{{ summary.batch_no }}/submit/{{ r.id }}">
+            <button class="btn btn-sm" type="submit">Submit</button>
+          </form>
+
+          <form method="post" action="/hydro/batch/{{ summary.batch_no }}/delete/{{ r.id }}" onsubmit="return confirm('Delete this hydrotest range?');">
+            <button class="btn btn-sm" type="submit">Delete</button>
+          </form>
+
+        {% elif (r.approval_status or '') == 'PENDING_APPROVAL' %}
+          {% if can_hydro_approve %}
+            <form method="post" action="/hydro/batch/{{ summary.batch_no }}/approve/{{ r.id }}">
+              <button class="btn btn-sm btn-primary" type="submit">Approve</button>
+            </form>
+          {% else %}
+            <span class="burst-status badge-pending">Pending QA/QC</span>
+          {% endif %}
+
+        {% else %}
+          <span class="burst-status badge-editable">Approved</span>
+        {% endif %}
+      </div>
+    </div>
+  {% else %}
+    <div class="muted">No hydrotest ranges saved yet.</div>
+  {% endfor %}
+</div>
+
+<script>
+  const qaqcInput = document.getElementById("qaqcMentionInput");
+  const qaqcHidden = document.getElementById("assigned_qaqc_user_id");
+  const qaqcList = document.getElementById("qaqcMentionList");
+  let qaqcTimer = null;
+
+  function clearQaqcSelection() {
+    if (qaqcHidden) qaqcHidden.value = "";
+  }
+
+  function hideQaqcList() {
+    if (qaqcList) {
+      qaqcList.style.display = "none";
+      qaqcList.innerHTML = "";
+    }
+  }
+
+  function selectQaqcUser(user) {
+    if (!qaqcInput || !qaqcHidden) return;
+    qaqcInput.value = "@" + user.username;
+    qaqcHidden.value = user.id;
+    hideQaqcList();
+  }
+
+  async function loadQaqcSuggestions(query) {
+    if (!qaqcList) return;
+
+    const res = await fetch("/api/hydro/qaqc-users?q=" + encodeURIComponent(query));
+    const data = await res.json();
+
+    if (!Array.isArray(data) || !data.length) {
+      hideQaqcList();
+      return;
+    }
+
+    qaqcList.innerHTML = "";
+    data.forEach((user) => {
+      const item = document.createElement("div");
+      item.className = "qaqc-mention-item";
+      item.innerHTML = `
+        <div class="qaqc-mention-user">@${user.username}</div>
+        <div class="qaqc-mention-meta">${user.display_name} • ${user.role}</div>
+      `;
+      item.addEventListener("click", function () {
+        selectQaqcUser(user);
+      });
+      qaqcList.appendChild(item);
+    });
+
+    qaqcList.style.display = "block";
+  }
+
+  if (qaqcInput) {
+    qaqcInput.addEventListener("input", function () {
+      const val = (qaqcInput.value || "").trim();
+
+      clearQaqcSelection();
+
+      if (!val.startsWith("@")) {
+        hideQaqcList();
+        return;
+      }
+
+      const query = val.slice(1).trim();
+      if (query.length < 1) {
+        hideQaqcList();
+        return;
+      }
+
+      if (qaqcTimer) clearTimeout(qaqcTimer);
+      qaqcTimer = setTimeout(() => loadQaqcSuggestions(query), 180);
+    });
+
+    qaqcInput.addEventListener("blur", function () {
+      setTimeout(hideQaqcList, 180);
+    });
+  }
+</script>
+
+{% endblock %}

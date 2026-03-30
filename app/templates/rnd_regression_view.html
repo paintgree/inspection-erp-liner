@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Regression - {{ program.program_code }}{% endblock %}
+{% block content %}
+<style>
+.rr-wrap{display:grid;gap:18px}.rr-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(320px,.8fr);gap:18px;align-items:start}.rr-card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:16px;box-shadow:0 8px 28px rgba(15,23,42,.05)}.rr-mini{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.rr-box{border:1px solid #eef2f7;border-radius:14px;padding:12px;background:#fbfdff}.rr-box b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}.rr-table{width:100%;border-collapse:collapse}.rr-table th,.rr-table td{padding:10px;border-bottom:1px solid #eaeef5;vertical-align:top;text-align:left;font-size:13px}.rr-table th{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b}.rr-svg{width:100%;height:420px;border:1px solid #eef2f7;border-radius:16px;background:#fff;display:block}@media (max-width:980px){.rr-grid{grid-template-columns:1fr}.rr-mini{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (max-width:560px){.rr-mini{grid-template-columns:1fr}}
+</style>
+<div class="rr-wrap">
+  <section class="rr-card">
+    <div class="section-head">
+      <div>
+        <h1 style="margin:0;">Regression Workspace</h1>
+        <div class="muted">{{ program.program_code }} · {{ program.title }}</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;"><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back to Program</a></div>
+    </div>
+  </section>
+
+  <section class="rr-grid">
+    <div style="display:grid;gap:18px;">
+      <article class="rr-card">
+        <h2 style="margin-top:0;">API 15S Static Regression</h2>
+        <div class="rr-mini">
+          <div class="rr-box"><b>Valid Points</b>{{ static_reg.count }} / {{ static_reg.required_minimum }}</div>
+          <div class="rr-box"><b>Mean @ RCRT</b>{% if static_reg.mean_rcrt_mpa %}{{ '%.3f'|format(static_reg.mean_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
+          <div class="rr-box"><b>LCL @ RCRT</b>{% if static_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(static_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
+          <div class="rr-box"><b>LPL @ RCRT</b>{% if static_reg.lpl_rcrt_mpa %}{{ '%.3f'|format(static_reg.lpl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
+        </div>
+        {% if static_reg.warning %}<div class="alert alert-error mt">{{ static_reg.warning }}</div>{% endif %}
+        <svg id="static-chart" class="rr-svg" viewBox="0 0 820 420"></svg>
+      </article>
+
+      <article class="rr-card">
+        <h2 style="margin-top:0;">API 15S Cyclic Regression</h2>
+        <div class="rr-mini">
+          <div class="rr-box"><b>Valid Points</b>{{ cyclic_reg.count }} / {{ cyclic_reg.required_minimum }}</div>
+          <div class="rr-box"><b>Mean Basis</b>{% if cyclic_reg.mean_rcrt_mpa %}{{ '%.3f'|format(cyclic_reg.mean_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
+          <div class="rr-box"><b>LCL Basis</b>{% if cyclic_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(cyclic_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
+          <div class="rr-box"><b>LPL Basis</b>{% if cyclic_reg.lpl_rcrt_mpa %}{{ '%.3f'|format(cyclic_reg.lpl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
+        </div>
+        {% if cyclic_reg.warning %}<div class="alert alert-error mt">{{ cyclic_reg.warning }}</div>{% endif %}
+        <svg id="cyclic-chart" class="rr-svg" viewBox="0 0 820 420"></svg>
+      </article>
+    </div>
+
+    <div style="display:grid;gap:18px;">
+      <article class="rr-card">
+        <h2 style="margin-top:0;">Calculated Summary</h2>
+        <table class="rr-table">
+          <tbody>
+            <tr><th>Regression equation</th><td>{% if static_reg.slope is defined and static_reg.intercept is defined %}log10(P) = {{ '%.6f'|format(static_reg.intercept) }} + ({{ '%.6f'|format(static_reg.slope) }}) × log10(time){% else %}-{% endif %}</td></tr>
+            <tr><th>Design factor</th><td>{{ '%.2f'|format(static_reg.design_factor) if static_reg.design_factor is defined else '-' }}</td></tr>
+            <tr><th>MPR</th><td>{% if static_reg.mpr_mpa %}{{ '%.3f'|format(static_reg.mpr_mpa) }} MPa{% else %}-{% endif %}</td></tr>
+            <tr><th>Target NPR</th><td>{{ '%.3f'|format(static_reg.target_npr_mpa) if static_reg.target_npr_mpa else '-' }} MPa</td></tr>
+            <tr><th>Pass / fail</th><td>{% if static_reg.pass_status %}{{ static_reg.pass_status }}{% else %}Pending{% endif %}</td></tr>
+            <tr><th>Static excluded points</th><td>{{ static_reg.excluded_count or 0 }} {% if static_reg.excluded_ids %}({{ static_reg.excluded_ids|join(', ') }}){% endif %}</td></tr>
+            <tr><th>Cyclic excluded points</th><td>{{ cyclic_reg.excluded_count or 0 }} {% if cyclic_reg.excluded_ids %}({{ cyclic_reg.excluded_ids|join(', ') }}){% endif %}</td></tr>
+          </tbody>
+        </table>
+      </article>
+
+      {% if pv_formula %}
+      <article class="rr-card">
+        <h2 style="margin-top:0;">PV Formula Helper</h2>
+        <div class="rr-box"><b>PFR Reference</b>{{ pv_formula.pfr_code }}</div>
+        <div class="rr-box" style="margin-top:10px;"><b>Formula</b>{{ pv_formula.formula }}</div>
+        <div class="rr-box" style="margin-top:10px;"><b>Ratio NPR_PV / NPR_PFR</b>{{ '%.4f'|format(pv_formula.ratio) if pv_formula.ratio is not none else '-' }}</div>
+      </article>
+      {% endif %}
+
+      <article class="rr-card">
+        <h2 style="margin-top:0;">Regression Dataset</h2>
+        <table class="rr-table">
+          <thead><tr><th>Specimen</th><th>Type</th><th>Pressure</th><th>Hours</th><th>Cycles</th><th>Failure Mode</th></tr></thead>
+          <tbody>
+            {% for s in specimens %}
+            <tr>
+              <td>{{ s.specimen_id }}</td>
+              <td>{{ s.test_type }}</td>
+              <td>{{ s.pressure_mpa }}</td>
+              <td>{{ s.failure_hours or '-' }}</td>
+              <td>{{ s.failure_cycles or '-' }}</td>
+              <td>{{ s.failure_mode or '-' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="muted">No specimens logged yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </article>
+
+      <article class="rr-card">
+        <h2 style="margin-top:0;">Interpretation</h2>
+        <p>{{ guide.summary }}</p>
+        <div class="rr-box"><b>Interpretation</b>For static qualification, review the lower confidence pressure at {{ rcrt_hours|int }} h, then apply the nonmetallic design factor {{ '%.2f'|format(design_factor_nonmetallic) }} to get MPR. Compare that MPR with the target NPR of {{ '%.3f'|format(program.npr_mpa) }} MPa.</div>
+        <div class="rr-box" style="margin-top:10px;"><b>Automatic outputs shown here</b>Mean line, lower confidence line, lower prediction line, and derived MPR are generated directly from the entered regression specimens.</div>
+      </article>
+    </div>
+  </section>
+</div>
+<script>
+  function drawRegressionChart(svgId, reg, xLabel) {
+    const svg = document.getElementById(svgId); if (!svg) return;
+    const width = 820, height = 420, left = 70, right = 20, top = 20, bottom = 50;
+    const plotW = width - left - right, plotH = height - top - bottom; svg.innerHTML = '';
+    const pts = reg.points || []; const lines = reg.chart_points || [];
+    if (!pts.length || !lines.length) { svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="#64748b" font-size="15">Not enough valid points to draw chart</text>'; return; }
+    const allX = [...pts.map(p => p.x), ...lines.map(p => p.x)]; const allY = [];
+    pts.forEach(p => allY.push(p.y));
+    lines.forEach(p => { allY.push(Math.log10(p.mean_pressure)); allY.push(Math.log10(p.lcl_pressure)); allY.push(Math.log10(p.lpl_pressure)); });
+    const xMin = Math.min(...allX), xMax = Math.max(...allX); const yMin = Math.min(...allY), yMax = Math.max(...allY); const xSpan = (xMax - xMin) || 1; const ySpan = (yMax - yMin) || 1;
+    const sx = x => left + ((x - xMin) / xSpan) * plotW; const sy = y => top + (plotH - ((y - yMin) / ySpan) * plotH);
+    function add(tag, attrs) { const el = document.createElementNS('http://www.w3.org/2000/svg', tag); Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k, v)); svg.appendChild(el); return el; }
+    for (let i=0;i<6;i++) { const gx = xMin + (xSpan * i / 5); add('line', {x1:sx(gx), y1:top, x2:sx(gx), y2:height-bottom, stroke:'#eef2f7'}); const tx = add('text', {x:sx(gx), y:height-18, 'text-anchor':'middle', 'font-size':'11', fill:'#64748b'}); tx.textContent = gx.toFixed(2); }
+    for (let i=0;i<6;i++) { const gy = yMin + (ySpan * i / 5); add('line', {x1:left, y1:sy(gy), x2:width-right, y2:sy(gy), stroke:'#eef2f7'}); const ty = add('text', {x:left-8, y:sy(gy)+4, 'text-anchor':'end', 'font-size':'11', fill:'#64748b'}); ty.textContent = gy.toFixed(2); }
+    add('line', {x1:left, y1:height-bottom, x2:width-right, y2:height-bottom, stroke:'#94a3b8', 'stroke-width':'1.5'});
+    add('line', {x1:left, y1:top, x2:left, y2:height-bottom, stroke:'#94a3b8', 'stroke-width':'1.5'});
+    function poly(points, color, widthValue) { add('polyline', { fill:'none', stroke:color, 'stroke-width':widthValue, points: points.map(p => `${sx(p.x)},${sy(Math.log10(p.y))}`).join(' ') }); }
+    poly(lines.map(p => ({x:p.x, y:p.mean_pressure})), '#2563eb', '2.5'); poly(lines.map(p => ({x:p.x, y:p.lcl_pressure})), '#7c3aed', '2'); poly(lines.map(p => ({x:p.x, y:p.lpl_pressure})), '#ef4444', '2'); pts.forEach(p => add('circle', {cx:sx(p.x), cy:sy(p.y), r:'4.5', fill:'#0f172a'}));
+    const xText = add('text', {x:width/2, y:height-2, 'text-anchor':'middle', 'font-size':'12', fill:'#475569'}); xText.textContent = `${xLabel} (log10)`;
+    const yText = add('text', {x:18, y:height/2, 'text-anchor':'middle', transform:`rotate(-90 18 ${height/2})`, 'font-size':'12', fill:'#475569'}); yText.textContent = 'Pressure MPa (log10)';
+  }
+  drawRegressionChart('static-chart', {{ static_reg|tojson }}, 'Failure hours');
+  drawRegressionChart('cyclic-chart', {{ cyclic_reg|tojson }}, 'Failure cycles');
+</script>
+{% endblock %}
