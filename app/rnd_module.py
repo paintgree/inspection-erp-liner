@@ -1716,9 +1716,16 @@ def rnd_add_test_specimen(
     pre_failure_visual: str = Form(''),
     notes: str = Form(''),
 ):
-    program = session.get(RndQualificationProgram, program_id)
+    test = session.get(RNDQualificationTest, test_id)
+    if not test:
+        raise HTTPException(404, "Test not found")
+    
+    program = session.get(RNDQualificationProgram, test.program_id)
     if not program:
-        raise HTTPException(404, 'Program not found')
+        raise HTTPException(404, "Program not found")
+    
+    if int(program_id) != int(test.program_id):
+        raise HTTPException(400, "Test does not belong to this program")
 
     test = session.get(RndQualificationTest, test_id)
     if not test or test.program_id != program_id:
@@ -1732,7 +1739,7 @@ def rnd_add_test_specimen(
     guidance = get_test_guidance(test.code)
 
     specimen = RndQualificationSpecimen(
-        program_id=program_id,
+        program_id=test.program_id,
         test_id=test_id,
         specimen_id=(specimen_id or '').strip().upper(),
         test_type=(test.code or '').strip().upper(),
@@ -1762,7 +1769,7 @@ def rnd_add_test_specimen(
     _touch_program(program)
     session.add(program)
     session.commit()
-    return RedirectResponse(url=f'/rnd/qualifications/{program_id}/tests/{test_id}', status_code=303)
+    return RedirectResponse(url=f'/rnd/qualifications/{test.program_id}/tests/{test_id}', status_code=303)
 
 
 @router.post('/qualifications/{program_id}/tests/{test_id}/specimens/{specimen_row_id}/update')
