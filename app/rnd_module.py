@@ -671,6 +671,7 @@ class RndQualificationSpecimen(SQLModel, table=True):
     test_type: str = Field(default="STATIC_REGRESSION", index=True)
     sample_date: date = Field(default_factory=date.today)
 
+    material_ref: str = Field(default="", index=True)
     nominal_size_in: float = Field(default=0.0)
     confirmed_od_mm: Optional[float] = Field(default=None)
     preparation_rule_basis: str = Field(default="")
@@ -819,6 +820,41 @@ def _touch_program(program: RndQualificationProgram) -> None:
 
 def _touch_row(row) -> None:
     row.updated_at = datetime.utcnow()
+
+
+def _material_reference_options(materials: List['RndMaterialQualification']) -> list[dict]:
+    options: list[dict] = []
+    for row in materials:
+        label_parts = [row.component.title() if row.component else 'Material']
+        if (row.material_name or '').strip():
+            label_parts.append(row.material_name.strip())
+        if (row.grade_name or '').strip():
+            label_parts.append(row.grade_name.strip())
+        if (row.batch_ref or '').strip():
+            label_parts.append(f"Batch {row.batch_ref.strip()}")
+        value = ' | '.join(part for part in label_parts if part)
+        if value:
+            options.append({'value': value, 'label': value, 'component': row.component or ''})
+    return options
+
+
+def _coalesce_material_ref(material_ref: str, batch_ref: str, source_pipe_ref: str, materials: List['RndMaterialQualification']) -> str:
+    raw = (material_ref or '').strip()
+    if raw:
+        return raw
+    options = _material_reference_options(materials)
+    if len(options) == 1:
+        return options[0]['value']
+    batch_ref = (batch_ref or '').strip()
+    source_pipe_ref = (source_pipe_ref or '').strip()
+    if batch_ref and source_pipe_ref:
+        return f"Batch {batch_ref} | Pipe {source_pipe_ref}"
+    if batch_ref:
+        return f"Batch {batch_ref}"
+    if source_pipe_ref:
+        return f"Pipe {source_pipe_ref}"
+    return 'UNASSIGNED'
+
 
 def _required_attachment_types(test_code: str) -> list[str]:
     common = [
@@ -1516,11 +1552,12 @@ def rnd_add_attachment_register(program_id: int, category: str = Form('REPORT'),
 
 
 @router.post('/qualifications/{program_id}/specimens/new')
-def rnd_add_specimen(program_id: int, session: Session = Depends(get_session), user: User = Depends(_require_user), specimen_id: str = Form(...), test_type: str = Form(...), test_id: Optional[int] = Form(None), sample_date: date = Form(...), nominal_size_in: float = Form(0.0), pressure_mpa: float = Form(0.0), temperature_c: float = Form(0.0), failure_hours: Optional[float] = Form(None), failure_cycles: Optional[float] = Form(None), failure_mode: str = Form(''), permissible_failure: Optional[str] = Form(None), is_runout: Optional[str] = Form(None), include_in_regression: Optional[str] = Form(None), fitting_type: str = Form('Field fitting'), lab_name: str = Form(''), witness_name: str = Form(''), notes: str = Form('')):
+def rnd_add_specimen(program_id: int, session: Session = Depends(get_session), user: User = Depends(_require_user), specimen_id: str = Form(...), test_type: str = Form(...), test_id: Optional[int] = Form(None), sample_date: date = Form(...), material_ref: str = Form(''), nominal_size_in: float = Form(0.0), pressure_mpa: float = Form(0.0), temperature_c: float = Form(0.0), failure_hours: Optional[float] = Form(None), failure_cycles: Optional[float] = Form(None), failure_mode: str = Form(''), permissible_failure: Optional[str] = Form(None), is_runout: Optional[str] = Form(None), include_in_regression: Optional[str] = Form(None), fitting_type: str = Form('Field fitting'), lab_name: str = Form(''), witness_name: str = Form(''), notes: str = Form('')):
     program = session.get(RndQualificationProgram, program_id)
     if not program:
         raise HTTPException(404, 'Program not found')
-    specimen = RndQualificationSpecimen(program_id=program_id, test_id=test_id, specimen_id=(specimen_id or '').strip().upper(), test_type=(test_type or 'STATIC_REGRESSION').strip().upper(), sample_date=sample_date, nominal_size_in=nominal_size_in or program.nominal_size_in, pressure_mpa=pressure_mpa, temperature_c=temperature_c, failure_hours=failure_hours, failure_cycles=failure_cycles, failure_mode=failure_mode, permissible_failure=bool(permissible_failure), is_runout=bool(is_runout), include_in_regression=bool(include_in_regression), fitting_type=fitting_type, lab_name=lab_name, witness_name=witness_name, notes=notes)
+    materials = session.exec(select(RndMaterialQualification).where(RndMaterialQualification.program_id == program_id).order_by(RndMaterialQualification.component.asc(), RndMaterialQualification.id.asc())).all()
+    specimen = RndQualificationSpecimen(program_id=program_id, test_id=test_id, specimen_id=(specimen_id or '').strip().upper(), test_type=(test_type or 'STATIC_REGRESSION').strip().upper(), sample_date=sample_date, material_ref=_coalesce_material_ref(material_ref, '', '', materials), nominal_size_in=nominal_size_in or program.nominal_size_in, pressure_mpa=pressure_mpa, temperature_c=temperature_c, failure_hours=failure_hours, failure_cycles=failure_cycles, failure_mode=failure_mode, permissible_failure=bool(permissible_failure), is_runout=bool(is_runout), include_in_regression=bool(include_in_regression), fitting_type=fitting_type, lab_name=lab_name, witness_name=witness_name, notes=notes)
     session.add(specimen); _touch_program(program); session.add(program); session.commit()
     return RedirectResponse(url=f'/rnd/qualifications/{program_id}', status_code=303)
 
@@ -1601,6 +1638,13 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
         .order_by(RndAttachmentRegister.created_at.desc())
     ).all()
 
+    materials = session.exec(
+        select(RndMaterialQualification)
+        .where(RndMaterialQualification.program_id == program_id)
+        .order_by(RndMaterialQualification.component.asc(), RndMaterialQualification.id.asc())
+    ).all()
+    material_options = _material_reference_options(materials)
+
     execution = _execution_requirements(test.code)
     acceptance = _acceptance_criteria(test.code)
     evidence = _evidence_status(test.code, attachments)
@@ -1626,6 +1670,8 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
             'specimen_lifecycle': specimen_lifecycle,
             'progress': progress,
             'guidance': guidance,
+            'materials': materials,
+            'material_options': material_options,
         }
     )
 
@@ -1640,6 +1686,7 @@ def rnd_add_test_specimen(
     nominal_size_in: float = Form(0.0),
     confirmed_od_mm: Optional[float] = Form(None),
     preparation_rule_basis: str = Form(''),
+    material_ref: str = Form(''),
     batch_ref: str = Form(''),
     source_pipe_ref: str = Form(''),
     cut_by: str = Form(''),
@@ -1664,12 +1711,19 @@ def rnd_add_test_specimen(
     if not test or test.program_id != program_id:
         raise HTTPException(404, 'Test not found')
 
+    materials = session.exec(
+        select(RndMaterialQualification)
+        .where(RndMaterialQualification.program_id == program_id)
+        .order_by(RndMaterialQualification.component.asc(), RndMaterialQualification.id.asc())
+    ).all()
+
     specimen = RndQualificationSpecimen(
         program_id=program_id,
         test_id=test_id,
         specimen_id=(specimen_id or '').strip().upper(),
         test_type=(test.code or '').strip().upper(),
         sample_date=sample_date,
+        material_ref=_coalesce_material_ref(material_ref, batch_ref, source_pipe_ref, materials),
         nominal_size_in=nominal_size_in or program.nominal_size_in,
         confirmed_od_mm=confirmed_od_mm,
         preparation_rule_basis=preparation_rule_basis,
@@ -1703,6 +1757,7 @@ def rnd_update_test_specimen(
     specimen_row_id: int,
     session: Session = Depends(get_session),
     user: User = Depends(_require_user),
+    material_ref: str = Form(''),
     planned_pressure_mpa: Optional[float] = Form(None),
     actual_pressure_at_failure_mpa: Optional[float] = Form(None),
     pressure_at_hold_mpa: Optional[float] = Form(None),
@@ -1727,6 +1782,7 @@ def rnd_update_test_specimen(
     if not specimen or specimen.program_id != program_id or specimen.test_id != test_id:
         raise HTTPException(404, 'Specimen not found')
 
+    specimen.material_ref = (material_ref or specimen.material_ref or 'UNASSIGNED').strip()
     specimen.planned_pressure_mpa = planned_pressure_mpa
     specimen.actual_pressure_at_failure_mpa = actual_pressure_at_failure_mpa
     specimen.pressure_at_hold_mpa = pressure_at_hold_mpa
