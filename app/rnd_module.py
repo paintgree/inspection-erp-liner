@@ -1626,7 +1626,7 @@ def rnd_regression_view(program_id: int, request: Request, session: Session = De
 
 @router.get('/qualifications/{program_id}/tests/{test_id}')
 def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
-   test = session.get(RndQualificationTest, test_id)
+    test = session.get(RndQualificationTest, test_id)
     if not test:
         raise HTTPException(404, 'Test not found')
     
