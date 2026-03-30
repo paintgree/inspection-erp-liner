@@ -189,6 +189,12 @@ def _ensure_schema_patches() -> None:
         # rndqualificationspecimen execution detail fields
         (
             "rndqualificationspecimen",
+            "material_ref",
+            "ALTER TABLE rndqualificationspecimen ADD COLUMN IF NOT EXISTS material_ref TEXT DEFAULT ''",
+            "ALTER TABLE rndqualificationspecimen ADD COLUMN material_ref TEXT DEFAULT ''",
+        ),
+        (
+            "rndqualificationspecimen",
             "planned_pressure_mpa",
             "ALTER TABLE rndqualificationspecimen ADD COLUMN IF NOT EXISTS planned_pressure_mpa DOUBLE PRECISION",
             "ALTER TABLE rndqualificationspecimen ADD COLUMN planned_pressure_mpa REAL",
