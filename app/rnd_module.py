@@ -1719,16 +1719,20 @@ def rnd_add_test_specimen(
     pre_failure_visual: str = Form(''),
     notes: str = Form(''),
 ):
-    test = session.get(RndQualificationTest, test_id)
+    test = (
+        session.query(RndQualificationTest)
+        .filter(
+            RndQualificationTest.id == test_id,
+            RndQualificationTest.program_id == program_id,
+        )
+        .first()
+    )
     if not test:
-        raise HTTPException(404, "Test not found")
+        raise HTTPException(404, 'Test not found')
     
-    program = session.get(RNDQualificationProgram, test.program_id)
+    program = session.get(RndQualificationProgram, test.program_id)
     if not program:
-        raise HTTPException(404, "Program not found")
-    
-    if int(program_id) != int(test.program_id):
-        raise HTTPException(400, "Test does not belong to this program")
+        raise HTTPException(404, 'Program not found')
 
     test = session.get(RndQualificationTest, test_id)
     if not test or test.program_id != program_id:
