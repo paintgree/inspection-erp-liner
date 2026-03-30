@@ -71,6 +71,7 @@
       <article class="rnd-card">
         <h2 class="rnd-section-title">1) Add specimen to the track</h2>
         <form method="post" action="/rnd/qualifications/{{ test.program_id }}/tests/{{ test.id }}/specimens/new">
+          <input type="hidden" name="test_type" value="{{ test.code }}">
           <div class="span-12 rnd-alert">
             <strong>Purpose of this register</strong><br>
             This is where the user creates the specimen record before testing. It captures final-product traceability, cut data, pre-test condition, and the planned target pressure so the result can later be tied to the right sample.
