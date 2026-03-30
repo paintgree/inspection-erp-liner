@@ -195,6 +195,12 @@ def _ensure_schema_patches() -> None:
         ),
         (
             "rndqualificationspecimen",
+            "conditioning_required",
+            "ALTER TABLE rndqualificationspecimen ADD COLUMN IF NOT EXISTS conditioning_required BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE rndqualificationspecimen ADD COLUMN conditioning_required INTEGER DEFAULT 0",
+        ),
+        (
+            "rndqualificationspecimen",
             "planned_pressure_mpa",
             "ALTER TABLE rndqualificationspecimen ADD COLUMN IF NOT EXISTS planned_pressure_mpa DOUBLE PRECISION",
             "ALTER TABLE rndqualificationspecimen ADD COLUMN planned_pressure_mpa REAL",
@@ -536,6 +542,20 @@ def _ensure_schema_patches() -> None:
     except Exception:
         pass
 
+
+def _ensure_rnd_specimen_defaults() -> None:
+    dialect = engine.dialect.name
+    statements = [
+        "UPDATE rndqualificationspecimen SET material_ref = COALESCE(NULLIF(material_ref, ''), 'FINAL_PRODUCT') WHERE material_ref IS NULL OR material_ref = ''",
+        "UPDATE rndqualificationspecimen SET conditioning_required = {} WHERE conditioning_required IS NULL".format('FALSE' if dialect == 'postgresql' else '0'),
+    ]
+    with engine.begin() as conn:
+        for stmt in statements:
+            try:
+                conn.execute(text(stmt))
+            except Exception:
+                pass
+
 _SCHEMA_READY = False
 
 def create_db_and_tables() -> None:
@@ -546,6 +566,7 @@ def create_db_and_tables() -> None:
 
     SQLModel.metadata.create_all(engine)
     _ensure_schema_patches()
+    _ensure_rnd_specimen_defaults()
     _SCHEMA_READY = True
 
 
