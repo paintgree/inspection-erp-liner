@@ -1719,7 +1719,7 @@ def rnd_add_test_specimen(
     pre_failure_visual: str = Form(''),
     notes: str = Form(''),
 ):
-    test = session.get(RNDQualificationTest, test_id)
+    test = session.get(RndQualificationTest, test_id)
     if not test:
         raise HTTPException(404, "Test not found")
     
