@@ -1772,16 +1772,25 @@ def rnd_add_test_specimen(
         except Exception:
             return date.today()
 
-    test = session.get(RndQualificationTest, test_id)
-    if not test:
-        raise HTTPException(404, 'Test not found')
-
-    if int(test.program_id) != int(program_id):
-        raise HTTPException(400, 'Test does not belong to this program')
-
-    program = session.get(RndQualificationProgram, test.program_id)
+    program = session.get(RndQualificationProgram, program_id)
     if not program:
         raise HTTPException(404, 'Program not found')
+
+    test = session.get(RndQualificationTest, test_id)
+
+    # Fallback: if the posted test_id is stale/wrong, recover from code inside this program
+    if not test or int(test.program_id) != int(program_id):
+        desired_code = (test_type or '').strip().upper()
+        if desired_code:
+            test = session.exec(
+                select(RndQualificationTest).where(
+                    RndQualificationTest.program_id == program_id,
+                    RndQualificationTest.code == desired_code
+                )
+            ).first()
+
+    if not test or int(test.program_id) != int(program_id):
+        raise HTTPException(404, 'Test not found')
 
     safe_batch_ref = (batch_ref or '').strip()
     safe_source_pipe_ref = (source_pipe_ref or '').strip()
@@ -1794,7 +1803,7 @@ def rnd_add_test_specimen(
     safe_material_ref = ' | '.join(material_ref_parts) or 'FINAL_PRODUCT'
 
     specimen = RndQualificationSpecimen(
-        program_id=test.program_id,
+        program_id=program.id,
         test_id=test.id,
         specimen_id=(specimen_id or '').strip(),
         test_type=(test_type or test.code or 'MPR_REG').strip().upper(),
@@ -1854,7 +1863,7 @@ def rnd_add_test_specimen(
     session.commit()
 
     return RedirectResponse(
-        url=f'/rnd/qualifications/{test.program_id}/tests/{test.id}',
+        url=f'/rnd/qualifications/{program.id}/tests/{test.id}',
         status_code=303,
     )
 
