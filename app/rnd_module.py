@@ -672,6 +672,7 @@ class RndQualificationSpecimen(SQLModel, table=True):
     sample_date: date = Field(default_factory=date.today)
 
     material_ref: str = Field(default="", index=True)
+    conditioning_required: Optional[bool] = Field(default=None)
     nominal_size_in: float = Field(default=0.0)
     confirmed_od_mm: Optional[float] = Field(default=None)
     preparation_rule_basis: str = Field(default="")
@@ -854,6 +855,18 @@ def _coalesce_material_ref(material_ref: str, batch_ref: str, source_pipe_ref: s
     if source_pipe_ref:
         return f"Pipe {source_pipe_ref}"
     return 'UNASSIGNED'
+
+
+
+
+def _conditioning_required_flag(value: str | None) -> bool:
+    text = (value or '').strip().lower()
+    if not text:
+        return False
+    no_tokens = ['no ', 'not required', 'no specific', 'optional', 'conditional', 'refer to applicable procedure']
+    if any(token in text for token in no_tokens):
+        return False
+    return 'yes' in text or 'conditioning' in text or 'temperature' in text
 
 
 def _required_attachment_types(test_code: str) -> list[str]:
@@ -1716,6 +1729,7 @@ def rnd_add_test_specimen(
         .where(RndMaterialQualification.program_id == program_id)
         .order_by(RndMaterialQualification.component.asc(), RndMaterialQualification.id.asc())
     ).all()
+    guidance = get_test_guidance(test.code)
 
     specimen = RndQualificationSpecimen(
         program_id=program_id,
@@ -1724,6 +1738,7 @@ def rnd_add_test_specimen(
         test_type=(test.code or '').strip().upper(),
         sample_date=sample_date,
         material_ref=_coalesce_material_ref(material_ref, batch_ref, source_pipe_ref, materials),
+        conditioning_required=_conditioning_required_flag(guidance.get('conditioning_required')),
         nominal_size_in=nominal_size_in or program.nominal_size_in,
         confirmed_od_mm=confirmed_od_mm,
         preparation_rule_basis=preparation_rule_basis,
@@ -1782,7 +1797,9 @@ def rnd_update_test_specimen(
     if not specimen or specimen.program_id != program_id or specimen.test_id != test_id:
         raise HTTPException(404, 'Specimen not found')
 
-    specimen.material_ref = (material_ref or specimen.material_ref or 'UNASSIGNED').strip()
+    specimen.material_ref = (material_ref or specimen.material_ref or 'FINAL_PRODUCT').strip()
+    if specimen.conditioning_required is None:
+        specimen.conditioning_required = _conditioning_required_flag(get_test_guidance(test.code).get('conditioning_required'))
     specimen.planned_pressure_mpa = planned_pressure_mpa
     specimen.actual_pressure_at_failure_mpa = actual_pressure_at_failure_mpa
     specimen.pressure_at_hold_mpa = pressure_at_hold_mpa
