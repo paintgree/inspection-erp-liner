@@ -1626,13 +1626,16 @@ def rnd_regression_view(program_id: int, request: Request, session: Session = De
 
 @router.get('/qualifications/{program_id}/tests/{test_id}')
 def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
-    program = session.get(RndQualificationProgram, program_id)
-    if not program:
-        raise HTTPException(404, 'Program not found')
+   test = session.get(RndQualificationTest, test_id)
+if not test:
+    raise HTTPException(404, 'Test not found')
 
-    test = session.get(RndQualificationTest, test_id)
-    if not test or test.program_id != program_id:
-        raise HTTPException(404, 'Test not found')
+program = session.get(RndQualificationProgram, test.program_id)
+if not program:
+    raise HTTPException(404, 'Program not found')
+
+if int(program_id) != int(test.program_id):
+    raise HTTPException(400, 'Test does not belong to this program')
 
     prep = get_specimen_prep(test.code)
     guidance = get_test_guidance(test.code)
