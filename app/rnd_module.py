@@ -1891,15 +1891,17 @@ def rnd_update_test_specimen(
     if not specimen or specimen.program_id != program_id or specimen.test_id != test_id:
         raise HTTPException(404, 'Specimen not found')
 
-    specimen.material_ref = (material_ref or specimen.material_ref or 'FINAL_PRODUCT').strip()
     test = session.get(RndQualificationTest, test_id)
-if not test or test.program_id != program_id:
-    raise HTTPException(404, 'Test not found')
+    if not test or test.program_id != program_id:
+        raise HTTPException(404, 'Test not found')
 
-if specimen.conditioning_required is None:
-    specimen.conditioning_required = _conditioning_required_flag(
-        get_test_guidance(test.code).get('conditioning_required')
-    )
+    specimen.material_ref = (material_ref or specimen.material_ref or 'FINAL_PRODUCT').strip()
+
+    if specimen.conditioning_required is None:
+        specimen.conditioning_required = _conditioning_required_flag(
+            get_test_guidance(test.code).get('conditioning_required')
+        )
+
     specimen.planned_pressure_mpa = planned_pressure_mpa
     specimen.actual_pressure_at_failure_mpa = actual_pressure_at_failure_mpa
     specimen.pressure_at_hold_mpa = pressure_at_hold_mpa
@@ -1922,29 +1924,35 @@ if specimen.conditioning_required is None:
     _touch_row(specimen)
     session.add(specimen)
 
-        all_specimens = session.exec(
-            select(RndQualificationSpecimen)
-            .where(RndQualificationSpecimen.program_id == program_id)
-            .where(RndQualificationSpecimen.test_id == test_id)
-            .order_by(RndQualificationSpecimen.id.asc())
-        ).all()
-        executed = sum(1 for s in all_specimens if (s.result_status or 'PENDING') != 'PENDING')
-        accepted = sum(1 for s in all_specimens if (s.qa_review_status or 'PENDING') in {'ACCEPTED', 'APPROVED'})
-        test.result_summary = f"{executed} specimen(s) executed, {accepted} QA accepted"
-        if all_specimens and accepted == len(all_specimens):
-            test.status = 'COMPLETE'
-        elif executed:
-            test.status = 'IN_PROGRESS'
-        _touch_row(test)
-        session.add(test)
+    all_specimens = session.exec(
+        select(RndQualificationSpecimen)
+        .where(RndQualificationSpecimen.program_id == program_id)
+        .where(RndQualificationSpecimen.test_id == test_id)
+        .order_by(RndQualificationSpecimen.id.asc())
+    ).all()
+
+    executed = sum(1 for s in all_specimens if (s.result_status or 'PENDING') != 'PENDING')
+    accepted = sum(1 for s in all_specimens if (s.qa_review_status or 'PENDING') in {'ACCEPTED', 'APPROVED'})
+
+    test.result_summary = f"{executed} specimen(s) executed, {accepted} QA accepted"
+    if all_specimens and accepted == len(all_specimens):
+        test.status = 'COMPLETE'
+    elif executed:
+        test.status = 'IN_PROGRESS'
+
+    _touch_row(test)
+    session.add(test)
 
     program = session.get(RndQualificationProgram, program_id)
     if program:
         _touch_program(program)
         session.add(program)
-    session.commit()
-    return RedirectResponse(url=f'/rnd/qualifications/{program_id}/tests/{test_id}', status_code=303)
 
+    session.commit()
+    return RedirectResponse(
+        url=f'/rnd/qualifications/{program_id}/tests/{test_id}',
+        status_code=303,
+    )
 
 @router.post('/qualifications/{program_id}/tests/{test_id}/attachments/new')
 def rnd_add_test_attachment(
