@@ -1697,7 +1697,7 @@ def rnd_add_test_specimen(
     program_id: int,
     test_id: int,
     specimen_id: str = Form(...),
-    test_type: str = Form('MPR_REG'),
+    test_type: str = Form(''),
     sample_date: str = Form(''),
     nominal_size_in: str = Form(''),
     confirmed_od_mm: str = Form(''),
@@ -1749,17 +1749,6 @@ def rnd_add_test_specimen(
         except Exception:
             return None
 
-    def as_int(value):
-        if value is None:
-            return None
-        value = str(value).strip()
-        if value == '':
-            return None
-        try:
-            return int(float(value))
-        except Exception:
-            return None
-
     def as_bool(value):
         return value in (True, 'true', 'True', 'on', '1', 1)
 
@@ -1772,25 +1761,26 @@ def rnd_add_test_specimen(
         except Exception:
             return date.today()
 
-    program = session.get(RndQualificationProgram, program_id)
-    if not program:
-        raise HTTPException(404, 'Program not found')
-
+    # First try to recover the test, even if program_id is stale
     test = session.get(RndQualificationTest, test_id)
 
-    # Fallback: if the posted test_id is stale/wrong, recover from code inside this program
-    if not test or int(test.program_id) != int(program_id):
+    if not test:
         desired_code = (test_type or '').strip().upper()
         if desired_code:
             test = session.exec(
                 select(RndQualificationTest).where(
                     RndQualificationTest.program_id == program_id,
-                    RndQualificationTest.code == desired_code
+                    RndQualificationTest.code == desired_code,
                 )
             ).first()
 
-    if not test or int(test.program_id) != int(program_id):
+    if not test:
         raise HTTPException(404, 'Test not found')
+
+    # Use the real program from the recovered test, not blindly from URL
+    program = session.get(RndQualificationProgram, test.program_id)
+    if not program:
+        raise HTTPException(404, 'Program not found')
 
     safe_batch_ref = (batch_ref or '').strip()
     safe_source_pipe_ref = (source_pipe_ref or '').strip()
@@ -1806,7 +1796,7 @@ def rnd_add_test_specimen(
         program_id=program.id,
         test_id=test.id,
         specimen_id=(specimen_id or '').strip(),
-        test_type=(test_type or test.code or 'MPR_REG').strip().upper(),
+        test_type=(test.code or test_type or 'MPR_REG').strip().upper(),
         sample_date=as_date(sample_date),
         material_ref=safe_material_ref,
         conditioning_required=_conditioning_required_flag(
@@ -1866,7 +1856,6 @@ def rnd_add_test_specimen(
         url=f'/rnd/qualifications/{program.id}/tests/{test.id}',
         status_code=303,
     )
-
 
 @router.post('/qualifications/{program_id}/tests/{test_id}/specimens/{specimen_row_id}/update')
 def rnd_update_test_specimen(
