@@ -1129,21 +1129,21 @@ def _regression_from_specimens(specimens: List[RndQualificationSpecimen], mode: 
     filtered = []
     excluded = []
     for s in specimens:
-    specimen_type = (s.test_type or '').strip().upper()
-    mode_key = (mode or '').strip().upper()
-
-    static_aliases = {'STATIC_REGRESSION', 'MPR_REG'}
-    cyclic_aliases = {'CYCLIC_REGRESSION', 'CYCLIC_REG'}
-
-    if mode_key in static_aliases:
-        if specimen_type not in static_aliases:
-            continue
-    elif mode_key in cyclic_aliases:
-        if specimen_type not in cyclic_aliases:
-            continue
-    else:
-        if specimen_type != mode_key:
-            continue
+        specimen_type = (s.test_type or '').strip().upper()
+        mode_key = (mode or '').strip().upper()
+    
+        static_aliases = {'STATIC_REGRESSION', 'MPR_REG'}
+        cyclic_aliases = {'CYCLIC_REGRESSION', 'CYCLIC_REG'}
+    
+        if mode_key in static_aliases:
+            if specimen_type not in static_aliases:
+                continue
+        elif mode_key in cyclic_aliases:
+            if specimen_type not in cyclic_aliases:
+                continue
+        else:
+            if specimen_type != mode_key:
+                continue
         if not s.include_in_regression or not s.permissible_failure:
             excluded.append(s)
             continue
