@@ -1805,7 +1805,11 @@ def rnd_add_test_specimen(
         nominal_size_in=as_float(nominal_size_in) or program.nominal_size_in,
         confirmed_od_mm=as_float(confirmed_od_mm),
         preparation_rule_basis=(preparation_rule_basis or '').strip(),
-        pressure_mpa=as_float(pressure_mpa) or 0.0,
+        pressure_mpa=(
+            as_float(actual_pressure_at_failure_mpa)
+            if as_float(actual_pressure_at_failure_mpa) is not None and (test.code or '').upper() in {'MPR_REG', 'CYCLIC_REG'}
+            else (as_float(pressure_mpa) or 0.0)
+        ),
         temperature_c=as_float(temperature_c) or program.maot_c,
         failure_hours=as_float(failure_hours),
         failure_cycles=as_float(failure_cycles),
@@ -1902,6 +1906,9 @@ def rnd_update_test_specimen(
 
     specimen.planned_pressure_mpa = planned_pressure_mpa
     specimen.actual_pressure_at_failure_mpa = actual_pressure_at_failure_mpa
+    # Keep regression pressure in sync with the execution pressure for regression-style tests
+    if actual_pressure_at_failure_mpa is not None and (test.code or '').upper() in {'MPR_REG', 'CYCLIC_REG'}:
+        specimen.pressure_mpa = actual_pressure_at_failure_mpa
     specimen.pressure_at_hold_mpa = pressure_at_hold_mpa
     specimen.failure_time_sec = failure_time_sec
     specimen.failure_hours = failure_hours
