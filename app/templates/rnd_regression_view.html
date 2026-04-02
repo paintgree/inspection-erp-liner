@@ -12,6 +12,11 @@
         <div class="muted">{{ program.program_code }} · {{ program.title }}</div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;"><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back to Program</a></div>
+      {% if mpr_test %}
+      <a href="/rnd/qualifications/{{ program.id }}/tests/{{ mpr_test.id }}" class="btn btn-secondary">
+        Back to Long-term Hydrostatic Test
+      </a>
+      {% endif %}
     </div>
   </section>
 
