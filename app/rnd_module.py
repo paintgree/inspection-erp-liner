@@ -1644,6 +1644,11 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
         raise HTTPException(404, 'Test not found')
     
     program = session.get(RndQualificationProgram, test.program_id)
+    mpr_test = session.exec(
+        select(RndQualificationTest)
+        .where(RndQualificationTest.program_id == program_id)
+        .where(RndQualificationTest.code == 'MPR_REG')
+    ).first()
     if not program:
         raise HTTPException(404, 'Program not found')
     
@@ -1651,11 +1656,7 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
         raise HTTPException(400, 'Test does not belong to this program')
 
 
-    mpr_test = session.exec(
-        select(RndQualificationTest)
-        .where(RndQualificationTest.program_id == program_id)
-        .where(RndQualificationTest.code == 'MPR_REG')
-    ).first()
+
 
     prep = get_specimen_prep(test.code)
     guidance = get_test_guidance(test.code)
