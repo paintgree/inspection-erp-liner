@@ -11,13 +11,20 @@
         <h1 style="margin:0;">Regression Workspace</h1>
         <div class="muted">{{ program.program_code }} · {{ program.title }}</div>
       </div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;"><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back to Program</a></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back to Program</a>
+        {% if mpr_test_id %}
+        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/tests/{{ mpr_test_id }}">Back to Long-term Hydrostatic Test</a>
+        {% endif %}
+      </div>
     </div>
   </section>
-      {% if mpr_test %}
-      <a href="/rnd/qualifications/{{ program.id }}/tests/{{ mpr_test.id }}" class="btn btn-secondary">
-        Back to Long-term Hydrostatic Test
-      </a>
+      {% if mpr_test_id %}
+      <div style="margin-top:10px;">
+        <a href="/rnd/qualifications/{{ program.id }}/tests/{{ mpr_test_id }}" class="btn btn-ghost">
+          Back to Long-term Hydrostatic Test
+        </a>
+      </div>
       {% endif %}
   <section class="rr-grid">
     <div style="display:grid;gap:18px;">
