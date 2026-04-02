@@ -1650,6 +1650,13 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
     if int(program_id) != int(test.program_id):
         raise HTTPException(400, 'Test does not belong to this program')
 
+
+    mpr_test = session.exec(
+        select(RndQualificationTest)
+        .where(RndQualificationTest.program_id == program_id)
+        .where(RndQualificationTest.code == 'MPR_REG')
+    ).first()
+
     prep = get_specimen_prep(test.code)
     guidance = get_test_guidance(test.code)
 
@@ -1701,6 +1708,7 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
             'guidance': guidance,
             'materials': materials,
             'material_options': material_options,
+            'mpr_test': mpr_test,
         }
     )
 
