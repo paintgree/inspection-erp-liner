@@ -63,6 +63,14 @@
 {% set active_tab = request.query_params.get('tab', 'overview') %}
 {% set error_code = request.query_params.get('error', '') %}
 {% set selected_specimen_id = request.query_params.get('specimen_id') %}
+{% set ns = namespace(selected=None) %}
+{% if selected_specimen_id %}
+  {% for s in specimens %}
+    {% if s.id == selected_specimen_id|int %}
+      {% set ns.selected = s %}
+    {% endif %}
+  {% endfor %}
+{% endif %}
 
 <div class="rnd-shell">
   <section class="rnd-card">
@@ -318,15 +326,6 @@
           </div>
         </form>
       </article>
-      {% endif %}
-
-      {% set ns = namespace(selected=None) %}
-      {% if selected_specimen_id %}
-        {% for s in specimens %}
-          {% if s.id == selected_specimen_id|int %}
-            {% set ns.selected = s %}
-          {% endif %}
-        {% endfor %}
       {% endif %}
 
       {% if ns.selected %}
