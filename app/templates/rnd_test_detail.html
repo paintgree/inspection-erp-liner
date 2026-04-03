@@ -158,7 +158,13 @@
         </div>
       
         <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/specimens/{{ specimen.id }}/update" class="rnd-specimen-form">
+      
           {% if test.code == 'MPR_REG' or test.code == 'STATIC_REGRESSION' %}
+            <div class="summary-box" style="margin-bottom:14px;">
+              <b>Static regression execution</b>
+              Record the real pressure-failure point and observations used for long-term hydrostatic regression.
+            </div>
+      
             <div class="summary-box" style="margin-bottom:14px;">
               <b>Product traceability</b>
               Final product test linked by Source {{ specimen.source_pipe_ref or '-' }} and Batch {{ specimen.batch_ref or '-' }}
@@ -249,42 +255,23 @@
                 <input type="number" step="any" name="pressure_at_hold_mpa" value="{{ specimen.pressure_at_hold_mpa or '' }}">
               </label>
               <label>
-                Result Status
-                <select name="result_status">
-                  {% for st in ['PENDING','RUNNING','PASS','FAIL','COMPLETE'] %}
-                  <option value="{{ st }}" {% if (specimen.result_status or 'PENDING') == st %}selected{% endif %}>{{ st }}</option>
-                  {% endfor %}
-                </select>
+                Failure / Result Mode
+                <input name="failure_mode" value="{{ specimen.failure_mode or '' }}" placeholder="no failure / leak / burst / fitting leak">
               </label>
             </div>
       
             <div class="form-grid form-grid-3">
               <label>
-                Failure / Observation Mode
-                <input name="failure_mode" value="{{ specimen.failure_mode or '' }}" placeholder="no failure / leak / burst / fitting leak">
-              </label>
-              <label>
                 Failure Location
                 <input name="failure_location" value="{{ specimen.failure_location or '' }}" placeholder="body / fitting / connector">
               </label>
               <label>
-                QA Review
-                <select name="qa_review_status">
-                  {% for st in ['PENDING','UNDER_REVIEW','ACCEPTED','APPROVED','REJECTED'] %}
-                  <option value="{{ st }}" {% if (specimen.qa_review_status or 'PENDING') == st %}selected{% endif %}>{{ st }}</option>
-                  {% endfor %}
-                </select>
-              </label>
-            </div>
-      
-            <div class="form-grid form-grid-2">
-              <label>
-                Pre-test / setup condition
-                <textarea name="pre_failure_condition" rows="4" placeholder="conditioning, restraint, temperature stability, setup notes">{{ specimen.pre_failure_condition or '' }}</textarea>
+                Before-test / setup condition
+                <input name="pre_failure_condition" value="{{ specimen.pre_failure_condition or '' }}" placeholder="restraint / conditioning / temperature">
               </label>
               <label>
-                End-of-test / leakage observation
-                <textarea name="leak_observation" rows="4" placeholder="survived to 1000 h, leak check result, fitting condition">{{ specimen.leak_observation or '' }}</textarea>
+                Leak / end-of-test observation
+                <input name="leak_observation" value="{{ specimen.leak_observation or '' }}" placeholder="survived to 1000 h / leak seen / fitting status">
               </label>
             </div>
       
@@ -292,6 +279,189 @@
               Notes
               <textarea name="notes" rows="3" placeholder="1000-hour confirmation remarks">{{ specimen.notes or '' }}</textarea>
             </label>
+      
+          {% elif test.code == 'TEMP_CYCLE' or test.code == 'THERMAL' %}
+            <div class="summary-box" style="margin-bottom:14px;">
+              <b>Temperature cycling execution</b>
+              Record the qualified cycle range, achieved cycle count, and final leak / seal status.
+            </div>
+      
+            <div class="form-grid form-grid-4">
+              <label>
+                High Temperature (°C)
+                <input type="number" step="any" name="planned_pressure_mpa" value="{{ specimen.planned_pressure_mpa or '' }}" placeholder="use as high temp placeholder if backend not split yet">
+              </label>
+              <label>
+                Low Temperature (°C)
+                <input type="number" step="any" name="pressure_at_hold_mpa" value="{{ specimen.pressure_at_hold_mpa or '' }}" placeholder="use as low temp placeholder if backend not split yet">
+              </label>
+              <label>
+                Cycle Count
+                <input type="number" step="any" name="failure_cycles" value="{{ specimen.failure_cycles or '' }}">
+              </label>
+              <label>
+                Hold / Leak Test Pressure (MPa)
+                <input type="number" step="any" name="actual_pressure_at_failure_mpa" value="{{ specimen.actual_pressure_at_failure_mpa or '' }}">
+              </label>
+            </div>
+      
+            <div class="form-grid form-grid-3">
+              <label>
+                Final Result / Failure Mode
+                <input name="failure_mode" value="{{ specimen.failure_mode or '' }}" placeholder="no leak / leak / seal relaxation">
+              </label>
+              <label>
+                Failure Location
+                <input name="failure_location" value="{{ specimen.failure_location or '' }}" placeholder="fitting / seal / body">
+              </label>
+              <label>
+                Post-cycle observation
+                <input name="leak_observation" value="{{ specimen.leak_observation or '' }}" placeholder="leak check / visible damage / retained seal">
+              </label>
+            </div>
+      
+            <div class="form-grid form-grid-2">
+              <label>
+                Pre-cycle setup
+                <textarea name="pre_failure_condition" rows="4" placeholder="installation condition, low-temp fit-up, cycle range">{{ specimen.pre_failure_condition or '' }}</textarea>
+              </label>
+              <label>
+                Notes
+                <textarea name="notes" rows="4" placeholder="cycling remarks">{{ specimen.notes or '' }}</textarea>
+              </label>
+            </div>
+      
+          {% elif test.code == 'RAPID_DECOMP' %}
+            <div class="summary-box" style="margin-bottom:14px;">
+              <b>Rapid decompression execution</b>
+              Record soak conditions, decompression behavior, and post-test blistering / collapse / disbondment observations.
+            </div>
+      
+            <div class="form-grid form-grid-4">
+              <label>
+                Soak Pressure (MPa)
+                <input type="number" step="any" name="planned_pressure_mpa" value="{{ specimen.planned_pressure_mpa or '' }}">
+              </label>
+              <label>
+                Decompression Stop Pressure (MPa)
+                <input type="number" step="any" name="pressure_at_hold_mpa" value="{{ specimen.pressure_at_hold_mpa or '' }}">
+              </label>
+              <label>
+                Soak Duration (hours)
+                <input type="number" step="any" name="failure_hours" value="{{ specimen.failure_hours or '' }}">
+              </label>
+              <label>
+                Decompression Rate / Cycle Count
+                <input type="number" step="any" name="failure_cycles" value="{{ specimen.failure_cycles or '' }}" placeholder="use count or rate reference">
+              </label>
+            </div>
+      
+            <div class="form-grid form-grid-3">
+              <label>
+                Failure / Observation Mode
+                <input name="failure_mode" value="{{ specimen.failure_mode or '' }}" placeholder="blistering / collapse / no damage">
+              </label>
+              <label>
+                Failure Location
+                <input name="failure_location" value="{{ specimen.failure_location or '' }}" placeholder="liner / cover / interface / fitting">
+              </label>
+              <label>
+                Leak / decompression observation
+                <input name="leak_observation" value="{{ specimen.leak_observation or '' }}" placeholder="gas release / cover response / annulus effect">
+              </label>
+            </div>
+      
+            <div class="form-grid form-grid-2">
+              <label>
+                Pre-test condition / gas / setup
+                <textarea name="pre_failure_condition" rows="4" placeholder="gas medium, MAOT, soak setup, decompression profile">{{ specimen.pre_failure_condition or '' }}</textarea>
+              </label>
+              <label>
+                Post-test visual / disbondment observation
+                <textarea name="post_failure_visual" rows="4" placeholder="collapse, blistering, disbondment, cover rupture">{{ specimen.post_failure_visual or '' }}</textarea>
+              </label>
+            </div>
+      
+            <label>
+              Failure description
+              <textarea name="failure_description" rows="3" placeholder="what happened during / after decompression">{{ specimen.failure_description or '' }}</textarea>
+            </label>
+      
+          {% elif test.code == 'IMPACT' %}
+            <div class="summary-box" style="margin-bottom:14px;">
+              <b>Impact resistance execution</b>
+              Record impact setup, post-impact inspection, and follow-up pressure / acceptance result.
+            </div>
+      
+            <div class="form-grid form-grid-4">
+              <label>
+                Impact Energy / Setup
+                <input name="pre_failure_condition" value="{{ specimen.pre_failure_condition or '' }}" placeholder="tup / energy / temperature">
+              </label>
+              <label>
+                Follow-up Pressure (MPa)
+                <input type="number" step="any" name="planned_pressure_mpa" value="{{ specimen.planned_pressure_mpa or '' }}">
+              </label>
+              <label>
+                Failure / Result Mode
+                <input name="failure_mode" value="{{ specimen.failure_mode or '' }}" placeholder="no breach / cover breach / leak / burst">
+              </label>
+              <label>
+                Failure Location
+                <input name="failure_location" value="{{ specimen.failure_location or '' }}" placeholder="impact point / body / fitting">
+              </label>
+            </div>
+      
+            <div class="form-grid form-grid-2">
+              <label>
+                Post-impact visual
+                <textarea name="post_failure_visual" rows="4" placeholder="cover breach, dent, crack, visible damage">{{ specimen.post_failure_visual or '' }}</textarea>
+              </label>
+              <label>
+                Notes
+                <textarea name="notes" rows="4" placeholder="impact resistance remarks">{{ specimen.notes or '' }}</textarea>
+              </label>
+            </div>
+      
+          {% elif test.code == 'AXIAL_LOAD' or test.code == 'AXIAL' %}
+            <div class="summary-box" style="margin-bottom:14px;">
+              <b>Axial load capability execution</b>
+              Record axial load conditioning and post-load proof result.
+            </div>
+      
+            <div class="form-grid form-grid-4">
+              <label>
+                Applied Axial Load
+                <input name="pre_failure_condition" value="{{ specimen.pre_failure_condition or '' }}" placeholder="kN / lbf / load note">
+              </label>
+              <label>
+                Hold Duration
+                <input type="number" step="any" name="failure_time_sec" value="{{ specimen.failure_time_sec or '' }}" placeholder="seconds">
+              </label>
+              <label>
+                Follow-up Pressure (MPa)
+                <input type="number" step="any" name="planned_pressure_mpa" value="{{ specimen.planned_pressure_mpa or '' }}">
+              </label>
+              <label>
+                Result / Failure Mode
+                <input name="failure_mode" value="{{ specimen.failure_mode or '' }}" placeholder="pass / leak / slip / rupture">
+              </label>
+            </div>
+      
+            <div class="form-grid form-grid-3">
+              <label>
+                Failure Location
+                <input name="failure_location" value="{{ specimen.failure_location or '' }}" placeholder="fitting / body / connector">
+              </label>
+              <label>
+                Post-load observation
+                <input name="leak_observation" value="{{ specimen.leak_observation or '' }}" placeholder="leak / movement / retained load integrity">
+              </label>
+              <label>
+                Notes
+                <input name="notes" value="{{ specimen.notes or '' }}" placeholder="axial test remarks">
+              </label>
+            </div>
       
           {% else %}
             <div class="summary-box" style="margin-bottom:14px;">
