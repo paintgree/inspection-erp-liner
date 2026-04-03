@@ -130,21 +130,49 @@
       <article class="qc-card">
         <h2 style="margin-top:0;">Materials control</h2>
         <table class="qc-table">
-          <thead><tr><th>Component</th><th>Material</th><th>Certificate</th><th>Batch</th><th>Status</th></tr></thead>
+          <thead>
+            <tr>
+              <th>Component</th>
+              <th>Material</th>
+              <th>Supplier</th>
+              <th>Grade</th>
+              <th>Certificate</th>
+              <th>Batch</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
           <tbody>
             {% for m in materials %}
             <tr>
-              <td>{{ m.component }}</td>
-              <td>{{ m.material_name or '-' }}</td>
-              <td>{{ m.certificate_ref or '-' }}</td>
-              <td>{{ m.batch_ref or '-' }}</td>
-              <td>{{ m.status }}</td>
+              <form method="post" action="/rnd/qualifications/{{ program.id }}/materials/{{ m.id }}">
+                <td>{{ m.component }}</td>
+                <td><input name="material_name" value="{{ m.material_name or '' }}"></td>
+                <td><input name="supplier_name" value="{{ m.supplier_name or '' }}"></td>
+                <td><input name="grade_name" value="{{ m.grade_name or '' }}"></td>
+                <td><input name="certificate_ref" value="{{ m.certificate_ref or '' }}"></td>
+                <td><input name="batch_ref" value="{{ m.batch_ref or '' }}"></td>
+                <td>
+                  <select name="status">
+                    {% for st in ['PLANNED','IN_PROGRESS','APPROVED','ACCEPTED','COMPLETE'] %}
+                    <option value="{{ st }}" {% if (m.status or 'PLANNED') == st %}selected{% endif %}>{{ st }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td>
+                  <input type="hidden" name="notes" value="{{ m.notes or '' }}">
+                  <button class="btn btn-ghost" type="submit">Save</button>
+                </td>
+              </form>
             </tr>
             {% else %}
-            <tr><td colspan="5" class="muted">No material rows yet.</td></tr>
+            <tr><td colspan="8" class="muted">No material rows yet.</td></tr>
             {% endfor %}
           </tbody>
         </table>
+        <div class="qc-note" style="margin-top:14px;">
+          Record traceable liner, reinforcement, and cover information here before test execution and final qualification review.
+        </div>
       </article>
 
       <article class="qc-card">
