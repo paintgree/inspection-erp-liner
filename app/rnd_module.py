@@ -1128,13 +1128,14 @@ def _t_critical_975(df: int) -> float:
 def _regression_from_specimens(specimens: List[RndQualificationSpecimen], mode: str = 'STATIC_REGRESSION', target_npr_mpa: float = 0.0) -> dict:
     filtered = []
     excluded = []
+
     for s in specimens:
         specimen_type = (s.test_type or '').strip().upper()
         mode_key = (mode or '').strip().upper()
-    
+
         static_aliases = {'STATIC_REGRESSION', 'MPR_REG'}
         cyclic_aliases = {'CYCLIC_REGRESSION', 'CYCLIC_REG'}
-    
+
         if mode_key in static_aliases:
             if specimen_type not in static_aliases:
                 continue
@@ -1144,37 +1145,61 @@ def _regression_from_specimens(specimens: List[RndQualificationSpecimen], mode: 
         else:
             if specimen_type != mode_key:
                 continue
+
         if not s.include_in_regression or not s.permissible_failure:
             excluded.append(s)
             continue
-        x_raw = s.failure_hours if mode == 'STATIC_REGRESSION' else s.failure_cycles
+
+        x_raw = s.failure_hours if mode_key in static_aliases else s.failure_cycles
         y_raw = s.pressure_mpa
+
         if x_raw is None or y_raw is None or x_raw <= 0 or y_raw <= 0:
             continue
-        if mode == 'STATIC_REGRESSION' and x_raw < 10:
+
+        if mode_key in static_aliases and x_raw < 10:
             excluded.append(s)
             continue
+
         filtered.append(s)
 
     n = len(filtered)
-    required_minimum = 18 if mode in {'STATIC_REGRESSION', 'CYCLIC_REGRESSION'} else 2
-    result = {'count': n, 'required_minimum': required_minimum, 'points': [], 'excluded_count': len(excluded), 'excluded_ids': [s.specimen_id for s in excluded], 'warning': ''}
+    required_minimum = 18 if mode.upper() in {'STATIC_REGRESSION', 'CYCLIC_REGRESSION', 'MPR_REG', 'CYCLIC_REG'} else 2
+
+    result = {
+        'count': n,
+        'required_minimum': required_minimum,
+        'points': [],
+        'excluded_count': len(excluded),
+        'excluded_ids': [s.specimen_id for s in excluded],
+        'warning': '',
+    }
+
     if n < 2:
         result['warning'] = 'Need at least 2 valid points to calculate a regression line.'
         return result
 
     pts, xs, ys = [], [], []
     for s in filtered:
-        x_raw = s.failure_hours if mode == 'STATIC_REGRESSION' else s.failure_cycles
+        x_raw = s.failure_hours if mode_key in static_aliases else s.failure_cycles
         y_raw = s.pressure_mpa
         x = math.log10(float(x_raw))
         y = math.log10(float(y_raw))
-        xs.append(x); ys.append(y)
-        pts.append({'specimen_id': s.specimen_id, 'x_raw': x_raw, 'y_raw': y_raw, 'x': x, 'y': y, 'temperature_c': s.temperature_c, 'failure_mode': s.failure_mode})
+        xs.append(x)
+        ys.append(y)
+        pts.append({
+            'specimen_id': s.specimen_id,
+            'x_raw': x_raw,
+            'y_raw': y_raw,
+            'x': x,
+            'y': y,
+            'temperature_c': s.temperature_c,
+            'failure_mode': s.failure_mode
+        })
 
     x_bar = sum(xs) / n
     y_bar = sum(ys) / n
     sxx = sum((x - x_bar) ** 2 for x in xs)
+
     if sxx == 0:
         result.update({'points': pts, 'warning': 'All time values are identical; regression cannot be calculated.'})
         return result
@@ -1182,26 +1207,39 @@ def _regression_from_specimens(specimens: List[RndQualificationSpecimen], mode: 
     sxy = sum((xs[i] - x_bar) * (ys[i] - y_bar) for i in range(n))
     slope = sxy / sxx
     intercept = y_bar - slope * x_bar
+
     residuals = [ys[i] - (intercept + slope * xs[i]) for i in range(n)]
     df = max(1, n - 2)
     syx = math.sqrt(sum(r * r for r in residuals) / df)
     tcrit = _t_critical_975(df)
 
-    def _predict(x_val: float) -> tuple[float, float, float]:
+    def _predict_components(x_val: float) -> dict:
         mean_y = intercept + slope * x_val
         mean_se = syx * math.sqrt((1 / n) + ((x_val - x_bar) ** 2 / sxx))
         pred_se = syx * math.sqrt(1 + (1 / n) + ((x_val - x_bar) ** 2 / sxx))
         lcl_y = mean_y - tcrit * mean_se
         lpl_y = mean_y - tcrit * pred_se
-        return mean_y, lcl_y, lpl_y
+        return {
+            'x_val': x_val,
+            'mean_y': mean_y,
+            'mean_se': mean_se,
+            'pred_se': pred_se,
+            'lcl_y': lcl_y,
+            'lpl_y': lpl_y,
+            'mean_pressure': 10 ** mean_y,
+            'lcl_pressure': 10 ** lcl_y,
+            'lpl_pressure': 10 ** lpl_y,
+        }
 
-    basis_x = math.log10(RCRT_HOURS if mode == 'STATIC_REGRESSION' else CYCLIC_BASIS_CYCLES)
-    y_basis, lcl_basis, lpl_basis = _predict(basis_x)
-    mean_basis_mpa = 10 ** y_basis
-    lcl_basis_mpa = 10 ** lcl_basis
-    lpl_basis_mpa = 10 ** lpl_basis
-    design_factor = DESIGN_FACTOR_NONMETALLIC if mode == 'STATIC_REGRESSION' else 1.0
-    mpr_mpa = lcl_basis_mpa * design_factor if mode == 'STATIC_REGRESSION' else lcl_basis_mpa
+    basis_x = math.log10(RCRT_HOURS if mode_key in static_aliases else CYCLIC_BASIS_CYCLES)
+    basis_calc = _predict_components(basis_x)
+
+    mean_basis_mpa = basis_calc['mean_pressure']
+    lcl_basis_mpa = basis_calc['lcl_pressure']
+    lpl_basis_mpa = basis_calc['lpl_pressure']
+
+    design_factor = DESIGN_FACTOR_NONMETALLIC if mode_key in static_aliases else 1.0
+    mpr_mpa = lcl_basis_mpa * design_factor if mode_key in static_aliases else lcl_basis_mpa
     margin_mpa = mpr_mpa - target_npr_mpa if target_npr_mpa else None
     pass_status = None if not target_npr_mpa else ('PASS' if mpr_mpa >= target_npr_mpa else 'FAIL')
 
@@ -1211,19 +1249,45 @@ def _regression_from_specimens(specimens: List[RndQualificationSpecimen], mode: 
     steps = 24
     for i in range(steps + 1):
         x_val = x_min + (x_max - x_min) * i / steps
-        mean_y, lcl_y, lpl_y = _predict(x_val)
-        chart_points.append({'x': x_val, 'time_or_cycles': round(10 ** x_val, 3), 'mean_pressure': round(10 ** mean_y, 4), 'lcl_pressure': round(10 ** lcl_y, 4), 'lpl_pressure': round(10 ** lpl_y, 4)})
+        comp = _predict_components(x_val)
+        chart_points.append({
+            'x': x_val,
+            'time_or_cycles': round(10 ** x_val, 3),
+            'mean_pressure': round(comp['mean_pressure'], 4),
+            'lcl_pressure': round(comp['lcl_pressure'], 4),
+            'lpl_pressure': round(comp['lpl_pressure'], 4)
+        })
 
     result.update({
-        'points': pts, 'slope': slope, 'intercept': intercept, 'syx': syx, 'tcrit': tcrit, 'x_bar': x_bar, 'y_bar': y_bar,
-        'x_basis': basis_x, 'rcrt_hours': RCRT_HOURS, 'cyclic_basis_cycles': CYCLIC_BASIS_CYCLES,
-        'mean_rcrt_mpa': mean_basis_mpa, 'lcl_rcrt_mpa': lcl_basis_mpa, 'lpl_rcrt_mpa': lpl_basis_mpa,
-        'chart_points': chart_points, 'design_factor': design_factor, 'mpr_mpa': mpr_mpa,
-        'target_npr_mpa': target_npr_mpa, 'margin_mpa': margin_mpa, 'pass_status': pass_status,
+        'points': pts,
+        'slope': slope,
+        'intercept': intercept,
+        'syx': syx,
+        'tcrit': tcrit,
+        'x_bar': x_bar,
+        'y_bar': y_bar,
+        'sxx': sxx,
+        'n': n,
+        'df': df,
+        'x_basis': basis_x,
+        'rcrt_hours': RCRT_HOURS,
+        'cyclic_basis_cycles': CYCLIC_BASIS_CYCLES,
+        'mean_rcrt_mpa': mean_basis_mpa,
+        'lcl_rcrt_mpa': lcl_basis_mpa,
+        'lpl_rcrt_mpa': lpl_basis_mpa,
+        'chart_points': chart_points,
+        'design_factor': design_factor,
+        'mpr_mpa': mpr_mpa,
+        'target_npr_mpa': target_npr_mpa,
+        'margin_mpa': margin_mpa,
+        'pass_status': pass_status,
         'formula_text': 'log10(P) = intercept + slope * log10(time)',
+        'basis_calc': basis_calc,
     })
+
     if n < required_minimum:
         result['warning'] = 'Regression is calculated, but you are below the readiness target for a full qualification set.'
+
     return result
 
 
