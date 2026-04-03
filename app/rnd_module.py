@@ -1868,6 +1868,16 @@ def rnd_add_test_specimen(
     if not program:
         raise HTTPException(404, 'Program not found')
 
+    existing_specimen = session.exec(
+        select(RndQualificationSpecimen)
+        .where(RndQualificationSpecimen.program_id == program.id)
+        .where(RndQualificationSpecimen.test_id == test.id)
+        .where(RndQualificationSpecimen.specimen_id == (specimen_id or '').strip())
+    ).first()
+    
+    if existing_specimen:
+        raise HTTPException(400, 'Specimen ID already exists for this test')
+
     safe_batch_ref = (batch_ref or '').strip()
     safe_source_pipe_ref = (source_pipe_ref or '').strip()
 
