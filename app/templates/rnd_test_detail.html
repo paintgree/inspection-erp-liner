@@ -120,77 +120,246 @@
         </form>
       </article>
 
-      <article class="rnd-card">
-        <h2 class="rnd-section-title">2) Capture execution + failure data</h2>
-        <p class="rnd-sub" style="margin-top:0;">This is the missing practical layer: every specimen can now hold before-failure condition, pressure at failure, leak / burst behavior, and post-failure observations.</p>
-        {% if specimens %}
-          <div class="rnd-stack">
-            {% for s in specimens %}
-            <div class="rnd-specimen">
-              <div class="rnd-specimen-head">
-                <div>
-                  <h3 style="margin:0;">{{ s.specimen_id }}</h3>
-                  <div class="rnd-sub">{{ s.sample_date }} · Source {{ s.source_pipe_ref or '-' }} · Batch {{ s.batch_ref or '-' }}</div>
-                </div>
-                <div class="rnd-actions">
-                  <span class="rnd-badge {% if s.result_status == 'PASS' %}ok{% elif s.result_status == 'FAIL' %}warn{% else %}muted{% endif %}">{{ s.result_status or 'PENDING' }}</span>
-                  <span class="rnd-badge {% if s.qa_review_status in ['ACCEPTED','APPROVED'] %}ok{% else %}muted{% endif %}">QA {{ s.qa_review_status or 'PENDING' }}</span>
-                </div>
-              </div>
-
-              <div class="rnd-specimen-grid" style="margin-bottom:12px;">
-                <div class="rnd-alert"><strong>Preparation</strong><br>OD {{ s.confirmed_od_mm or '-' }} mm · Rule {{ s.preparation_rule_basis or '-' }}</div>
-                <div class="rnd-alert"><strong>Cut data</strong><br>Total {{ s.total_cut_length_mm or '-' }} mm · Effective {{ s.effective_length_mm or '-' }} mm</div>
-                <div class="rnd-alert"><strong>Release state</strong><br>{% if s.released_for_test %}Released{% else %}Not released{% endif %} · {% if s.pretest_visual_ok %}Visual OK{% else %}Visual pending{% endif %}</div>
-              </div>
-
-              <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/specimens/{{ s.id }}/update" class="rnd-form-grid">
-                <div class="span-6 rnd-alert"><strong>Product traceability</strong><br>Final product test linked by Source {{ s.source_pipe_ref or '-' }} and Batch {{ s.batch_ref or '-' }}</div>
-                <label class="span-6">Planned Pressure (MPa)<input type="number" step="0.01" name="planned_pressure_mpa" value="{{ '' if s.planned_pressure_mpa is none else s.planned_pressure_mpa }}"></label>
-                <label class="span-3">Actual Pressure at Failure (MPa)<input type="number" step="0.01" name="actual_pressure_at_failure_mpa" value="{{ '' if s.actual_pressure_at_failure_mpa is none else s.actual_pressure_at_failure_mpa }}"></label>
-                <label class="span-3">Pressure at Hold / Stop (MPa)<input type="number" step="0.01" name="pressure_at_hold_mpa" value="{{ '' if s.pressure_at_hold_mpa is none else s.pressure_at_hold_mpa }}"></label>
-                <label class="span-3">Failure Time (sec)<input type="number" step="0.01" name="failure_time_sec" value="{{ '' if s.failure_time_sec is none else s.failure_time_sec }}"></label>
-
-                <label class="span-3">Failure Hours<input type="number" step="0.01" name="failure_hours" value="{{ '' if s.failure_hours is none else s.failure_hours }}"></label>
-                <label class="span-3">Failure Cycles<input type="number" step="0.01" name="failure_cycles" value="{{ '' if s.failure_cycles is none else s.failure_cycles }}"></label>
-                <label class="span-3">Failure Mode<input type="text" name="failure_mode" value="{{ s.failure_mode or '' }}" placeholder="burst / pinhole / fitting leak"></label>
-                <label class="span-3">Failure Location<input type="text" name="failure_location" value="{{ s.failure_location or '' }}" placeholder="mid-span / end fitting / side A"></label>
-
-                <label class="span-6">Before-failure condition<textarea name="pre_failure_condition" rows="2" placeholder="pressure ramp, conditioning state, restraint, test deviations">{{ s.pre_failure_condition or '' }}</textarea></label>
-                <label class="span-6">Before-failure visual<textarea name="pre_failure_visual" rows="2" placeholder="visible marks, swelling, fittings, dimensional state">{{ s.pre_failure_visual or '' }}</textarea></label>
-                <label class="span-6">Failure description<textarea name="failure_description" rows="2" placeholder="what physically happened at failure">{{ s.failure_description or '' }}</textarea></label>
-                <label class="span-6">Post-failure visual / leak observation<textarea name="post_failure_visual" rows="2" placeholder="split shape, reinforcement exposure, post-failure appearance">{{ s.post_failure_visual or '' }}</textarea></label>
-                <label class="span-12">Leak / burst observation<textarea name="leak_observation" rows="2" placeholder="leak path, audible burst, end fitting leak, delamination note">{{ s.leak_observation or '' }}</textarea></label>
-
-                <label class="span-3">Result Status
-                  <select name="result_status">
-                    {% for opt in ['PENDING','PASS','FAIL','CONDITIONAL'] %}
-                    <option value="{{ opt }}" {% if (s.result_status or 'PENDING') == opt %}selected{% endif %}>{{ opt }}</option>
-                    {% endfor %}
-                  </select>
-                </label>
-                <label class="span-3">QA Review
-                  <select name="qa_review_status">
-                    {% for opt in ['PENDING','UNDER_REVIEW','ACCEPTED','REJECTED'] %}
-                    <option value="{{ opt }}" {% if (s.qa_review_status or 'PENDING') == opt %}selected{% endif %}>{{ opt }}</option>
-                    {% endfor %}
-                  </select>
-                </label>
-                <div class="span-6 rnd-actions" style="align-items:center;">
-                  <label><input type="checkbox" name="permissible_failure" value="1" {% if s.permissible_failure %}checked{% endif %}> Permissible failure mode</label>
-                  <label><input type="checkbox" name="is_runout" value="1" {% if s.is_runout %}checked{% endif %}> Runout / no failure</label>
-                  <label><input type="checkbox" name="include_in_regression" value="1" {% if s.include_in_regression %}checked{% endif %}> Include in regression</label>
-                </div>
-                <label class="span-12">Overall specimen notes<textarea name="notes" rows="2">{{ s.notes or '' }}</textarea></label>
-                <div class="span-12"><button class="btn btn-primary" type="submit">Save execution record</button></div>
-              </form>
+      {% for specimen in specimens %}
+      <article class="rnd-specimen-card">
+        <div class="rnd-specimen-head">
+          <div>
+            <h3 style="margin:0;">{{ specimen.specimen_id }}</h3>
+            <div class="muted">
+              {{ specimen.sample_date or '-' }}
+              {% if specimen.source_pipe_ref %} · Source {{ specimen.source_pipe_ref }}{% endif %}
+              {% if specimen.batch_ref %} · Batch {{ specimen.batch_ref }}{% endif %}
             </div>
-            {% endfor %}
           </div>
-        {% else %}
-          <div class="rnd-alert">No specimens added yet. Start with the specimen register above, then execution forms will appear here.</div>
-        {% endif %}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <span class="status-chip {% if (specimen.result_status or 'PENDING') in ['PASS','COMPLETE'] %}status-pass{% else %}status-pending{% endif %}">
+              {{ specimen.result_status or 'PENDING' }}
+            </span>
+            <span class="status-chip {% if (specimen.qa_review_status or 'PENDING') in ['ACCEPTED','APPROVED'] %}status-pass{% else %}status-pending{% endif %}">
+              {{ specimen.qa_review_status or 'PENDING' }}
+            </span>
+          </div>
+        </div>
+      
+        <div class="rnd-specimen-summary-grid">
+          <div class="summary-box">
+            <b>Preparation</b>
+            OD {{ specimen.confirmed_od_mm or '-' }} mm · Rule {{ specimen.preparation_rule_basis or '-' }}
+          </div>
+          <div class="summary-box">
+            <b>Cut data</b>
+            Total {{ specimen.total_cut_length_mm or '-' }} mm · Effective {{ specimen.effective_length_mm or '-' }} mm
+          </div>
+          <div class="summary-box">
+            <b>Release state</b>
+            {% if specimen.released_for_test %}Released{% else %}Not released{% endif %}
+            · {% if specimen.pretest_visual_ok %}Visual OK{% else %}Visual pending{% endif %}
+          </div>
+        </div>
+      
+        <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/specimens/{{ specimen.id }}/update" class="rnd-specimen-form">
+          {% if test.code == 'MPR_REG' or test.code == 'STATIC_REGRESSION' %}
+            <div class="summary-box" style="margin-bottom:14px;">
+              <b>Product traceability</b>
+              Final product test linked by Source {{ specimen.source_pipe_ref or '-' }} and Batch {{ specimen.batch_ref or '-' }}
+            </div>
+      
+            <div class="form-grid form-grid-4">
+              <label>
+                Planned Pressure (MPa)
+                <input type="number" step="any" name="planned_pressure_mpa" value="{{ specimen.planned_pressure_mpa or '' }}">
+              </label>
+              <label>
+                Actual Pressure at Failure (MPa)
+                <input type="number" step="any" name="actual_pressure_at_failure_mpa" value="{{ specimen.actual_pressure_at_failure_mpa or '' }}">
+              </label>
+              <label>
+                Pressure at Hold / Stop (MPa)
+                <input type="number" step="any" name="pressure_at_hold_mpa" value="{{ specimen.pressure_at_hold_mpa or '' }}">
+              </label>
+              <label>
+                Failure Hours
+                <input type="number" step="any" name="failure_hours" value="{{ specimen.failure_hours or '' }}">
+              </label>
+            </div>
+      
+            <div class="form-grid form-grid-4">
+              <label>
+                Failure Time (sec)
+                <input type="number" step="any" name="failure_time_sec" value="{{ specimen.failure_time_sec or '' }}">
+              </label>
+              <label>
+                Failure Cycles
+                <input type="number" step="any" name="failure_cycles" value="{{ specimen.failure_cycles or '' }}">
+              </label>
+              <label>
+                Failure Mode
+                <input name="failure_mode" value="{{ specimen.failure_mode or '' }}" placeholder="burst / leak / rupture">
+              </label>
+              <label>
+                Failure Location
+                <input name="failure_location" value="{{ specimen.failure_location or '' }}" placeholder="mid-span / fitting / side A">
+              </label>
+            </div>
+      
+            <div class="form-grid form-grid-2">
+              <label>
+                Before-failure condition
+                <textarea name="pre_failure_condition" rows="4" placeholder="pressure ramp, conditioning state, restraint, deviations">{{ specimen.pre_failure_condition or '' }}</textarea>
+              </label>
+              <label>
+                Before-failure visual
+                <textarea name="pre_failure_visual" rows="4" placeholder="visible marks, swelling, fittings, dimensional state">{{ specimen.pre_failure_visual or '' }}</textarea>
+              </label>
+            </div>
+      
+            <div class="form-grid form-grid-2">
+              <label>
+                Failure description
+                <textarea name="failure_description" rows="4" placeholder="what physically happened at failure">{{ specimen.failure_description or '' }}</textarea>
+              </label>
+              <label>
+                Post-failure visual / leak observation
+                <textarea name="post_failure_visual" rows="4" placeholder="split shape, reinforcement exposure, post-failure appearance">{{ specimen.post_failure_visual or '' }}</textarea>
+              </label>
+            </div>
+      
+            <label>
+              Leak / burst observation
+              <textarea name="leak_observation" rows="3" placeholder="leak path, audible burst, fitting leak, delamination note">{{ specimen.leak_observation or '' }}</textarea>
+            </label>
+      
+          {% elif test.code == 'PV_1000H' %}
+            <div class="summary-box" style="margin-bottom:14px;">
+              <b>1000-hour PV confirmation</b>
+              Record the constant pressure level, elapsed duration, and whether the specimen survived to 1000 h without leakage or failure.
+            </div>
+      
+            <div class="form-grid form-grid-4">
+              <label>
+                Hold / Test Pressure (MPa)
+                <input type="number" step="any" name="planned_pressure_mpa" value="{{ specimen.planned_pressure_mpa or specimen.pressure_mpa or '' }}">
+              </label>
+              <label>
+                Elapsed Hours
+                <input type="number" step="any" name="failure_hours" value="{{ specimen.failure_hours or '' }}">
+              </label>
+              <label>
+                Pressure at Stop (MPa)
+                <input type="number" step="any" name="pressure_at_hold_mpa" value="{{ specimen.pressure_at_hold_mpa or '' }}">
+              </label>
+              <label>
+                Result Status
+                <select name="result_status">
+                  {% for st in ['PENDING','RUNNING','PASS','FAIL','COMPLETE'] %}
+                  <option value="{{ st }}" {% if (specimen.result_status or 'PENDING') == st %}selected{% endif %}>{{ st }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
+      
+            <div class="form-grid form-grid-3">
+              <label>
+                Failure / Observation Mode
+                <input name="failure_mode" value="{{ specimen.failure_mode or '' }}" placeholder="no failure / leak / burst / fitting leak">
+              </label>
+              <label>
+                Failure Location
+                <input name="failure_location" value="{{ specimen.failure_location or '' }}" placeholder="body / fitting / connector">
+              </label>
+              <label>
+                QA Review
+                <select name="qa_review_status">
+                  {% for st in ['PENDING','UNDER_REVIEW','ACCEPTED','APPROVED','REJECTED'] %}
+                  <option value="{{ st }}" {% if (specimen.qa_review_status or 'PENDING') == st %}selected{% endif %}>{{ st }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
+      
+            <div class="form-grid form-grid-2">
+              <label>
+                Pre-test / setup condition
+                <textarea name="pre_failure_condition" rows="4" placeholder="conditioning, restraint, temperature stability, setup notes">{{ specimen.pre_failure_condition or '' }}</textarea>
+              </label>
+              <label>
+                End-of-test / leakage observation
+                <textarea name="leak_observation" rows="4" placeholder="survived to 1000 h, leak check result, fitting condition">{{ specimen.leak_observation or '' }}</textarea>
+              </label>
+            </div>
+      
+            <label>
+              Notes
+              <textarea name="notes" rows="3" placeholder="1000-hour confirmation remarks">{{ specimen.notes or '' }}</textarea>
+            </label>
+      
+          {% else %}
+            <div class="summary-box" style="margin-bottom:14px;">
+              <b>Generic execution record</b>
+              This test is still using the generic form. It should later be split into a dedicated workflow for {{ test.code }}.
+            </div>
+      
+            <div class="form-grid form-grid-4">
+              <label>
+                Planned Pressure (MPa)
+                <input type="number" step="any" name="planned_pressure_mpa" value="{{ specimen.planned_pressure_mpa or '' }}">
+              </label>
+              <label>
+                Actual Pressure at Failure (MPa)
+                <input type="number" step="any" name="actual_pressure_at_failure_mpa" value="{{ specimen.actual_pressure_at_failure_mpa or '' }}">
+              </label>
+              <label>
+                Failure Hours
+                <input type="number" step="any" name="failure_hours" value="{{ specimen.failure_hours or '' }}">
+              </label>
+              <label>
+                Failure Mode
+                <input name="failure_mode" value="{{ specimen.failure_mode or '' }}">
+              </label>
+            </div>
+      
+            <label>
+              Notes
+              <textarea name="notes" rows="4">{{ specimen.notes or '' }}</textarea>
+            </label>
+          {% endif %}
+      
+          <div class="form-grid form-grid-4" style="margin-top:14px;">
+            <label>
+              Result Status
+              <select name="result_status">
+                {% for st in ['PENDING','RUNNING','PASS','FAIL','COMPLETE'] %}
+                <option value="{{ st }}" {% if (specimen.result_status or 'PENDING') == st %}selected{% endif %}>{{ st }}</option>
+                {% endfor %}
+              </select>
+            </label>
+      
+            <label>
+              QA Review
+              <select name="qa_review_status">
+                {% for st in ['PENDING','UNDER_REVIEW','ACCEPTED','APPROVED','REJECTED'] %}
+                <option value="{{ st }}" {% if (specimen.qa_review_status or 'PENDING') == st %}selected{% endif %}>{{ st }}</option>
+                {% endfor %}
+              </select>
+            </label>
+      
+            <label style="display:flex;align-items:center;gap:8px;padding-top:30px;">
+              <input type="checkbox" name="permissible_failure" {% if specimen.permissible_failure %}checked{% endif %}>
+              Permissible failure mode
+            </label>
+      
+            <label style="display:flex;align-items:center;gap:8px;padding-top:30px;">
+              <input type="checkbox" name="include_in_regression" {% if specimen.include_in_regression %}checked{% endif %}>
+              Include in regression
+            </label>
+          </div>
+      
+          <div class="form-actions" style="margin-top:16px;">
+            <button class="btn btn-primary" type="submit">Save specimen record</button>
+          </div>
+        </form>
       </article>
+      {% endfor %}
 
       <article class="rnd-card">
         <h2 class="rnd-section-title">3) Evidence register</h2>
