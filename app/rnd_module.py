@@ -1983,6 +1983,8 @@ def rnd_update_test_specimen(
     if not test or test.program_id != program_id:
         raise HTTPException(404, 'Test not found')
 
+    test_code = (test.code or '').strip().upper()
+
     specimen.material_ref = (material_ref or specimen.material_ref or 'FINAL_PRODUCT').strip()
 
     if specimen.conditioning_required is None:
@@ -1990,28 +1992,123 @@ def rnd_update_test_specimen(
             get_test_guidance(test.code).get('conditioning_required')
         )
 
-    specimen.planned_pressure_mpa = planned_pressure_mpa
-    specimen.actual_pressure_at_failure_mpa = actual_pressure_at_failure_mpa
-    # Keep regression pressure in sync with the execution pressure for regression-style tests
-    if actual_pressure_at_failure_mpa is not None and (test.code or '').upper() in {'MPR_REG', 'CYCLIC_REG'}:
-        specimen.pressure_mpa = actual_pressure_at_failure_mpa
-    specimen.pressure_at_hold_mpa = pressure_at_hold_mpa
-    specimen.failure_time_sec = failure_time_sec
-    specimen.failure_hours = failure_hours
-    specimen.failure_cycles = failure_cycles
-    specimen.failure_mode = failure_mode
-    specimen.failure_location = failure_location
-    specimen.failure_description = failure_description
-    specimen.leak_observation = leak_observation
-    specimen.pre_failure_condition = pre_failure_condition
-    specimen.pre_failure_visual = pre_failure_visual
-    specimen.post_failure_visual = post_failure_visual
     specimen.result_status = (result_status or 'PENDING').strip().upper()
     specimen.qa_review_status = (qa_review_status or 'PENDING').strip().upper()
     specimen.permissible_failure = bool(permissible_failure)
     specimen.is_runout = bool(is_runout)
     specimen.include_in_regression = bool(include_in_regression)
-    specimen.notes = notes
+
+    # Shared fields kept for all test types
+    specimen.planned_pressure_mpa = planned_pressure_mpa
+    specimen.pressure_at_hold_mpa = pressure_at_hold_mpa
+    specimen.failure_time_sec = failure_time_sec
+    specimen.failure_hours = failure_hours
+    specimen.failure_cycles = failure_cycles
+    specimen.failure_mode = (failure_mode or '').strip()
+    specimen.failure_location = (failure_location or '').strip()
+    specimen.failure_description = (failure_description or '').strip()
+    specimen.leak_observation = (leak_observation or '').strip()
+    specimen.pre_failure_condition = (pre_failure_condition or '').strip()
+    specimen.pre_failure_visual = (pre_failure_visual or '').strip()
+    specimen.post_failure_visual = (post_failure_visual or '').strip()
+
+    # Test-specific handling
+    if test_code in {'MPR_REG', 'STATIC_REGRESSION'}:
+        specimen.actual_pressure_at_failure_mpa = actual_pressure_at_failure_mpa
+
+        # Keep regression pressure aligned with actual failure pressure
+        if actual_pressure_at_failure_mpa is not None:
+            specimen.pressure_mpa = actual_pressure_at_failure_mpa
+
+        specimen.notes = (notes or '').strip()
+
+    elif test_code == 'PV_1000H':
+        # PV confirmation is about hold pressure + survival duration
+        specimen.actual_pressure_at_failure_mpa = actual_pressure_at_failure_mpa
+        specimen.pressure_mpa = planned_pressure_mpa or specimen.pressure_mpa
+
+        pv_lines = []
+        if pre_failure_condition:
+            pv_lines.append(f"Setup: {pre_failure_condition.strip()}")
+        if leak_observation:
+            pv_lines.append(f"End observation: {leak_observation.strip()}")
+        if notes:
+            pv_lines.append(f"Notes: {notes.strip()}")
+        specimen.notes = "\n".join(pv_lines).strip()
+
+    elif test_code in {'TEMP_CYCLE', 'THERMAL'}:
+        specimen.actual_pressure_at_failure_mpa = actual_pressure_at_failure_mpa
+
+        cycle_lines = [
+            "TEMP_CYCLE RECORD",
+            f"High temp placeholder: {planned_pressure_mpa if planned_pressure_mpa is not None else '-'}",
+            f"Low temp placeholder: {pressure_at_hold_mpa if pressure_at_hold_mpa is not None else '-'}",
+            f"Cycle count: {failure_cycles if failure_cycles is not None else '-'}",
+            f"Leak/proof pressure: {actual_pressure_at_failure_mpa if actual_pressure_at_failure_mpa is not None else '-'}",
+            f"Mode: {(failure_mode or '').strip() or '-'}",
+            f"Location: {(failure_location or '').strip() or '-'}",
+            f"Pre-cycle setup: {(pre_failure_condition or '').strip() or '-'}",
+            f"Post-cycle observation: {(leak_observation or '').strip() or '-'}",
+        ]
+        if notes:
+            cycle_lines.append(f"Notes: {notes.strip()}")
+        specimen.notes = "\n".join(cycle_lines)
+
+    elif test_code == 'RAPID_DECOMP':
+        specimen.actual_pressure_at_failure_mpa = actual_pressure_at_failure_mpa
+
+        decomp_lines = [
+            "RAPID_DECOMP RECORD",
+            f"Soak pressure: {planned_pressure_mpa if planned_pressure_mpa is not None else '-'}",
+            f"Decompression stop pressure: {pressure_at_hold_mpa if pressure_at_hold_mpa is not None else '-'}",
+            f"Soak duration hours: {failure_hours if failure_hours is not None else '-'}",
+            f"Cycle/rate placeholder: {failure_cycles if failure_cycles is not None else '-'}",
+            f"Observation mode: {(failure_mode or '').strip() or '-'}",
+            f"Location: {(failure_location or '').strip() or '-'}",
+            f"Gas/setup: {(pre_failure_condition or '').strip() or '-'}",
+            f"Post-test visual: {(post_failure_visual or '').strip() or '-'}",
+            f"Leak/decompression observation: {(leak_observation or '').strip() or '-'}",
+            f"Failure description: {(failure_description or '').strip() or '-'}",
+        ]
+        if notes:
+            decomp_lines.append(f"Notes: {notes.strip()}")
+        specimen.notes = "\n".join(decomp_lines)
+
+    elif test_code == 'IMPACT':
+        specimen.actual_pressure_at_failure_mpa = actual_pressure_at_failure_mpa
+
+        impact_lines = [
+            "IMPACT RECORD",
+            f"Impact setup: {(pre_failure_condition or '').strip() or '-'}",
+            f"Follow-up pressure: {planned_pressure_mpa if planned_pressure_mpa is not None else '-'}",
+            f"Result mode: {(failure_mode or '').strip() or '-'}",
+            f"Location: {(failure_location or '').strip() or '-'}",
+            f"Post-impact visual: {(post_failure_visual or '').strip() or '-'}",
+        ]
+        if notes:
+            impact_lines.append(f"Notes: {notes.strip()}")
+        specimen.notes = "\n".join(impact_lines)
+
+    elif test_code in {'AXIAL_LOAD', 'AXIAL'}:
+        specimen.actual_pressure_at_failure_mpa = actual_pressure_at_failure_mpa
+
+        axial_lines = [
+            "AXIAL LOAD RECORD",
+            f"Applied axial load: {(pre_failure_condition or '').strip() or '-'}",
+            f"Hold duration sec: {failure_time_sec if failure_time_sec is not None else '-'}",
+            f"Follow-up pressure: {planned_pressure_mpa if planned_pressure_mpa is not None else '-'}",
+            f"Result mode: {(failure_mode or '').strip() or '-'}",
+            f"Location: {(failure_location or '').strip() or '-'}",
+            f"Post-load observation: {(leak_observation or '').strip() or '-'}",
+        ]
+        if notes:
+            axial_lines.append(f"Notes: {notes.strip()}")
+        specimen.notes = "\n".join(axial_lines)
+
+    else:
+        specimen.actual_pressure_at_failure_mpa = actual_pressure_at_failure_mpa
+        specimen.notes = (notes or '').strip()
+
     _touch_row(specimen)
     session.add(specimen)
 
@@ -2044,7 +2141,6 @@ def rnd_update_test_specimen(
         url=f'/rnd/qualifications/{program_id}/tests/{test_id}',
         status_code=303,
     )
-
 @router.post('/qualifications/{program_id}/tests/{test_id}/attachments/new')
 def rnd_add_test_attachment(
     program_id: int,
