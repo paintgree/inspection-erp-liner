@@ -61,6 +61,7 @@
 </style>
 
 {% set active_tab = request.query_params.get('tab', 'overview') %}
+{% set error_code = request.query_params.get('error', '') %}
 {% set selected_specimen_id = request.query_params.get('specimen_id') %}
 
 <div class="rnd-shell">
@@ -258,8 +259,13 @@
     </aside>
 
     <div class="rnd-main">
-      {% if not selected %}
+      {% if not ns.selected %}
       <article class="rnd-card">
+        {% if error_code == 'duplicate_specimen_id' %}
+        <div class="rnd-note" style="margin-bottom:14px;border-color:#fecaca;background:#fef2f2;color:#b91c1c;">
+          Specimen ID already exists for this test. Please use a unique specimen ID.
+        </div>
+        {% endif %}
         <div class="rnd-card-head">
           <div>
             <h2 class="rnd-panel-title" style="margin-bottom:4px;">New Specimen Registration</h2>
@@ -314,20 +320,20 @@
       </article>
       {% endif %}
 
-      {% set selected = none %}
+      {% set ns = namespace(selected=None) %}
       {% if selected_specimen_id %}
         {% for s in specimens %}
           {% if s.id == selected_specimen_id|int %}
-            {% set selected = s %}
+            {% set ns.selected = s %}
           {% endif %}
         {% endfor %}
       {% endif %}
 
-      {% if selected %}
+      {% if ns.selected %}
       <article class="rnd-card">
         <div class="rnd-card-head">
           <div>
-            <h2 class="rnd-panel-title" style="margin-bottom:4px;">{{ selected.specimen_id }}</h2>
+            <h2 class="rnd-panel-title" style="margin-bottom:4px;">{{ ns.selected.specimen_id }}</h2>
             <div class="rnd-sub">Edit this specimen record only</div>
           </div>
           <div class="rnd-chipline">
@@ -346,7 +352,7 @@
           <div class="rnd-box"><b>Release State</b>{% if selected.released_for_test %}Released{% else %}Not released{% endif %} · {% if selected.pretest_visual_ok %}Visual OK{% else %}Visual pending{% endif %}</div>
         </div>
 
-        <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/specimens/{{ selected.id }}/update" class="rnd-form-grid">
+        <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/specimens/{{ ns.selected.id }}/update" class="rnd-form-grid">
           {% if test.code == 'MPR_REG' or test.code == 'STATIC_REGRESSION' %}
             <label class="span-3">Planned Pressure (MPa)<input type="number" step="any" name="planned_pressure_mpa" value="{{ selected.planned_pressure_mpa or '' }}"></label>
             <label class="span-3">Actual Pressure at Failure (MPa)<input type="number" step="any" name="actual_pressure_at_failure_mpa" value="{{ selected.actual_pressure_at_failure_mpa or '' }}"></label>
