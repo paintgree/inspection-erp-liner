@@ -1876,7 +1876,10 @@ def rnd_add_test_specimen(
     ).first()
     
     if existing_specimen:
-        raise HTTPException(400, 'Specimen ID already exists for this test')
+        return RedirectResponse(
+            url=f'/rnd/qualifications/{program.id}/tests/{test.id}?tab=specimens&error=duplicate_specimen_id',
+            status_code=303,
+        )
 
     safe_batch_ref = (batch_ref or '').strip()
     safe_source_pipe_ref = (source_pipe_ref or '').strip()
