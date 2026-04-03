@@ -30,9 +30,21 @@
         <h2 style="margin-top:0;">API 15S Static Regression</h2>
         <div class="rr-mini">
           <div class="rr-box"><b>Valid Points</b>{{ static_reg.count }} / {{ static_reg.required_minimum }}</div>
-          <div class="rr-box"><b>Mean @ RCRT</b>{% if static_reg.mean_rcrt_mpa %}{{ '%.3f'|format(static_reg.mean_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
-          <div class="rr-box"><b>LCL @ RCRT</b>{% if static_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(static_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
-          <div class="rr-box"><b>LPL @ RCRT</b>{% if static_reg.lpl_rcrt_mpa %}{{ '%.3f'|format(static_reg.lpl_rcrt_mpa) }} MPa{% else %}-{% endif %}</div>
+        
+          <button type="button" class="rr-box" style="text-align:left;cursor:pointer;" onclick="openCalcModal('mean')">
+            <b>Mean @ RCRT</b>
+            {% if static_reg.mean_rcrt_mpa %}{{ '%.3f'|format(static_reg.mean_rcrt_mpa) }} MPa{% else %}-{% endif %}
+          </button>
+        
+          <button type="button" class="rr-box" style="text-align:left;cursor:pointer;" onclick="openCalcModal('lcl')">
+            <b>LCL @ RCRT</b>
+            {% if static_reg.lcl_rcrt_mpa %}{{ '%.3f'|format(static_reg.lcl_rcrt_mpa) }} MPa{% else %}-{% endif %}
+          </button>
+        
+          <button type="button" class="rr-box" style="text-align:left;cursor:pointer;" onclick="openCalcModal('lpl')">
+            <b>LPL @ RCRT</b>
+            {% if static_reg.lpl_rcrt_mpa %}{{ '%.3f'|format(static_reg.lpl_rcrt_mpa) }} MPa{% else %}-{% endif %}
+          </button>
         </div>
         {% if static_reg.warning %}<div class="alert alert-error mt">{{ static_reg.warning }}</div>{% endif %}
         <svg id="static-chart" class="rr-svg" viewBox="0 0 820 420"></svg>
@@ -106,6 +118,15 @@
     </div>
   </section>
 </div>
+<div id="calc-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9999;padding:40px;overflow:auto;">
+  <div style="max-width:920px;margin:0 auto;background:#fff;border-radius:18px;padding:22px;border:1px solid #e5e7eb;box-shadow:0 20px 60px rgba(15,23,42,.25);">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;">
+      <h2 id="calc-title" style="margin:0;">Calculation Detail</h2>
+      <button type="button" class="btn btn-ghost" onclick="closeCalcModal()">Close</button>
+    </div>
+    <div id="calc-body" style="display:grid;gap:12px;"></div>
+  </div>
+</div>
 <script>
   function drawRegressionChart(svgId, reg, xLabel) {
     const svg = document.getElementById(svgId); if (!svg) return;
@@ -128,6 +149,103 @@
     const xText = add('text', {x:width/2, y:height-2, 'text-anchor':'middle', 'font-size':'12', fill:'#475569'}); xText.textContent = `${xLabel} (log10)`;
     const yText = add('text', {x:18, y:height/2, 'text-anchor':'middle', transform:`rotate(-90 18 ${height/2})`, 'font-size':'12', fill:'#475569'}); yText.textContent = 'Pressure MPa (log10)';
   }
+
+  const staticReg = {{ static_reg|tojson }};
+
+function fmt(v, digits=6) {
+  if (v === null || v === undefined || Number.isNaN(v)) return '-';
+  return Number(v).toFixed(digits);
+}
+
+function openCalcModal(kind) {
+  const reg = staticReg;
+  if (!reg || !reg.basis_calc) return;
+
+  const titleMap = {
+    mean: 'Mean @ RCRT Calculation',
+    lcl: 'LCL @ RCRT Calculation',
+    lpl: 'LPL @ RCRT Calculation',
+  };
+
+  const basisLabel = `RCRT = ${reg.rcrt_hours || 175000} h`;
+  const body = [];
+
+  body.push(`
+    <div class="rr-box">
+      <b>Regression Equation</b>
+      log10(P) = ${fmt(reg.intercept, 6)} + (${fmt(reg.slope, 6)}) × log10(time)
+    </div>
+  `);
+
+  body.push(`
+    <div class="rr-box">
+      <b>Core Inputs</b>
+      n = ${reg.n}, df = ${reg.df}, x̄ = ${fmt(reg.x_bar, 6)}, ȳ = ${fmt(reg.y_bar, 6)}, sxx = ${fmt(reg.sxx, 6)}, syx = ${fmt(reg.syx, 6)}, tcrit = ${fmt(reg.tcrit, 6)}
+    </div>
+  `);
+
+  body.push(`
+    <div class="rr-box">
+      <b>Basis Time Conversion</b>
+      ${basisLabel}<br>
+      x_basis = log10(${reg.rcrt_hours || 175000}) = ${fmt(reg.x_basis, 6)}
+    </div>
+  `);
+
+  body.push(`
+    <div class="rr-box">
+      <b>Mean Line Step</b>
+      mean_y = intercept + slope × x_basis<br>
+      mean_y = ${fmt(reg.intercept, 6)} + (${fmt(reg.slope, 6)} × ${fmt(reg.x_basis, 6)})<br>
+      mean_y = ${fmt(reg.basis_calc.mean_y, 6)}<br>
+      Mean pressure = 10 ^ mean_y = ${fmt(reg.basis_calc.mean_pressure, 6)} MPa
+    </div>
+  `);
+
+  if (kind === 'lcl') {
+    body.push(`
+      <div class="rr-box">
+        <b>LCL Standard Error Step</b>
+        mean_se = syx × sqrt((1/n) + ((x_basis - x̄)^2 / sxx))<br>
+        mean_se = ${fmt(reg.basis_calc.mean_se, 6)}<br>
+        lcl_y = mean_y - tcrit × mean_se<br>
+        lcl_y = ${fmt(reg.basis_calc.mean_y, 6)} - (${fmt(reg.tcrit, 6)} × ${fmt(reg.basis_calc.mean_se, 6)})<br>
+        lcl_y = ${fmt(reg.basis_calc.lcl_y, 6)}<br>
+        LCL = 10 ^ lcl_y = ${fmt(reg.basis_calc.lcl_pressure, 6)} MPa
+      </div>
+    `);
+    body.push(`
+      <div class="rr-box">
+        <b>MPR Derivation</b>
+        MPR = LCL × design factor<br>
+        MPR = ${fmt(reg.basis_calc.lcl_pressure, 6)} × ${fmt(reg.design_factor, 6)}<br>
+        MPR = ${fmt(reg.mpr_mpa, 6)} MPa
+      </div>
+    `);
+  }
+
+  if (kind === 'lpl') {
+    body.push(`
+      <div class="rr-box">
+        <b>LPL Prediction Error Step</b>
+        pred_se = syx × sqrt(1 + (1/n) + ((x_basis - x̄)^2 / sxx))<br>
+        pred_se = ${fmt(reg.basis_calc.pred_se, 6)}<br>
+        lpl_y = mean_y - tcrit × pred_se<br>
+        lpl_y = ${fmt(reg.basis_calc.mean_y, 6)} - (${fmt(reg.tcrit, 6)} × ${fmt(reg.basis_calc.pred_se, 6)})<br>
+        lpl_y = ${fmt(reg.basis_calc.lpl_y, 6)}<br>
+        LPL = 10 ^ lpl_y = ${fmt(reg.basis_calc.lpl_pressure, 6)} MPa
+      </div>
+    `);
+  }
+
+  document.getElementById('calc-title').textContent = titleMap[kind] || 'Calculation Detail';
+  document.getElementById('calc-body').innerHTML = body.join('');
+  document.getElementById('calc-modal').style.display = 'block';
+}
+
+function closeCalcModal() {
+  document.getElementById('calc-modal').style.display = 'none';
+}
   drawRegressionChart('static-chart', {{ static_reg|tojson }}, 'Failure hours');
   drawRegressionChart('cyclic-chart', {{ cyclic_reg|tojson }}, 'Failure cycles');
 </script>
