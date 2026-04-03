@@ -17,7 +17,7 @@
 .rnd-tabs{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid #e5e7eb;padding-bottom:8px}
 .rnd-tab{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;font-size:13px;font-weight:800;text-decoration:none;color:#475569;border:1px solid transparent}
 .rnd-tab.active{background:#eff6ff;color:#2563eb;border-color:#bfdbfe}
-.rnd-grid{display:grid;grid-template-columns:320px minmax(0,1fr);gap:18px;align-items:start}
+.rnd-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start}
 .rnd-side{display:grid;gap:14px}
 .rnd-main{display:grid;gap:18px}
 .rnd-spec-list{display:grid;gap:12px}
@@ -106,19 +106,7 @@
 
   {% if active_tab == 'overview' %}
   <section class="rnd-grid">
-    <aside class="rnd-side">
-      <article class="rnd-card">
-        <div class="rnd-card-head">
-          <h3 class="rnd-panel-title">Quick Actions</h3>
-          <span class="rnd-badge ok">On Track</span>
-        </div>
-        <div class="rnd-side">
-          <a class="rnd-box" href="?tab=specimens">Add New Specimen</a>
-          <a class="rnd-box" href="?tab=evidence">Upload Evidence</a>
-          <a class="rnd-box" href="/rnd/qualifications/{{ program.id }}/regression">Open Regression Review</a>
-        </div>
-      </article>
-    </aside>
+    <aside class="rnd-side"></aside>
 
     <div class="rnd-main">
       <article class="rnd-card">
@@ -159,17 +147,41 @@
             <h2 class="rnd-panel-title" style="margin-bottom:4px;">Live Specimen Matrix</h2>
             <div class="rnd-sub">Real-time qualification tracking</div>
           </div>
+          <div class="rnd-search">
+            <input type="text" placeholder="Search specimens..." onkeyup="
+              const q=this.value.toLowerCase();
+              document.querySelectorAll('.specimen-row').forEach(r=>{
+                r.style.display = r.innerText.toLowerCase().includes(q) ? '' : 'none';
+              });
+            ">
+            <button type="button" class="btn btn-ghost">⏷</button>
+          </div>
         </div>
+      
         <div style="overflow:auto;margin-top:12px;">
           <table class="rnd-table">
             <thead>
-              <tr><th>Specimen</th><th>Material Link</th><th>Status</th><th>Target</th><th>Failure</th><th>QA Review</th><th>Actions</th></tr>
+              <tr>
+                <th>Specimen</th>
+                <th>Material Link</th>
+                <th>Status</th>
+                <th>Target</th>
+                <th>Failure</th>
+                <th>QA Review</th>
+                <th>Actions</th>
+              </tr>
             </thead>
             <tbody>
               {% for s in specimens %}
-              <tr>
-                <td><strong>{{ s.specimen_id }}</strong><div class="rnd-sub">{{ s.sample_date or '-' }}</div></td>
-                <td>Batch {{ s.batch_ref or '-' }}<br><span class="rnd-sub">Source {{ s.source_pipe_ref or '-' }}</span></td>
+              <tr class="specimen-row">
+                <td>
+                  <strong>{{ s.specimen_id }}</strong>
+                  <div class="rnd-sub">{{ s.sample_date or '-' }}</div>
+                </td>
+                <td>
+                  Batch {{ s.batch_ref or '-' }}
+                  <div class="rnd-sub">Source {{ s.source_pipe_ref or '-' }}</div>
+                </td>
                 <td>
                   {% if (s.result_status or 'PENDING') in ['PASS','COMPLETE'] %}
                   <span class="rnd-badge ok">{{ s.result_status }}</span>
@@ -177,16 +189,36 @@
                   <span class="rnd-badge warn">{{ s.result_status or 'PENDING' }}</span>
                   {% endif %}
                 </td>
-                <td>{{ s.planned_pressure_mpa or '-' }} {% if s.planned_pressure_mpa %}MPa{% endif %}</td>
                 <td>
-                  {{ s.actual_pressure_at_failure_mpa or '-' }} {% if s.actual_pressure_at_failure_mpa %}MPa{% endif %}
+                  {% if s.planned_pressure_mpa is not none %}
+                    {{ s.planned_pressure_mpa }} <span class="rnd-sub">MPa</span>
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td>
+                  {% if s.actual_pressure_at_failure_mpa is not none %}
+                    {{ s.actual_pressure_at_failure_mpa }} <span class="rnd-sub">MPa</span>
+                  {% else %}
+                    -
+                  {% endif %}
                   <div class="rnd-sub">{{ s.failure_mode or 'pending' }}</div>
                 </td>
-                <td>{{ s.qa_review_status or 'PENDING' }}</td>
-                <td><a class="btn btn-ghost" href="?tab=specimens&specimen_id={{ s.id }}">Open</a></td>
+                <td>
+                  {% if (s.qa_review_status or 'PENDING') in ['ACCEPTED','APPROVED'] %}
+                  <span class="rnd-badge ok">{{ s.qa_review_status }}</span>
+                  {% else %}
+                  <span class="rnd-badge warn">{{ s.qa_review_status or 'PENDING' }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <a class="btn btn-ghost" href="?tab=specimens&specimen_id={{ s.id }}">›</a>
+                </td>
               </tr>
               {% else %}
-              <tr><td colspan="7" class="rnd-empty">No specimens tracked yet.</td></tr>
+              <tr>
+                <td colspan="7" class="rnd-empty">No specimens tracked yet.</td>
+              </tr>
               {% endfor %}
             </tbody>
           </table>
