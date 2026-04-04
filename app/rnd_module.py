@@ -599,7 +599,7 @@ def get_specimen_prep(test_code: str):
 
 def get_test_guidance(test_code: str) -> dict:
     code = (test_code or "").strip().upper()
-    return TEST_GUIDANCE.get(code, {
+    base = TEST_GUIDANCE.get(code, {
         "when_required": "Refer to the approved qualification basis.",
         "specimen_count": "As required by the approved route.",
         "api_clause": "",
@@ -611,6 +611,75 @@ def get_test_guidance(test_code: str) -> dict:
         "retest_logic": "Follow the approved retest logic.",
         "practical_notes": [],
     })
+
+    test_procedure = []
+    for item in base.get("conditioning_steps", []):
+        test_procedure.append(item)
+    for item in base.get("core_process", []):
+        test_procedure.append(item)
+
+    operator_checks = [
+        "Verify specimen identity, batch traceability, and test assignment before setup.",
+        "Confirm the applicable fittings, fixtures, and calibrated instruments are available.",
+        "Confirm conditioning has been completed where required.",
+        "Record setup condition before applying load, pressure, temperature, or cycling.",
+        "Capture any abnormal observation immediately and do not rely on memory after the test.",
+    ]
+
+    records_to_capture = [
+        "Specimen ID",
+        "Operator / witness",
+        "Date and time",
+        "Applied setup / fixture basis",
+        "Pressure / temperature / time / cycles as applicable",
+        "Observed failure mode or survival condition",
+        "Acceptance decision",
+    ]
+
+    if code == "MPR_REG":
+        records_to_capture.extend([
+            "Failure hours",
+            "Pressure at failure",
+            "Failure location",
+            "Permissible / excluded failure decision",
+        ])
+    elif code == "PV_1000H":
+        records_to_capture.extend([
+            "Hold pressure",
+            "Elapsed hours",
+            "Leak / survival result",
+        ])
+    elif code == "TEMP_CYCLE":
+        records_to_capture.extend([
+            "Cycle range",
+            "Cycle count",
+            "Leak / post-cycle condition",
+        ])
+    elif code == "RAPID_DECOMP":
+        records_to_capture.extend([
+            "Soak pressure",
+            "Soak duration",
+            "Decompression result",
+            "Damage / blister / disbondment observation",
+        ])
+    elif code == "IMPACT":
+        records_to_capture.extend([
+            "Impact setup / energy",
+            "Post-impact condition",
+            "Follow-up proof result",
+        ])
+    elif code in {"AXIAL_LOAD", "AXIAL"}:
+        records_to_capture.extend([
+            "Applied axial load",
+            "Hold duration",
+            "Post-load proof result",
+        ])
+
+    enriched = dict(base)
+    enriched["test_procedure"] = test_procedure
+    enriched["operator_checks"] = operator_checks
+    enriched["records_to_capture"] = records_to_capture
+    return enriched
 
 class RndQualificationProgram(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
