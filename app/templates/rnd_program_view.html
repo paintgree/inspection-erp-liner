@@ -141,339 +141,6 @@
 
     <div style="display:grid;gap:18px;">
       <article class="qc-card">
-        <h2 style="margin-top:0;">Materials qualification</h2>
-        <div class="qc-note" style="margin-bottom:14px;">
-          Manage liner, reinforcement, matrix, and cover materials with traceability, qualification evidence, reinforcement construction details, and system review outcome.
-        </div>
-        
-        {% set ms = namespace(match=0, clarify=0, more=0, addtest=0, bad=0) %}
-        {% for row in material_dashboard %}
-          {% if row.review.review_outcome == 'MATCH' %}
-            {% set ms.match = ms.match + 1 %}
-          {% elif row.review.review_outcome == 'MATCH_WITH_CLARIFICATION' %}
-            {% set ms.clarify = ms.clarify + 1 %}
-          {% elif row.review.review_outcome == 'MORE_DATA_REQUIRED' %}
-            {% set ms.more = ms.more + 1 %}
-          {% elif row.review.review_outcome == 'ADDITIONAL_TESTING_REQUIRED' %}
-            {% set ms.addtest = ms.addtest + 1 %}
-          {% elif row.review.review_outcome == 'NOT_ACCEPTABLE' %}
-            {% set ms.bad = ms.bad + 1 %}
-          {% endif %}
-        {% endfor %}
-        
-        <div class="qc-material-summary">
-          <div class="qc-material-flag qc-review-match">
-            <b>Match</b>
-            {{ ms.match }}
-          </div>
-          <div class="qc-material-flag qc-review-mid">
-            <b>Clarification / More Data</b>
-            {{ ms.clarify + ms.more }}
-          </div>
-          <div class="qc-material-flag qc-review-mid">
-            <b>Additional Testing</b>
-            {{ ms.addtest }}
-          </div>
-          <div class="qc-material-flag qc-review-bad">
-            <b>Not Acceptable</b>
-            {{ ms.bad }}
-          </div>
-        </div>
-
-        {% for row in material_dashboard %}
-        {% set m = row.material %}
-        {% set review = row.review %}
-        <div style="
-          border:1px solid {% if review.review_outcome == 'NOT_ACCEPTABLE' %}#fecaca{% elif review.review_outcome in ['MORE_DATA_REQUIRED','ADDITIONAL_TESTING_REQUIRED','MATCH_WITH_CLARIFICATION'] %}#fed7aa{% else %}#e5e7eb{% endif %};
-          border-radius:18px;
-          padding:16px;
-          background:{% if review.review_outcome == 'NOT_ACCEPTABLE' %}#fef2f2{% elif review.review_outcome in ['MORE_DATA_REQUIRED','ADDITIONAL_TESTING_REQUIRED','MATCH_WITH_CLARIFICATION'] %}#fffaf0{% else %}#fff{% endif %};
-          margin-bottom:16px;
-        ">
-          {% set collapse_id = 'mat-' ~ m.id %}
-          <div class="qc-collapse-head" onclick="
-            const body=document.getElementById('{{ collapse_id }}');
-            if(body){ body.style.display = body.style.display === 'none' ? 'block' : 'none'; }
-          ">
-            <div>
-              <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;font-weight:800;">{{ m.component }}</div>
-              <div style="font-size:18px;font-weight:900;color:#0f172a;">
-                {{ m.material_name or 'Unnamed material' }}
-              </div>
-              <div class="muted">
-                {{ m.material_family or 'No family set' }}
-                {% if m.standard_ref %} · {{ m.standard_ref }}{% endif %}
-                {% if m.grade_name %} · Grade {{ m.grade_name }}{% endif %}
-              </div>
-              <div class="qc-material-meta">
-                {% if m.component == 'REINFORCEMENT' and m.reinforcement_type %}
-                <span class="qc-soft-badge">{{ m.reinforcement_type }}</span>
-                {% endif %}
-                {% if m.component == 'REINFORCEMENT' and m.reinforcement_form %}
-                <span class="qc-soft-badge">{{ m.reinforcement_form }}</span>
-                {% endif %}
-                {% if m.component == 'REINFORCEMENT' and m.reinforcement_layer_count is not none %}
-                <span class="qc-soft-badge">{{ m.reinforcement_layer_count }} layer(s)</span>
-                {% endif %}
-                {% if m.certificate_ref %}
-                <span class="qc-soft-badge">Cert {{ m.certificate_ref }}</span>
-                {% endif %}
-                {% if m.batch_ref %}
-                <span class="qc-soft-badge">Batch {{ m.batch_ref }}</span>
-                {% endif %}
-              </div>
-            </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
-              <span class="qc-chip
-                {% if review.review_outcome == 'MATCH' %}qc-good
-                {% elif review.review_outcome in ['MATCH_WITH_CLARIFICATION','MORE_DATA_REQUIRED','ADDITIONAL_TESTING_REQUIRED'] %}qc-mid
-                {% else %}qc-mid{% endif %}">
-                {{ review.review_outcome.replace('_',' ') }}
-              </span>
-              <span class="qc-chip">{{ review.evidence_status.replace('_',' ') }}</span>
-              <span class="qc-chip">{{ review.compatibility_status.replace('_',' ') }}</span>
-              <span class="qc-soft-badge">Toggle</span>
-            </div>
-          </div>
-          
-          <div id="{{ collapse_id }}" class="qc-collapse-body" style="display:none;">
-
-          <form method="post" action="/rnd/qualifications/{{ program.id }}/materials/{{ m.id }}" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px;">
-            <label>Material Name
-              <input name="material_name" value="{{ m.material_name or '' }}">
-            </label>
-            <label>Material Family
-              <input name="material_family" value="{{ m.material_family or '' }}">
-            </label>
-            <label>Standard / Basis
-              <input name="standard_ref" value="{{ m.standard_ref or '' }}" placeholder="API / ASTM / ISO / internal spec">
-            </label>
-            <label>Status
-              <select name="status">
-                {% for st in ['PLANNED','IN_PROGRESS','APPROVED','ACCEPTED','COMPLETE'] %}
-                <option value="{{ st }}" {% if (m.status or 'PLANNED') == st %}selected{% endif %}>{{ st }}</option>
-                {% endfor %}
-              </select>
-            </label>
-
-            <label>Supplier
-              <input name="supplier_name" value="{{ m.supplier_name or '' }}">
-            </label>
-            <label>Manufacturer
-              <input name="manufacturer_name" value="{{ m.manufacturer_name or '' }}">
-            </label>
-            <label>Grade
-              <input name="grade_name" value="{{ m.grade_name or '' }}">
-            </label>
-            <label>Trade Name
-              <input name="trade_name" value="{{ m.trade_name or '' }}">
-            </label>
-
-            <label>Certificate Ref
-              <input name="certificate_ref" value="{{ m.certificate_ref or '' }}">
-            </label>
-            <label>Batch Ref
-              <input name="batch_ref" value="{{ m.batch_ref or '' }}">
-            </label>
-            <label>Lot Ref
-              <input name="lot_ref" value="{{ m.lot_ref or '' }}">
-            </label>
-            <label>Classification Basis
-              <input name="classification_basis" value="{{ m.classification_basis or '' }}">
-            </label>
-
-            <label>PE Cell Class
-              <input name="pe_cell_class" value="{{ m.pe_cell_class or '' }}">
-            </label>
-            <label>HDB Basis
-              <input name="hdb_basis" value="{{ m.hdb_basis or '' }}">
-            </label>
-            <label>UV Class
-              <input name="uv_class" value="{{ m.uv_class or '' }}">
-            </label>
-            <label>Service Fluid Basis
-              <input name="service_fluid_basis" value="{{ m.service_fluid_basis or '' }}">
-            </label>
-
-            <label>Min Service Temp (°C)
-              <input type="number" step="0.01" name="min_service_temp_c" value="{{ m.min_service_temp_c if m.min_service_temp_c is not none else '' }}">
-            </label>
-            <label>Max Service Temp (°C)
-              <input type="number" step="0.01" name="max_service_temp_c" value="{{ m.max_service_temp_c if m.max_service_temp_c is not none else '' }}">
-            </label>
-            <label style="grid-column:span 2;">Service Notes
-              <input name="service_notes" value="{{ m.service_notes or '' }}">
-            </label>
-
-            {% if m.component == 'REINFORCEMENT' %}
-            <label>Reinforcement Type
-              <select name="reinforcement_type">
-                {% for rt in ['','STEEL','NONMETALLIC','GLASS','ARAMID','POLYESTER'] %}
-                <option value="{{ rt }}" {% if (m.reinforcement_type or '') == rt %}selected{% endif %}>{{ rt or 'Select' }}</option>
-                {% endfor %}
-              </select>
-            </label>
-            <label>Reinforcement Form
-              <input name="reinforcement_form" value="{{ m.reinforcement_form or '' }}" placeholder="wire / yarn / tape / roving">
-            </label>
-            <label>Layer Count
-              <input type="number" name="reinforcement_layer_count" value="{{ m.reinforcement_layer_count if m.reinforcement_layer_count is not none else '' }}">
-            </label>
-            <label>Matrix Material
-              <input name="reinforcement_matrix_material" value="{{ m.reinforcement_matrix_material or '' }}">
-            </label>
-
-            <label style="grid-column:span 2;">Reinforcement Layout Notes
-              <input name="reinforcement_layout_notes" value="{{ m.reinforcement_layout_notes or '' }}" placeholder="balanced helices, wrap pattern, angles, etc.">
-            </label>
-            <label>Steel Processing History
-              <input name="steel_processing_history" value="{{ m.steel_processing_history or '' }}">
-            </label>
-            <label>Fiber Sizing Notes
-              <input name="fiber_sizing_notes" value="{{ m.fiber_sizing_notes or '' }}">
-            </label>
-            {% endif %}
-
-            {% if m.component == 'MATRIX' or m.component == 'REINFORCEMENT' %}
-            <label>Matrix Material Name
-              <input name="matrix_material_name" value="{{ m.matrix_material_name or '' }}">
-            </label>
-            <label>Matrix Resin Type
-              <select name="matrix_resin_type">
-                {% for mt in ['','THERMOSET','THERMOPLASTIC','EPOXY','OTHER'] %}
-                <option value="{{ mt }}" {% if (m.matrix_resin_type or '') == mt %}selected{% endif %}>{{ mt or 'Select' }}</option>
-                {% endfor %}
-              </select>
-            </label>
-            <label>Cure Method
-              <input name="cure_method" value="{{ m.cure_method or '' }}">
-            </label>
-            <label>Tg Min (°C)
-              <input type="number" step="0.01" name="tg_min_c" value="{{ m.tg_min_c if m.tg_min_c is not none else '' }}">
-            </label>
-            {% endif %}
-
-            <label style="grid-column:1 / -1;">Material Notes
-              <textarea name="notes" rows="3">{{ m.notes or '' }}</textarea>
-            </label>
-
-            <div style="grid-column:1 / -1;display:flex;justify-content:flex-end;">
-              <button class="btn btn-primary" type="submit">Save material</button>
-            </div>
-          </form>
-
-          <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px;">
-            <div class="qc-box">
-              <b>System Review</b>
-              {{ review.review_summary or 'No review text yet.' }}
-            </div>
-            <div class="qc-box">
-              <b>Clarification Required</b>
-              {{ review.clarification_required or 'None currently flagged.' }}
-            </div>
-            <div class="qc-box">
-              <b>Additional Testing Required</b>
-              {{ review.additional_tests_required or 'No additional tests currently flagged.' }}
-            </div>
-          </div>
-
-          <div style="margin-bottom:10px;font-weight:800;">Material test records</div>
-          <table class="qc-table" style="margin-bottom:12px;">
-            <thead>
-              <tr>
-                <th>Test Type</th>
-                <th>Standard</th>
-                <th>Report</th>
-                <th>Lab</th>
-                <th>Date</th>
-                <th>Decision</th>
-                <th>Result</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% set test_ns = namespace(has_rows=false) %}
-              {% for t in row.tests %}
-                {% set test_ns.has_rows = true %}
-                <tr>
-                  <td>{{ t.test_type }}</td>
-                  <td>{{ t.standard_ref or '-' }}</td>
-                  <td>{{ t.report_ref or '-' }}</td>
-                  <td>{{ t.lab_name or '-' }}</td>
-                  <td>{{ t.test_date or '-' }}</td>
-                  <td>{{ t.decision or 'PENDING' }}</td>
-                  <td>
-                    {{ t.result_value or '-' }}
-                    {% if t.result_unit %} {{ t.result_unit }}{% endif %}
-                  </td>
-                </tr>
-              {% endfor %}
-              {% if not test_ns.has_rows %}
-              <tr>
-                <td colspan="7" class="muted">No material test records yet.</td>
-              </tr>
-              {% endif %}
-            </tbody>
-          </table>
-
-          <form method="post" action="/rnd/qualifications/{{ program.id }}/materials/{{ m.id }}/tests/new" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;">
-            <label>Test Type
-              <select name="test_type" required>
-                <option value="">Select</option>
-                {% for tt in review.required_tests %}
-                <option value="{{ tt }}">{{ tt }}</option>
-                {% endfor %}
-                <option value="OTHER">OTHER</option>
-              </select>
-            </label>
-            <label>Standard Ref
-              <input name="standard_ref" placeholder="API / ASTM / ISO / internal">
-            </label>
-            <label>Specimen Ref
-              <input name="specimen_ref">
-            </label>
-            <label>Report Ref
-              <input name="report_ref">
-            </label>
-
-            <label>Lab Name
-              <input name="lab_name">
-            </label>
-            <label>Test Date
-              <input type="date" name="test_date">
-            </label>
-            <label>Result Value
-              <input name="result_value">
-            </label>
-            <label>Result Unit
-              <input name="result_unit">
-            </label>
-
-            <label style="grid-column:span 2;">Acceptance Basis
-              <input name="acceptance_basis">
-            </label>
-            <label>Decision
-              <select name="decision">
-                {% for d in ['PENDING','UNDER_REVIEW','PASS','FAIL','ACCEPTED','REJECTED','NOT_ACCEPTABLE'] %}
-                <option value="{{ d }}">{{ d }}</option>
-                {% endfor %}
-              </select>
-            </label>
-            <label>Notes
-              <input name="notes">
-            </label>
-
-            <div style="grid-column:1 / -1;display:flex;justify-content:flex-end;">
-              <button class="btn btn-ghost" type="submit">Add material test record</button>
-            </div>
-          </form>
-          </div>  
-        </div>
-        {% else %}
-        <div class="muted">No material rows yet.</div>
-        {% endfor %}
-      </article>
-
-      <article class="qc-card">
         <h2 style="margin-top:0;">Readiness summary</h2>
         <div class="qc-mini" style="grid-template-columns:repeat(2,minmax(0,1fr));">
           <div class="qc-box"><b>Total tests</b>{{ tests|length }}</div>
@@ -484,6 +151,339 @@
         <div class="qc-note" style="margin-top:14px;">Monogram readiness should come from test closure + accepted evidence + regression outputs, not from a static newspaper page.</div>
       </article>
     </div>
+  </section>
+
+  <section class="qc-card">
+    <h2 style="margin-top:0;">Materials qualification</h2>
+    <div class="qc-note" style="margin-bottom:14px;">
+      Manage liner, reinforcement, matrix, and cover materials with traceability, qualification evidence, reinforcement construction details, and system review outcome.
+    </div>
+    
+    {% set ms = namespace(match=0, clarify=0, more=0, addtest=0, bad=0) %}
+    {% for row in material_dashboard %}
+      {% if row.review.review_outcome == 'MATCH' %}
+        {% set ms.match = ms.match + 1 %}
+      {% elif row.review.review_outcome == 'MATCH_WITH_CLARIFICATION' %}
+        {% set ms.clarify = ms.clarify + 1 %}
+      {% elif row.review.review_outcome == 'MORE_DATA_REQUIRED' %}
+        {% set ms.more = ms.more + 1 %}
+      {% elif row.review.review_outcome == 'ADDITIONAL_TESTING_REQUIRED' %}
+        {% set ms.addtest = ms.addtest + 1 %}
+      {% elif row.review.review_outcome == 'NOT_ACCEPTABLE' %}
+        {% set ms.bad = ms.bad + 1 %}
+      {% endif %}
+    {% endfor %}
+    
+    <div class="qc-material-summary">
+      <div class="qc-material-flag qc-review-match">
+        <b>Match</b>
+        {{ ms.match }}
+      </div>
+      <div class="qc-material-flag qc-review-mid">
+        <b>Clarification / More Data</b>
+        {{ ms.clarify + ms.more }}
+      </div>
+      <div class="qc-material-flag qc-review-mid">
+        <b>Additional Testing</b>
+        {{ ms.addtest }}
+      </div>
+      <div class="qc-material-flag qc-review-bad">
+        <b>Not Acceptable</b>
+        {{ ms.bad }}
+      </div>
+    </div>
+
+    {% for row in material_dashboard %}
+    {% set m = row.material %}
+    {% set review = row.review %}
+    <div style="
+      border:1px solid {% if review.review_outcome == 'NOT_ACCEPTABLE' %}#fecaca{% elif review.review_outcome in ['MORE_DATA_REQUIRED','ADDITIONAL_TESTING_REQUIRED','MATCH_WITH_CLARIFICATION'] %}#fed7aa{% else %}#e5e7eb{% endif %};
+      border-radius:18px;
+      padding:16px;
+      background:{% if review.review_outcome == 'NOT_ACCEPTABLE' %}#fef2f2{% elif review.review_outcome in ['MORE_DATA_REQUIRED','ADDITIONAL_TESTING_REQUIRED','MATCH_WITH_CLARIFICATION'] %}#fffaf0{% else %}#fff{% endif %};
+      margin-bottom:16px;
+    ">
+      {% set collapse_id = 'mat-' ~ m.id %}
+      <div class="qc-collapse-head" onclick="
+        const body=document.getElementById('{{ collapse_id }}');
+        if(body){ body.style.display = body.style.display === 'none' ? 'block' : 'none'; }
+      ">
+        <div>
+          <div style="font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;font-weight:800;">{{ m.component }}</div>
+          <div style="font-size:18px;font-weight:900;color:#0f172a;">
+            {{ m.material_name or 'Unnamed material' }}
+          </div>
+          <div class="muted">
+            {{ m.material_family or 'No family set' }}
+            {% if m.standard_ref %} · {{ m.standard_ref }}{% endif %}
+            {% if m.grade_name %} · Grade {{ m.grade_name }}{% endif %}
+          </div>
+          <div class="qc-material-meta">
+            {% if m.component == 'REINFORCEMENT' and m.reinforcement_type %}
+            <span class="qc-soft-badge">{{ m.reinforcement_type }}</span>
+            {% endif %}
+            {% if m.component == 'REINFORCEMENT' and m.reinforcement_form %}
+            <span class="qc-soft-badge">{{ m.reinforcement_form }}</span>
+            {% endif %}
+            {% if m.component == 'REINFORCEMENT' and m.reinforcement_layer_count is not none %}
+            <span class="qc-soft-badge">{{ m.reinforcement_layer_count }} layer(s)</span>
+            {% endif %}
+            {% if m.certificate_ref %}
+            <span class="qc-soft-badge">Cert {{ m.certificate_ref }}</span>
+            {% endif %}
+            {% if m.batch_ref %}
+            <span class="qc-soft-badge">Batch {{ m.batch_ref }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;">
+          <span class="qc-chip
+            {% if review.review_outcome == 'MATCH' %}qc-good
+            {% elif review.review_outcome in ['MATCH_WITH_CLARIFICATION','MORE_DATA_REQUIRED','ADDITIONAL_TESTING_REQUIRED'] %}qc-mid
+            {% else %}qc-mid{% endif %}">
+            {{ review.review_outcome.replace('_',' ') }}
+          </span>
+          <span class="qc-chip">{{ review.evidence_status.replace('_',' ') }}</span>
+          <span class="qc-chip">{{ review.compatibility_status.replace('_',' ') }}</span>
+          <span class="qc-soft-badge">Toggle</span>
+        </div>
+      </div>
+      
+      <div id="{{ collapse_id }}" class="qc-collapse-body" style="display:none;">
+
+      <form method="post" action="/rnd/qualifications/{{ program.id }}/materials/{{ m.id }}" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px;">
+        <label>Material Name
+          <input name="material_name" value="{{ m.material_name or '' }}">
+        </label>
+        <label>Material Family
+          <input name="material_family" value="{{ m.material_family or '' }}">
+        </label>
+        <label>Standard / Basis
+          <input name="standard_ref" value="{{ m.standard_ref or '' }}" placeholder="API / ASTM / ISO / internal spec">
+        </label>
+        <label>Status
+          <select name="status">
+            {% for st in ['PLANNED','IN_PROGRESS','APPROVED','ACCEPTED','COMPLETE'] %}
+            <option value="{{ st }}" {% if (m.status or 'PLANNED') == st %}selected{% endif %}>{{ st }}</option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label>Supplier
+          <input name="supplier_name" value="{{ m.supplier_name or '' }}">
+        </label>
+        <label>Manufacturer
+          <input name="manufacturer_name" value="{{ m.manufacturer_name or '' }}">
+        </label>
+        <label>Grade
+          <input name="grade_name" value="{{ m.grade_name or '' }}">
+        </label>
+        <label>Trade Name
+          <input name="trade_name" value="{{ m.trade_name or '' }}">
+        </label>
+
+        <label>Certificate Ref
+          <input name="certificate_ref" value="{{ m.certificate_ref or '' }}">
+        </label>
+        <label>Batch Ref
+          <input name="batch_ref" value="{{ m.batch_ref or '' }}">
+        </label>
+        <label>Lot Ref
+          <input name="lot_ref" value="{{ m.lot_ref or '' }}">
+        </label>
+        <label>Classification Basis
+          <input name="classification_basis" value="{{ m.classification_basis or '' }}">
+        </label>
+
+        <label>PE Cell Class
+          <input name="pe_cell_class" value="{{ m.pe_cell_class or '' }}">
+        </label>
+        <label>HDB Basis
+          <input name="hdb_basis" value="{{ m.hdb_basis or '' }}">
+        </label>
+        <label>UV Class
+          <input name="uv_class" value="{{ m.uv_class or '' }}">
+        </label>
+        <label>Service Fluid Basis
+          <input name="service_fluid_basis" value="{{ m.service_fluid_basis or '' }}">
+        </label>
+
+        <label>Min Service Temp (°C)
+          <input type="number" step="0.01" name="min_service_temp_c" value="{{ m.min_service_temp_c if m.min_service_temp_c is not none else '' }}">
+        </label>
+        <label>Max Service Temp (°C)
+          <input type="number" step="0.01" name="max_service_temp_c" value="{{ m.max_service_temp_c if m.max_service_temp_c is not none else '' }}">
+        </label>
+        <label style="grid-column:span 2;">Service Notes
+          <input name="service_notes" value="{{ m.service_notes or '' }}">
+        </label>
+
+        {% if m.component == 'REINFORCEMENT' %}
+        <label>Reinforcement Type
+          <select name="reinforcement_type">
+            {% for rt in ['','STEEL','NONMETALLIC','GLASS','ARAMID','POLYESTER'] %}
+            <option value="{{ rt }}" {% if (m.reinforcement_type or '') == rt %}selected{% endif %}>{{ rt or 'Select' }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Reinforcement Form
+          <input name="reinforcement_form" value="{{ m.reinforcement_form or '' }}" placeholder="wire / yarn / tape / roving">
+        </label>
+        <label>Layer Count
+          <input type="number" name="reinforcement_layer_count" value="{{ m.reinforcement_layer_count if m.reinforcement_layer_count is not none else '' }}">
+        </label>
+        <label>Matrix Material
+          <input name="reinforcement_matrix_material" value="{{ m.reinforcement_matrix_material or '' }}">
+        </label>
+
+        <label style="grid-column:span 2;">Reinforcement Layout Notes
+          <input name="reinforcement_layout_notes" value="{{ m.reinforcement_layout_notes or '' }}" placeholder="balanced helices, wrap pattern, angles, etc.">
+        </label>
+        <label>Steel Processing History
+          <input name="steel_processing_history" value="{{ m.steel_processing_history or '' }}">
+        </label>
+        <label>Fiber Sizing Notes
+          <input name="fiber_sizing_notes" value="{{ m.fiber_sizing_notes or '' }}">
+        </label>
+        {% endif %}
+
+        {% if m.component == 'MATRIX' or m.component == 'REINFORCEMENT' %}
+        <label>Matrix Material Name
+          <input name="matrix_material_name" value="{{ m.matrix_material_name or '' }}">
+        </label>
+        <label>Matrix Resin Type
+          <select name="matrix_resin_type">
+            {% for mt in ['','THERMOSET','THERMOPLASTIC','EPOXY','OTHER'] %}
+            <option value="{{ mt }}" {% if (m.matrix_resin_type or '') == mt %}selected{% endif %}>{{ mt or 'Select' }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Cure Method
+          <input name="cure_method" value="{{ m.cure_method or '' }}">
+        </label>
+        <label>Tg Min (°C)
+          <input type="number" step="0.01" name="tg_min_c" value="{{ m.tg_min_c if m.tg_min_c is not none else '' }}">
+        </label>
+        {% endif %}
+
+        <label style="grid-column:1 / -1;">Material Notes
+          <textarea name="notes" rows="3">{{ m.notes or '' }}</textarea>
+        </label>
+
+        <div style="grid-column:1 / -1;display:flex;justify-content:flex-end;">
+          <button class="btn btn-primary" type="submit">Save material</button>
+        </div>
+      </form>
+
+      <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px;">
+        <div class="qc-box">
+          <b>System Review</b>
+          {{ review.review_summary or 'No review text yet.' }}
+        </div>
+        <div class="qc-box">
+          <b>Clarification Required</b>
+          {{ review.clarification_required or 'None currently flagged.' }}
+        </div>
+        <div class="qc-box">
+          <b>Additional Testing Required</b>
+          {{ review.additional_tests_required or 'No additional tests currently flagged.' }}
+        </div>
+      </div>
+
+      <div style="margin-bottom:10px;font-weight:800;">Material test records</div>
+      <table class="qc-table" style="margin-bottom:12px;">
+        <thead>
+          <tr>
+            <th>Test Type</th>
+            <th>Standard</th>
+            <th>Report</th>
+            <th>Lab</th>
+            <th>Date</th>
+            <th>Decision</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% set test_ns = namespace(has_rows=false) %}
+          {% for t in row.tests %}
+            {% set test_ns.has_rows = true %}
+            <tr>
+              <td>{{ t.test_type }}</td>
+              <td>{{ t.standard_ref or '-' }}</td>
+              <td>{{ t.report_ref or '-' }}</td>
+              <td>{{ t.lab_name or '-' }}</td>
+              <td>{{ t.test_date or '-' }}</td>
+              <td>{{ t.decision or 'PENDING' }}</td>
+              <td>
+                {{ t.result_value or '-' }}
+                {% if t.result_unit %} {{ t.result_unit }}{% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+          {% if not test_ns.has_rows %}
+          <tr>
+            <td colspan="7" class="muted">No material test records yet.</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+
+      <form method="post" action="/rnd/qualifications/{{ program.id }}/materials/{{ m.id }}/tests/new" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;">
+        <label>Test Type
+          <select name="test_type" required>
+            <option value="">Select</option>
+            {% for tt in review.required_tests %}
+            <option value="{{ tt }}">{{ tt }}</option>
+            {% endfor %}
+            <option value="OTHER">OTHER</option>
+          </select>
+        </label>
+        <label>Standard Ref
+          <input name="standard_ref" placeholder="API / ASTM / ISO / internal">
+        </label>
+        <label>Specimen Ref
+          <input name="specimen_ref">
+        </label>
+        <label>Report Ref
+          <input name="report_ref">
+        </label>
+
+        <label>Lab Name
+          <input name="lab_name">
+        </label>
+        <label>Test Date
+          <input type="date" name="test_date">
+        </label>
+        <label>Result Value
+          <input name="result_value">
+        </label>
+        <label>Result Unit
+          <input name="result_unit">
+        </label>
+
+        <label style="grid-column:span 2;">Acceptance Basis
+          <input name="acceptance_basis">
+        </label>
+        <label>Decision
+          <select name="decision">
+            {% for d in ['PENDING','UNDER_REVIEW','PASS','FAIL','ACCEPTED','REJECTED','NOT_ACCEPTABLE'] %}
+            <option value="{{ d }}">{{ d }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Notes
+          <input name="notes">
+        </label>
+
+        <div style="grid-column:1 / -1;display:flex;justify-content:flex-end;">
+          <button class="btn btn-ghost" type="submit">Add material test record</button>
+        </div>
+      </form>
+      </div>
+    </div>
+    {% else %}
+    <div class="muted">No material rows yet.</div>
+    {% endfor %}
   </section>
 </div>
 {% endblock %}
