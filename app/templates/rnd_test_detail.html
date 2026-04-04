@@ -7,36 +7,65 @@
 .rnd-shell{display:grid;gap:22px}
 .rnd-card{
   background:#fff;
-  border:1px solid #e6eaf2;
-  border-radius:22px;
-  box-shadow:0 10px 28px rgba(15,23,42,.05);
+  border:1px solid #e7ebf3;
+  border-radius:24px;
+  box-shadow:0 16px 38px rgba(15,23,42,.06);
   padding:22px;
 }
-.rnd-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
-.rnd-sub{color:#7b8798;font-size:13px;line-height:1.5}
+.rnd-head{
+  display:flex;
+  justify-content:space-between;
+  gap:20px;
+  align-items:flex-start;
+  flex-wrap:wrap;
+}
+.rnd-title-wrap{display:grid;gap:8px}
+.rnd-kicker{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:#6366f1;
+}
+.rnd-title{
+  margin:0;
+  font-size:30px;
+  line-height:1.1;
+  color:#0f172a;
+}
+.rnd-sub{
+  color:#6b7280;
+  font-size:13px;
+  line-height:1.5;
+}
 .rnd-actions{display:flex;gap:10px;flex-wrap:wrap}
-.rnd-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.rnd-metrics{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:14px;
+  margin-top:18px;
+}
 .rnd-metric{
   border:1px solid #e8edf5;
-  border-radius:16px;
+  border-radius:18px;
   padding:16px 18px;
-  background:#fbfcfe;
+  background:linear-gradient(180deg,#ffffff,#f8fafc);
 }
 .rnd-metric b{
   display:block;
   font-size:10px;
   text-transform:uppercase;
   letter-spacing:.08em;
-  color:#8a94a6;
+  color:#94a3b8;
   margin-bottom:8px;
 }
-.rnd-metric .value{font-size:26px;font-weight:900;color:#172033}
-.rnd-note{
-  padding:12px 14px;
-  border-radius:14px;
-  border:1px solid #e6ebf5;
-  background:#f8fbff;
-  color:#44516a;
+.rnd-metric .value{
+  font-size:26px;
+  font-weight:900;
+  color:#111827;
 }
 .rnd-tabs{
   display:flex;
@@ -44,6 +73,7 @@
   flex-wrap:wrap;
   border-bottom:1px solid #eceff5;
   padding-bottom:10px;
+  margin-top:18px;
 }
 .rnd-tab{
   display:inline-flex;
@@ -62,42 +92,42 @@
   color:#4f46e5;
   border-color:#d9ddff;
 }
+.rnd-overview{display:grid;gap:18px}
 .rnd-grid{
   display:grid;
-  grid-template-columns:280px minmax(0,1fr);
+  grid-template-columns:310px minmax(0,1fr);
   gap:18px;
   align-items:start;
 }
-.rnd-overview{display:grid;gap:18px}
 .rnd-side{display:grid;gap:14px}
 .rnd-main{display:grid;gap:18px}
 .rnd-spec-list{display:grid;gap:10px}
 .rnd-spec-item{
   display:block;
-  padding:14px 14px;
-  border:1px solid #e7ebf3;
-  border-radius:16px;
+  padding:14px;
+  border:1px solid #e6ebf2;
+  border-radius:18px;
   background:#fff;
   text-decoration:none;
   color:inherit;
-  transition:.15s ease;
+  transition:.18s ease;
 }
 .rnd-spec-item:hover{
-  border-color:#cfd8ea;
-  box-shadow:0 6px 18px rgba(15,23,42,.05);
+  border-color:#c7d2fe;
+  box-shadow:0 10px 24px rgba(15,23,42,.05);
 }
 .rnd-spec-item.active{
   border-color:#c7d2fe;
-  background:#f7f8ff;
+  background:#f8faff;
   box-shadow:0 0 0 3px rgba(99,102,241,.08);
 }
-.rnd-spec-id{font-weight:900;color:#1f2937}
+.rnd-spec-id{font-weight:900;color:#111827}
 .rnd-badge{
   display:inline-flex;
   align-items:center;
-  padding:4px 9px;
+  padding:5px 10px;
   border-radius:999px;
-  font-size:10px;
+  font-size:11px;
   font-weight:800;
   border:1px solid #e5e7eb;
   background:#fff;
@@ -105,8 +135,20 @@
 .rnd-badge.ok{background:#ecfdf3;color:#027a48;border-color:#b7ebcd}
 .rnd-badge.warn{background:#fff4e5;color:#b54708;border-color:#f7d7ab}
 .rnd-badge.muted{background:#f2f4f7;color:#667085;border-color:#e4e7ec}
-.rnd-panel-title{margin:0 0 12px 0;color:#172033}
-.rnd-form-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px}
+.rnd-panel-title{
+  margin:0 0 10px 0;
+  color:#0f172a;
+  font-size:20px;
+}
+.rnd-panel-sub{
+  color:#6b7280;
+  font-size:13px;
+}
+.rnd-form-grid{
+  display:grid;
+  grid-template-columns:repeat(12,minmax(0,1fr));
+  gap:14px;
+}
 .rnd-form-grid .span-3{grid-column:span 3}
 .rnd-form-grid .span-4{grid-column:span 4}
 .rnd-form-grid .span-6{grid-column:span 6}
@@ -129,10 +171,10 @@
   border-radius:12px;
   border:1px solid #d9e0ea;
   background:#fff;
-  color:#172033;
+  color:#111827;
   font-size:14px;
 }
-.rnd-form-grid textarea{min-height:86px}
+.rnd-form-grid textarea{min-height:88px}
 .rnd-form-grid input:focus,
 .rnd-form-grid textarea:focus,
 .rnd-form-grid select:focus{
@@ -140,8 +182,47 @@
   border-color:#a5b4fc;
   box-shadow:0 0 0 3px rgba(99,102,241,.10);
 }
-.rnd-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.rnd-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.rnd-soft-section{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  font-weight:900;
+  color:#111827;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+}
+.rnd-section-tag{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:22px;
+  height:22px;
+  border-radius:8px;
+  background:#0f172a;
+  color:#fff;
+  font-size:11px;
+  font-weight:900;
+}
+.rnd-note{
+  padding:13px 14px;
+  border-radius:16px;
+  border:1px solid #dbeafe;
+  background:#eff6ff;
+  color:#1d4ed8;
+}
+.rnd-alert{
+  padding:13px 14px;
+  border-radius:16px;
+  border:1px solid #fecaca;
+  background:#fef2f2;
+  color:#b91c1c;
+}
+.rnd-summary-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+}
 .rnd-box{
   border:1px solid #e8edf5;
   border-radius:16px;
@@ -151,10 +232,65 @@
 .rnd-box b{
   display:block;
   font-size:11px;
-  color:#8a94a6;
+  color:#94a3b8;
   margin-bottom:6px;
   text-transform:uppercase;
   letter-spacing:.04em;
+}
+.rnd-card-head{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+  margin-bottom:14px;
+  flex-wrap:wrap;
+}
+.rnd-chipline{display:flex;gap:8px;flex-wrap:wrap}
+.rnd-form-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  padding-top:8px;
+  flex-wrap:wrap;
+}
+.rnd-stages{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+}
+.rnd-stage{
+  display:grid;
+  justify-items:center;
+  gap:8px;
+  padding:14px;
+  border-radius:18px;
+  border:1px solid #e8edf5;
+  background:#fff;
+}
+.rnd-stage .num{
+  width:38px;
+  height:38px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  font-weight:900;
+  background:#eef2ff;
+  color:#4f46e5;
+}
+.rnd-toolbar{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+  flex-wrap:wrap;
+}
+.rnd-search{display:flex;gap:8px;align-items:center}
+.rnd-search input{
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid #d9e0ea;
+  background:#fff;
+  min-width:220px;
 }
 .rnd-table{width:100%;border-collapse:collapse}
 .rnd-table th,.rnd-table td{
@@ -170,76 +306,49 @@
   letter-spacing:.08em;
   color:#8a94a6;
 }
-.rnd-chipline{display:flex;gap:8px;flex-wrap:wrap}
-.rnd-card-head{
-  display:flex;
-  justify-content:space-between;
-  gap:12px;
-  align-items:center;
-  margin-bottom:14px;
-}
-.rnd-stages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.rnd-stage{
+.rnd-empty{color:#7b8798}
+.rnd-procedure{
   display:grid;
-  justify-items:center;
-  gap:8px;
-  padding:14px;
-  border-radius:16px;
-  border:1px solid #e8edf5;
-  background:#fff;
+  gap:12px;
 }
-.rnd-stage .num{
-  width:36px;
-  height:36px;
-  border-radius:999px;
+.rnd-procedure-step{
+  border:1px solid #e7ebf3;
+  border-radius:16px;
+  padding:14px;
+  background:#fff;
+  display:grid;
+  grid-template-columns:40px minmax(0,1fr);
+  gap:12px;
+  align-items:start;
+}
+.rnd-procedure-num{
+  width:40px;
+  height:40px;
+  border-radius:12px;
+  background:#0f172a;
+  color:#fff;
   display:grid;
   place-items:center;
   font-weight:900;
-  background:#eef2ff;
-  color:#4f46e5;
 }
-.rnd-toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
-.rnd-search{display:flex;gap:8px;align-items:center}
-.rnd-search input{
-  padding:10px 12px;
-  border-radius:12px;
-  border:1px solid #d9e0ea;
-  background:#fff;
-  min-width:220px;
+.rnd-procedure h3{
+  margin:0 0 4px 0;
+  font-size:15px;
+  color:#0f172a;
 }
-.rnd-empty{color:#7b8798}
-.rnd-section-tag{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  width:22px;
-  height:22px;
-  border-radius:8px;
-  background:#172033;
-  color:#fff;
-  font-size:11px;
-  font-weight:900;
-  margin-right:8px;
+.rnd-procedure p{
+  margin:0;
+  color:#6b7280;
+  font-size:13px;
 }
-.rnd-soft-section{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  font-size:12px;
-  font-weight:900;
-  color:#1f2937;
-  margin-bottom:2px;
-  text-transform:uppercase;
-  letter-spacing:.04em;
+.rnd-list{
+  margin:0;
+  padding-left:18px;
+  color:#4b5563;
 }
-.rnd-form-actions{
-  display:flex;
-  justify-content:flex-end;
-  gap:10px;
-  padding-top:8px;
-}
+.rnd-list li{margin:6px 0}
 @media (max-width:1100px){
-  .rnd-grid,.rnd-split,.rnd-summary-grid,.rnd-metrics,.rnd-stages{grid-template-columns:1fr}
+  .rnd-grid,.rnd-summary-grid,.rnd-metrics,.rnd-stages{grid-template-columns:1fr}
   .rnd-form-grid .span-3,.rnd-form-grid .span-4,.rnd-form-grid .span-6,.rnd-form-grid .span-8{grid-column:1 / -1}
 }
 </style>
@@ -259,10 +368,11 @@
 <div class="rnd-shell">
   <section class="rnd-card">
     <div class="rnd-head">
-      <div>
-        <h1 style="margin:0;">{{ test.title }}</h1>
+      <div class="rnd-title-wrap">
+        <div class="rnd-kicker">Qualification Test Workbench</div>
+        <h1 class="rnd-title">{{ test.title }}</h1>
         <div class="rnd-sub">{{ test.code }} · {{ test.clause_ref or guidance.api_clause or 'Internal basis' }}</div>
-        <p style="margin:10px 0 0 0;">{{ test.description or "Qualification requirement under the selected route." }}</p>
+        <div class="rnd-sub">{{ test.description or "Qualification requirement under the selected route." }}</div>
       </div>
       <div class="rnd-actions">
         <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back to Program</a>
@@ -270,7 +380,7 @@
       </div>
     </div>
 
-    <div class="rnd-metrics" style="margin-top:18px;">
+    <div class="rnd-metrics">
       <div class="rnd-metric">
         <b>Required Specimens</b>
         <div class="value">{{ test.specimen_requirement or guidance.specimen_count or prep.min_specimens }}</div>
@@ -289,11 +399,11 @@
       </div>
     </div>
 
-    <div class="rnd-tabs" style="margin-top:18px;">
+    <div class="rnd-tabs">
       <a class="rnd-tab {% if active_tab == 'overview' %}active{% endif %}" href="?tab=overview">Overview</a>
       <a class="rnd-tab {% if active_tab == 'specimens' %}active{% endif %}" href="?tab=specimens">Specimens</a>
       <a class="rnd-tab {% if active_tab == 'evidence' %}active{% endif %}" href="?tab=evidence">Evidence Register</a>
-      <a class="rnd-tab {% if active_tab == 'guidance' %}active{% endif %}" href="?tab=guidance">Engineer Guidance</a>
+      <a class="rnd-tab {% if active_tab == 'guidance' %}active{% endif %}" href="?tab=guidance">Procedure & Guidance</a>
     </div>
   </section>
 
@@ -301,8 +411,8 @@
   <section class="rnd-overview">
     <article class="rnd-card">
       <div class="rnd-card-head">
-        <h2 class="rnd-panel-title">Execution Workflow</h2>
-        <span class="rnd-badge ok">On Track</span>
+        <h2 class="rnd-panel-title">Execution workflow</h2>
+        <span class="rnd-badge ok">Workbench active</span>
       </div>
       <div class="rnd-stages">
         <div class="rnd-stage">
@@ -322,20 +432,20 @@
         </div>
         <div class="rnd-stage">
           <div class="num">4</div>
-          <div style="font-weight:900;">QA Accepted</div>
+          <div style="font-weight:900;">QA accepted</div>
           <div class="rnd-sub">{{ specimen_lifecycle.qa_ready }} items</div>
         </div>
       </div>
       <div class="rnd-note" style="margin-top:16px;">
-        Bench note — prepare specimen → release to lab → record pressure / failure behavior → review evidence → close result.
+        Use this test page as a working area: register specimens, record execution results, attach supporting evidence, and follow the procedure basis before closeout.
       </div>
     </article>
 
     <article class="rnd-card">
       <div class="rnd-toolbar">
         <div>
-          <h2 class="rnd-panel-title" style="margin-bottom:4px;">Live Specimen Matrix</h2>
-          <div class="rnd-sub">Real-time qualification tracking</div>
+          <h2 class="rnd-panel-title" style="margin-bottom:4px;">Live specimen matrix</h2>
+          <div class="rnd-panel-sub">Real-time view of the specimens tracked for this test</div>
         </div>
         <div class="rnd-search">
           <input type="text" placeholder="Search specimens..." onkeyup="
@@ -356,9 +466,9 @@
               <th>Material Link</th>
               <th>Status</th>
               <th>Target</th>
-              <th>Failure</th>
+              <th>Result</th>
               <th>QA Review</th>
-              <th>Actions</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
@@ -402,7 +512,7 @@
                 {% endif %}
               </td>
               <td>
-                <a class="btn btn-ghost" href="?tab=specimens&specimen_id={{ s.id }}">Edit</a>
+                <a class="btn btn-ghost" href="?tab=specimens&specimen_id={{ s.id }}">Open specimen</a>
               </td>
             </tr>
             {% else %}
@@ -422,8 +532,11 @@
     <aside class="rnd-side">
       <article class="rnd-card">
         <div class="rnd-card-head">
-          <h3 class="rnd-panel-title">Specimen Registry</h3>
-          <a class="btn btn-primary" href="?tab=specimens">+</a>
+          <div>
+            <h3 class="rnd-panel-title" style="margin-bottom:4px;">Specimen registry</h3>
+            <div class="rnd-panel-sub">Choose a specimen to edit, or return to add mode</div>
+          </div>
+          <a class="btn btn-primary" href="?tab=specimens">New</a>
         </div>
         <div class="rnd-spec-list">
           {% for s in specimens %}
@@ -439,7 +552,6 @@
               <span class="rnd-badge warn">{{ s.result_status or 'PENDING' }}</span>
               {% endif %}
             </div>
-
             <div style="margin-top:10px;display:flex;justify-content:space-between;gap:10px;align-items:center;">
               <div class="rnd-sub">{{ s.sample_date or '-' }}</div>
               <div style="font-weight:800;color:#172033;">
@@ -458,41 +570,100 @@
       {% if not ns.selected %}
       <article class="rnd-card">
         {% if error_code == 'duplicate_specimen_id' %}
-        <div class="rnd-note" style="margin-bottom:14px;border-color:#fecaca;background:#fef2f2;color:#b91c1c;">
+        <div class="rnd-alert" style="margin-bottom:14px;">
           Specimen ID already exists for this test. Please use a unique specimen ID.
         </div>
         {% endif %}
+
         <div class="rnd-card-head">
           <div>
-            <h2 class="rnd-panel-title" style="margin-bottom:4px;">New Specimen Registration</h2>
-            <div class="rnd-sub">Register a new specimen with core traceability and setup details.</div>
+            <h2 class="rnd-panel-title" style="margin-bottom:4px;">New specimen registration</h2>
+            <div class="rnd-panel-sub">This registration form changes by test type so the user records only the right basis from the start.</div>
           </div>
+          <span class="rnd-badge muted">{{ test.code }}</span>
         </div>
 
         <form method="post" action="/rnd/qualifications/{{ test.program_id }}/tests/{{ test.id }}/specimens/new" class="rnd-form-grid">
           <input type="hidden" name="test_type" value="{{ test.code }}">
 
           <div class="span-12">
-            <div class="rnd-soft-section"><span class="rnd-section-tag">1</span>Traceability & Identification</div>
+            <div class="rnd-soft-section"><span class="rnd-section-tag">1</span>Traceability & identification</div>
           </div>
 
           <label class="span-4">Specimen ID<input type="text" name="specimen_id" required></label>
           <label class="span-4">Sample Date<input type="date" name="sample_date" required></label>
           <label class="span-4">Batch Reference<input type="text" name="batch_ref"></label>
 
-          <div class="span-12" style="margin-top:4px;">
-            <div class="rnd-soft-section"><span class="rnd-section-tag">2</span>Test Parameters</div>
-          </div>
-
-          <label class="span-4">Target Pressure (MPa)<input type="number" step="0.01" name="planned_pressure_mpa"></label>
-          <label class="span-4">Temperature (°C)<input type="number" step="0.01" name="temperature_c" value="{{ program.maot_c }}"></label>
+          <label class="span-4">Source Pipe / Spool Ref<input type="text" name="source_pipe_ref"></label>
           <label class="span-4">Nominal Size (in)<input type="number" step="0.01" name="nominal_size_in" value="{{ program.nominal_size_in }}"></label>
+          <label class="span-4">Temperature (°C)<input type="number" step="0.01" name="temperature_c" value="{{ program.maot_c }}"></label>
 
-          <label class="span-6">Effective Length (mm)<input type="number" step="0.01" name="effective_length_mm"></label>
-          <label class="span-6">Cut Length (mm)<input type="number" step="0.01" name="total_cut_length_mm"></label>
+          {% if test.code == 'MPR_REG' or test.code == 'STATIC_REGRESSION' %}
+          <div class="span-12" style="margin-top:4px;">
+            <div class="rnd-soft-section"><span class="rnd-section-tag">2</span>Regression test setup</div>
+          </div>
+          <label class="span-4">Target Pressure (MPa)<input type="number" step="0.01" name="planned_pressure_mpa"></label>
+          <label class="span-4">Effective Length (mm)<input type="number" step="0.01" name="effective_length_mm"></label>
+          <label class="span-4">Cut Length (mm)<input type="number" step="0.01" name="total_cut_length_mm"></label>
+          <label class="span-12">Preparation Basis<textarea name="notes" rows="3"></textarea></label>
+
+          {% elif test.code == 'PV_1000H' %}
+          <div class="span-12" style="margin-top:4px;">
+            <div class="rnd-soft-section"><span class="rnd-section-tag">2</span>1000-hour hold setup</div>
+          </div>
+          <label class="span-4">Hold Pressure (MPa)<input type="number" step="0.01" name="planned_pressure_mpa"></label>
+          <label class="span-4">Effective Length (mm)<input type="number" step="0.01" name="effective_length_mm"></label>
+          <label class="span-4">Cut Length (mm)<input type="number" step="0.01" name="total_cut_length_mm"></label>
+          <label class="span-12">Setup Notes<textarea name="notes" rows="3"></textarea></label>
+
+          {% elif test.code == 'TEMP_CYCLE' or test.code == 'THERMAL' %}
+          <div class="span-12" style="margin-top:4px;">
+            <div class="rnd-soft-section"><span class="rnd-section-tag">2</span>Thermal cycle setup</div>
+          </div>
+          <label class="span-4">Cycle Plan / Ref<input type="text" name="preparation_rule_basis"></label>
+          <label class="span-4">Effective Length (mm)<input type="number" step="0.01" name="effective_length_mm"></label>
+          <label class="span-4">Cut Length (mm)<input type="number" step="0.01" name="total_cut_length_mm"></label>
+          <label class="span-12">Setup Notes<textarea name="notes" rows="3"></textarea></label>
+
+          {% elif test.code == 'RAPID_DECOMP' %}
+          <div class="span-12" style="margin-top:4px;">
+            <div class="rnd-soft-section"><span class="rnd-section-tag">2</span>Rapid decompression setup</div>
+          </div>
+          <label class="span-4">Soak / Pressure Basis<input type="text" name="preparation_rule_basis"></label>
+          <label class="span-4">Effective Length (mm)<input type="number" step="0.01" name="effective_length_mm"></label>
+          <label class="span-4">Cut Length (mm)<input type="number" step="0.01" name="total_cut_length_mm"></label>
+          <label class="span-12">Gas / decompression notes<textarea name="notes" rows="3"></textarea></label>
+
+          {% elif test.code == 'IMPACT' %}
+          <div class="span-12" style="margin-top:4px;">
+            <div class="rnd-soft-section"><span class="rnd-section-tag">2</span>Impact setup</div>
+          </div>
+          <label class="span-4">Impact Setup Ref<input type="text" name="preparation_rule_basis"></label>
+          <label class="span-4">Effective Length (mm)<input type="number" step="0.01" name="effective_length_mm"></label>
+          <label class="span-4">Cut Length (mm)<input type="number" step="0.01" name="total_cut_length_mm"></label>
+          <label class="span-12">Impact preparation notes<textarea name="notes" rows="3"></textarea></label>
+
+          {% elif test.code == 'AXIAL_LOAD' or test.code == 'AXIAL' %}
+          <div class="span-12" style="margin-top:4px;">
+            <div class="rnd-soft-section"><span class="rnd-section-tag">2</span>Axial load setup</div>
+          </div>
+          <label class="span-4">Load Setup Ref<input type="text" name="preparation_rule_basis"></label>
+          <label class="span-4">Effective Length (mm)<input type="number" step="0.01" name="effective_length_mm"></label>
+          <label class="span-4">Cut Length (mm)<input type="number" step="0.01" name="total_cut_length_mm"></label>
+          <label class="span-12">Axial setup notes<textarea name="notes" rows="3"></textarea></label>
+
+          {% else %}
+          <div class="span-12" style="margin-top:4px;">
+            <div class="rnd-soft-section"><span class="rnd-section-tag">2</span>General test setup</div>
+          </div>
+          <label class="span-4">Target / Setup Basis<input type="text" name="preparation_rule_basis"></label>
+          <label class="span-4">Effective Length (mm)<input type="number" step="0.01" name="effective_length_mm"></label>
+          <label class="span-4">Cut Length (mm)<input type="number" step="0.01" name="total_cut_length_mm"></label>
+          <label class="span-12">Notes<textarea name="notes" rows="3"></textarea></label>
+          {% endif %}
 
           <div class="span-12" style="margin-top:4px;">
-            <div class="rnd-soft-section"><span class="rnd-section-tag">3</span>Validation & Release</div>
+            <div class="rnd-soft-section"><span class="rnd-section-tag">3</span>Validation & release</div>
           </div>
 
           <div class="span-12 rnd-actions">
@@ -501,11 +672,9 @@
             <label><input type="checkbox" name="released_for_test" value="1"> Released for test</label>
           </div>
 
-          <label class="span-12">Additional Notes<textarea name="notes" rows="3"></textarea></label>
-
           <div class="span-12 rnd-form-actions">
             <a class="btn btn-ghost" href="?tab=specimens">Cancel</a>
-            <button class="btn btn-primary" type="submit">Register Specimen</button>
+            <button class="btn btn-primary" type="submit">Register specimen</button>
           </div>
         </form>
       </article>
@@ -516,7 +685,7 @@
         <div class="rnd-card-head">
           <div>
             <h2 class="rnd-panel-title" style="margin-bottom:4px;">{{ ns.selected.specimen_id }}</h2>
-            <div class="rnd-sub">Edit this specimen record only</div>
+            <div class="rnd-panel-sub">Edit this specimen record only</div>
           </div>
           <div class="rnd-chipline">
             <span class="rnd-badge {% if (ns.selected.result_status or 'PENDING') in ['PASS','COMPLETE'] %}ok{% else %}warn{% endif %}">
@@ -655,12 +824,12 @@
   <section class="rnd-card">
     <div class="rnd-toolbar">
       <div>
-        <h2 class="rnd-panel-title" style="margin-bottom:4px;">Evidence Register</h2>
-        <div class="rnd-sub">Compliance & document control</div>
+        <h2 class="rnd-panel-title" style="margin-bottom:4px;">Evidence register</h2>
+        <div class="rnd-panel-sub">Separate from specimen execution so evidence review stays clean</div>
       </div>
       <div class="rnd-actions">
-        <button class="btn btn-ghost" type="button">Download All</button>
-        <button class="btn btn-primary" type="button">Batch Upload</button>
+        <button class="btn btn-ghost" type="button">Download all</button>
+        <button class="btn btn-primary" type="button">Batch upload</button>
       </div>
     </div>
 
@@ -705,7 +874,7 @@
     </div>
 
     <article class="rnd-card" style="margin-top:18px;">
-      <h3 class="rnd-panel-title">Add Evidence Row</h3>
+      <h3 class="rnd-panel-title">Add evidence row</h3>
       <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/attachments/new" class="rnd-form-grid">
         <label class="span-3">Category<input type="text" name="category" value="REPORT"></label>
         <label class="span-3">Document Type<input type="text" name="document_type" required></label>
@@ -730,38 +899,84 @@
   <section class="rnd-grid">
     <div class="rnd-main">
       <article class="rnd-card">
-        <h2 class="rnd-panel-title">Conditioning & Setup</h2>
-        <div class="rnd-side">
-          {% for item in guidance.conditioning_steps %}
-          <div class="rnd-box"><b>{{ loop.index }}</b>{{ item }}</div>
-          {% endfor %}
+        <div class="rnd-card-head">
+          <div>
+            <h2 class="rnd-panel-title" style="margin-bottom:4px;">Test procedure</h2>
+            <div class="rnd-panel-sub">A clearer operator-friendly sequence to help the user conduct the test properly</div>
+          </div>
+          <span class="rnd-badge muted">{{ test.code }}</span>
         </div>
+
+        <div class="rnd-procedure">
+          {% for item in guidance.conditioning_steps %}
+          <div class="rnd-procedure-step">
+            <div class="rnd-procedure-num">{{ loop.index }}</div>
+            <div>
+              <h3>Step {{ loop.index }}</h3>
+              <p>{{ item }}</p>
+            </div>
+          </div>
+          {% endfor %}
+
+          {% if guidance.core_process %}
+          <div class="rnd-card" style="padding:16px;">
+            <h3 style="margin:0 0 10px 0;color:#111827;">Core process</h3>
+            <ul class="rnd-list">
+              {% for item in guidance.core_process %}
+              <li>{{ item }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+        </div>
+      </article>
+
+      <article class="rnd-card">
+        <h2 class="rnd-panel-title">Acceptance basis</h2>
+        <ul class="rnd-list">
+          {% for item in guidance.acceptance %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </article>
+
+      <article class="rnd-card">
+        <h2 class="rnd-panel-title">Retest / review logic</h2>
+        <ul class="rnd-list">
+          {% for item in guidance.retest_logic %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
       </article>
     </div>
 
     <aside class="rnd-side">
       <article class="rnd-card">
-        <h2 class="rnd-panel-title">Preparation Basis</h2>
-        <div class="rnd-box" style="background:#10b981;color:#fff;border-color:#059669;">
-          <b style="color:#d1fae5;">Total Cut Length Rule</b>
+        <h2 class="rnd-panel-title">Preparation basis</h2>
+        <div class="rnd-box" style="background:#0f766e;color:#fff;border-color:#0f766e;">
+          <b style="color:#ccfbf1;">Total cut length rule</b>
           {{ prep.total_length_formula }}
         </div>
-        <div class="rnd-split" style="margin-top:16px;">
-          <div>
-            <div class="rnd-sub" style="font-weight:800;margin-bottom:8px;">Minimum Requirements</div>
-            <ul>
+        <div class="rnd-summary-grid" style="grid-template-columns:1fr;margin-top:14px;">
+          <div class="rnd-box">
+            <b>Minimum requirements</b>
+            <ul class="rnd-list">
               <li>{{ prep.min_specimens }} specimens minimum</li>
               <li>Unrestricted ends</li>
               <li>{{ prep.end_allowance_each_side }}</li>
             </ul>
           </div>
-          <div>
-            <div class="rnd-sub" style="font-weight:800;margin-bottom:8px;">Records Required</div>
-            <ul>
+          <div class="rnd-box">
+            <b>Required records</b>
+            <ul class="rnd-list">
               {% for item in execution.records %}
               <li>{{ item }}</li>
               {% endfor %}
             </ul>
+          </div>
+          <div class="rnd-box">
+            <b>Conditioning required</b>
+            {{ guidance.conditioning_required }}
           </div>
         </div>
       </article>
