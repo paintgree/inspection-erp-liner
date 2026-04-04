@@ -902,13 +902,13 @@
         <div class="rnd-card-head">
           <div>
             <h2 class="rnd-panel-title" style="margin-bottom:4px;">Test procedure</h2>
-            <div class="rnd-panel-sub">A clearer operator-friendly sequence to help the user conduct the test properly</div>
+            <div class="rnd-panel-sub">A practical operator-facing sequence for conducting the test correctly</div>
           </div>
           <span class="rnd-badge muted">{{ test.code }}</span>
         </div>
 
         <div class="rnd-procedure">
-          {% for item in guidance.conditioning_steps %}
+          {% for item in guidance.test_procedure %}
           <div class="rnd-procedure-step">
             <div class="rnd-procedure-num">{{ loop.index }}</div>
             <div>
@@ -917,27 +917,32 @@
             </div>
           </div>
           {% endfor %}
-
-          {% if guidance.core_process %}
-          <div class="rnd-card" style="padding:16px;">
-            <h3 style="margin:0 0 10px 0;color:#111827;">Core process</h3>
-            <ul class="rnd-list">
-              {% for item in guidance.core_process %}
-              <li>{{ item }}</li>
-              {% endfor %}
-            </ul>
-          </div>
-          {% endif %}
         </div>
       </article>
 
       <article class="rnd-card">
-        <h2 class="rnd-panel-title">Acceptance basis</h2>
+        <h2 class="rnd-panel-title">Operator checks</h2>
         <ul class="rnd-list">
-          {% for item in guidance.acceptance %}
+          {% for item in guidance.operator_checks %}
           <li>{{ item }}</li>
           {% endfor %}
         </ul>
+      </article>
+
+      <article class="rnd-card">
+        <h2 class="rnd-panel-title">Records to capture</h2>
+        <ul class="rnd-list">
+          {% for item in guidance.records_to_capture %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </article>
+
+      <article class="rnd-card">
+        <h2 class="rnd-panel-title">Retest / review logic</h2>
+        <div class="rnd-sub" style="color:#374151;font-size:14px;line-height:1.7;">
+          {{ guidance.retest_logic }}
+        </div>
       </article>
 
       <article class="rnd-card">
