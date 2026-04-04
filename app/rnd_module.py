@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import os
+import json
 from datetime import datetime, date
 from typing import Optional, List
 
@@ -1070,18 +1071,38 @@ def _refresh_material_review(session: Session, material: 'RndMaterialQualificati
 def _material_reference_options(materials: List['RndMaterialQualification']) -> list[dict]:
     options: list[dict] = []
     for row in materials:
-        label_parts = [row.component.title() if row.component else 'Material']
+        label_parts = []
+
+        component = (row.component or '').strip().title() if (row.component or '').strip() else 'Material'
+        label_parts.append(component)
+
+        if (row.material_family or '').strip():
+            label_parts.append((row.material_family or '').strip())
+
         if (row.material_name or '').strip():
-            label_parts.append(row.material_name.strip())
+            label_parts.append((row.material_name or '').strip())
+
         if (row.grade_name or '').strip():
-            label_parts.append(row.grade_name.strip())
+            label_parts.append((row.grade_name or '').strip())
+
+        if (row.reinforcement_type or '').strip():
+            label_parts.append((row.reinforcement_type or '').strip())
+
+        if row.reinforcement_layer_count is not None:
+            label_parts.append(f"{row.reinforcement_layer_count}L")
+
         if (row.batch_ref or '').strip():
             label_parts.append(f"Batch {row.batch_ref.strip()}")
-        value = ' | '.join(part for part in label_parts if part)
-        if value:
-            options.append({'value': value, 'label': value, 'component': row.component or ''})
-    return options
 
+        value = " | ".join(part for part in label_parts if part)
+        if value:
+            options.append({
+                'value': value,
+                'label': value,
+                'component': row.component or '',
+                'review_outcome': row.review_outcome or 'MORE_DATA_REQUIRED',
+            })
+    return options
 
 def _coalesce_material_ref(material_ref: str, batch_ref: str, source_pipe_ref: str, materials: List['RndMaterialQualification']) -> str:
     raw = (material_ref or '').strip()
@@ -1111,6 +1132,43 @@ def _conditioning_required_flag(value: str | None) -> bool:
     if any(token in text for token in no_tokens):
         return False
     return 'yes' in text or 'conditioning' in text or 'temperature' in text
+
+def _material_test_rows_by_material(material_tests: List['RndMaterialTestRecord']) -> dict[int, list['RndMaterialTestRecord']]:
+    grouped: dict[int, list[RndMaterialTestRecord]] = {}
+    for row in material_tests:
+        grouped.setdefault(row.material_id, []).append(row)
+    return grouped
+
+
+def _material_dashboard_rows(
+    materials: List['RndMaterialQualification'],
+    material_tests: List['RndMaterialTestRecord'],
+    program: Optional[RndQualificationProgram] = None,
+) -> list[dict]:
+    grouped = _material_test_rows_by_material(material_tests)
+    rows = []
+
+    for material in materials:
+        tests = grouped.get(material.id or 0, [])
+        required = _material_required_test_types(material, program)
+        review = {
+            "required_tests": required,
+            "test_count": len(tests),
+            "review_outcome": material.review_outcome or "MORE_DATA_REQUIRED",
+            "review_summary": material.review_summary or "",
+            "compatibility_status": material.compatibility_status or "UNKNOWN",
+            "evidence_status": material.evidence_status or "MISSING",
+            "clarification_required": material.clarification_required or "",
+            "additional_tests_required": material.additional_tests_required or "",
+            "change_requalification_flag": bool(material.change_requalification_flag),
+        }
+        rows.append({
+            "material": material,
+            "tests": tests,
+            "review": review,
+        })
+
+    return rows
 
 
 def _required_attachment_types(test_code: str) -> list[str]:
@@ -1341,14 +1399,50 @@ def _seed_test_matrix(session: Session, program: RndQualificationProgram) -> Non
     if existing:
         return
     if (program.qualification_standard or '').strip().upper().startswith('OTHER'):
-        for component, material in [('LINER', program.liner_material), ('REINFORCEMENT', program.reinforcement_material), ('COVER', program.cover_material)]:
-            session.add(RndMaterialQualification(program_id=program.id, component=component, material_name=material))
+    for component, material in [('LINER', program.liner_material), ('REINFORCEMENT', program.reinforcement_material), ('COVER', program.cover_material)]:
+        row = RndMaterialQualification(
+            program_id=program.id,
+            component=component,
+            material_name=material,
+            material_family=(
+                'POLYMER' if component in {'LINER', 'COVER'}
+                else 'REINFORCEMENT'
+            ),
+            reinforcement_type=(
+                'NONMETALLIC' if component == 'REINFORCEMENT' and 'steel' not in (material or '').lower()
+                else ('STEEL' if component == 'REINFORCEMENT' else '')
+            ),
+            reinforcement_layer_count=(2 if component == 'REINFORCEMENT' else None),
+            status='PLANNED',
+            review_outcome='MORE_DATA_REQUIRED',
+            evidence_status='MISSING',
+            compatibility_status='UNKNOWN',
+        )
+        session.add(row)
         session.commit()
         return
     for idx, item in enumerate(_default_test_matrix(program.pfr_or_pv), start=1):
         session.add(RndQualificationTest(program_id=program.id, sort_order=idx, clause_ref=item['clause_ref'], code=item['code'], title=item['title'], description=item['description'], specimen_requirement=item['specimen_requirement'], applicability=item['applicability']))
     for component, material in [('LINER', program.liner_material), ('REINFORCEMENT', program.reinforcement_material), ('COVER', program.cover_material)]:
-        session.add(RndMaterialQualification(program_id=program.id, component=component, material_name=material))
+        row = RndMaterialQualification(
+            program_id=program.id,
+            component=component,
+            material_name=material,
+            material_family=(
+                'POLYMER' if component in {'LINER', 'COVER'}
+                else 'REINFORCEMENT'
+            ),
+            reinforcement_type=(
+                'NONMETALLIC' if component == 'REINFORCEMENT' and 'steel' not in (material or '').lower()
+                else ('STEEL' if component == 'REINFORCEMENT' else '')
+            ),
+            reinforcement_layer_count=(2 if component == 'REINFORCEMENT' else None),
+            status='PLANNED',
+            review_outcome='MORE_DATA_REQUIRED',
+            evidence_status='MISSING',
+            compatibility_status='UNKNOWN',
+        )
+        session.add(row)
     session.commit()
 
 
@@ -1846,18 +1940,82 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
     program = session.get(RndQualificationProgram, program_id)
     if not program:
         raise HTTPException(404, 'Program not found')
+
     _seed_test_matrix(session, program)
-    tests = session.exec(select(RndQualificationTest).where(RndQualificationTest.program_id == program_id).order_by(RndQualificationTest.sort_order.asc(), RndQualificationTest.id.asc())).all()
-    specimens = session.exec(select(RndQualificationSpecimen).where(RndQualificationSpecimen.program_id == program_id).order_by(RndQualificationSpecimen.created_at.desc())).all()
-    materials = session.exec(select(RndMaterialQualification).where(RndMaterialQualification.program_id == program_id).order_by(RndMaterialQualification.id.asc())).all()
-    attachments = session.exec(select(RndAttachmentRegister).where(RndAttachmentRegister.program_id == program_id).order_by(RndAttachmentRegister.created_at.desc())).all()
+
+    tests = session.exec(
+        select(RndQualificationTest)
+        .where(RndQualificationTest.program_id == program_id)
+        .order_by(RndQualificationTest.sort_order.asc(), RndQualificationTest.id.asc())
+    ).all()
+
+    specimens = session.exec(
+        select(RndQualificationSpecimen)
+        .where(RndQualificationSpecimen.program_id == program_id)
+        .order_by(RndQualificationSpecimen.created_at.desc())
+    ).all()
+
+    materials = session.exec(
+        select(RndMaterialQualification)
+        .where(RndMaterialQualification.program_id == program_id)
+        .order_by(RndMaterialQualification.id.asc())
+    ).all()
+
+    material_tests = session.exec(
+        select(RndMaterialTestRecord)
+        .where(RndMaterialTestRecord.program_id == program_id)
+        .order_by(RndMaterialTestRecord.test_date.desc(), RndMaterialTestRecord.id.desc())
+    ).all()
+
+    attachments = session.exec(
+        select(RndAttachmentRegister)
+        .where(RndAttachmentRegister.program_id == program_id)
+        .order_by(RndAttachmentRegister.created_at.desc())
+    ).all()
+
+    # Refresh all material review states on page load so the UI always gets current judgment
+    for material in materials:
+        _refresh_material_review(session, material, program)
+    session.commit()
+
+    # Reload materials after refresh to ensure current values are used
+    materials = session.exec(
+        select(RndMaterialQualification)
+        .where(RndMaterialQualification.program_id == program_id)
+        .order_by(RndMaterialQualification.id.asc())
+    ).all()
+
+    material_dashboard = _material_dashboard_rows(materials, material_tests, program)
+
     static_reg = _regression_from_specimens(specimens, 'STATIC_REGRESSION', program.npr_mpa)
     cyclic_reg = _regression_from_specimens(specimens, 'CYCLIC_REGRESSION', program.npr_mpa)
     counts = _matrix_counts(tests)
     guide = _qualification_guide(program)
     phase_cards = _phase_cards(program, tests, materials, specimens, attachments)
-    return TEMPLATES.TemplateResponse(request,'rnd_program_view.html', {'request': request, 'user': user, 'program': program, 'tests': tests, 'specimens': specimens, 'materials': materials, 'attachments': attachments, 'static_reg': static_reg, 'cyclic_reg': cyclic_reg, 'counts': counts, 'progress_pct': _status_pct(counts, len(tests)), 'guide': guide, 'phase_cards': phase_cards, 'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC, 'rcrt_hours': RCRT_HOURS})
 
+    return TEMPLATES.TemplateResponse(
+        request,
+        'rnd_program_view.html',
+        {
+            'request': request,
+            'user': user,
+            'program': program,
+            'tests': tests,
+            'specimens': specimens,
+            'materials': materials,
+            'material_tests': material_tests,
+            'material_dashboard': material_dashboard,
+            'attachments': attachments,
+            'static_reg': static_reg,
+            'cyclic_reg': cyclic_reg,
+            'counts': counts,
+            'progress_pct': _status_pct(counts, len(tests)),
+            'guide': guide,
+            'phase_cards': phase_cards,
+            'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC,
+            'rcrt_hours': RCRT_HOURS,
+        }
+    )
 
 @router.post('/qualifications/{program_id}/status')
 def rnd_update_program_status(program_id: int, status: str = Form(...), session: Session = Depends(get_session), user: User = Depends(_require_user)):
