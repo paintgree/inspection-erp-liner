@@ -1763,6 +1763,7 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
             'test': test,
             'prep': prep,
             'specimens': specimens,
+            'selected': specimen_id,
             'attachments': attachments,
             'execution': execution,
             'acceptance': acceptance,
