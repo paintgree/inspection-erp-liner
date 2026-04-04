@@ -1956,7 +1956,7 @@ def rnd_add_test_specimen(
     session.commit()
 
     return RedirectResponse(
-        url=f'/rnd/qualifications/{program.id}/tests/{test.id}',
+        url=f'/rnd/qualifications/{program.id}/tests/{test.id}?tab=specimens&specimen_id={specimen.id}',
         status_code=303,
     )
 
@@ -2151,7 +2151,7 @@ def rnd_update_test_specimen(
 
     session.commit()
     return RedirectResponse(
-        url=f'/rnd/qualifications/{program_id}/tests/{test_id}',
+        url=f'/rnd/qualifications/{program_id}/tests/{test_id}?tab=specimens&specimen_id={specimen.id}',
         status_code=303,
     )
 @router.post('/qualifications/{program_id}/tests/{test_id}/attachments/new')
