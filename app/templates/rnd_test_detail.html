@@ -4,56 +4,239 @@
 
 {% block content %}
 <style>
-.rnd-shell{display:grid;gap:18px}
-.rnd-card{background:#fff;border:1px solid #e5e7eb;border-radius:20px;box-shadow:0 10px 30px rgba(15,23,42,.05);padding:18px}
-.rnd-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
-.rnd-sub{color:#64748b}
+.rnd-shell{display:grid;gap:22px}
+.rnd-card{
+  background:#fff;
+  border:1px solid #e6eaf2;
+  border-radius:22px;
+  box-shadow:0 10px 28px rgba(15,23,42,.05);
+  padding:22px;
+}
+.rnd-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+.rnd-sub{color:#7b8798;font-size:13px;line-height:1.5}
 .rnd-actions{display:flex;gap:10px;flex-wrap:wrap}
 .rnd-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
-.rnd-metric{border:1px solid #e5e7eb;border-radius:18px;padding:16px;background:#f8fafc}
-.rnd-metric b{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b;margin-bottom:8px}
-.rnd-metric .value{font-size:28px;font-weight:900;color:#0f172a}
-.rnd-note{padding:14px;border-radius:16px;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8}
-.rnd-tabs{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid #e5e7eb;padding-bottom:8px}
-.rnd-tab{display:inline-flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;font-size:13px;font-weight:800;text-decoration:none;color:#475569;border:1px solid transparent}
-.rnd-tab.active{background:#eff6ff;color:#2563eb;border-color:#bfdbfe}
-.rnd-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;align-items:start}
+.rnd-metric{
+  border:1px solid #e8edf5;
+  border-radius:16px;
+  padding:16px 18px;
+  background:#fbfcfe;
+}
+.rnd-metric b{
+  display:block;
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#8a94a6;
+  margin-bottom:8px;
+}
+.rnd-metric .value{font-size:26px;font-weight:900;color:#172033}
+.rnd-note{
+  padding:12px 14px;
+  border-radius:14px;
+  border:1px solid #e6ebf5;
+  background:#f8fbff;
+  color:#44516a;
+}
+.rnd-tabs{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  border-bottom:1px solid #eceff5;
+  padding-bottom:10px;
+}
+.rnd-tab{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 16px;
+  border-radius:12px;
+  font-size:13px;
+  font-weight:800;
+  text-decoration:none;
+  color:#667085;
+  border:1px solid transparent;
+}
+.rnd-tab.active{
+  background:#eef2ff;
+  color:#4f46e5;
+  border-color:#d9ddff;
+}
+.rnd-grid{
+  display:grid;
+  grid-template-columns:280px minmax(0,1fr);
+  gap:18px;
+  align-items:start;
+}
 .rnd-side{display:grid;gap:14px}
 .rnd-main{display:grid;gap:18px}
-.rnd-spec-list{display:grid;gap:12px}
-.rnd-spec-item{display:block;padding:16px;border:1px solid #e5e7eb;border-radius:18px;background:#fff;text-decoration:none;color:inherit}
-.rnd-spec-item.active{border-color:#93c5fd;box-shadow:0 0 0 3px rgba(59,130,246,.10)}
-.rnd-spec-id{font-weight:900}
-.rnd-badge{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:800;border:1px solid #e5e7eb;background:#fff}
-.rnd-badge.ok{background:#dcfce7;color:#166534;border-color:#bbf7d0}
-.rnd-badge.warn{background:#fef3c7;color:#92400e;border-color:#fde68a}
-.rnd-badge.muted{background:#e5e7eb;color:#475569}
-.rnd-panel-title{margin:0 0 12px 0}
-.rnd-form-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:12px}
+.rnd-spec-list{display:grid;gap:10px}
+.rnd-spec-item{
+  display:block;
+  padding:14px 14px;
+  border:1px solid #e7ebf3;
+  border-radius:16px;
+  background:#fff;
+  text-decoration:none;
+  color:inherit;
+  transition:.15s ease;
+}
+.rnd-spec-item:hover{
+  border-color:#cfd8ea;
+  box-shadow:0 6px 18px rgba(15,23,42,.05);
+}
+.rnd-spec-item.active{
+  border-color:#c7d2fe;
+  background:#f7f8ff;
+  box-shadow:0 0 0 3px rgba(99,102,241,.08);
+}
+.rnd-spec-id{font-weight:900;color:#1f2937}
+.rnd-badge{
+  display:inline-flex;
+  align-items:center;
+  padding:4px 9px;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:800;
+  border:1px solid #e5e7eb;
+  background:#fff;
+}
+.rnd-badge.ok{background:#ecfdf3;color:#027a48;border-color:#b7ebcd}
+.rnd-badge.warn{background:#fff4e5;color:#b54708;border-color:#f7d7ab}
+.rnd-badge.muted{background:#f2f4f7;color:#667085;border-color:#e4e7ec}
+.rnd-panel-title{margin:0 0 12px 0;color:#172033}
+.rnd-form-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px}
 .rnd-form-grid .span-3{grid-column:span 3}
 .rnd-form-grid .span-4{grid-column:span 4}
 .rnd-form-grid .span-6{grid-column:span 6}
 .rnd-form-grid .span-8{grid-column:span 8}
 .rnd-form-grid .span-12{grid-column:1 / -1}
-.rnd-form-grid label{display:grid;gap:6px;font-weight:700;font-size:12px;color:#334155}
-.rnd-form-grid input,.rnd-form-grid textarea,.rnd-form-grid select{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #d7deea;background:#fff}
-.rnd-form-grid textarea{min-height:84px}
+.rnd-form-grid label{
+  display:grid;
+  gap:6px;
+  font-weight:800;
+  font-size:11px;
+  color:#667085;
+  text-transform:uppercase;
+  letter-spacing:.03em;
+}
+.rnd-form-grid input,
+.rnd-form-grid textarea,
+.rnd-form-grid select{
+  width:100%;
+  padding:11px 13px;
+  border-radius:12px;
+  border:1px solid #d9e0ea;
+  background:#fff;
+  color:#172033;
+  font-size:14px;
+}
+.rnd-form-grid textarea{min-height:86px}
+.rnd-form-grid input:focus,
+.rnd-form-grid textarea:focus,
+.rnd-form-grid select:focus{
+  outline:none;
+  border-color:#a5b4fc;
+  box-shadow:0 0 0 3px rgba(99,102,241,.10);
+}
 .rnd-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .rnd-summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-.rnd-box{border:1px solid #e5e7eb;border-radius:16px;padding:14px;background:#f8fafc}
-.rnd-box b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}
+.rnd-box{
+  border:1px solid #e8edf5;
+  border-radius:16px;
+  padding:14px;
+  background:#fbfcfe;
+}
+.rnd-box b{
+  display:block;
+  font-size:11px;
+  color:#8a94a6;
+  margin-bottom:6px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
 .rnd-table{width:100%;border-collapse:collapse}
-.rnd-table th,.rnd-table td{padding:12px;border-bottom:1px solid #edf2f7;text-align:left;font-size:13px;vertical-align:top}
-.rnd-table th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:#64748b}
+.rnd-table th,.rnd-table td{
+  padding:12px;
+  border-bottom:1px solid #edf1f6;
+  text-align:left;
+  font-size:13px;
+  vertical-align:top;
+}
+.rnd-table th{
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#8a94a6;
+}
 .rnd-chipline{display:flex;gap:8px;flex-wrap:wrap}
-.rnd-card-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px}
+.rnd-card-head{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:center;
+  margin-bottom:14px;
+}
 .rnd-stages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.rnd-stage{display:grid;justify-items:center;gap:8px;padding:12px;border-radius:16px;border:1px solid #e5e7eb;background:#fff}
-.rnd-stage .num{width:36px;height:36px;border-radius:999px;display:grid;place-items:center;font-weight:900;background:#eff6ff;color:#2563eb}
+.rnd-stage{
+  display:grid;
+  justify-items:center;
+  gap:8px;
+  padding:14px;
+  border-radius:16px;
+  border:1px solid #e8edf5;
+  background:#fff;
+}
+.rnd-stage .num{
+  width:36px;
+  height:36px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  font-weight:900;
+  background:#eef2ff;
+  color:#4f46e5;
+}
 .rnd-toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}
 .rnd-search{display:flex;gap:8px;align-items:center}
-.rnd-search input{padding:10px 12px;border-radius:12px;border:1px solid #d7deea;background:#fff;min-width:220px}
-.rnd-empty{color:#64748b}
+.rnd-search input{
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid #d9e0ea;
+  background:#fff;
+  min-width:220px;
+}
+.rnd-empty{color:#7b8798}
+.rnd-section-tag{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:22px;
+  height:22px;
+  border-radius:8px;
+  background:#172033;
+  color:#fff;
+  font-size:11px;
+  font-weight:900;
+  margin-right:8px;
+}
+.rnd-soft-section{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  font-weight:900;
+  color:#1f2937;
+  margin-bottom:2px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.rnd-form-actions{
+  display:flex;
+  justify-content:flex-end;
+  gap:10px;
+  padding-top:8px;
+}
 @media (max-width:1100px){
   .rnd-grid,.rnd-split,.rnd-summary-grid,.rnd-metrics,.rnd-stages{grid-template-columns:1fr}
   .rnd-form-grid .span-3,.rnd-form-grid .span-4,.rnd-form-grid .span-6,.rnd-form-grid .span-8{grid-column:1 / -1}
@@ -248,16 +431,24 @@
         <div class="rnd-spec-list">
           {% for s in specimens %}
           <a class="rnd-spec-item {% if selected_specimen_id and selected_specimen_id|int == s.id %}active{% endif %}" href="?tab=specimens&specimen_id={{ s.id }}">
-            <div style="display:flex;justify-content:space-between;gap:10px;align-items:center;">
-              <div class="rnd-spec-id">{{ s.specimen_id }}</div>
+            <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+              <div>
+                <div class="rnd-spec-id">{{ s.specimen_id }}</div>
+                <div class="rnd-sub" style="margin-top:4px;">Batch: {{ s.batch_ref or '-' }}</div>
+              </div>
               {% if (s.result_status or 'PENDING') in ['PASS','COMPLETE'] %}
               <span class="rnd-badge ok">{{ s.result_status }}</span>
               {% else %}
               <span class="rnd-badge warn">{{ s.result_status or 'PENDING' }}</span>
               {% endif %}
             </div>
-            <div class="rnd-sub" style="margin-top:8px;">{{ s.batch_ref or '-' }}</div>
-            <div style="margin-top:8px;font-weight:700;">{{ s.planned_pressure_mpa or '-' }} {% if s.planned_pressure_mpa %}MPa Target{% endif %}</div>
+          
+            <div style="margin-top:10px;display:flex;justify-content:space-between;gap:10px;align-items:center;">
+              <div class="rnd-sub">{{ s.sample_date or '-' }}</div>
+              <div style="font-weight:800;color:#172033;">
+                {% if s.planned_pressure_mpa %}{{ s.planned_pressure_mpa }} MPa{% else %}-{% endif %}
+              </div>
+            </div>
           </a>
           {% else %}
           <div class="rnd-empty">No specimens yet.</div>
@@ -277,23 +468,23 @@
         <div class="rnd-card-head">
           <div>
             <h2 class="rnd-panel-title" style="margin-bottom:4px;">New Specimen Registration</h2>
-            <div class="rnd-sub">Register a new specimen for the qualification track</div>
+            <div class="rnd-sub">Register a new specimen with core traceability and setup details.</div>
           </div>
         </div>
       
         <form method="post" action="/rnd/qualifications/{{ test.program_id }}/tests/{{ test.id }}/specimens/new" class="rnd-form-grid">
           <input type="hidden" name="test_type" value="{{ test.code }}">
       
-          <div class="span-12 rnd-note">
-            <strong>1) Traceability & Identification</strong>
+          <div class="span-12">
+            <div class="rnd-soft-section"><span class="rnd-section-tag">1</span>Traceability & Identification</div>
           </div>
       
           <label class="span-4">Specimen ID<input type="text" name="specimen_id" required></label>
           <label class="span-4">Sample Date<input type="date" name="sample_date" required></label>
           <label class="span-4">Batch Reference<input type="text" name="batch_ref"></label>
       
-          <div class="span-12 rnd-note" style="margin-top:8px;">
-            <strong>2) Test Parameters & Execution</strong>
+          <div class="span-12" style="margin-top:4px;">
+            <div class="rnd-soft-section"><span class="rnd-section-tag">2</span>Test Parameters</div>
           </div>
       
           <label class="span-4">Target Pressure (MPa)<input type="number" step="0.01" name="planned_pressure_mpa"></label>
@@ -320,7 +511,7 @@
             <label><input type="checkbox" name="released_for_test" value="1"> Released for test</label>
           </div>
       
-          <div class="span-12 rnd-actions" style="justify-content:flex-end;">
+          <div class="span-12 rnd-form-actions">
             <a class="btn btn-ghost" href="?tab=specimens">Cancel</a>
             <button class="btn btn-primary" type="submit">Register Specimen</button>
           </div>
@@ -457,7 +648,7 @@
           <label class="span-3" style="align-content:end;"><span><input type="checkbox" name="permissible_failure" {% if ns.selected.permissible_failure %}checked{% endif %}> Permissible failure mode</span></label>
           <label class="span-3" style="align-content:end;"><span><input type="checkbox" name="include_in_regression" {% if ns.selected.include_in_regression %}checked{% endif %}> Include in regression</span></label>
 
-          <div class="span-12 rnd-actions" style="justify-content:flex-end;">
+          <div class="span-12 rnd-form-actions">
             <a class="btn btn-ghost" href="?tab=specimens">Back to add mode</a>
             <button class="btn btn-primary" type="submit">Save specimen record</button>
           </div>
