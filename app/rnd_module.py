@@ -1395,11 +1395,20 @@ def _default_test_matrix(pfr_or_pv: str) -> list[dict]:
 
 
 def _seed_test_matrix(session: Session, program: RndQualificationProgram) -> None:
-    existing = session.exec(select(RndQualificationTest).where(RndQualificationTest.program_id == program.id)).all()
+    existing = session.exec(
+        select(RndQualificationTest).where(RndQualificationTest.program_id == program.id)
+    ).all()
     if existing:
         return
-    if not session.exec(select(RndMaterialQualification).where(RndMaterialQualification.program_id == program.id)).first():
-        for component, material in [('LINER', program.liner_material), ('REINFORCEMENT', program.reinforcement_material), ('COVER', program.cover_material)]:
+
+    if not session.exec(
+        select(RndMaterialQualification).where(RndMaterialQualification.program_id == program.id)
+    ).first():
+        for component, material in [
+            ('LINER', program.liner_material),
+            ('REINFORCEMENT', program.reinforcement_material),
+            ('COVER', program.cover_material),
+        ]:
             row = RndMaterialQualification(
                 program_id=program.id,
                 component=component,
@@ -1409,7 +1418,8 @@ def _seed_test_matrix(session: Session, program: RndQualificationProgram) -> Non
                     else 'REINFORCEMENT'
                 ),
                 reinforcement_type=(
-                    'NONMETALLIC' if component == 'REINFORCEMENT' and 'steel' not in (material or '').lower()
+                    'NONMETALLIC'
+                    if component == 'REINFORCEMENT' and 'steel' not in (material or '').lower()
                     else ('STEEL' if component == 'REINFORCEMENT' else '')
                 ),
                 reinforcement_layer_count=(2 if component == 'REINFORCEMENT' else None),
@@ -1419,31 +1429,21 @@ def _seed_test_matrix(session: Session, program: RndQualificationProgram) -> Non
                 compatibility_status='UNKNOWN',
             )
             session.add(row)
-    
-    session.commit()
-        return
+
     for idx, item in enumerate(_default_test_matrix(program.pfr_or_pv), start=1):
-        session.add(RndQualificationTest(program_id=program.id, sort_order=idx, clause_ref=item['clause_ref'], code=item['code'], title=item['title'], description=item['description'], specimen_requirement=item['specimen_requirement'], applicability=item['applicability']))
-    for component, material in [('LINER', program.liner_material), ('REINFORCEMENT', program.reinforcement_material), ('COVER', program.cover_material)]:
-        row = RndMaterialQualification(
-            program_id=program.id,
-            component=component,
-            material_name=material,
-            material_family=(
-                'POLYMER' if component in {'LINER', 'COVER'}
-                else 'REINFORCEMENT'
-            ),
-            reinforcement_type=(
-                'NONMETALLIC' if component == 'REINFORCEMENT' and 'steel' not in (material or '').lower()
-                else ('STEEL' if component == 'REINFORCEMENT' else '')
-            ),
-            reinforcement_layer_count=(2 if component == 'REINFORCEMENT' else None),
-            status='PLANNED',
-            review_outcome='MORE_DATA_REQUIRED',
-            evidence_status='MISSING',
-            compatibility_status='UNKNOWN',
+        session.add(
+            RndQualificationTest(
+                program_id=program.id,
+                sort_order=idx,
+                clause_ref=item['clause_ref'],
+                code=item['code'],
+                title=item['title'],
+                description=item['description'],
+                specimen_requirement=item['specimen_requirement'],
+                applicability=item['applicability'],
+            )
         )
-        session.add(row)
+
     session.commit()
 
 
