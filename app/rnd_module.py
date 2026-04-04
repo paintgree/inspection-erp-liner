@@ -723,15 +723,73 @@ class RndMaterialQualification(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     program_id: int = Field(index=True)
+
     component: str = Field(default="LINER", index=True)
     material_name: str = Field(default="")
     supplier_name: str = Field(default="")
+    manufacturer_name: str = Field(default="")
     grade_name: str = Field(default="")
+    trade_name: str = Field(default="")
     certificate_ref: str = Field(default="")
     batch_ref: str = Field(default="")
+    lot_ref: str = Field(default="")
     status: str = Field(default="PLANNED", index=True)
     notes: str = Field(default="")
 
+    standard_ref: str = Field(default="")
+    material_family: str = Field(default="")
+    service_fluid_basis: str = Field(default="")
+    service_notes: str = Field(default="")
+    max_service_temp_c: Optional[float] = Field(default=None)
+    min_service_temp_c: Optional[float] = Field(default=None)
+
+    classification_basis: str = Field(default="")
+    pe_cell_class: str = Field(default="")
+    hdb_basis: str = Field(default="")
+    uv_class: str = Field(default="")
+
+    reinforcement_type: str = Field(default="", index=True)
+    reinforcement_form: str = Field(default="")
+    reinforcement_layer_count: Optional[int] = Field(default=None)
+    reinforcement_layout_notes: str = Field(default="")
+    reinforcement_matrix_material: str = Field(default="")
+    steel_processing_history: str = Field(default="")
+    fiber_sizing_notes: str = Field(default="")
+
+    matrix_material_name: str = Field(default="")
+    matrix_resin_type: str = Field(default="")
+    cure_method: str = Field(default="")
+    tg_min_c: Optional[float] = Field(default=None)
+
+    compatibility_status: str = Field(default="UNKNOWN", index=True)
+    evidence_status: str = Field(default="MISSING", index=True)
+    review_outcome: str = Field(default="MORE_DATA_REQUIRED", index=True)
+    review_summary: str = Field(default="")
+    clarification_required: str = Field(default="")
+    additional_tests_required: str = Field(default="")
+    change_requalification_flag: bool = Field(default=False)
+
+
+class RndMaterialTestRecord(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    program_id: int = Field(index=True)
+    material_id: int = Field(index=True)
+
+    test_type: str = Field(default="", index=True)
+    standard_ref: str = Field(default="")
+    specimen_ref: str = Field(default="")
+    report_ref: str = Field(default="")
+    lab_name: str = Field(default="")
+    test_date: Optional[date] = Field(default=None)
+
+    result_value: str = Field(default="")
+    result_unit: str = Field(default="")
+    acceptance_basis: str = Field(default="")
+    decision: str = Field(default="PENDING", index=True)
+    notes: str = Field(default="")
 
 class RndAttachmentRegister(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -822,6 +880,192 @@ def _touch_program(program: RndQualificationProgram) -> None:
 def _touch_row(row) -> None:
     row.updated_at = datetime.utcnow()
 
+
+
+
+def _material_required_test_types(material: 'RndMaterialQualification', program: Optional[RndQualificationProgram] = None) -> list[str]:
+    component = (material.component or "").strip().upper()
+    reinforcement_type = (material.reinforcement_type or "").strip().upper()
+    material_family = (material.material_family or "").strip().upper()
+    service_text = " ".join([
+        (program.intended_service if program else "") or "",
+        material.service_fluid_basis or "",
+        material.service_notes or "",
+    ]).lower()
+
+    required = []
+
+    if component == "LINER":
+        required.extend(["FLUID_COMPATIBILITY", "AGING"])
+        if "gas" in service_text or "multiphase" in service_text:
+            required.append("BLISTER_RESISTANCE")
+        required.append("PERMEABILITY")
+
+        if material_family in {"PE", "PE100", "PE-RT", "POLYETHYLENE"}:
+            required.append("PE_CLASSIFICATION_BASIS")
+
+    elif component == "REINFORCEMENT":
+        required.extend(["LOAD_CAPABILITY", "FLUID_COMPATIBILITY", "AGING"])
+
+        if reinforcement_type == "STEEL":
+            required.append("CORROSION_REVIEW")
+            if "cathod" in service_text or "seawater" in service_text or "subsea" in service_text:
+                required.append("CATHODIC_CHARGING")
+            if "sour" in service_text or "h2s" in service_text:
+                required.extend(["SSC", "HIC"])
+
+        elif reinforcement_type in {"GLASS", "ARAMID", "POLYESTER", "NONMETALLIC"}:
+            required.append("FIBER_MECHANICAL_BASIS")
+            required.append("HYDROLYSIS_PH_REVIEW")
+
+    elif component == "MATRIX":
+        required.extend(["FLUID_COMPATIBILITY", "AGING"])
+        if (material.matrix_resin_type or "").strip().upper() in {"THERMOSET", "EPOXY"}:
+            required.append("TG_OR_CURE_BASIS")
+
+    elif component == "COVER":
+        required.append("WEATHERING_UV")
+        required.append("LOW_TEMP_DUCTILITY")
+
+    elif component in {"FITTING", "COUPLING"}:
+        required.append("MATERIAL_SPEC_BASIS")
+        if "sour" in service_text or "h2s" in service_text:
+            required.append("SOUR_SERVICE_REVIEW")
+
+    # unique, keep order
+    seen = set()
+    ordered = []
+    for item in required:
+        if item not in seen:
+            seen.add(item)
+            ordered.append(item)
+    return ordered
+
+
+def _material_test_map(material_tests: List['RndMaterialTestRecord']) -> dict:
+    out = {}
+    for row in material_tests:
+        key = (row.test_type or "").strip().upper()
+        if not key:
+            continue
+        out.setdefault(key, []).append(row)
+    return out
+
+
+def _material_review(material: 'RndMaterialQualification', material_tests: List['RndMaterialTestRecord'], program: Optional[RndQualificationProgram] = None) -> dict:
+    required = _material_required_test_types(material, program)
+    test_map = _material_test_map(material_tests)
+
+    missing = []
+    failed = []
+    pending = []
+
+    for test_type in required:
+        rows = test_map.get(test_type, [])
+        if not rows:
+            missing.append(test_type)
+            continue
+
+        decisions = {(r.decision or "PENDING").strip().upper() for r in rows}
+        if "FAIL" in decisions or "REJECTED" in decisions or "NOT_ACCEPTABLE" in decisions:
+            failed.append(test_type)
+        elif decisions <= {"PENDING", "UNDER_REVIEW"}:
+            pending.append(test_type)
+
+    component = (material.component or "").strip().upper()
+    reinforcement_type = (material.reinforcement_type or "").strip().upper()
+
+    clarifications = []
+    if component == "REINFORCEMENT":
+        if not reinforcement_type:
+            clarifications.append("Reinforcement type is not defined.")
+        if material.reinforcement_layer_count is None:
+            clarifications.append("Reinforcement layer count is not defined.")
+        if not (material.reinforcement_form or "").strip():
+            clarifications.append("Reinforcement form is not defined.")
+    if component == "LINER":
+        if not (material.standard_ref or "").strip():
+            clarifications.append("Liner classification/standard basis is not defined.")
+    if component == "COVER":
+        if not (material.material_family or "").strip():
+            clarifications.append("Cover material family is not defined.")
+
+    if failed:
+        outcome = "NOT_ACCEPTABLE"
+    elif missing:
+        outcome = "ADDITIONAL_TESTING_REQUIRED" if component in {"LINER", "REINFORCEMENT", "MATRIX", "COVER"} else "MORE_DATA_REQUIRED"
+    elif pending or clarifications:
+        outcome = "MATCH_WITH_CLARIFICATION"
+    else:
+        outcome = "MATCH"
+
+    compatibility_status = "SUPPORTED"
+    if failed:
+        compatibility_status = "NOT_SUPPORTED"
+    elif missing or pending:
+        compatibility_status = "PARTIAL"
+
+    evidence_status = "COMPLETE"
+    if failed:
+        evidence_status = "FAILED"
+    elif missing:
+        evidence_status = "MISSING"
+    elif pending:
+        evidence_status = "PENDING_REVIEW"
+
+    summary_parts = []
+    if outcome == "MATCH":
+        summary_parts.append("Material basis and available evidence align with the current qualification input.")
+    if missing:
+        summary_parts.append("Missing required test/evidence: " + ", ".join(missing))
+    if failed:
+        summary_parts.append("Failed or unacceptable evidence in: " + ", ".join(failed))
+    if pending:
+        summary_parts.append("Pending review for: " + ", ".join(pending))
+    if clarifications:
+        summary_parts.append("Clarification needed: " + " ".join(clarifications))
+
+    additional_tests = ", ".join(missing) if missing else ""
+    clarification_text = " ".join(clarifications).strip()
+
+    return {
+        "required_tests": required,
+        "missing_tests": missing,
+        "failed_tests": failed,
+        "pending_tests": pending,
+        "compatibility_status": compatibility_status,
+        "evidence_status": evidence_status,
+        "review_outcome": outcome,
+        "review_summary": " ".join(summary_parts).strip(),
+        "clarification_required": clarification_text,
+        "additional_tests_required": additional_tests,
+        "change_requalification_flag": bool(
+            component in {"LINER", "REINFORCEMENT", "MATRIX", "COVER"} and (
+                missing or failed or clarification_text
+            )
+        ),
+    }
+
+
+def _refresh_material_review(session: Session, material: 'RndMaterialQualification', program: Optional[RndQualificationProgram] = None) -> 'RndMaterialQualification':
+    tests = session.exec(
+        select(RndMaterialTestRecord)
+        .where(RndMaterialTestRecord.material_id == material.id)
+        .order_by(RndMaterialTestRecord.test_date.desc(), RndMaterialTestRecord.id.desc())
+    ).all()
+
+    review = _material_review(material, tests, program)
+
+    material.compatibility_status = review["compatibility_status"]
+    material.evidence_status = review["evidence_status"]
+    material.review_outcome = review["review_outcome"]
+    material.review_summary = review["review_summary"]
+    material.clarification_required = review["clarification_required"]
+    material.additional_tests_required = review["additional_tests_required"]
+    material.change_requalification_flag = review["change_requalification_flag"]
+    _touch_row(material)
+    session.add(material)
+    return material
 
 def _material_reference_options(materials: List['RndMaterialQualification']) -> list[dict]:
     options: list[dict] = []
@@ -1381,8 +1625,12 @@ def _wizard_state(program: RndQualificationProgram) -> dict:
 def _material_screening_state(materials: List[RndMaterialQualification]) -> dict:
     rows = []
     all_ready = True
+
     for m in materials:
         missing = []
+
+        if not (m.component or '').strip():
+            missing.append('component')
         if not (m.material_name or '').strip():
             missing.append('material name')
         if not (m.supplier_name or '').strip():
@@ -1393,18 +1641,33 @@ def _material_screening_state(materials: List[RndMaterialQualification]) -> dict
             missing.append('certificate ref')
         if not (m.batch_ref or '').strip():
             missing.append('batch ref')
-        if not (m.notes or '').strip():
-            missing.append('screening note')
+        if not (m.standard_ref or '').strip():
+            missing.append('standard basis')
 
-        ready = len(missing) == 0
+        if (m.component or '').strip().upper() == 'REINFORCEMENT':
+            if not (m.reinforcement_type or '').strip():
+                missing.append('reinforcement type')
+            if m.reinforcement_layer_count is None:
+                missing.append('reinforcement layer count')
+            if not (m.reinforcement_form or '').strip():
+                missing.append('reinforcement form')
+
+        ready = len(missing) == 0 and (m.review_outcome or '') in {'MATCH', 'MATCH_WITH_CLARIFICATION'}
         all_ready = all_ready and ready
-        rows.append({'row': m, 'missing': missing, 'ready': ready})
+
+        rows.append({
+            'row': m,
+            'missing': missing,
+            'ready': ready,
+            'review_outcome': m.review_outcome or 'MORE_DATA_REQUIRED',
+            'review_summary': m.review_summary or '',
+        })
 
     return {
         'rows': rows,
         'complete': all_ready and len(rows) >= 3,
         'status_label': 'Accepted' if all_ready and len(rows) >= 3 else 'More data required',
-        'headline': 'Record traceable grade, supplier, certificate, batch, and a short screening note for each material before structural testing starts.',
+        'headline': 'Record traceable material identity, standards basis, qualification evidence, and reinforcement construction before structural testing starts.',
     }
 
 
@@ -1619,16 +1882,172 @@ def rnd_update_test(program_id: int, test_id: int, status: str = Form(...), resu
 
 
 @router.post('/qualifications/{program_id}/materials/{material_id}')
-def rnd_update_material(program_id: int, material_id: int, material_name: str = Form(''), supplier_name: str = Form(''), grade_name: str = Form(''), certificate_ref: str = Form(''), batch_ref: str = Form(''), status: str = Form('PLANNED'), notes: str = Form(''), session: Session = Depends(get_session), user: User = Depends(_require_user)):
+def rnd_update_material(
+    program_id: int,
+    material_id: int,
+    material_name: str = Form(''),
+    supplier_name: str = Form(''),
+    manufacturer_name: str = Form(''),
+    grade_name: str = Form(''),
+    trade_name: str = Form(''),
+    certificate_ref: str = Form(''),
+    batch_ref: str = Form(''),
+    lot_ref: str = Form(''),
+    status: str = Form('PLANNED'),
+    notes: str = Form(''),
+    standard_ref: str = Form(''),
+    material_family: str = Form(''),
+    service_fluid_basis: str = Form(''),
+    service_notes: str = Form(''),
+    max_service_temp_c: Optional[float] = Form(None),
+    min_service_temp_c: Optional[float] = Form(None),
+    classification_basis: str = Form(''),
+    pe_cell_class: str = Form(''),
+    hdb_basis: str = Form(''),
+    uv_class: str = Form(''),
+    reinforcement_type: str = Form(''),
+    reinforcement_form: str = Form(''),
+    reinforcement_layer_count: Optional[int] = Form(None),
+    reinforcement_layout_notes: str = Form(''),
+    reinforcement_matrix_material: str = Form(''),
+    steel_processing_history: str = Form(''),
+    fiber_sizing_notes: str = Form(''),
+    matrix_material_name: str = Form(''),
+    matrix_resin_type: str = Form(''),
+    cure_method: str = Form(''),
+    tg_min_c: Optional[float] = Form(None),
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+):
     row = session.get(RndMaterialQualification, material_id)
     if not row or row.program_id != program_id:
         raise HTTPException(404, 'Material row not found')
-    row.material_name = material_name or row.material_name; row.supplier_name = supplier_name or ''; row.grade_name = grade_name or ''; row.certificate_ref = certificate_ref or ''; row.batch_ref = batch_ref or ''; row.status = (status or 'PLANNED').strip().upper(); row.notes = notes or ''; _touch_row(row); session.add(row)
+
+    row.material_name = (material_name or '').strip()
+    row.supplier_name = (supplier_name or '').strip()
+    row.manufacturer_name = (manufacturer_name or '').strip()
+    row.grade_name = (grade_name or '').strip()
+    row.trade_name = (trade_name or '').strip()
+    row.certificate_ref = (certificate_ref or '').strip()
+    row.batch_ref = (batch_ref or '').strip()
+    row.lot_ref = (lot_ref or '').strip()
+    row.status = (status or 'PLANNED').strip().upper()
+    row.notes = (notes or '').strip()
+
+    row.standard_ref = (standard_ref or '').strip()
+    row.material_family = (material_family or '').strip().upper()
+    row.service_fluid_basis = (service_fluid_basis or '').strip()
+    row.service_notes = (service_notes or '').strip()
+    row.max_service_temp_c = max_service_temp_c
+    row.min_service_temp_c = min_service_temp_c
+
+    row.classification_basis = (classification_basis or '').strip()
+    row.pe_cell_class = (pe_cell_class or '').strip().upper()
+    row.hdb_basis = (hdb_basis or '').strip()
+    row.uv_class = (uv_class or '').strip().upper()
+
+    row.reinforcement_type = (reinforcement_type or '').strip().upper()
+    row.reinforcement_form = (reinforcement_form or '').strip()
+    row.reinforcement_layer_count = reinforcement_layer_count
+    row.reinforcement_layout_notes = (reinforcement_layout_notes or '').strip()
+    row.reinforcement_matrix_material = (reinforcement_matrix_material or '').strip()
+    row.steel_processing_history = (steel_processing_history or '').strip()
+    row.fiber_sizing_notes = (fiber_sizing_notes or '').strip()
+
+    row.matrix_material_name = (matrix_material_name or '').strip()
+    row.matrix_resin_type = (matrix_resin_type or '').strip().upper()
+    row.cure_method = (cure_method or '').strip()
+    row.tg_min_c = tg_min_c
+
+    _touch_row(row)
+    session.add(row)
+
     program = session.get(RndQualificationProgram, program_id)
+    _refresh_material_review(session, row, program)
+
     if program:
-        _touch_program(program); session.add(program)
+        _touch_program(program)
+        session.add(program)
+
     session.commit()
-    return RedirectResponse(url=f'/rnd/qualifications/{program_id}', status_code=303)
+    return RedirectResponse(url=f'/rnd/qualifications/{program_id}?tab=materials', status_code=303)
+
+
+
+@router.post('/qualifications/{program_id}/materials/{material_id}/tests/new')
+def rnd_add_material_test_record(
+    program_id: int,
+    material_id: int,
+    test_type: str = Form(...),
+    standard_ref: str = Form(''),
+    specimen_ref: str = Form(''),
+    report_ref: str = Form(''),
+    lab_name: str = Form(''),
+    test_date: Optional[date] = Form(None),
+    result_value: str = Form(''),
+    result_unit: str = Form(''),
+    acceptance_basis: str = Form(''),
+    decision: str = Form('PENDING'),
+    notes: str = Form(''),
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+):
+    material = session.get(RndMaterialQualification, material_id)
+    if not material or material.program_id != program_id:
+        raise HTTPException(404, 'Material row not found')
+
+    row = RndMaterialTestRecord(
+        program_id=program_id,
+        material_id=material_id,
+        test_type=(test_type or '').strip().upper(),
+        standard_ref=(standard_ref or '').strip(),
+        specimen_ref=(specimen_ref or '').strip(),
+        report_ref=(report_ref or '').strip(),
+        lab_name=(lab_name or '').strip(),
+        test_date=test_date,
+        result_value=(result_value or '').strip(),
+        result_unit=(result_unit or '').strip(),
+        acceptance_basis=(acceptance_basis or '').strip(),
+        decision=(decision or 'PENDING').strip().upper(),
+        notes=(notes or '').strip(),
+    )
+    session.add(row)
+
+    program = session.get(RndQualificationProgram, program_id)
+    _refresh_material_review(session, material, program)
+
+    if program:
+        _touch_program(program)
+        session.add(program)
+
+    session.commit()
+    return RedirectResponse(url=f'/rnd/qualifications/{program_id}?tab=materials', status_code=303)
+
+
+@router.post('/qualifications/{program_id}/materials/tests/{test_row_id}/delete')
+def rnd_delete_material_test_record(
+    program_id: int,
+    test_row_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+):
+    row = session.get(RndMaterialTestRecord, test_row_id)
+    if not row or row.program_id != program_id:
+        raise HTTPException(404, 'Material test record not found')
+
+    material = session.get(RndMaterialQualification, row.material_id)
+    session.delete(row)
+
+    program = session.get(RndQualificationProgram, program_id)
+    if material:
+        _refresh_material_review(session, material, program)
+
+    if program:
+        _touch_program(program)
+        session.add(program)
+
+    session.commit()
+    return RedirectResponse(url=f'/rnd/qualifications/{program_id}?tab=materials', status_code=303)
 
 
 @router.post('/qualifications/{program_id}/attachments/new')
