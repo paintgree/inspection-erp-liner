@@ -2,25 +2,164 @@
 {% block title %}{{ program.program_code }} - Qualification Center{% endblock %}
 {% block content %}
 <style>
-.qc-note{padding:14px;border-radius:16px;border:1px solid #dbeafe;background:#eff6ff;color:#1d4ed8}
+.qc-wrap{display:grid;gap:20px}
+.qc-card{
+  background:#fff;
+  border:1px solid #e5e7eb;
+  border-radius:20px;
+  padding:20px;
+  box-shadow:0 10px 28px rgba(15,23,42,.05);
+}
+.section-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:12px;
+  flex-wrap:wrap;
+}
+.qc-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.qc-mini{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+}
+.qc-box{
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  padding:14px;
+  background:#f8fafc;
+}
+.qc-box b{
+  display:block;
+  font-size:11px;
+  color:#64748b;
+  margin-bottom:6px;
+  text-transform:uppercase;
+  letter-spacing:.04em;
+}
+.qc-progress{
+  width:100%;
+  height:12px;
+  background:#eef2f7;
+  border-radius:999px;
+  overflow:hidden;
+}
+.qc-progress span{
+  display:block;
+  height:100%;
+  background:linear-gradient(90deg,#4f46e5,#7c3aed);
+}
+.qc-phase{
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  gap:12px;
+}
+.qc-phase-card{
+  border:1px solid #e5e7eb;
+  border-radius:18px;
+  padding:14px;
+  background:#fff;
+}
+.qc-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1.3fr) minmax(320px,.7fr);
+  gap:18px;
+  align-items:start;
+}
+.qc-table{
+  width:100%;
+  border-collapse:collapse;
+}
+.qc-table th,.qc-table td{
+  padding:12px;
+  border-bottom:1px solid #edf1f6;
+  text-align:left;
+  vertical-align:top;
+  font-size:13px;
+}
+.qc-table th{
+  font-size:11px;
+  color:#64748b;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+}
+.qc-chip{
+  display:inline-flex;
+  align-items:center;
+  padding:5px 10px;
+  border-radius:999px;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  color:#334155;
+  font-size:11px;
+  font-weight:800;
+}
+.qc-good{background:#ecfdf3;color:#027a48;border-color:#b7ebcd}
+.qc-mid{background:#fff7ed;color:#b45309;border-color:#fed7aa}
 .qc-app-core{background:#ecfdf3;color:#027a48;border-color:#b7ebcd}
 .qc-app-service{background:#fff7ed;color:#b45309;border-color:#fed7aa}
 .qc-app-range{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
 .qc-app-custom{background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe}
 .qc-app-muted{background:#f3f4f6;color:#6b7280;border-color:#e5e7eb}
-.qc-card input,.qc-card select,.qc-card textarea{width:100%;padding:10px 12px;border:1px solid #d7deea;border-radius:12px;background:#fff}
-.qc-material-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
-.qc-material-flag{border:1px solid #e5e7eb;border-radius:16px;padding:14px;background:#f8fafc}
-.qc-material-flag b{display:block;font-size:12px;color:#64748b;margin-bottom:6px}
+.qc-note{
+  padding:14px;
+  border-radius:16px;
+  border:1px solid #dbeafe;
+  background:#eff6ff;
+  color:#1d4ed8;
+}
+.muted{color:#6b7280}
+.qc-card input,.qc-card select,.qc-card textarea{
+  width:100%;
+  padding:10px 12px;
+  border:1px solid #d7deea;
+  border-radius:12px;
+  background:#fff;
+}
+.qc-material-summary{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  margin-bottom:14px;
+}
+.qc-material-flag{
+  border:1px solid #e5e7eb;
+  border-radius:16px;
+  padding:14px;
+  background:#f8fafc;
+}
+.qc-material-flag b{
+  display:block;
+  font-size:12px;
+  color:#64748b;
+  margin-bottom:6px;
+}
 .qc-review-match{background:#ecfdf3;border-color:#b7ebcd}
 .qc-review-mid{background:#fff7ed;border-color:#fed7aa}
 .qc-review-bad{background:#fef2f2;border-color:#fecaca}
-.qc-collapse-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;cursor:pointer}
+.qc-collapse-head{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  align-items:flex-start;
+  cursor:pointer;
+}
 .qc-collapse-body{margin-top:14px}
 .qc-material-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
-.qc-soft-badge{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:800;border:1px solid #e5e7eb;background:#fff;color:#334155}
-@media (max-width:1000px){.qc-material-summary{grid-template-columns:1fr}}
-.qc-card input,.qc-card select,.qc-card textarea{width:100%;padding:10px 12px;border:1px solid #d7deea;border-radius:12px;background:#fff}
+.qc-soft-badge{
+  display:inline-flex;
+  align-items:center;
+  padding:5px 10px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:800;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  color:#334155;
+}
+@media (max-width:1100px){
+  .qc-mini,.qc-phase,.qc-grid,.qc-material-summary{grid-template-columns:1fr}
+}
 </style>
 {% set qual_is_other = 'OTHER' in (program.qualification_standard or '')|upper %}
 <div class="qc-wrap">
@@ -68,11 +207,29 @@
   <section class="qc-grid">
     <div style="display:grid;gap:18px;">
       
-        <div class="section-head"><h2 style="margin:0;">Test monitor</h2></div>
+        <div class="section-head" style="margin-bottom:12px;">
+          <div>
+            <h2 style="margin:0;">Test monitor</h2>
+            <div class="muted">Full qualification matrix showing required, conditional, and extra engineering tests together</div>
+          </div>
+        </div>
+        
+        <div class="qc-note" style="margin-bottom:14px;">
+          Keep all relevant tests visible. Use color to highlight what is core to qualification, while still allowing service-dependent, range-dependent, and extra engineering tests for stronger records and additional product data.
+        </div>
+        
         <div style="overflow:auto;">
           <table class="qc-table">
             <thead>
-              <tr><th>Test</th><th>Specimens</th><th>Execution</th><th>Evidence</th><th>Closeout</th><th>Action</th></tr>
+              <tr>
+                <th>Test</th>
+                <th>Applicability</th>
+                <th>Specimens</th>
+                <th>Execution</th>
+                <th>Evidence</th>
+                <th>Closeout</th>
+                <th>Action</th>
+              </tr>
             </thead>
             <tbody>
               {% for test in tests %}
@@ -80,28 +237,55 @@
               {% for s in specimens %}
                 {% if s.test_id == test.id %}
                   {% set ns.spec_count = ns.spec_count + 1 %}
-                  {% if (s.result_status or 'PENDING') != 'PENDING' %}{% set ns.executed = ns.executed + 1 %}{% endif %}
-                  {% if (s.qa_review_status or 'PENDING') in ['ACCEPTED','APPROVED'] %}{% set ns.qa = ns.qa + 1 %}{% endif %}
+                  {% if (s.result_status or 'PENDING') != 'PENDING' %}
+                    {% set ns.executed = ns.executed + 1 %}
+                  {% endif %}
+                  {% if (s.qa_review_status or 'PENDING') in ['ACCEPTED','APPROVED'] %}
+                    {% set ns.qa = ns.qa + 1 %}
+                  {% endif %}
                 {% endif %}
               {% endfor %}
-              {% for a in attachments %}{% if a.test_id == test.id %}{% set ns.att_count = ns.att_count + 1 %}{% endif %}{% endfor %}
+              {% for a in attachments %}
+                {% if a.test_id == test.id %}
+                  {% set ns.att_count = ns.att_count + 1 %}
+                {% endif %}
+              {% endfor %}
               <tr>
                 <td>
                   <strong>{{ test.title }}</strong><br>
                   <small class="muted">{{ test.code }} · {{ test.clause_ref or 'CUSTOM' }}</small>
                   <div class="muted">{{ test.description }}</div>
                 </td>
+        
+                <td>
+                  {% set app = (test.applicability or 'CORE').upper() %}
+                  {% if app == 'CORE' %}
+                    <span class="qc-chip qc-app-core">Required Core</span>
+                  {% elif app == 'SERVICE_DEP' %}
+                    <span class="qc-chip qc-app-service">Service-Dependent</span>
+                  {% elif app == 'RANGE_DEP' %}
+                    <span class="qc-chip qc-app-range">Variant / Range-Dependent</span>
+                  {% elif app == 'CUSTOM' %}
+                    <span class="qc-chip qc-app-custom">Custom / Extra</span>
+                  {% else %}
+                    <span class="qc-chip qc-app-muted">{{ test.applicability or 'General' }}</span>
+                  {% endif %}
+                </td>
+        
                 <td>
                   <span class="qc-chip">{{ ns.spec_count }} tracked</span><br>
                   <small class="muted">Requirement: {{ test.specimen_requirement or '-' }}</small>
                 </td>
+        
                 <td>
                   <span class="qc-chip {% if ns.executed > 0 %}qc-good{% else %}qc-mid{% endif %}">{{ ns.executed }} executed</span><br>
                   <small class="muted">{{ ns.qa }} QA accepted</small>
                 </td>
+        
                 <td>
                   <span class="qc-chip {% if ns.att_count > 0 %}qc-good{% else %}qc-mid{% endif %}">{{ ns.att_count }} rows</span>
                 </td>
+        
                 <td>
                   {% if test.result_summary %}
                     <div style="font-weight:700;">{{ test.result_summary }}</div>
@@ -109,7 +293,10 @@
                     <span class="qc-chip qc-mid">Pending closeout</span>
                   {% endif %}
                 </td>
-                <td><a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}">Open workbench</a></td>
+        
+                <td>
+                  <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}">Open workbench</a>
+                </td>
               </tr>
               {% endfor %}
             </tbody>
