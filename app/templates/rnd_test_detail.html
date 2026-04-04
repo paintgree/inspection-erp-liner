@@ -68,6 +68,7 @@
   gap:18px;
   align-items:start;
 }
+.rnd-overview{display:grid;gap:18px}
 .rnd-side{display:grid;gap:14px}
 .rnd-main{display:grid;gap:18px}
 .rnd-spec-list{display:grid;gap:10px}
@@ -297,126 +298,122 @@
   </section>
 
   {% if active_tab == 'overview' %}
-  <section class="rnd-grid">
-    <aside class="rnd-side"></aside>
+  <section class="rnd-overview">
+    <article class="rnd-card">
+      <div class="rnd-card-head">
+        <h2 class="rnd-panel-title">Execution Workflow</h2>
+        <span class="rnd-badge ok">On Track</span>
+      </div>
+      <div class="rnd-stages">
+        <div class="rnd-stage">
+          <div class="num">1</div>
+          <div style="font-weight:900;">Prepared</div>
+          <div class="rnd-sub">{{ specimen_lifecycle.prepared }} items</div>
+        </div>
+        <div class="rnd-stage">
+          <div class="num">2</div>
+          <div style="font-weight:900;">Released</div>
+          <div class="rnd-sub">{{ specimen_lifecycle.released }} items</div>
+        </div>
+        <div class="rnd-stage">
+          <div class="num">3</div>
+          <div style="font-weight:900;">Executed</div>
+          <div class="rnd-sub">{{ specimen_lifecycle.executed }} items</div>
+        </div>
+        <div class="rnd-stage">
+          <div class="num">4</div>
+          <div style="font-weight:900;">QA Accepted</div>
+          <div class="rnd-sub">{{ specimen_lifecycle.qa_ready }} items</div>
+        </div>
+      </div>
+      <div class="rnd-note" style="margin-top:16px;">
+        Bench note — prepare specimen → release to lab → record pressure / failure behavior → review evidence → close result.
+      </div>
+    </article>
 
-    <div class="rnd-main">
-      <article class="rnd-card">
-        <div class="rnd-card-head">
-          <h2 class="rnd-panel-title">Execution Workflow</h2>
-          <span class="rnd-badge ok">On Track</span>
+    <article class="rnd-card">
+      <div class="rnd-toolbar">
+        <div>
+          <h2 class="rnd-panel-title" style="margin-bottom:4px;">Live Specimen Matrix</h2>
+          <div class="rnd-sub">Real-time qualification tracking</div>
         </div>
-        <div class="rnd-stages">
-          <div class="rnd-stage">
-            <div class="num">1</div>
-            <div style="font-weight:900;">Prepared</div>
-            <div class="rnd-sub">{{ specimen_lifecycle.prepared }} items</div>
-          </div>
-          <div class="rnd-stage">
-            <div class="num">2</div>
-            <div style="font-weight:900;">Released</div>
-            <div class="rnd-sub">{{ specimen_lifecycle.released }} items</div>
-          </div>
-          <div class="rnd-stage">
-            <div class="num">3</div>
-            <div style="font-weight:900;">Executed</div>
-            <div class="rnd-sub">{{ specimen_lifecycle.executed }} items</div>
-          </div>
-          <div class="rnd-stage">
-            <div class="num">4</div>
-            <div style="font-weight:900;">QA Accepted</div>
-            <div class="rnd-sub">{{ specimen_lifecycle.qa_ready }} items</div>
-          </div>
+        <div class="rnd-search">
+          <input type="text" placeholder="Search specimens..." onkeyup="
+            const q=this.value.toLowerCase();
+            document.querySelectorAll('.specimen-row').forEach(r=>{
+              r.style.display = r.innerText.toLowerCase().includes(q) ? '' : 'none';
+            });
+          ">
+          <button type="button" class="btn btn-ghost">⏷</button>
         </div>
-        <div class="rnd-note" style="margin-top:16px;">
-          Bench note — prepare specimen → release to lab → record pressure / failure behavior → review evidence → close result.
-        </div>
-      </article>
+      </div>
 
-      <article class="rnd-card">
-        <div class="rnd-toolbar">
-          <div>
-            <h2 class="rnd-panel-title" style="margin-bottom:4px;">Live Specimen Matrix</h2>
-            <div class="rnd-sub">Real-time qualification tracking</div>
-          </div>
-          <div class="rnd-search">
-            <input type="text" placeholder="Search specimens..." onkeyup="
-              const q=this.value.toLowerCase();
-              document.querySelectorAll('.specimen-row').forEach(r=>{
-                r.style.display = r.innerText.toLowerCase().includes(q) ? '' : 'none';
-              });
-            ">
-            <button type="button" class="btn btn-ghost">⏷</button>
-          </div>
-        </div>
-      
-        <div style="overflow:auto;margin-top:12px;">
-          <table class="rnd-table">
-            <thead>
-              <tr>
-                <th>Specimen</th>
-                <th>Material Link</th>
-                <th>Status</th>
-                <th>Target</th>
-                <th>Failure</th>
-                <th>QA Review</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for s in specimens %}
-              <tr class="specimen-row">
-                <td>
-                  <strong>{{ s.specimen_id }}</strong>
-                  <div class="rnd-sub">{{ s.sample_date or '-' }}</div>
-                </td>
-                <td>
-                  Batch {{ s.batch_ref or '-' }}
-                  <div class="rnd-sub">Source {{ s.source_pipe_ref or '-' }}</div>
-                </td>
-                <td>
-                  {% if (s.result_status or 'PENDING') in ['PASS','COMPLETE'] %}
-                  <span class="rnd-badge ok">{{ s.result_status }}</span>
-                  {% else %}
-                  <span class="rnd-badge warn">{{ s.result_status or 'PENDING' }}</span>
-                  {% endif %}
-                </td>
-                <td>
-                  {% if s.planned_pressure_mpa is not none %}
-                    {{ s.planned_pressure_mpa }} <span class="rnd-sub">MPa</span>
-                  {% else %}
-                    -
-                  {% endif %}
-                </td>
-                <td>
-                  {% if s.actual_pressure_at_failure_mpa is not none %}
-                    {{ s.actual_pressure_at_failure_mpa }} <span class="rnd-sub">MPa</span>
-                  {% else %}
-                    -
-                  {% endif %}
-                  <div class="rnd-sub">{{ s.failure_mode or 'pending' }}</div>
-                </td>
-                <td>
-                  {% if (s.qa_review_status or 'PENDING') in ['ACCEPTED','APPROVED'] %}
-                  <span class="rnd-badge ok">{{ s.qa_review_status }}</span>
-                  {% else %}
-                  <span class="rnd-badge warn">{{ s.qa_review_status or 'PENDING' }}</span>
-                  {% endif %}
-                </td>
-                <td>
-                  <a class="btn btn-ghost" href="?tab=specimens&specimen_id={{ s.id }}">Edit</a>
-                </td>
-              </tr>
-              {% else %}
-              <tr>
-                <td colspan="7" class="rnd-empty">No specimens tracked yet.</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </article>
-    </div>
+      <div style="overflow:auto;margin-top:12px;">
+        <table class="rnd-table">
+          <thead>
+            <tr>
+              <th>Specimen</th>
+              <th>Material Link</th>
+              <th>Status</th>
+              <th>Target</th>
+              <th>Failure</th>
+              <th>QA Review</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in specimens %}
+            <tr class="specimen-row">
+              <td>
+                <strong>{{ s.specimen_id }}</strong>
+                <div class="rnd-sub">{{ s.sample_date or '-' }}</div>
+              </td>
+              <td>
+                Batch {{ s.batch_ref or '-' }}
+                <div class="rnd-sub">Source {{ s.source_pipe_ref or '-' }}</div>
+              </td>
+              <td>
+                {% if (s.result_status or 'PENDING') in ['PASS','COMPLETE'] %}
+                <span class="rnd-badge ok">{{ s.result_status }}</span>
+                {% else %}
+                <span class="rnd-badge warn">{{ s.result_status or 'PENDING' }}</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if s.planned_pressure_mpa is not none %}
+                  {{ s.planned_pressure_mpa }} <span class="rnd-sub">MPa</span>
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>
+                {% if s.actual_pressure_at_failure_mpa is not none %}
+                  {{ s.actual_pressure_at_failure_mpa }} <span class="rnd-sub">MPa</span>
+                {% else %}
+                  -
+                {% endif %}
+                <div class="rnd-sub">{{ s.failure_mode or 'pending' }}</div>
+              </td>
+              <td>
+                {% if (s.qa_review_status or 'PENDING') in ['ACCEPTED','APPROVED'] %}
+                <span class="rnd-badge ok">{{ s.qa_review_status }}</span>
+                {% else %}
+                <span class="rnd-badge warn">{{ s.qa_review_status or 'PENDING' }}</span>
+                {% endif %}
+              </td>
+              <td>
+                <a class="btn btn-ghost" href="?tab=specimens&specimen_id={{ s.id }}">Edit</a>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="7" class="rnd-empty">No specimens tracked yet.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </article>
   </section>
   {% endif %}
 
@@ -442,7 +439,7 @@
               <span class="rnd-badge warn">{{ s.result_status or 'PENDING' }}</span>
               {% endif %}
             </div>
-          
+
             <div style="margin-top:10px;display:flex;justify-content:space-between;gap:10px;align-items:center;">
               <div class="rnd-sub">{{ s.sample_date or '-' }}</div>
               <div style="font-weight:800;color:#172033;">
@@ -471,46 +468,41 @@
             <div class="rnd-sub">Register a new specimen with core traceability and setup details.</div>
           </div>
         </div>
-      
+
         <form method="post" action="/rnd/qualifications/{{ test.program_id }}/tests/{{ test.id }}/specimens/new" class="rnd-form-grid">
           <input type="hidden" name="test_type" value="{{ test.code }}">
-      
+
           <div class="span-12">
             <div class="rnd-soft-section"><span class="rnd-section-tag">1</span>Traceability & Identification</div>
           </div>
-      
+
           <label class="span-4">Specimen ID<input type="text" name="specimen_id" required></label>
           <label class="span-4">Sample Date<input type="date" name="sample_date" required></label>
           <label class="span-4">Batch Reference<input type="text" name="batch_ref"></label>
-      
+
           <div class="span-12" style="margin-top:4px;">
             <div class="rnd-soft-section"><span class="rnd-section-tag">2</span>Test Parameters</div>
           </div>
-      
+
           <label class="span-4">Target Pressure (MPa)<input type="number" step="0.01" name="planned_pressure_mpa"></label>
-          <label class="span-4">Actual Pressure (MPa)<input type="number" step="0.01" name="actual_pressure_at_failure_mpa"></label>
-          <label class="span-4">Failure Hours<input type="number" step="0.01" name="failure_hours"></label>
-      
-          <label class="span-4">Source Pipe / Spool Ref<input type="text" name="source_pipe_ref"></label>
-          <label class="span-4">Nominal Size (in)<input type="number" step="0.01" name="nominal_size_in" value="{{ program.nominal_size_in }}"></label>
-          <label class="span-4">Confirmed OD (mm)<input type="number" step="0.01" name="confirmed_od_mm"></label>
-      
-          <label class="span-4">Rule Basis<input type="text" name="preparation_rule_basis"></label>
           <label class="span-4">Temperature (°C)<input type="number" step="0.01" name="temperature_c" value="{{ program.maot_c }}"></label>
-          <label class="span-4">Cut By<input type="text" name="cut_by"></label>
-      
-          <label class="span-4">Effective Length (mm)<input type="number" step="0.01" name="effective_length_mm"></label>
-          <label class="span-4">Total Cut Length (mm)<input type="number" step="0.01" name="total_cut_length_mm"></label>
-          <label class="span-4">End Allowance Each Side (mm)<input type="number" step="0.01" name="end_allowance_each_side_mm"></label>
-      
-          <label class="span-12">Notes<textarea name="notes" rows="3"></textarea></label>
-      
+          <label class="span-4">Nominal Size (in)<input type="number" step="0.01" name="nominal_size_in" value="{{ program.nominal_size_in }}"></label>
+
+          <label class="span-6">Effective Length (mm)<input type="number" step="0.01" name="effective_length_mm"></label>
+          <label class="span-6">Cut Length (mm)<input type="number" step="0.01" name="total_cut_length_mm"></label>
+
+          <div class="span-12" style="margin-top:4px;">
+            <div class="rnd-soft-section"><span class="rnd-section-tag">3</span>Validation & Release</div>
+          </div>
+
           <div class="span-12 rnd-actions">
             <label><input type="checkbox" name="conditioning_complete" value="1"> Conditioning complete</label>
-            <label><input type="checkbox" name="pretest_visual_ok" value="1"> Pre-test visual accepted</label>
+            <label><input type="checkbox" name="pretest_visual_ok" value="1"> Pre-test visual OK</label>
             <label><input type="checkbox" name="released_for_test" value="1"> Released for test</label>
           </div>
-      
+
+          <label class="span-12">Additional Notes<textarea name="notes" rows="3"></textarea></label>
+
           <div class="span-12 rnd-form-actions">
             <a class="btn btn-ghost" href="?tab=specimens">Cancel</a>
             <button class="btn btn-primary" type="submit">Register Specimen</button>
