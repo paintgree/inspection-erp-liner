@@ -95,6 +95,7 @@
   font-weight:800;
 }
 .qc-good{background:#ecfdf3;color:#027a48;border-color:#b7ebcd}
+.qc-test-panel{background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);border:1px solid #dbe7f3}
 .qc-mid{background:#fff7ed;color:#b45309;border-color:#fed7aa}
 .qc-app-core{background:#ecfdf3;color:#027a48;border-color:#b7ebcd}
 .qc-app-service{background:#fff7ed;color:#b45309;border-color:#fed7aa}
@@ -226,7 +227,7 @@
                 <th>Applicability</th>
                 <th>Specimens</th>
                 <th>Execution</th>
-                <th>Evidence</th>
+                <th>Evidence / Reports</th>
                 <th>Closeout</th>
                 <th>Action</th>
               </tr>
@@ -283,7 +284,8 @@
                 </td>
         
                 <td>
-                  <span class="qc-chip {% if ns.att_count > 0 %}qc-good{% else %}qc-mid{% endif %}">{{ ns.att_count }} rows</span>
+                  <span class="qc-chip {% if ns.att_count > 0 %}qc-good{% else %}qc-mid{% endif %}">{{ ns.att_count }} rows</span><br>
+                  <small class="muted">Reports, logs, photos, certificates</small>
                 </td>
         
                 <td>
@@ -295,7 +297,10 @@
                 </td>
         
                 <td>
-                  <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}">Open workbench</a>
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}">Open workbench</a>
+                    <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}?tab=evidence">Open evidence</a>
+                  </div>
                 </td>
               </tr>
               {% endfor %}
@@ -305,7 +310,7 @@
       </article>
 
       {% if qual_is_other %}
-      <article class="qc-card">
+      
         <div class="section-head"><h2 style="margin:0;">Add custom test</h2></div>
         <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/custom" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
           <label>Common Test Type
@@ -332,7 +337,7 @@
     </div>
 
     <div style="display:grid;gap:18px;">
-      <article class="qc-card">
+      <article class="qc-card qc-test-panel">
         <h2 style="margin-top:0;">Readiness summary</h2>
         <div class="qc-mini" style="grid-template-columns:repeat(2,minmax(0,1fr));">
           <div class="qc-box"><b>Total tests</b>{{ tests|length }}</div>
