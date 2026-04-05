@@ -608,6 +608,7 @@ def create_db_and_tables() -> None:
         return
 
     SQLModel.metadata.create_all(engine)
+    apply_rnd_schema_patches()
     _ensure_schema_patches()
     _ensure_rnd_specimen_defaults()
     _SCHEMA_READY = True
@@ -617,3 +618,25 @@ def get_session():
     with Session(engine) as session:
         yield session
 
+
+from sqlalchemy import text
+
+def apply_rnd_schema_patches():
+    statements = [
+        "ALTER TABLE rndqualificationprogram ADD COLUMN IF NOT EXISTS program_type VARCHAR(50) DEFAULT 'API_15S';",
+        "ALTER TABLE rndqualificationprogram ADD COLUMN IF NOT EXISTS service_medium VARCHAR(50) DEFAULT 'WATER';",
+        "ALTER TABLE rndqualificationprogram ADD COLUMN IF NOT EXISTS service_factor DOUBLE PRECISION DEFAULT 1.0;",
+        "ALTER TABLE rndqualificationprogram ADD COLUMN IF NOT EXISTS custom_requirements TEXT DEFAULT '';",
+        "ALTER TABLE rndqualificationprogram ADD COLUMN IF NOT EXISTS custom_acceptance_criteria TEXT DEFAULT '';",
+
+        "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS scope_tag VARCHAR(50) DEFAULT 'BOTH';",
+        "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS source_standard VARCHAR(50) DEFAULT 'API_15S';",
+
+        "ALTER TABLE rndqualificationspecimen ADD COLUMN IF NOT EXISTS scope_tag VARCHAR(50) DEFAULT 'BOTH';",
+
+        "ALTER TABLE rndattachmentregister ADD COLUMN IF NOT EXISTS scope_tag VARCHAR(50) DEFAULT 'BOTH';",
+    ]
+
+    with engine.begin() as conn:
+        for sql in statements:
+            conn.execute(text(sql))
