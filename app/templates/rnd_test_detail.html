@@ -376,7 +376,9 @@
       </div>
       <div class="rnd-actions">
         <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Back to Program</a>
+        {% if test.code in ['MPR_REG', 'CYCLIC_REG', 'PV_1000H'] %}
         <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Open Regression Review</a>
+        {% endif %}
       </div>
     </div>
 
@@ -828,9 +830,12 @@
         <div class="rnd-panel-sub">Separate from specimen execution so evidence review stays clean</div>
       </div>
       <div class="rnd-actions">
-        <button class="btn btn-ghost" type="button">Download all</button>
-        <button class="btn btn-primary" type="button">Batch upload</button>
+        <span class="rnd-badge muted">Register evidence rows below</span>
       </div>
+    </div>
+
+    <div class="rnd-note" style="margin-top:16px;">
+      Evidence is currently managed as a controlled register for reports, logs, photos, certificates, and result sheets. Add each required evidence row below so the test package can be reviewed and closed properly.
     </div>
 
     <div style="overflow:auto;margin-top:16px;">
