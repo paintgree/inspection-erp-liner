@@ -750,6 +750,12 @@ class RndQualificationProgram(SQLModel, table=True):
 
     program_code: str = Field(default="", index=True)
     title: str = Field(default="", index=True)
+
+    # NEW: generic qualification handling
+    program_type: str = Field(default="API_15S", index=True)  # API_15S / OTHER
+    service_medium: str = Field(default="WATER", index=True)  # WATER / GAS / HYDROCARBON / LIQUIDS
+    service_factor: float = Field(default=1.0)
+
     product_family: str = Field(default="LLRTP-PE-RT-PET-PE100")
     qualification_standard: str = Field(default="API 15S R3")
     reinforcement_type: str = Field(default="NONMETALLIC")
@@ -772,6 +778,10 @@ class RndQualificationProgram(SQLModel, table=True):
     status: str = Field(default="DRAFT", index=True)
     notes: str = Field(default="")
     created_by_name: str = Field(default="")
+
+    # NEW: for custom qualification programs
+    custom_requirements: str = Field(default="")
+    custom_acceptance_criteria: str = Field(default="")
 
 
 class RndQualificationTest(SQLModel, table=True):
@@ -2131,9 +2141,96 @@ def rnd_new_program_form(request: Request, user: User = Depends(_require_user)):
 
 
 @router.post('/qualifications/new')
-def rnd_create_program(session: Session = Depends(get_session), user: User = Depends(_require_user), title: str = Form(...), program_code: str = Form(...), nominal_size_in: float = Form(...), npr_mpa: float = Form(...), maot_c: float = Form(...), laot_c: float = Form(0.0), pfr_or_pv: str = Form('PFR'), parent_program_id: Optional[int] = Form(None), intended_service: str = Form('Static water service'), qualification_standard: str = Form('API 15S R3'), notes: str = Form('')):
-    program = RndQualificationProgram(program_code=(program_code or '').strip().upper(), title=(title or '').strip(), nominal_size_in=nominal_size_in, npr_mpa=npr_mpa, maot_c=maot_c, laot_c=laot_c, pfr_or_pv=(pfr_or_pv or 'PFR').strip().upper(), parent_program_id=parent_program_id, intended_service=intended_service, qualification_standard=(qualification_standard or 'API 15S R3').strip(), notes=notes, created_by_name=(getattr(user, 'display_name', '') or getattr(user, 'username', '') or ''))
-    session.add(program); session.commit(); session.refresh(program)
+def rnd_create_program(
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+
+    title: str = Form(...),
+    program_code: str = Form(...),
+
+    program_type: str = Form('API_15S'),
+    qualification_standard: str = Form('API 15S R3'),
+
+    nominal_size_in: float = Form(4.0),
+    npr_mpa: float = Form(10.0),
+    maot_c: float = Form(65.0),
+    laot_c: float = Form(0.0),
+
+    pfr_or_pv: str = Form('PFR'),
+    parent_program_id: Optional[int] = Form(None),
+
+    service_medium: str = Form('WATER'),
+    service_factor: float = Form(1.0),
+    intended_service: str = Form('Static water service'),
+
+    product_family: str = Form('LLRTP-PE-RT-PET-PE100'),
+    reinforcement_type: str = Form('NONMETALLIC'),
+    liner_material: str = Form('PE-RT'),
+    reinforcement_material: str = Form('Polyester Fiber'),
+    cover_material: str = Form('PE100'),
+
+    custom_requirements: str = Form(''),
+    custom_acceptance_criteria: str = Form(''),
+    custom_tests: str = Form(''),
+
+    notes: str = Form(''),
+):
+    safe_program_type = (program_type or 'API_15S').strip().upper()
+    if safe_program_type not in {'API_15S', 'OTHER'}:
+        safe_program_type = 'API_15S'
+
+    safe_service_medium = (service_medium or 'WATER').strip().upper()
+    if safe_service_medium not in {'WATER', 'GAS', 'HYDROCARBON', 'LIQUIDS'}:
+        safe_service_medium = 'WATER'
+
+    safe_pfr_or_pv = (pfr_or_pv or 'PFR').strip().upper()
+    if safe_pfr_or_pv not in {'PFR', 'PV'}:
+        safe_pfr_or_pv = 'PFR'
+
+    # OTHER programs should not pretend to be API 15S / PFR
+    if safe_program_type == 'OTHER':
+        safe_standard = (qualification_standard or 'OTHER QUALIFICATION').strip()
+        safe_pfr_or_pv = 'PFR'
+        parent_program_id = None
+    else:
+        safe_standard = (qualification_standard or 'API 15S R3').strip()
+
+    program = RndQualificationProgram(
+        program_code=(program_code or '').strip().upper(),
+        title=(title or '').strip(),
+
+        program_type=safe_program_type,
+        qualification_standard=safe_standard,
+
+        nominal_size_in=nominal_size_in,
+        npr_mpa=npr_mpa,
+        maot_c=maot_c,
+        laot_c=laot_c,
+
+        pfr_or_pv=safe_pfr_or_pv,
+        parent_program_id=parent_program_id,
+
+        service_medium=safe_service_medium,
+        service_factor=service_factor,
+        intended_service=(intended_service or '').strip(),
+
+        product_family=(product_family or '').strip(),
+        reinforcement_type=(reinforcement_type or 'NONMETALLIC').strip().upper(),
+        liner_material=(liner_material or '').strip(),
+        reinforcement_material=(reinforcement_material or '').strip(),
+        cover_material=(cover_material or '').strip(),
+
+        custom_requirements=(custom_requirements or '').strip(),
+        custom_acceptance_criteria=(custom_acceptance_criteria or '').strip(),
+
+        notes=(notes or '').strip(),
+        created_by_name=(getattr(user, 'display_name', '') or getattr(user, 'username', '') or ''),
+    )
+
+    session.add(program)
+    session.commit()
+    session.refresh(program)
+
     if program.parent_program_id:
         parent = session.get(RndQualificationProgram, program.parent_program_id)
         if parent:
@@ -2141,9 +2238,80 @@ def rnd_create_program(session: Session = Depends(get_session), user: User = Dep
             _touch_program(program)
             session.add(program)
             session.commit()
-    _seed_test_matrix(session, program)
-    return RedirectResponse(url=f'/rnd/qualifications/{program.id}', status_code=303)
 
+    # Seed default API matrix only for API_15S programs
+    if program.program_type == 'API_15S':
+        _seed_test_matrix(session, program)
+    else:
+        # Seed default material rows for custom programs too
+        if not session.exec(
+            select(RndMaterialQualification).where(RndMaterialQualification.program_id == program.id)
+        ).first():
+            for component, material in [
+                ('LINER', program.liner_material or 'CUSTOM'),
+                ('REINFORCEMENT', program.reinforcement_material or 'CUSTOM'),
+                ('COVER', program.cover_material or 'CUSTOM'),
+            ]:
+                row = RndMaterialQualification(
+                    program_id=program.id,
+                    component=component,
+                    material_name=material,
+                    material_family=('POLYMER' if component in {'LINER', 'COVER'} else 'REINFORCEMENT'),
+                    reinforcement_type=(
+                        'NONMETALLIC'
+                        if component == 'REINFORCEMENT' and 'steel' not in (material or '').lower()
+                        else ('STEEL' if component == 'REINFORCEMENT' else '')
+                    ),
+                    reinforcement_layer_count=(2 if component == 'REINFORCEMENT' else None),
+                    status='PLANNED',
+                    review_outcome='MORE_DATA_REQUIRED',
+                    evidence_status='MISSING',
+                    compatibility_status='UNKNOWN',
+                )
+                session.add(row)
+            session.commit()
+
+        # Build custom tests from textarea lines
+        # Expected one line per test, example:
+        # Hydrostatic proof | 2 specimens | Client Spec 4.2 | Hold at pressure for 24 h
+        custom_rows = []
+        for raw_line in (custom_tests or '').splitlines():
+            line = (raw_line or '').strip()
+            if not line:
+                continue
+
+            parts = [p.strip() for p in line.split('|')]
+            title_part = parts[0] if len(parts) > 0 else 'Custom Test'
+            specimens_part = parts[1] if len(parts) > 1 else 'As required'
+            clause_part = parts[2] if len(parts) > 2 else 'CUSTOM'
+            desc_part = parts[3] if len(parts) > 3 else 'Custom qualification requirement.'
+
+            custom_rows.append({
+                'title': title_part,
+                'specimen_requirement': specimens_part,
+                'clause_ref': clause_part,
+                'description': desc_part,
+            })
+
+        for idx, item in enumerate(custom_rows, start=1):
+            code = f'OTHER_{idx}'
+            session.add(
+                RndQualificationTest(
+                    program_id=program.id,
+                    sort_order=idx,
+                    clause_ref=item['clause_ref'],
+                    code=code,
+                    title=item['title'],
+                    description=item['description'],
+                    specimen_requirement=item['specimen_requirement'],
+                    applicability='CUSTOM',
+                    status='PLANNED',
+                )
+            )
+
+        session.commit()
+
+    return RedirectResponse(url=f'/rnd/qualifications/{program.id}', status_code=303)
 
 @router.get('/qualifications/{program_id}')
 def rnd_program_view(program_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
