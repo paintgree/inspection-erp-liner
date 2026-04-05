@@ -360,7 +360,152 @@
   background:#eef2ff;
   color:#4338ca;
   border-color:#c7d2fe;
+}
+
+.rnd-evidence-shell{
+  background:linear-gradient(180deg,#ffffff 0%,#fbfcff 100%);
+  border:1px solid #dbe4f0;
+  border-radius:24px;
+  box-shadow:0 18px 40px rgba(15,23,42,.05);
+}
+.evidence-topbar{
+  align-items:flex-start;
+}
+.evidence-title{
+  font-size:30px;
+  line-height:1.1;
+  color:#0f172a;
+  font-weight:800;
+  letter-spacing:-0.02em;
+}
+.evidence-subtitle{
+  font-size:14px;
+  color:#64748b;
+  margin-top:6px;
+}
+.evidence-summary-grid{
+  gap:16px;
+}
+.evidence-stat-box{
+  background:#ffffff;
+  border:1px solid #dbe4f0;
+  border-radius:18px;
+  padding:18px 20px;
+  box-shadow:0 8px 20px rgba(15,23,42,.04);
+}
+.evidence-stat-label{
+  font-size:11px;
+  font-weight:800;
+  color:#94a3b8;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  margin-bottom:10px;
+}
+.evidence-stat-value{
+  font-size:30px;
+  font-weight:800;
+  color:#0f172a;
+  line-height:1;
+}
+.evidence-upload-card{
+  border:1px solid #dbe4f0;
+  border-radius:22px;
+  background:#ffffff;
+  box-shadow:0 14px 32px rgba(15,23,42,.04);
+}
+.evidence-card-head{
+  margin-bottom:16px;
+}
+.evidence-form input,
+.evidence-form select,
+.evidence-form textarea{
+  border-radius:14px;
+  border:1px solid #cfd8e3;
+  background:#fff;
+}
+.evidence-form input:focus,
+.evidence-form select:focus,
+.evidence-form textarea:focus{
+  border-color:#7c3aed;
+  box-shadow:0 0 0 3px rgba(124,58,237,.12);
+}
+.evidence-checkbox-cell{
+  display:flex;
+  align-items:flex-end;
+}
+.evidence-checkbox-card{
+  width:100%;
+  min-height:56px;
+  border:1px solid #dbe4f0;
+  background:#f8fafc;
+  border-radius:16px;
+  padding:14px 16px;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+}
+.evidence-checkbox-text{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+.evidence-checkbox-title{
+  font-size:12px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#475569;
+}
+.evidence-checkbox-sub{
+  font-size:12px;
+  color:#64748b;
+  line-height:1.35;
+}
+.evidence-checkbox-toggle{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.evidence-checkbox-toggle input{
+  position:absolute;
+  opacity:0;
+  inset:0;
+  cursor:pointer;
+}
+.evidence-checkbox-ui{
+  width:24px;
+  height:24px;
+  border-radius:8px;
+  border:2px solid #cbd5e1;
+  background:#fff;
+  display:inline-block;
+  position:relative;
+  transition:all .2s ease;
+}
+.evidence-checkbox-toggle input:checked + .evidence-checkbox-ui{
+  background:#7c3aed;
+  border-color:#7c3aed;
+  box-shadow:0 0 0 4px rgba(124,58,237,.12);
+}
+.evidence-checkbox-toggle input:checked + .evidence-checkbox-ui::after{
+  content:"";
+  position:absolute;
+  left:6px;
+  top:2px;
+  width:6px;
+  height:12px;
+  border:solid #fff;
+  border-width:0 2px 2px 0;
+  transform:rotate(45deg);
+}
+.evidence-action-stack{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
 }  
+  
 .rnd-list li{margin:6px 0}
 @media (max-width:1100px){
   .rnd-grid,.rnd-summary-grid,.rnd-metrics,.rnd-stages{grid-template-columns:1fr}
@@ -838,11 +983,11 @@
   {% endif %}
 
   {% if active_tab == 'evidence' %}
-    <section class="rnd-card">
-      <div class="rnd-toolbar">
+    <section class="rnd-card rnd-evidence-shell">
+      <div class="rnd-toolbar evidence-topbar">
         <div>
-          <h2 class="rnd-panel-title" style="margin-bottom:4px;">Evidence package</h2>
-          <div class="rnd-panel-sub">Upload real files, track signed copies, and keep the qualification package review-ready</div>
+          <h2 class="rnd-panel-title evidence-title">Evidence package</h2>
+          <div class="rnd-panel-sub evidence-subtitle">Upload real files, track signed copies, and keep the qualification package review-ready</div>
         </div>
         <div class="rnd-actions">
           {% if evidence.complete %}
@@ -857,23 +1002,23 @@
         This page now works as a real evidence package area: upload the actual report, photo, certificate, log, or signed copy and keep its metadata linked to the test.
       </div>
   
-      <div class="rnd-summary-grid" style="margin-top:16px;">
-        <div class="rnd-box">
-          <b>Required items</b>
-          {{ evidence.rows|length }}
+      <div class="rnd-summary-grid evidence-summary-grid" style="margin-top:16px;">
+        <div class="rnd-box evidence-stat-box">
+          <div class="evidence-stat-label">Required items</div>
+          <div class="evidence-stat-value">{{ evidence.rows|length }}</div>
         </div>
-        <div class="rnd-box">
-          <b>Uploaded files</b>
-          {{ attachments|length }}
+        <div class="rnd-box evidence-stat-box">
+          <div class="evidence-stat-label">Uploaded files</div>
+          <div class="evidence-stat-value">{{ attachments|length }}</div>
         </div>
-        <div class="rnd-box">
-          <b>Missing items</b>
-          {{ evidence.missing|length }}
+        <div class="rnd-box evidence-stat-box">
+          <div class="evidence-stat-label">Missing items</div>
+          <div class="evidence-stat-value">{{ evidence.missing|length }}</div>
         </div>
       </div>
   
-      <article class="rnd-card" style="margin-top:18px;">
-        <div class="rnd-card-head">
+      <article class="rnd-card evidence-upload-card" style="margin-top:18px;">
+        <div class="rnd-card-head evidence-card-head">
           <div>
             <h3 class="rnd-panel-title" style="margin-bottom:4px;">Upload evidence file</h3>
             <div class="rnd-panel-sub">Use this form to upload the real backend file, not only a register row</div>
@@ -884,7 +1029,7 @@
         <form method="post"
               action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/attachments/new"
               enctype="multipart/form-data"
-              class="rnd-form-grid">
+              class="rnd-form-grid evidence-form">
   
           <label class="span-3">Category
             <input type="text" name="category" value="REPORT">
@@ -926,9 +1071,18 @@
             </select>
           </label>
   
-          <label class="span-3" style="align-content:end;">
-            <span><input type="checkbox" name="is_signed_copy"> Signed copy</span>
-          </label>
+          <div class="span-3 evidence-checkbox-cell">
+            <div class="evidence-checkbox-card">
+              <div class="evidence-checkbox-text">
+                <div class="evidence-checkbox-title">Signed copy</div>
+                <div class="evidence-checkbox-sub">Use this when the uploaded file is the final signed or stamped version</div>
+              </div>
+              <label class="evidence-checkbox-toggle">
+                <input type="checkbox" name="is_signed_copy">
+                <span class="evidence-checkbox-ui"></span>
+              </label>
+            </div>
+          </div>
   
           <label class="span-12">Choose File
             <input type="file" name="uploaded_file" required>
@@ -945,10 +1099,10 @@
       </article>
   
       <article class="rnd-card" style="margin-top:18px;">
-        <div class="rnd-card-head">
+        <div class="rnd-card-head evidence-card-head">
           <div>
             <h3 class="rnd-panel-title" style="margin-bottom:4px;">Required evidence checklist</h3>
-            <div class="rnd-panel-sub">Shows which required evidence items are still missing</div>
+            <div class="rnd-panel-sub">Shows which required evidence items are covered by uploaded files</div>
           </div>
         </div>
   
@@ -956,7 +1110,7 @@
           <table class="rnd-table">
             <thead>
               <tr>
-                <th>Document Title</th>
+                <th>Document title</th>
                 <th>Type</th>
                 <th>Status</th>
                 <th>Requirement</th>
@@ -965,12 +1119,9 @@
             </thead>
             <tbody>
               {% for row in evidence.rows %}
-              {% set match = none %}
-              {% for a in attachments %}
-                {% if (a.document_type or '').upper() == row.document_type %}
-                  {% set match = a %}
-                {% endif %}
-              {% endfor %}
+              {% set row_type = (row.document_type or '').upper() %}
+              {% set matched_items = attachments | selectattr('document_type', 'equalto', row_type) | list %}
+              {% set match = matched_items[-1] if matched_items else none %}
               <tr>
                 <td>
                   <strong>{{ match.title if match else row.document_type.replace('_',' ').title() }}</strong>
@@ -1001,7 +1152,12 @@
                 </td>
                 <td>
                   {% if match and match.file_path %}
-                  <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/attachments/{{ match.id }}/download">Download</a>
+                  <div class="evidence-action-stack">
+                    <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/attachments/{{ match.id }}/download">Download</a>
+                    {% if (match.content_type or '').lower().startswith('application/pdf') %}
+                    <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/attachments/{{ match.id }}/view" target="_blank">View</a>
+                    {% endif %}
+                  </div>
                   {% else %}
                   <span class="rnd-empty">No file</span>
                   {% endif %}
@@ -1014,7 +1170,7 @@
       </article>
   
       <article class="rnd-card" style="margin-top:18px;">
-        <div class="rnd-card-head">
+        <div class="rnd-card-head evidence-card-head">
           <div>
             <h3 class="rnd-panel-title" style="margin-bottom:4px;">Uploaded evidence files</h3>
             <div class="rnd-panel-sub">All uploaded evidence linked to this test</div>
@@ -1060,7 +1216,12 @@
                 </td>
                 <td>
                   {% if a.file_path %}
-                  <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/attachments/{{ a.id }}/download">Download</a>
+                  <div class="evidence-action-stack">
+                    <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/attachments/{{ a.id }}/download">Download</a>
+                    {% if (a.content_type or '').lower().startswith('application/pdf') %}
+                    <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/attachments/{{ a.id }}/view" target="_blank">View</a>
+                    {% endif %}
+                  </div>
                   {% else %}
                   <span class="rnd-empty">No file</span>
                   {% endif %}
