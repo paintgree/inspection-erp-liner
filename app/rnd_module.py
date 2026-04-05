@@ -2607,6 +2607,28 @@ def rnd_update_program_status(program_id: int, status: str = Form(...), session:
     return RedirectResponse(url=f'/rnd/qualifications/{program_id}', status_code=303)
 
 
+@router.get('/qualifications/{program_id}/edit')
+def rnd_edit_program_form(
+    program_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+):
+    program = session.get(RndQualificationProgram, program_id)
+    if not program:
+        raise HTTPException(404, 'Program not found')
+
+    return TEMPLATES.TemplateResponse(
+        request,
+        'rnd_program_edit.html',
+        {
+            'request': request,
+            'user': user,
+            'program': program,
+        }
+    )
+
+
 @router.post('/qualifications/{program_id}/edit')
 def rnd_edit_program(
     program_id: int,
