@@ -6,10 +6,14 @@ import json
 from datetime import datetime, date
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, File
+from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import SQLModel, Field, Session, select
+from pathlib import Path
+import shutil
+import uuid
+import mimetypes
 
 from .db import get_session
 from .models import User
@@ -19,6 +23,64 @@ TEMPLATES = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "t
 RCRT_HOURS = 175000.0
 CYCLIC_BASIS_CYCLES = 1_000_000.0
 DESIGN_FACTOR_NONMETALLIC = 0.67
+
+BASE_DIR = Path(__file__).resolve().parent
+RND_UPLOAD_DIR = BASE_DIR / "uploaded_rnd_files"
+RND_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+ALLOWED_RND_FILE_EXTENSIONS = {
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv",
+    ".jpg", ".jpeg", ".png", ".webp",
+    ".txt", ".zip"
+}
+
+def _safe_filename(filename: str) -> str:
+    raw = (filename or "").strip()
+    if not raw:
+        raw = "file"
+    safe = "".join(c if c.isalnum() or c in {".", "-", "_"} else "_" for c in raw)
+    return safe[:200]
+
+def _program_upload_dir(program_id: int) -> Path:
+    folder = RND_UPLOAD_DIR / f"program_{program_id}"
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder
+
+def _save_rnd_upload(program_id: int, uploaded_file: UploadFile) -> dict:
+    if uploaded_file is None:
+        raise HTTPException(status_code=400, detail="No file uploaded.")
+
+    original_name = _safe_filename(uploaded_file.filename or "file")
+    suffix = Path(original_name).suffix.lower()
+
+    if suffix not in ALLOWED_RND_FILE_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type not allowed: {suffix or 'unknown'}"
+        )
+
+    target_dir = _program_upload_dir(program_id)
+    stored_name = f"{uuid.uuid4().hex}{suffix}"
+    target_path = target_dir / stored_name
+
+    size_bytes = 0
+    with target_path.open("wb") as buffer:
+        while True:
+            chunk = uploaded_file.file.read(1024 * 1024)
+            if not chunk:
+                break
+            size_bytes += len(chunk)
+            buffer.write(chunk)
+
+    content_type = uploaded_file.content_type or mimetypes.guess_type(original_name)[0] or "application/octet-stream"
+
+    return {
+        "original_filename": original_name,
+        "stored_filename": stored_name,
+        "file_path": str(target_path),
+        "content_type": content_type,
+        "file_size_bytes": size_bytes,
+    }
 
 DEFAULT_SPECIMEN_RULE = {
     "min_specimens": "As defined by the applicable qualification test requirement.",
@@ -878,6 +940,13 @@ class RndAttachmentRegister(SQLModel, table=True):
     uploaded_by_name: str = Field(default="")
     approval_status: str = Field(default="PENDING", index=True)
 
+    original_filename: str = Field(default="")
+    stored_filename: str = Field(default="")
+    file_path: str = Field(default="")
+    content_type: str = Field(default="")
+    file_size_bytes: Optional[int] = Field(default=None)
+    source_mode: str = Field(default="UPLOAD", index=True)  # UPLOAD / GENERATED
+    is_signed_copy: bool = Field(default=False, index=True)
 
 def _specimen_lifecycle_summary(specimens: list[RndQualificationSpecimen]) -> dict:
     total = len(specimens)
@@ -1537,6 +1606,55 @@ def _seed_test_matrix(session: Session, program: RndQualificationProgram) -> Non
     session.commit()
 
 
+def _ensure_complete_test_matrix(session: Session, program: RndQualificationProgram) -> None:
+    existing = session.exec(
+        select(RndQualificationTest)
+        .where(RndQualificationTest.program_id == program.id)
+        .order_by(RndQualificationTest.sort_order.asc(), RndQualificationTest.id.asc())
+    ).all()
+
+    existing_by_code = {(row.code or '').strip().upper(): row for row in existing}
+    matrix = _default_test_matrix(program.pfr_or_pv)
+
+    next_order = max([row.sort_order for row in existing], default=0)
+
+    changed = False
+    for item in matrix:
+        code = (item['code'] or '').strip().upper()
+        row = existing_by_code.get(code)
+
+        if row is None:
+            next_order += 1
+            session.add(
+                RndQualificationTest(
+                    program_id=program.id,
+                    sort_order=next_order,
+                    clause_ref=item['clause_ref'],
+                    code=code,
+                    title=item['title'],
+                    description=item['description'],
+                    specimen_requirement=item['specimen_requirement'],
+                    applicability=item['applicability'],
+                    status='PLANNED',
+                )
+            )
+            changed = True
+        else:
+            row.clause_ref = item['clause_ref']
+            row.title = item['title']
+            row.description = item['description']
+            row.specimen_requirement = item['specimen_requirement']
+            row.applicability = item['applicability']
+            _touch_row(row)
+            session.add(row)
+            changed = True
+
+    if changed:
+        _touch_program(program)
+        session.add(program)
+        session.commit()
+        
+
 def _t_critical_975(df: int) -> float:
     table = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228, 11: 2.201, 12: 2.179, 13: 2.160, 14: 2.145, 15: 2.131, 16: 2.120, 17: 2.110, 18: 2.101, 19: 2.093, 20: 2.086, 21: 2.080, 22: 2.074, 23: 2.069, 24: 2.064, 25: 2.060, 26: 2.056, 27: 2.052, 28: 2.048, 29: 2.045, 30: 2.042, 40: 2.021, 60: 2.000, 120: 1.980}
     if df <= 1:
@@ -1972,6 +2090,7 @@ def rnd_dashboard(request: Request, session: Session = Depends(get_session), use
 
     dashboard = []
     for program in programs:
+        _ensure_complete_test_matrix(session, program)
         materials = session.exec(
             select(RndMaterialQualification)
             .where(RndMaterialQualification.program_id == program.id)
@@ -2033,6 +2152,7 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
         raise HTTPException(404, 'Program not found')
 
     _seed_test_matrix(session, program)
+    _ensure_complete_test_matrix(session, program)
 
     tests = session.exec(
         select(RndQualificationTest)
@@ -2835,6 +2955,9 @@ def rnd_add_test_attachment(
     file_note: str = Form(''),
     is_mandatory: Optional[str] = Form(None),
     approval_status: str = Form('PENDING'),
+    source_mode: str = Form('UPLOAD'),
+    is_signed_copy: Optional[str] = Form(None),
+    uploaded_file: UploadFile = File(...),
 ):
     program = session.get(RndQualificationProgram, program_id)
     if not program:
@@ -2844,20 +2967,56 @@ def rnd_add_test_attachment(
     if not test or test.program_id != program_id:
         raise HTTPException(404, 'Test not found')
 
+    saved = _save_rnd_upload(program_id, uploaded_file)
+
     row = RndAttachmentRegister(
         program_id=program_id,
         test_id=test_id,
         category=(category or 'REPORT').strip().upper(),
         document_type=(document_type or '').strip().upper(),
-        title=title,
-        reference_no=reference_no,
-        file_note=file_note,
+        title=(title or '').strip(),
+        reference_no=(reference_no or '').strip(),
+        file_note=(file_note or '').strip(),
         is_mandatory=bool(is_mandatory),
         uploaded_by_name=(getattr(user, 'display_name', '') or getattr(user, 'username', '') or ''),
         approval_status=(approval_status or 'PENDING').strip().upper(),
+        original_filename=saved["original_filename"],
+        stored_filename=saved["stored_filename"],
+        file_path=saved["file_path"],
+        content_type=saved["content_type"],
+        file_size_bytes=saved["file_size_bytes"],
+        source_mode=(source_mode or 'UPLOAD').strip().upper(),
+        is_signed_copy=bool(is_signed_copy),
     )
     session.add(row)
+
+    test.status = 'IN_PROGRESS' if (test.status or '').upper() == 'PLANNED' else test.status
+    _touch_row(test)
+    session.add(test)
+
     _touch_program(program)
     session.add(program)
+
     session.commit()
     return RedirectResponse(url=f'/rnd/qualifications/{program_id}/tests/{test_id}', status_code=303)
+
+@router.get('/qualifications/{program_id}/attachments/{attachment_id}/download')
+def rnd_download_attachment(
+    program_id: int,
+    attachment_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+):
+    row = session.get(RndAttachmentRegister, attachment_id)
+    if not row or row.program_id != program_id:
+        raise HTTPException(404, 'Attachment not found')
+
+    if not row.file_path or not os.path.exists(row.file_path):
+        raise HTTPException(404, 'Stored file not found')
+
+    filename = row.original_filename or row.title or 'attachment'
+    return FileResponse(
+        path=row.file_path,
+        media_type=row.content_type or 'application/octet-stream',
+        filename=filename,
+    )
