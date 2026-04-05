@@ -1884,7 +1884,7 @@ def _t_critical_975(df: int) -> float:
     return low_v + (up_v - low_v) * ratio
 
 
-def _regression_from_specimens(specimens: List[RndQualificationSpecimen], mode: str = 'STATIC_REGRESSION', target_npr_mpa: float = 0.0) -> dict:
+def _regression_from_specimens(specimens: List[RndQualificationSpecimen], mode: str = 'STATIC_REGRESSION', target_npr_mpa: float = 0.0, design_factor: float | None = None) -> dict:
     filtered = []
     excluded = []
 
@@ -1997,8 +1997,11 @@ def _regression_from_specimens(specimens: List[RndQualificationSpecimen], mode: 
     lcl_basis_mpa = basis_calc['lcl_pressure']
     lpl_basis_mpa = basis_calc['lpl_pressure']
 
-    design_factor = DESIGN_FACTOR_NONMETALLIC if mode_key in static_aliases else 1.0
-    mpr_mpa = lcl_basis_mpa * design_factor if mode_key in static_aliases else lcl_basis_mpa
+    effective_design_factor = (
+        float(design_factor) if (design_factor is not None and mode_key in static_aliases)
+        else (DESIGN_FACTOR_NONMETALLIC if mode_key in static_aliases else 1.0)
+    )
+    mpr_mpa = lcl_basis_mpa * effective_design_factor if mode_key in static_aliases else lcl_basis_mpa
     margin_mpa = mpr_mpa - target_npr_mpa if target_npr_mpa else None
     pass_status = None if not target_npr_mpa else ('PASS' if mpr_mpa >= target_npr_mpa else 'FAIL')
 
@@ -2035,7 +2038,7 @@ def _regression_from_specimens(specimens: List[RndQualificationSpecimen], mode: 
         'lcl_rcrt_mpa': lcl_basis_mpa,
         'lpl_rcrt_mpa': lpl_basis_mpa,
         'chart_points': chart_points,
-        'design_factor': design_factor,
+        'design_factor': effective_design_factor,
         'mpr_mpa': mpr_mpa,
         'target_npr_mpa': target_npr_mpa,
         'margin_mpa': margin_mpa,
@@ -2237,7 +2240,7 @@ def _active_stage(program: RndQualificationProgram, materials: List[RndMaterialQ
     wizard = _wizard_state(program)
     material_state = _material_screening_state(materials)
     burst_state = _burst_state(program, specimens)
-    static_reg = _regression_from_specimens(specimens, 'STATIC_REGRESSION', program.npr_mpa)
+    static_reg = _regression_from_specimens(specimens, 'STATIC_REGRESSION', program.npr_mpa, program.service_factor)
 
     if not material_state['complete']:
         current = 'materials'
@@ -2568,7 +2571,7 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
 
     material_dashboard = _material_dashboard_rows(materials, material_tests, program)
 
-    static_reg = _regression_from_specimens(specimens, 'STATIC_REGRESSION', program.npr_mpa)
+    static_reg = _regression_from_specimens(specimens, 'STATIC_REGRESSION', program.npr_mpa, program.service_factor)
     cyclic_reg = _regression_from_specimens(specimens, 'CYCLIC_REGRESSION', program.npr_mpa)
     counts = _matrix_counts(tests)
     guide = _qualification_guide(program)
@@ -2996,7 +2999,7 @@ def rnd_regression_view(program_id: int, request: Request, session: Session = De
     if not program:
         raise HTTPException(404, 'Program not found')
     specimens = session.exec(select(RndQualificationSpecimen).where(RndQualificationSpecimen.program_id == program_id).order_by(RndQualificationSpecimen.created_at.asc())).all()
-    static_reg = _regression_from_specimens(specimens, 'STATIC_REGRESSION', program.npr_mpa)
+    static_reg = _regression_from_specimens(specimens, 'STATIC_REGRESSION', program.npr_mpa, program.service_factor)
     cyclic_reg = _regression_from_specimens(specimens, 'CYCLIC_REGRESSION', program.npr_mpa)
     pv_formula = None
     if program.pfr_or_pv == 'PV' and program.parent_program_id:
