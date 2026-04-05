@@ -477,6 +477,15 @@
             <h2 class="qc-section-title">Test Monitor</h2>
             <div class="qc-section-subtitle">Full qualification matrix showing required and conditional tests</div>
           </div>
+        
+          {% set scope_filter = (request.query_params.get('scope') or 'ALL').upper() %}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <a href="/rnd/qualifications/{{ program.id }}?scope=ALL" class="qc-chip {% if scope_filter == 'ALL' %}qc-app-core{% endif %}">All</a>
+            <a href="/rnd/qualifications/{{ program.id }}?scope=PFR" class="qc-chip {% if scope_filter == 'PFR' %}qc-app-core{% endif %}">PFR</a>
+            <a href="/rnd/qualifications/{{ program.id }}?scope=PV" class="qc-chip {% if scope_filter == 'PV' %}qc-app-core{% endif %}">PV</a>
+            <a href="/rnd/qualifications/{{ program.id }}?scope=BOTH" class="qc-chip {% if scope_filter == 'BOTH' %}qc-app-core{% endif %}">Shared</a>
+            <a href="/rnd/qualifications/{{ program.id }}?scope=CUSTOM" class="qc-chip {% if scope_filter == 'CUSTOM' %}qc-app-core{% endif %}">Custom</a>
+          </div>
         </div>
         
         <div class="qc-note" style="margin-bottom:14px;">
@@ -499,6 +508,8 @@
               </thead>
               <tbody>
                 {% for test in tests %}
+                {% set row_scope = (test.scope_tag or 'BOTH').upper() %}
+                {% if scope_filter == 'ALL' or row_scope == scope_filter or (scope_filter == 'PFR' and row_scope == 'BOTH') or (scope_filter == 'PV' and row_scope == 'BOTH') %}
                 {% set ns = namespace(spec_count=0, executed=0, qa=0, att_count=0) %}
                 {% for s in specimens %}
                   {% if s.test_id == test.id %}
@@ -520,6 +531,12 @@
                   <td>
                     <div class="qc-test-title">{{ test.title }}</div>
                     <div class="qc-test-code">{{ test.code }} · {{ test.clause_ref or 'CUSTOM' }}</div>
+                    <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+                      <span class="qc-chip">{{ test.scope_tag or 'BOTH' }}</span>
+                      {% if test.source_standard %}
+                      <span class="qc-chip">{{ test.source_standard }}</span>
+                      {% endif %}
+                    </div>
                     <div class="qc-test-desc">{{ test.description or 'Qualification requirement under the selected route.' }}</div>
                   </td>
         
