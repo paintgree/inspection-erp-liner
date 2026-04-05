@@ -290,7 +290,7 @@ TEST_GUIDANCE = {
             "Do not use points below 10 hours in regression calculations.",
         ],
         "acceptance": [
-            "MPR equals LCL RCT x 0.67.",
+            "MPR equals LCL RCT x selected service factor.",
             "All failures shall be reported in the qualification report.",
             "Tensile rupture of reinforcement is permissible where allowed by the basis for non-metallic reinforcement.",
         ],
