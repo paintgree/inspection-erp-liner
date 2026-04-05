@@ -187,6 +187,49 @@ def _ensure_schema_patches() -> None:
 
 
         # rndqualificationspecimen execution detail fields
+
+        (
+            "rndattachmentregister",
+            "original_filename",
+            "ALTER TABLE rndattachmentregister ADD COLUMN IF NOT EXISTS original_filename TEXT DEFAULT ''",
+            "ALTER TABLE rndattachmentregister ADD COLUMN original_filename TEXT DEFAULT ''",
+        ),
+        (
+            "rndattachmentregister",
+            "stored_filename",
+            "ALTER TABLE rndattachmentregister ADD COLUMN IF NOT EXISTS stored_filename TEXT DEFAULT ''",
+            "ALTER TABLE rndattachmentregister ADD COLUMN stored_filename TEXT DEFAULT ''",
+        ),
+        (
+            "rndattachmentregister",
+            "file_path",
+            "ALTER TABLE rndattachmentregister ADD COLUMN IF NOT EXISTS file_path TEXT DEFAULT ''",
+            "ALTER TABLE rndattachmentregister ADD COLUMN file_path TEXT DEFAULT ''",
+        ),
+        (
+            "rndattachmentregister",
+            "content_type",
+            "ALTER TABLE rndattachmentregister ADD COLUMN IF NOT EXISTS content_type TEXT DEFAULT ''",
+            "ALTER TABLE rndattachmentregister ADD COLUMN content_type TEXT DEFAULT ''",
+        ),
+        (
+            "rndattachmentregister",
+            "file_size_bytes",
+            "ALTER TABLE rndattachmentregister ADD COLUMN IF NOT EXISTS file_size_bytes INTEGER",
+            "ALTER TABLE rndattachmentregister ADD COLUMN file_size_bytes INTEGER",
+        ),
+        (
+            "rndattachmentregister",
+            "source_mode",
+            "ALTER TABLE rndattachmentregister ADD COLUMN IF NOT EXISTS source_mode TEXT DEFAULT 'UPLOAD'",
+            "ALTER TABLE rndattachmentregister ADD COLUMN source_mode TEXT DEFAULT 'UPLOAD'",
+        ),
+        (
+            "rndattachmentregister",
+            "is_signed_copy",
+            "ALTER TABLE rndattachmentregister ADD COLUMN IF NOT EXISTS is_signed_copy BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE rndattachmentregister ADD COLUMN is_signed_copy INTEGER DEFAULT 0",
+        ),
         (
             "rndqualificationspecimen",
             "material_ref",
