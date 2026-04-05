@@ -3020,3 +3020,26 @@ def rnd_download_attachment(
         media_type=row.content_type or 'application/octet-stream',
         filename=filename,
     )
+
+
+@router.get('/qualifications/{program_id}/attachments/{attachment_id}/view')
+def rnd_view_attachment(
+    program_id: int,
+    attachment_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+):
+    row = session.get(RndAttachmentRegister, attachment_id)
+    if not row or row.program_id != program_id:
+        raise HTTPException(404, 'Attachment not found')
+
+    if not row.file_path or not os.path.exists(row.file_path):
+        raise HTTPException(404, 'Stored file not found')
+
+    media_type = row.content_type or 'application/octet-stream'
+
+    return FileResponse(
+        path=row.file_path,
+        media_type=media_type,
+        filename=row.original_filename or row.title or 'attachment',
+    )
