@@ -1674,7 +1674,198 @@ def _ensure_complete_test_matrix(session: Session, program: RndQualificationProg
         _touch_program(program)
         session.add(program)
         session.commit()
-        
+
+
+def _pv_extension_matrix() -> list[dict]:
+    return [
+        {
+            "code": "PV_1000H",
+            "title": "1000-hour constant pressure confirmation",
+            "description": "Primary PV confirmation test for the added PV scope.",
+            "specimen_requirement": "2",
+            "clause_ref": "API 15S 5.3.4.2",
+            "applicability": "CORE",
+            "scope_tag": "PV",
+            "source_standard": "API_15S",
+        },
+        {
+            "code": "TEMP_ELEV",
+            "title": "Elevated temperature test",
+            "description": "Seal and polymer creep or relaxation confirmation above MAOT for the PV scope.",
+            "specimen_requirement": "1",
+            "clause_ref": "API 15S 5.3.5",
+            "applicability": "CORE",
+            "scope_tag": "BOTH",
+            "source_standard": "API_15S",
+        },
+        {
+            "code": "TEMP_CYCLE",
+            "title": "Temperature cycling",
+            "description": "Thermal cycling confirmation for the PV scope.",
+            "specimen_requirement": "2",
+            "clause_ref": "API 15S 5.3.6",
+            "applicability": "CORE",
+            "scope_tag": "BOTH",
+            "source_standard": "API_15S",
+        },
+        {
+            "code": "RAPID_DECOMP",
+            "title": "Rapid decompression",
+            "description": "Required for gas or multiphase service where the PV scope is applicable.",
+            "specimen_requirement": "1",
+            "clause_ref": "API 15S 5.3.7 / Annex B",
+            "applicability": "SERVICE_DEP",
+            "scope_tag": "BOTH",
+            "source_standard": "API_15S",
+        },
+        {
+            "code": "OPERATING_MBR",
+            "title": "Operating MBR",
+            "description": "Confirm operating bending performance for the PV scope.",
+            "specimen_requirement": "2",
+            "clause_ref": "API 15S 5.3.8.1",
+            "applicability": "CORE",
+            "scope_tag": "BOTH",
+            "source_standard": "API_15S",
+        },
+        {
+            "code": "AXIAL_LOAD",
+            "title": "Axial load capability",
+            "description": "Maximum allowable axial load followed by proof confirmation for the PV scope.",
+            "specimen_requirement": "2",
+            "clause_ref": "API 15S 5.3.9",
+            "applicability": "CORE",
+            "scope_tag": "BOTH",
+            "source_standard": "API_15S",
+        },
+        {
+            "code": "LAOT",
+            "title": "Lowest allowable operating temperature",
+            "description": "Minimum operating temperature qualification for the PV scope.",
+            "specimen_requirement": "2",
+            "clause_ref": "API 15S 5.3.11",
+            "applicability": "CORE",
+            "scope_tag": "BOTH",
+            "source_standard": "API_15S",
+        },
+        {
+            "code": "IMPACT",
+            "title": "Impact resistance",
+            "description": "Impact followed by proof confirmation for the PV scope.",
+            "specimen_requirement": "2",
+            "clause_ref": "API 15S 5.3.12",
+            "applicability": "CORE",
+            "scope_tag": "BOTH",
+            "source_standard": "API_15S",
+        },
+        {
+            "code": "TEC",
+            "title": "Thermal expansion coefficient",
+            "description": "Axial TEC measurement and hoop TEC where clearance is critical for the PV scope.",
+            "specimen_requirement": "2",
+            "clause_ref": "API 15S 5.3.13",
+            "applicability": "CORE",
+            "scope_tag": "BOTH",
+            "source_standard": "API_15S",
+        },
+        {
+            "code": "GROWTH",
+            "title": "Growth / shrinkage under pressure",
+            "description": "Pressure elongation and dimensional response for the PV scope.",
+            "specimen_requirement": "2",
+            "clause_ref": "API 15S 5.3.14",
+            "applicability": "CORE",
+            "scope_tag": "BOTH",
+            "source_standard": "API_15S",
+        },
+        {
+            "code": "CYCLIC_REG",
+            "title": "Cyclic pressure regression",
+            "description": "For cyclic service when the PV scope is intended for cyclic duty.",
+            "specimen_requirement": "18+ target",
+            "clause_ref": "API 15S 5.3.16 / Annex D",
+            "applicability": "SERVICE_DEP",
+            "scope_tag": "BOTH",
+            "source_standard": "API_15S",
+        },
+    ]
+
+
+def _add_pv_extension_to_program(session: Session, program: RndQualificationProgram) -> dict:
+    existing_tests = session.exec(
+        select(RndQualificationTest)
+        .where(RndQualificationTest.program_id == program.id)
+        .order_by(RndQualificationTest.sort_order.asc(), RndQualificationTest.id.asc())
+    ).all()
+
+    existing_by_code = {(row.code or '').strip().upper(): row for row in existing_tests}
+    next_order = max([row.sort_order for row in existing_tests], default=0)
+
+    created = []
+    updated = []
+
+    for item in _pv_extension_matrix():
+        code = (item["code"] or "").strip().upper()
+        row = existing_by_code.get(code)
+
+        if row is None:
+            next_order += 1
+            row = RndQualificationTest(
+                program_id=program.id,
+                sort_order=next_order,
+                clause_ref=item["clause_ref"],
+                code=code,
+                title=item["title"],
+                description=item["description"],
+                specimen_requirement=item["specimen_requirement"],
+                applicability=item["applicability"],
+                scope_tag=item.get("scope_tag", "PV"),
+                source_standard=item.get("source_standard", "API_15S"),
+                status="PLANNED",
+            )
+            session.add(row)
+            created.append(code)
+        else:
+            # Do not destroy existing row content; only widen scope where needed
+            current_scope = (row.scope_tag or "BOTH").strip().upper()
+            wanted_scope = (item.get("scope_tag") or "PV").strip().upper()
+
+            if current_scope != wanted_scope:
+                if {current_scope, wanted_scope} & {"PFR", "PV"}:
+                    row.scope_tag = "BOTH"
+                elif current_scope == "CUSTOM":
+                    row.scope_tag = "BOTH"
+                else:
+                    row.scope_tag = wanted_scope
+
+            if not (row.clause_ref or "").strip():
+                row.clause_ref = item["clause_ref"]
+            if not (row.description or "").strip():
+                row.description = item["description"]
+            if not (row.specimen_requirement or "").strip():
+                row.specimen_requirement = item["specimen_requirement"]
+            if not (row.applicability or "").strip():
+                row.applicability = item["applicability"]
+            if not (row.source_standard or "").strip():
+                row.source_standard = item.get("source_standard", "API_15S")
+
+            _touch_row(row)
+            session.add(row)
+            updated.append(code)
+
+    # mark program as now supporting PV in the same qualification family
+    if (program.pfr_or_pv or "").strip().upper() == "PFR":
+        program.pfr_or_pv = "PFR"
+    _touch_program(program)
+    session.add(program)
+
+    session.commit()
+
+    return {
+        "created_codes": created,
+        "updated_codes": updated,
+    }
+    
 
 def _t_critical_975(df: int) -> float:
     table = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365, 8: 2.306, 9: 2.262, 10: 2.228, 11: 2.201, 12: 2.179, 13: 2.160, 14: 2.145, 15: 2.131, 16: 2.120, 17: 2.110, 18: 2.101, 19: 2.093, 20: 2.086, 21: 2.080, 22: 2.074, 23: 2.069, 24: 2.064, 25: 2.060, 26: 2.056, 27: 2.052, 28: 2.048, 29: 2.045, 30: 2.042, 40: 2.021, 60: 2.000, 120: 1.980}
@@ -2755,6 +2946,27 @@ def rnd_add_custom_test(program_id: int, title: str = Form(...), code: str = For
     session.add(program)
     session.commit()
     return RedirectResponse(url=f'/rnd/qualifications/{program_id}', status_code=303)
+
+
+@router.post('/qualifications/{program_id}/add-pv-extension')
+def rnd_add_pv_extension(
+    program_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+):
+    program = session.get(RndQualificationProgram, program_id)
+    if not program:
+        raise HTTPException(404, 'Program not found')
+
+    if (program.program_type or 'API_15S').strip().upper() != 'API_15S':
+        raise HTTPException(400, 'PV extension is only available for API 15S programs.')
+
+    result = _add_pv_extension_to_program(session, program)
+    return RedirectResponse(
+        url=f"/rnd/qualifications/{program_id}?pv_extension_added=1&created={len(result['created_codes'])}&updated={len(result['updated_codes'])}",
+        status_code=303,
+    )
+    
 
 @router.get('/qualifications/{program_id}/regression')
 def rnd_regression_view(program_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
