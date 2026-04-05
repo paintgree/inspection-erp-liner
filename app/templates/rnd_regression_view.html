@@ -112,8 +112,7 @@
       <article class="rr-card">
         <h2 style="margin-top:0;">Interpretation</h2>
         <p>{{ guide.summary }}</p>
-        <div class="rr-box"><b>Interpretation</b>For static qualification, review the lower confidence pressure at {{ rcrt_hours|int }} h, then apply the nonmetallic design factor {{ '%.2f'|format(design_factor_nonmetallic) }} to get MPR. Compare that MPR with the target NPR of {{ '%.3f'|format(program.npr_mpa) }} MPa.</div>
-        <div class="rr-box" style="margin-top:10px;"><b>Automatic outputs shown here</b>Mean line, lower confidence line, lower prediction line, and derived MPR are generated directly from the entered regression specimens.</div>
+      <div class="rr-box"><b>Interpretation</b>For static qualification, review the lower confidence pressure at {{ rcrt_hours|int }} h, then apply the selected service factor {{ '%.2f'|format(program.service_factor or 1.0) }} to get MPR. Compare that MPR with the target NPR of {{ '%.3f'|format(program.npr_mpa) }} MPa.</div>        <div class="rr-box" style="margin-top:10px;"><b>Automatic outputs shown here</b>Mean line, lower confidence line, lower prediction line, and derived MPR are generated directly from the entered regression specimens.</div>
       </article>
     </div>
   </section>
