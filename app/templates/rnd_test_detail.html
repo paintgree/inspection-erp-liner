@@ -346,6 +346,21 @@
   padding-left:18px;
   color:#4b5563;
 }
+
+.rnd-evidence-upload{
+  border:1px dashed #c7d2fe;
+  background:#f8faff;
+}
+.rnd-file-meta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.rnd-file-meta .rnd-badge{
+  background:#eef2ff;
+  color:#4338ca;
+  border-color:#c7d2fe;
+}  
 .rnd-list li{margin:6px 0}
 @media (max-width:1100px){
   .rnd-grid,.rnd-summary-grid,.rnd-metrics,.rnd-stages{grid-template-columns:1fr}
@@ -823,82 +838,245 @@
   {% endif %}
 
   {% if active_tab == 'evidence' %}
-  <section class="rnd-card">
-    <div class="rnd-toolbar">
-      <div>
-        <h2 class="rnd-panel-title" style="margin-bottom:4px;">Evidence register</h2>
-        <div class="rnd-panel-sub">Separate from specimen execution so evidence review stays clean</div>
+    <section class="rnd-card">
+      <div class="rnd-toolbar">
+        <div>
+          <h2 class="rnd-panel-title" style="margin-bottom:4px;">Evidence package</h2>
+          <div class="rnd-panel-sub">Upload real files, track signed copies, and keep the qualification package review-ready</div>
+        </div>
+        <div class="rnd-actions">
+          {% if evidence.complete %}
+          <span class="rnd-badge ok">Evidence complete</span>
+          {% else %}
+          <span class="rnd-badge warn">{{ evidence.missing|length }} missing</span>
+          {% endif %}
+        </div>
       </div>
-      <div class="rnd-actions">
-        <span class="rnd-badge muted">Register evidence rows below</span>
+  
+      <div class="rnd-note" style="margin-top:16px;">
+        This page now works as a real evidence package area: upload the actual report, photo, certificate, log, or signed copy and keep its metadata linked to the test.
       </div>
-    </div>
-
-    <div class="rnd-note" style="margin-top:16px;">
-      Evidence is currently managed as a controlled register for reports, logs, photos, certificates, and result sheets. Add each required evidence row below so the test package can be reviewed and closed properly.
-    </div>
-
-    <div style="overflow:auto;margin-top:16px;">
-      <table class="rnd-table">
-        <thead>
-          <tr><th>Document Title</th><th>Type</th><th>Status</th><th>Requirement</th><th>Actions</th></tr>
-        </thead>
-        <tbody>
-          {% for row in evidence.rows %}
-          {% set match = none %}
-          {% for a in attachments %}
-            {% if (a.document_type or '').upper() == row.document_type %}
-              {% set match = a %}
-            {% endif %}
-          {% endfor %}
-          <tr>
-            <td>
-              <strong>{{ match.title if match else row.document_type.replace('_',' ').title() }}</strong>
-              <div class="rnd-sub">Ref: {{ match.reference_no if match and match.reference_no else 'PENDING_ENTRY' }}</div>
-            </td>
-            <td><span class="rnd-badge muted">{{ row.document_type }}</span></td>
-            <td>
-              {% if match %}
-              <span class="rnd-badge {% if (match.approval_status or 'PENDING') in ['APPROVED','ACCEPTED'] %}ok{% else %}warn{% endif %}">{{ match.approval_status }}</span>
+  
+      <div class="rnd-summary-grid" style="margin-top:16px;">
+        <div class="rnd-box">
+          <b>Required items</b>
+          {{ evidence.rows|length }}
+        </div>
+        <div class="rnd-box">
+          <b>Uploaded files</b>
+          {{ attachments|length }}
+        </div>
+        <div class="rnd-box">
+          <b>Missing items</b>
+          {{ evidence.missing|length }}
+        </div>
+      </div>
+  
+      <article class="rnd-card" style="margin-top:18px;">
+        <div class="rnd-card-head">
+          <div>
+            <h3 class="rnd-panel-title" style="margin-bottom:4px;">Upload evidence file</h3>
+            <div class="rnd-panel-sub">Use this form to upload the real backend file, not only a register row</div>
+          </div>
+          <span class="rnd-badge muted">Multipart upload</span>
+        </div>
+  
+        <form method="post"
+              action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/attachments/new"
+              enctype="multipart/form-data"
+              class="rnd-form-grid">
+  
+          <label class="span-3">Category
+            <input type="text" name="category" value="REPORT">
+          </label>
+  
+          <label class="span-3">Document Type
+            <select name="document_type" required>
+              <option value="">Select document type</option>
+              {% for row in evidence.rows %}
+              <option value="{{ row.document_type }}">{{ row.document_type.replace('_',' ').title() }}</option>
+              {% endfor %}
+              <option value="SIGNED_REPORT">Signed Report</option>
+              <option value="THIRD_PARTY_REPORT">Third Party Report</option>
+              <option value="CLIENT_SIGNED_COPY">Client Signed Copy</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </label>
+  
+          <label class="span-3">Approval Status
+            <select name="approval_status">
+              <option value="PENDING">PENDING</option>
+              <option value="APPROVED">APPROVED</option>
+              <option value="REJECTED">REJECTED</option>
+            </select>
+          </label>
+  
+          <label class="span-3">Reference No.
+            <input type="text" name="reference_no" placeholder="Report / log / cert number">
+          </label>
+  
+          <label class="span-6">Title
+            <input type="text" name="title" required placeholder="Example: 1000 Hour Pressure Test Report">
+          </label>
+  
+          <label class="span-3">Source Mode
+            <select name="source_mode">
+              <option value="UPLOAD">UPLOAD</option>
+              <option value="GENERATED">GENERATED</option>
+            </select>
+          </label>
+  
+          <label class="span-3" style="align-content:end;">
+            <span><input type="checkbox" name="is_signed_copy"> Signed copy</span>
+          </label>
+  
+          <label class="span-12">Choose File
+            <input type="file" name="uploaded_file" required>
+          </label>
+  
+          <label class="span-12">Notes
+            <textarea name="file_note" rows="3" placeholder="Add notes about source, issuer, reviewer, signature status, or external lab details"></textarea>
+          </label>
+  
+          <div class="span-12 rnd-form-actions">
+            <button class="btn btn-primary" type="submit">Upload evidence</button>
+          </div>
+        </form>
+      </article>
+  
+      <article class="rnd-card" style="margin-top:18px;">
+        <div class="rnd-card-head">
+          <div>
+            <h3 class="rnd-panel-title" style="margin-bottom:4px;">Required evidence checklist</h3>
+            <div class="rnd-panel-sub">Shows which required evidence items are still missing</div>
+          </div>
+        </div>
+  
+        <div style="overflow:auto;">
+          <table class="rnd-table">
+            <thead>
+              <tr>
+                <th>Document Title</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Requirement</th>
+                <th>File</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in evidence.rows %}
+              {% set match = none %}
+              {% for a in attachments %}
+                {% if (a.document_type or '').upper() == row.document_type %}
+                  {% set match = a %}
+                {% endif %}
+              {% endfor %}
+              <tr>
+                <td>
+                  <strong>{{ match.title if match else row.document_type.replace('_',' ').title() }}</strong>
+                  <div class="rnd-sub">
+                    Ref: {{ match.reference_no if match and match.reference_no else 'PENDING_ENTRY' }}
+                  </div>
+                </td>
+                <td>
+                  <span class="rnd-badge muted">{{ row.document_type }}</span>
+                </td>
+                <td>
+                  {% if match %}
+                    {% if (match.approval_status or 'PENDING') in ['APPROVED','ACCEPTED'] %}
+                    <span class="rnd-badge ok">{{ match.approval_status }}</span>
+                    {% else %}
+                    <span class="rnd-badge warn">{{ match.approval_status or 'PENDING' }}</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="rnd-badge warn">PENDING</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if row.document_type in evidence.required %}
+                  <span class="rnd-badge warn">Mandatory</span>
+                  {% else %}
+                  <span class="rnd-badge muted">Optional</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if match and match.file_path %}
+                  <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/attachments/{{ match.id }}/download">Download</a>
+                  {% else %}
+                  <span class="rnd-empty">No file</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+  
+      <article class="rnd-card" style="margin-top:18px;">
+        <div class="rnd-card-head">
+          <div>
+            <h3 class="rnd-panel-title" style="margin-bottom:4px;">Uploaded evidence files</h3>
+            <div class="rnd-panel-sub">All uploaded evidence linked to this test</div>
+          </div>
+        </div>
+  
+        <div style="overflow:auto;">
+          <table class="rnd-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Document Type</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th>File Name</th>
+                <th>Signed</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for a in attachments %}
+              <tr>
+                <td>
+                  <strong>{{ a.title or 'Untitled evidence' }}</strong>
+                  <div class="rnd-sub">{{ a.file_note or '-' }}</div>
+                </td>
+                <td><span class="rnd-badge muted">{{ a.document_type or '-' }}</span></td>
+                <td><span class="rnd-badge muted">{{ a.source_mode or 'UPLOAD' }}</span></td>
+                <td>
+                  {% if (a.approval_status or 'PENDING') in ['APPROVED','ACCEPTED'] %}
+                  <span class="rnd-badge ok">{{ a.approval_status }}</span>
+                  {% else %}
+                  <span class="rnd-badge warn">{{ a.approval_status or 'PENDING' }}</span>
+                  {% endif %}
+                </td>
+                <td>{{ a.original_filename or '-' }}</td>
+                <td>
+                  {% if a.is_signed_copy %}
+                  <span class="rnd-badge ok">YES</span>
+                  {% else %}
+                  <span class="rnd-badge muted">NO</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if a.file_path %}
+                  <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/attachments/{{ a.id }}/download">Download</a>
+                  {% else %}
+                  <span class="rnd-empty">No file</span>
+                  {% endif %}
+                </td>
+              </tr>
               {% else %}
-              <span class="rnd-badge warn">PENDING</span>
-              {% endif %}
-            </td>
-            <td>
-              {% if row.document_type in evidence.required %}
-              <span class="rnd-badge warn">Mandatory</span>
-              {% else %}
-              <span class="rnd-badge muted">Optional</span>
-              {% endif %}
-            </td>
-            <td>⋮</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-
-    <article class="rnd-card" style="margin-top:18px;">
-      <h3 class="rnd-panel-title">Add evidence row</h3>
-      <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/attachments/new" class="rnd-form-grid">
-        <label class="span-3">Category<input type="text" name="category" value="REPORT"></label>
-        <label class="span-3">Document Type<input type="text" name="document_type" required></label>
-        <label class="span-3">Approval Status
-          <select name="approval_status">
-            <option value="PENDING">PENDING</option>
-            <option value="APPROVED">APPROVED</option>
-            <option value="REJECTED">REJECTED</option>
-          </select>
-        </label>
-        <label class="span-3">Reference No.<input type="text" name="reference_no"></label>
-        <label class="span-8">Title<input type="text" name="title" required></label>
-        <label class="span-4" style="align-content:end;"><span><input type="checkbox" name="is_mandatory" value="1"> Mandatory evidence</span></label>
-        <label class="span-12">Notes<textarea name="file_note" rows="2"></textarea></label>
-        <div class="span-12"><button class="btn btn-primary" type="submit">Add evidence row</button></div>
-      </form>
-    </article>
-  </section>
-  {% endif %}
+              <tr>
+                <td colspan="7" class="rnd-empty">No uploaded evidence files yet.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+    {% endif %}
 
   {% if active_tab == 'guidance' %}
   <section class="rnd-grid">
