@@ -797,6 +797,8 @@ class RndQualificationTest(SQLModel, table=True):
     description: str = Field(default="")
     specimen_requirement: str = Field(default="")
     applicability: str = Field(default="")
+    scope_tag: str = Field(default="BOTH", index=True)  # PFR / PV / BOTH / CUSTOM
+    source_standard: str = Field(default="API_15S", index=True)  # API_15S / CUSTOM / CLIENT / INTERNAL
     status: str = Field(default="PLANNED", index=True)
     result_summary: str = Field(default="")
 
@@ -812,6 +814,8 @@ class RndQualificationSpecimen(SQLModel, table=True):
     specimen_id: str = Field(default="", index=True)
     test_type: str = Field(default="STATIC_REGRESSION", index=True)
     sample_date: date = Field(default_factory=date.today)
+
+    scope_tag: str = Field(default="BOTH", index=True)  # PFR / PV / BOTH / CUSTOM
 
     material_ref: str = Field(default="", index=True)
     conditioning_required: Optional[bool] = Field(default=None)
@@ -940,6 +944,8 @@ class RndAttachmentRegister(SQLModel, table=True):
     program_id: int = Field(index=True)
     test_id: Optional[int] = Field(default=None, index=True)
     specimen_id: Optional[int] = Field(default=None, index=True)
+
+    scope_tag: str = Field(default="BOTH", index=True)  # PFR / PV / BOTH / CUSTOM
 
     category: str = Field(default="REPORT", index=True)
     title: str = Field(default="")
@@ -1520,22 +1526,22 @@ def _default_test_matrix(pfr_or_pv: str) -> list[dict]:
     route = (pfr_or_pv or '').strip().upper()
 
     base = [
-        {"code": "MPR_REG", "title": "Long-term hydrostatic regression", "description": "Primary regression basis for qualification. Use ASTM D2992 Procedure B logic, exclude points below 10 h, calculate mean line, LCL, LPL, and LCL at RCRT.", "specimen_requirement": "18+ target", "clause_ref": "API 15S 5.3.2.3 / Annex E / Annex G", "applicability": "CORE"},
-        {"code": "PV_1000H", "title": "1000-hour constant pressure confirmation", "description": "1000-hour proof / confirmation exposure used as a core verification step and for PV relationship confirmation.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.4.2", "applicability": "CORE"},
-        {"code": "TEMP_ELEV", "title": "Elevated temperature test", "description": "Seal and polymer creep or relaxation confirmation above MAOT.", "specimen_requirement": "1", "clause_ref": "API 15S 5.3.5", "applicability": "CORE"},
-        {"code": "TEMP_CYCLE", "title": "Temperature cycling", "description": "Thermal cycling confirmation for qualified size and rating combinations.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.6", "applicability": "CORE"},
-        {"code": "RAPID_DECOMP", "title": "Rapid decompression", "description": "Required for gas or multiphase service.", "specimen_requirement": "1", "clause_ref": "API 15S 5.3.7 / Annex B", "applicability": "SERVICE_DEP"},
-        {"code": "OPERATING_MBR", "title": "Operating MBR", "description": "Confirm operating bending performance.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.8.1", "applicability": "CORE"},
-        {"code": "HANDLING_MBR", "title": "Handling MBR preconditioning", "description": "Applies when handling MBR is smaller than operating MBR.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.8.2", "applicability": "RANGE_DEP"},
-        {"code": "HANDLING_AND_SPOOLING", "title": "Handling and spooling durability", "description": "Handling / spooling preconditioning followed by proof confirmation.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.8.3", "applicability": "RANGE_DEP"},
-        {"code": "RESPOOLING", "title": "Respooling qualification", "description": "Used where respooling is claimed or allowed.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.8.4", "applicability": "RANGE_DEP"},
-        {"code": "AXIAL_LOAD", "title": "Axial load capability", "description": "Maximum allowable axial load followed by proof confirmation.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.9", "applicability": "CORE"},
-        {"code": "CRUSH", "title": "External load / crush", "description": "Radial crush / external load characterization.", "specimen_requirement": "3", "clause_ref": "API 15S 5.3.10", "applicability": "RANGE_DEP"},
-        {"code": "LAOT", "title": "Lowest allowable operating temperature", "description": "Minimum operating temperature qualification.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.11", "applicability": "CORE"},
-        {"code": "IMPACT", "title": "Impact resistance", "description": "Impact followed by proof confirmation.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.12", "applicability": "CORE"},
-        {"code": "TEC", "title": "Thermal expansion coefficient", "description": "Axial TEC measurement and hoop TEC where clearance is critical.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.13", "applicability": "CORE"},
-        {"code": "GROWTH", "title": "Growth / shrinkage under pressure", "description": "Pressure elongation and dimensional response.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.14", "applicability": "CORE"},
-        {"code": "CYCLIC_REG", "title": "Cyclic pressure regression", "description": "For cyclic service. Use cyclic regression and lower confidence basis.", "specimen_requirement": "18+ target", "clause_ref": "API 15S 5.3.16 / Annex D", "applicability": "SERVICE_DEP"},
+        {"code": "MPR_REG", "title": "Long-term hydrostatic regression", "description": "Primary regression basis for qualification. Use ASTM D2992 Procedure B logic, exclude points below 10 h, calculate mean line, LCL, LPL, and LCL at RCRT.", "specimen_requirement": "18+ target", "clause_ref": "API 15S 5.3.2.3 / Annex E / Annex G", "applicability": "CORE", "scope_tag": "PFR", "source_standard": "API_15S"},
+        {"code": "PV_1000H", "title": "1000-hour constant pressure confirmation", "description": "1000-hour proof / confirmation exposure used as a core verification step and for PV relationship confirmation.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.4.2", "applicability": "CORE", "scope_tag": "PV", "source_standard": "API_15S"},
+        {"code": "TEMP_ELEV", "title": "Elevated temperature test", "description": "Seal and polymer creep or relaxation confirmation above MAOT.", "specimen_requirement": "1", "clause_ref": "API 15S 5.3.5", "applicability": "CORE", "scope_tag": "BOTH", "source_standard": "API_15S"},
+        {"code": "TEMP_CYCLE", "title": "Temperature cycling", "description": "Thermal cycling confirmation for qualified size and rating combinations.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.6", "applicability": "CORE", "scope_tag": "BOTH", "source_standard": "API_15S"},
+        {"code": "RAPID_DECOMP", "title": "Rapid decompression", "description": "Required for gas or multiphase service.", "specimen_requirement": "1", "clause_ref": "API 15S 5.3.7 / Annex B", "applicability": "SERVICE_DEP", "scope_tag": "BOTH", "source_standard": "API_15S"},
+        {"code": "OPERATING_MBR", "title": "Operating MBR", "description": "Confirm operating bending performance.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.8.1", "applicability": "CORE", "scope_tag": "BOTH", "source_standard": "API_15S"},
+        {"code": "HANDLING_MBR", "title": "Handling MBR preconditioning", "description": "Applies when handling MBR is smaller than operating MBR.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.8.2", "applicability": "RANGE_DEP", "scope_tag": "BOTH", "source_standard": "API_15S"},
+        {"code": "HANDLING_AND_SPOOLING", "title": "Handling and spooling durability", "description": "Handling / spooling preconditioning followed by proof confirmation.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.8.3", "applicability": "RANGE_DEP", "scope_tag": "PFR", "source_standard": "API_15S"},
+        {"code": "RESPOOLING", "title": "Respooling qualification", "description": "Used where respooling is claimed or allowed.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.8.4", "applicability": "RANGE_DEP", "scope_tag": "PFR", "source_standard": "API_15S"},
+        {"code": "AXIAL_LOAD", "title": "Axial load capability", "description": "Maximum allowable axial load followed by proof confirmation.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.9", "applicability": "CORE", "scope_tag": "BOTH", "source_standard": "API_15S"},
+        {"code": "CRUSH", "title": "External load / crush", "description": "Radial crush / external load characterization.", "specimen_requirement": "3", "clause_ref": "API 15S 5.3.10", "applicability": "RANGE_DEP", "scope_tag": "BOTH", "source_standard": "API_15S"},
+        {"code": "LAOT", "title": "Lowest allowable operating temperature", "description": "Minimum operating temperature qualification.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.11", "applicability": "CORE", "scope_tag": "BOTH", "source_standard": "API_15S"},
+        {"code": "IMPACT", "title": "Impact resistance", "description": "Impact followed by proof confirmation.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.12", "applicability": "CORE", "scope_tag": "BOTH", "source_standard": "API_15S"},
+        {"code": "TEC", "title": "Thermal expansion coefficient", "description": "Axial TEC measurement and hoop TEC where clearance is critical.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.13", "applicability": "CORE", "scope_tag": "BOTH", "source_standard": "API_15S"},
+        {"code": "GROWTH", "title": "Growth / shrinkage under pressure", "description": "Pressure elongation and dimensional response.", "specimen_requirement": "2", "clause_ref": "API 15S 5.3.14", "applicability": "CORE", "scope_tag": "BOTH", "source_standard": "API_15S"},
+        {"code": "CYCLIC_REG", "title": "Cyclic pressure regression", "description": "For cyclic service. Use cyclic regression and lower confidence basis.", "specimen_requirement": "18+ target", "clause_ref": "API 15S 5.3.16 / Annex D", "applicability": "SERVICE_DEP", "scope_tag": "BOTH", "source_standard": "API_15S"},
     ]
 
     items = []
@@ -1546,14 +1552,14 @@ def _default_test_matrix(pfr_or_pv: str) -> list[dict]:
             if row["code"] == "MPR_REG":
                 entry["route_note"] = "Primary PFR qualification regression"
             elif row["code"] == "PV_1000H":
-                entry["route_note"] = "Visible for planning and downstream PV linkage"
+                entry["route_note"] = "PV-only requirement kept visible for family planning"
             else:
                 entry["route_note"] = "PFR qualification matrix item"
         elif route == 'PV':
             if row["code"] == "PV_1000H":
                 entry["route_note"] = "Primary PV confirmation test"
             elif row["code"] == "MPR_REG":
-                entry["route_note"] = "Reference regression basis from family qualification"
+                entry["route_note"] = "Reference PFR regression basis from the same qualification family"
             else:
                 entry["route_note"] = "PV verification / inherited qualification matrix item"
         else:
@@ -1610,11 +1616,12 @@ def _seed_test_matrix(session: Session, program: RndQualificationProgram) -> Non
                 description=item['description'],
                 specimen_requirement=item['specimen_requirement'],
                 applicability=item['applicability'],
+                scope_tag=item.get('scope_tag', 'BOTH'),
+                source_standard=item.get('source_standard', 'API_15S'),
             )
         )
 
     session.commit()
-
 
 def _ensure_complete_test_matrix(session: Session, program: RndQualificationProgram) -> None:
     existing = session.exec(
@@ -1645,6 +1652,8 @@ def _ensure_complete_test_matrix(session: Session, program: RndQualificationProg
                     description=item['description'],
                     specimen_requirement=item['specimen_requirement'],
                     applicability=item['applicability'],
+                    scope_tag=item.get('scope_tag', 'BOTH'),
+                    source_standard=item.get('source_standard', 'API_15S'),
                     status='PLANNED',
                 )
             )
@@ -1655,6 +1664,8 @@ def _ensure_complete_test_matrix(session: Session, program: RndQualificationProg
             row.description = item['description']
             row.specimen_requirement = item['specimen_requirement']
             row.applicability = item['applicability']
+            row.scope_tag = item.get('scope_tag', row.scope_tag or 'BOTH')
+            row.source_standard = item.get('source_standard', row.source_standard or 'API_15S')
             _touch_row(row)
             session.add(row)
             changed = True
