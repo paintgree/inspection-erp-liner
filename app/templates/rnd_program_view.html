@@ -2,14 +2,19 @@
 {% block title %}{{ program.program_code }} - Qualification Center{% endblock %}
 {% block content %}
 <style>
-.qc-wrap{display:grid;gap:20px}
-.qc-card{
-  background:#fff;
-  border:1px solid #e5e7eb;
-  border-radius:20px;
-  padding:20px;
-  box-shadow:0 10px 28px rgba(15,23,42,.05);
+.qc-wrap{
+  display:grid;
+  gap:22px;
 }
+
+.qc-card{
+  background:#ffffff;
+  border:1px solid #e6ebf2;
+  border-radius:24px;
+  padding:24px;
+  box-shadow:0 10px 30px rgba(15,23,42,.045);
+}
+
 .section-head{
   display:flex;
   justify-content:space-between;
@@ -17,75 +22,181 @@
   gap:12px;
   flex-wrap:wrap;
 }
-.qc-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.qc-actions{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+
+.qc-hero-title{
+  margin:0;
+  font-size:32px;
+  line-height:1.05;
+  letter-spacing:-.03em;
+  font-weight:900;
+  color:#0f172a;
+}
+
+.qc-hero-subtitle{
+  margin-top:8px;
+  font-size:15px;
+  line-height:1.5;
+  color:#64748b;
+  font-weight:500;
+}
+
+.qc-section-title{
+  margin:0;
+  font-size:26px;
+  line-height:1.1;
+  letter-spacing:-.02em;
+  font-weight:850;
+  color:#0f172a;
+}
+
+.qc-section-subtitle{
+  margin-top:6px;
+  font-size:14px;
+  line-height:1.5;
+  color:#64748b;
+  font-weight:500;
+}
+
 .qc-mini{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
-  gap:12px;
+  gap:14px;
 }
+
 .qc-box{
-  border:1px solid #e5e7eb;
-  border-radius:16px;
-  padding:14px;
-  background:#f8fafc;
+  border:1px solid #e8edf5;
+  border-radius:18px;
+  padding:16px;
+  background:linear-gradient(180deg,#ffffff 0%,#f9fbfe 100%);
 }
+
 .qc-box b{
   display:block;
   font-size:11px;
-  color:#64748b;
-  margin-bottom:6px;
+  color:#7b8798;
+  margin-bottom:7px;
   text-transform:uppercase;
-  letter-spacing:.04em;
+  letter-spacing:.08em;
+  font-weight:800;
 }
+
 .qc-progress{
   width:100%;
   height:12px;
-  background:#eef2f7;
+  background:#edf2f7;
   border-radius:999px;
   overflow:hidden;
 }
+
 .qc-progress span{
   display:block;
   height:100%;
-  background:linear-gradient(90deg,#4f46e5,#7c3aed);
+  background:linear-gradient(90deg,#2563eb,#4f46e5);
 }
+
 .qc-phase{
   display:grid;
   grid-template-columns:repeat(6,minmax(0,1fr));
   gap:12px;
 }
+
 .qc-phase-card{
-  border:1px solid #e5e7eb;
+  border:1px solid #e7ecf3;
   border-radius:18px;
-  padding:14px;
+  padding:15px;
   background:#fff;
 }
+
 .qc-grid{
   display:grid;
   grid-template-columns:minmax(0,1.3fr) minmax(320px,.7fr);
   gap:18px;
   align-items:start;
 }
+
+.qc-test-shell{
+  border:1px solid #dfe6ef;
+  border-radius:22px;
+  overflow:hidden;
+  background:#fff;
+}
+
+.qc-table-wrap{
+  overflow:auto;
+}
+
 .qc-table{
   width:100%;
-  border-collapse:collapse;
+  border-collapse:separate;
+  border-spacing:0;
 }
-.qc-table th,.qc-table td{
-  padding:12px;
-  border-bottom:1px solid #edf1f6;
+
+.qc-table thead th{
+  background:#fbfcfe;
+  padding:14px 16px;
+  border-bottom:1px solid #e6ebf2;
+  font-size:10px;
+  color:#94a3b8;
+  text-transform:uppercase;
+  letter-spacing:.09em;
+  font-weight:900;
+  white-space:nowrap;
+}
+
+.qc-table tbody td{
+  padding:18px 16px;
+  border-bottom:1px solid #edf2f7;
   text-align:left;
   vertical-align:top;
   font-size:13px;
+  color:#334155;
 }
-.qc-table th{
+
+.qc-table tbody tr:last-child td{
+  border-bottom:none;
+}
+
+.qc-table tbody tr:hover td{
+  background:#fcfdff;
+}
+
+.qc-test-title{
+  margin:0;
+  font-size:22px;
+  line-height:1.12;
+  letter-spacing:-.02em;
+  font-weight:850;
+  color:#0f172a;
+}
+
+.qc-test-code{
+  margin-top:6px;
   font-size:11px;
-  color:#64748b;
+  line-height:1.4;
+  font-weight:800;
+  color:#2563eb;
   text-transform:uppercase;
-  letter-spacing:.08em;
 }
+
+.qc-test-desc{
+  margin-top:8px;
+  font-size:13px;
+  line-height:1.55;
+  color:#64748b;
+  max-width:520px;
+}
+
 .qc-chip{
   display:inline-flex;
   align-items:center;
+  justify-content:center;
   padding:5px 10px;
   border-radius:999px;
   border:1px solid #e5e7eb;
@@ -93,23 +204,74 @@
   color:#334155;
   font-size:11px;
   font-weight:800;
+  white-space:nowrap;
 }
+
+.qc-stat{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.qc-stat-main{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:22px;
+  line-height:1;
+  font-weight:850;
+  color:#0f172a;
+}
+
+.qc-stat-dot{
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background:#cbd5e1;
+  flex:0 0 auto;
+}
+
+.qc-stat-dot.good{background:#10b981}
+.qc-stat-dot.mid{background:#cbd5e1}
+.qc-stat-label{
+  font-size:11px;
+  line-height:1.35;
+  color:#94a3b8;
+  font-weight:800;
+  text-transform:uppercase;
+}
+.qc-stat-sub{
+  font-size:11px;
+  line-height:1.45;
+  color:#94a3b8;
+  font-weight:700;
+}
+
 .qc-good{background:#ecfdf3;color:#027a48;border-color:#b7ebcd}
-.qc-test-panel{background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);border:1px solid #dbe7f3}
-.qc-mid{background:#fff7ed;color:#b45309;border-color:#fed7aa}
-.qc-app-core{background:#ecfdf3;color:#027a48;border-color:#b7ebcd}
-.qc-app-service{background:#fff7ed;color:#b45309;border-color:#fed7aa}
-.qc-app-range{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
-.qc-app-custom{background:#f5f3ff;color:#6d28d9;border-color:#ddd6fe}
+.qc-mid{background:#f8fafc;color:#64748b;border-color:#dbe3ee}
+
+.qc-app-core{background:#eaf2ff;color:#2563eb;border-color:#cfe0ff}
+.qc-app-service{background:#fff4db;color:#c27a00;border-color:#f8df9b}
+.qc-app-range{background:#eef4ff;color:#4f46e5;border-color:#d8defe}
+.qc-app-custom{background:#f3ecff;color:#7c3aed;border-color:#e2d4ff}
 .qc-app-muted{background:#f3f4f6;color:#6b7280;border-color:#e5e7eb}
+
 .qc-note{
-  padding:14px;
-  border-radius:16px;
-  border:1px solid #dbeafe;
-  background:#eff6ff;
-  color:#1d4ed8;
+  padding:15px 16px;
+  border-radius:18px;
+  border:1px solid #d8e7fb;
+  background:#f4f8ff;
+  color:#335c9d;
+  line-height:1.55;
 }
+
+.qc-test-panel{
+  background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);
+  border:1px solid #dbe7f3;
+}
+
 .muted{color:#6b7280}
+
 .qc-card input,.qc-card select,.qc-card textarea{
   width:100%;
   padding:10px 12px;
@@ -117,27 +279,32 @@
   border-radius:12px;
   background:#fff;
 }
+
 .qc-material-summary{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
   gap:12px;
   margin-bottom:14px;
 }
+
 .qc-material-flag{
   border:1px solid #e5e7eb;
   border-radius:16px;
   padding:14px;
   background:#f8fafc;
 }
+
 .qc-material-flag b{
   display:block;
   font-size:12px;
   color:#64748b;
   margin-bottom:6px;
 }
+
 .qc-review-match{background:#ecfdf3;border-color:#b7ebcd}
 .qc-review-mid{background:#fff7ed;border-color:#fed7aa}
 .qc-review-bad{background:#fef2f2;border-color:#fecaca}
+
 .qc-collapse-head{
   display:flex;
   justify-content:space-between;
@@ -145,8 +312,10 @@
   align-items:flex-start;
   cursor:pointer;
 }
+
 .qc-collapse-body{margin-top:14px}
 .qc-material-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+
 .qc-soft-badge{
   display:inline-flex;
   align-items:center;
@@ -158,8 +327,59 @@
   background:#fff;
   color:#334155;
 }
+
+.qc-workbench-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-height:38px;
+  padding:0 14px;
+  border-radius:10px;
+  border:1px solid #e5e7eb;
+  background:#f8fafc;
+  color:#0f172a;
+  text-decoration:none;
+  font-size:12px;
+  font-weight:800;
+  transition:.18s ease;
+}
+
+.qc-workbench-btn:hover{
+  background:#eef2f7;
+}
+
 @media (max-width:1100px){
-  .qc-mini,.qc-phase,.qc-grid,.qc-material-summary{grid-template-columns:1fr}
+  .qc-mini,.qc-phase,.qc-grid,.qc-material-summary{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width:768px){
+  .qc-card{
+    padding:18px;
+    border-radius:20px;
+  }
+
+  .qc-hero-title{
+    font-size:26px;
+  }
+
+  .qc-section-title{
+    font-size:22px;
+  }
+
+  .qc-table thead th,
+  .qc-table tbody td{
+    padding:14px 12px;
+  }
+
+  .qc-test-title{
+    font-size:18px;
+  }
+
+  .qc-stat-main{
+    font-size:18px;
+  }
 }
 </style>
 {% set qual_is_other = 'OTHER' in (program.qualification_standard or '')|upper %}
@@ -167,8 +387,8 @@
   <section class="qc-card">
     <div class="section-head" style="margin-bottom:12px;">
       <div>
-        <h1 style="margin:0;">{{ program.program_code }}</h1>
-        <div class="muted">{{ program.title }}</div>
+        <h1 class="qc-hero-title">{{ program.program_code }}</h1>
+        <div class="qc-hero-subtitle">{{ program.title }}</div>
       </div>
       <div class="qc-actions">
         <span class="qc-chip">{{ program.qualification_standard or 'API 15S' }}</span>
@@ -208,10 +428,10 @@
   <section class="qc-grid">
     <div style="display:grid;gap:18px;">
       
-        <div class="section-head" style="margin-bottom:12px;">
+        <div class="section-head" style="margin-bottom:14px;">
           <div>
-            <h2 style="margin:0;">Test monitor</h2>
-            <div class="muted">Full qualification matrix showing required, conditional, and extra engineering tests together</div>
+            <h2 class="qc-section-title">Test Monitor</h2>
+            <div class="qc-section-subtitle">Full qualification matrix showing required and conditional tests</div>
           </div>
         </div>
         
@@ -219,92 +439,109 @@
           Keep all relevant tests visible. Use color to highlight what is core to qualification, while still allowing service-dependent, range-dependent, and extra engineering tests for stronger records and additional product data.
         </div>
         
-        <div style="overflow:auto;">
-          <table class="qc-table">
-            <thead>
-              <tr>
-                <th>Test</th>
-                <th>Applicability</th>
-                <th>Specimens</th>
-                <th>Execution</th>
-                <th>Evidence / Reports</th>
-                <th>Closeout</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for test in tests %}
-              {% set ns = namespace(spec_count=0, executed=0, qa=0, att_count=0) %}
-              {% for s in specimens %}
-                {% if s.test_id == test.id %}
-                  {% set ns.spec_count = ns.spec_count + 1 %}
-                  {% if (s.result_status or 'PENDING') != 'PENDING' %}
-                    {% set ns.executed = ns.executed + 1 %}
+        <div class="qc-test-shell">
+          <div class="qc-table-wrap">
+            <table class="qc-table">
+              <thead>
+                <tr>
+                  <th>Test Details</th>
+                  <th>Applicability</th>
+                  <th>Specimens</th>
+                  <th>Execution</th>
+                  <th>Evidence / Reports</th>
+                  <th>Closeout</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for test in tests %}
+                {% set ns = namespace(spec_count=0, executed=0, qa=0, att_count=0) %}
+                {% for s in specimens %}
+                  {% if s.test_id == test.id %}
+                    {% set ns.spec_count = ns.spec_count + 1 %}
+                    {% if (s.result_status or 'PENDING') != 'PENDING' %}
+                      {% set ns.executed = ns.executed + 1 %}
+                    {% endif %}
+                    {% if (s.qa_review_status or 'PENDING') in ['ACCEPTED','APPROVED'] %}
+                      {% set ns.qa = ns.qa + 1 %}
+                    {% endif %}
                   {% endif %}
-                  {% if (s.qa_review_status or 'PENDING') in ['ACCEPTED','APPROVED'] %}
-                    {% set ns.qa = ns.qa + 1 %}
+                {% endfor %}
+                {% for a in attachments %}
+                  {% if a.test_id == test.id %}
+                    {% set ns.att_count = ns.att_count + 1 %}
                   {% endif %}
-                {% endif %}
-              {% endfor %}
-              {% for a in attachments %}
-                {% if a.test_id == test.id %}
-                  {% set ns.att_count = ns.att_count + 1 %}
-                {% endif %}
-              {% endfor %}
-              <tr>
-                <td>
-                  <strong>{{ test.title }}</strong><br>
-                  <small class="muted">{{ test.code }} · {{ test.clause_ref or 'CUSTOM' }}</small>
-                  <div class="muted">{{ test.description }}</div>
-                </td>
+                {% endfor %}
+                <tr>
+                  <td>
+                    <div class="qc-test-title">{{ test.title }}</div>
+                    <div class="qc-test-code">{{ test.code }} · {{ test.clause_ref or 'CUSTOM' }}</div>
+                    <div class="qc-test-desc">{{ test.description or 'Qualification requirement under the selected route.' }}</div>
+                  </td>
         
-                <td>
-                  {% set app = (test.applicability or 'CORE').upper() %}
-                  {% if app == 'CORE' %}
-                    <span class="qc-chip qc-app-core">Required Core</span>
-                  {% elif app == 'SERVICE_DEP' %}
-                    <span class="qc-chip qc-app-service">Service-Dependent</span>
-                  {% elif app == 'RANGE_DEP' %}
-                    <span class="qc-chip qc-app-range">Variant / Range-Dependent</span>
-                  {% elif app == 'CUSTOM' %}
-                    <span class="qc-chip qc-app-custom">Custom / Extra</span>
-                  {% else %}
-                    <span class="qc-chip qc-app-muted">{{ test.applicability or 'General' }}</span>
-                  {% endif %}
-                </td>
+                  <td>
+                    {% set app = (test.applicability or 'CORE').upper() %}
+                    {% if app == 'CORE' %}
+                      <span class="qc-chip qc-app-core">Required Core</span>
+                    {% elif app == 'SERVICE_DEP' %}
+                      <span class="qc-chip qc-app-service">Service-Dependent</span>
+                    {% elif app == 'RANGE_DEP' %}
+                      <span class="qc-chip qc-app-range">Variant / Range-Dependent</span>
+                    {% elif app == 'CUSTOM' %}
+                      <span class="qc-chip qc-app-custom">Custom / Extra</span>
+                    {% else %}
+                      <span class="qc-chip qc-app-muted">{{ test.applicability or 'General' }}</span>
+                    {% endif %}
+                  </td>
         
-                <td>
-                  <span class="qc-chip">{{ ns.spec_count }} tracked</span><br>
-                  <small class="muted">Requirement: {{ test.specimen_requirement or '-' }}</small>
-                </td>
+                  <td>
+                    <div class="qc-stat">
+                      <div class="qc-stat-main">
+                        <span>{{ ns.spec_count }}</span>
+                        <span class="qc-stat-label">tracked</span>
+                      </div>
+                      <div class="qc-stat-sub">REQ: {{ test.specimen_requirement or '-' }}</div>
+                    </div>
+                  </td>
         
-                <td>
-                  <span class="qc-chip {% if ns.executed > 0 %}qc-good{% else %}qc-mid{% endif %}">{{ ns.executed }} executed</span><br>
-                  <small class="muted">{{ ns.qa }} QA accepted</small>
-                </td>
+                  <td>
+                    <div class="qc-stat">
+                      <div class="qc-stat-main">
+                        <span class="qc-stat-dot {% if ns.executed > 0 %}good{% else %}mid{% endif %}"></span>
+                        <span>{{ ns.executed }}</span>
+                        <span class="qc-stat-label">executed</span>
+                      </div>
+                      <div class="qc-stat-sub">{{ ns.qa }} QA accepted</div>
+                    </div>
+                  </td>
         
-                <td>
-                  <span class="qc-chip {% if ns.att_count > 0 %}qc-good{% else %}qc-mid{% endif %}">{{ ns.att_count }} rows</span><br>
-                  <small class="muted">Reports, logs, photos, certificates</small>
-                </td>
+                  <td>
+                    <div class="qc-stat">
+                      <div class="qc-stat-main">
+                        <span class="qc-stat-dot {% if ns.att_count > 0 %}good{% else %}mid{% endif %}"></span>
+                        <span>{{ ns.att_count }}</span>
+                        <span class="qc-stat-label">rows</span>
+                      </div>
+                      <div class="qc-stat-sub">Reports, logs, photos, certificates</div>
+                    </div>
+                  </td>
         
-                <td>
-                  {% if test.result_summary %}
-                    <div style="font-weight:700;">{{ test.result_summary }}</div>
-                  {% else %}
-                    <span class="qc-chip qc-mid">Pending closeout</span>
-                  {% endif %}
-                </td>
+                  <td>
+                    {% if test.result_summary %}
+                      <div style="font-weight:800;color:#0f172a;line-height:1.45;">{{ test.result_summary }}</div>
+                    {% else %}
+                      <span class="qc-chip qc-mid">Pending closeout</span>
+                    {% endif %}
+                  </td>
         
-                <td>
-                  <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                    <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}">Open workbench</a>
-                  </div>
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+                  <td>
+                    <a class="qc-workbench-btn" href="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}">Workbench</a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
       </article>
 
