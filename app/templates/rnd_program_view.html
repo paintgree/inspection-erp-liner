@@ -433,6 +433,185 @@
     </div>
   </section>
 
+
+  <div class="qc-card" style="margin-bottom:18px;">
+    <div class="section-head" style="margin-bottom:14px;">
+      <div>
+        <h2 class="qc-section-title">Program Settings</h2>
+        <div class="qc-section-subtitle">Edit the qualification basis, service factor, scope, and custom requirements.</div>
+      </div>
+    </div>
+  
+    <form method="post" action="/rnd/qualifications/{{ program.id }}/edit" style="display:grid;gap:16px;">
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Program Type</label>
+          <select name="program_type" id="edit_program_type" onchange="toggleEditProgramTypeFields()" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+            <option value="API_15S" {% if (program.program_type or 'API_15S') == 'API_15S' %}selected{% endif %}>API 15S Monogram</option>
+            <option value="OTHER" {% if (program.program_type or '') == 'OTHER' %}selected{% endif %}>Other Qualification</option>
+          </select>
+        </div>
+  
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Qualification Standard / Basis</label>
+          <input type="text" name="qualification_standard" id="edit_qualification_standard" value="{{ program.qualification_standard or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+        </div>
+      </div>
+  
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Program Code</label>
+          <input type="text" name="program_code" value="{{ program.program_code or '' }}" required style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+        </div>
+  
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Program Name</label>
+          <input type="text" name="title" value="{{ program.title or '' }}" required style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+        </div>
+      </div>
+  
+      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Nominal Size (in)</label>
+          <input type="number" step="0.01" name="nominal_size_in" value="{{ program.nominal_size_in or 0 }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+        </div>
+  
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">NPR (MPa)</label>
+          <input type="number" step="0.001" name="npr_mpa" value="{{ program.npr_mpa or 0 }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+        </div>
+  
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">MAOT (°C)</label>
+          <input type="number" step="0.1" name="maot_c" value="{{ program.maot_c or 0 }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+        </div>
+  
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">LAOT (°C)</label>
+          <input type="number" step="0.1" name="laot_c" value="{{ program.laot_c or 0 }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+        </div>
+      </div>
+  
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Service Medium</label>
+          <select name="service_medium" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+            <option value="WATER" {% if (program.service_medium or 'WATER') == 'WATER' %}selected{% endif %}>Water</option>
+            <option value="GAS" {% if (program.service_medium or '') == 'GAS' %}selected{% endif %}>Gas</option>
+            <option value="HYDROCARBON" {% if (program.service_medium or '') == 'HYDROCARBON' %}selected{% endif %}>Hydrocarbon</option>
+            <option value="LIQUIDS" {% if (program.service_medium or '') == 'LIQUIDS' %}selected{% endif %}>Liquids</option>
+          </select>
+        </div>
+  
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Service Factor</label>
+          <input type="number" step="0.001" name="service_factor" value="{{ program.service_factor or 1.0 }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+        </div>
+      </div>
+  
+      <div>
+        <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Intended Service</label>
+        <input type="text" name="intended_service" value="{{ program.intended_service or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+      </div>
+  
+      <div id="edit_api15s_fields" style="display:grid;gap:14px;padding:16px;border:1px solid #e5e7eb;border-radius:18px;background:#f8fafc;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;">API 15S Program Settings</div>
+  
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">PFR or PV</label>
+            <select name="pfr_or_pv" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+              <option value="PFR" {% if (program.pfr_or_pv or 'PFR') == 'PFR' %}selected{% endif %}>PFR</option>
+              <option value="PV" {% if (program.pfr_or_pv or '') == 'PV' %}selected{% endif %}>PV</option>
+            </select>
+          </div>
+  
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Parent Program ID</label>
+            <input type="number" name="parent_program_id" value="{{ program.parent_program_id or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+          </div>
+        </div>
+  
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;">
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Product Family</label>
+            <input type="text" name="product_family" value="{{ program.product_family or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+          </div>
+  
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Reinforcement Type</label>
+            <input type="text" name="reinforcement_type" value="{{ program.reinforcement_type or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+          </div>
+  
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Liner Material</label>
+            <input type="text" name="liner_material" value="{{ program.liner_material or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+          </div>
+  
+          <div>
+            <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Reinforcement Material</label>
+            <input type="text" name="reinforcement_material" value="{{ program.reinforcement_material or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+          </div>
+        </div>
+  
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Cover Material</label>
+          <input type="text" name="cover_material" value="{{ program.cover_material or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+        </div>
+      </div>
+  
+      <div id="edit_other_fields" style="display:grid;gap:14px;padding:16px;border:1px solid #e5e7eb;border-radius:18px;background:#fcfcfd;">
+        <div style="font-size:13px;font-weight:700;color:#0f172a;">Custom Qualification Settings</div>
+  
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Qualification Requirements</label>
+          <textarea name="custom_requirements" rows="4" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">{{ program.custom_requirements or '' }}</textarea>
+        </div>
+  
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Acceptance Criteria</label>
+          <textarea name="custom_acceptance_criteria" rows="4" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">{{ program.custom_acceptance_criteria or '' }}</textarea>
+        </div>
+      </div>
+  
+      <div>
+        <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Notes</label>
+        <textarea name="notes" rows="4" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">{{ program.notes or '' }}</textarea>
+      </div>
+  
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <button type="submit" class="qc-workbench-btn" style="min-width:140px;">Save Program</button>
+      </div>
+    </form>
+  </div>
+  
+  <script>
+  function toggleEditProgramTypeFields() {
+    const type = document.getElementById('edit_program_type').value;
+    const apiBox = document.getElementById('edit_api15s_fields');
+    const otherBox = document.getElementById('edit_other_fields');
+    const standard = document.getElementById('edit_qualification_standard');
+  
+    if (type === 'OTHER') {
+      apiBox.style.display = 'none';
+      otherBox.style.display = 'grid';
+      if (!standard.value || standard.value === 'API 15S R3') {
+        standard.value = 'OTHER QUALIFICATION';
+      }
+    } else {
+      apiBox.style.display = 'grid';
+      otherBox.style.display = 'none';
+      if (!standard.value || standard.value === 'OTHER QUALIFICATION') {
+        standard.value = 'API 15S R3';
+      }
+    }
+  }
+  
+  document.addEventListener('DOMContentLoaded', toggleEditProgramTypeFields);
+  </script>
+
+
+  
   <section class="qc-phase">
     {% for card in phase_cards %}
     <div class="qc-phase-card">
