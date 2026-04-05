@@ -582,6 +582,14 @@
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
         <button type="submit" class="qc-workbench-btn" style="min-width:140px;">Save Program</button>
       </div>
+      
+      {% if (program.program_type or 'API_15S') == 'API_15S' %}
+      <form method="post" action="/rnd/qualifications/{{ program.id }}/add-pv-extension" style="margin-top:10px;">
+        <button type="submit" class="qc-workbench-btn" style="min-width:160px;">
+          Add PV Extension
+        </button>
+      </form>
+      {% endif %}
     </form>
   </div>
   
