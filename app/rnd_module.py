@@ -2405,6 +2405,112 @@ def rnd_update_program_status(program_id: int, status: str = Form(...), session:
     return RedirectResponse(url=f'/rnd/qualifications/{program_id}', status_code=303)
 
 
+@router.post('/qualifications/{program_id}/edit')
+def rnd_edit_program(
+    program_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+
+    title: str = Form(...),
+    program_code: str = Form(...),
+
+    program_type: str = Form('API_15S'),
+    qualification_standard: str = Form('API 15S R3'),
+
+    nominal_size_in: float = Form(4.0),
+    npr_mpa: float = Form(10.0),
+    maot_c: float = Form(65.0),
+    laot_c: float = Form(0.0),
+
+    pfr_or_pv: str = Form('PFR'),
+    parent_program_id: Optional[int] = Form(None),
+
+    service_medium: str = Form('WATER'),
+    service_factor: float = Form(1.0),
+    intended_service: str = Form(''),
+
+    product_family: str = Form(''),
+    reinforcement_type: str = Form('NONMETALLIC'),
+    liner_material: str = Form(''),
+    reinforcement_material: str = Form(''),
+    cover_material: str = Form(''),
+
+    custom_requirements: str = Form(''),
+    custom_acceptance_criteria: str = Form(''),
+    notes: str = Form(''),
+):
+    program = session.get(RndQualificationProgram, program_id)
+    if not program:
+        raise HTTPException(404, 'Program not found')
+
+    old_program_type = (program.program_type or 'API_15S').strip().upper()
+
+    safe_program_type = (program_type or 'API_15S').strip().upper()
+    if safe_program_type not in {'API_15S', 'OTHER'}:
+        safe_program_type = 'API_15S'
+
+    safe_service_medium = (service_medium or 'WATER').strip().upper()
+    if safe_service_medium not in {'WATER', 'GAS', 'HYDROCARBON', 'LIQUIDS'}:
+        safe_service_medium = 'WATER'
+
+    safe_pfr_or_pv = (pfr_or_pv or 'PFR').strip().upper()
+    if safe_pfr_or_pv not in {'PFR', 'PV'}:
+        safe_pfr_or_pv = 'PFR'
+
+    program.title = (title or '').strip()
+    program.program_code = (program_code or '').strip().upper()
+
+    program.program_type = safe_program_type
+    program.service_medium = safe_service_medium
+    program.service_factor = service_factor
+
+    program.nominal_size_in = nominal_size_in
+    program.npr_mpa = npr_mpa
+    program.maot_c = maot_c
+    program.laot_c = laot_c
+
+    program.intended_service = (intended_service or '').strip()
+    program.product_family = (product_family or '').strip()
+    program.reinforcement_type = (reinforcement_type or 'NONMETALLIC').strip().upper()
+    program.liner_material = (liner_material or '').strip()
+    program.reinforcement_material = (reinforcement_material or '').strip()
+    program.cover_material = (cover_material or '').strip()
+
+    program.custom_requirements = (custom_requirements or '').strip()
+    program.custom_acceptance_criteria = (custom_acceptance_criteria or '').strip()
+    program.notes = (notes or '').strip()
+
+    if safe_program_type == 'OTHER':
+        program.qualification_standard = (qualification_standard or 'OTHER QUALIFICATION').strip()
+        program.pfr_or_pv = 'PFR'
+        program.parent_program_id = None
+        program.pfr_reference_code = ''
+    else:
+        program.qualification_standard = (qualification_standard or 'API 15S R3').strip()
+        program.pfr_or_pv = safe_pfr_or_pv
+        program.parent_program_id = parent_program_id
+
+        if parent_program_id:
+            parent = session.get(RndQualificationProgram, parent_program_id)
+            if parent:
+                program.pfr_reference_code = parent.program_code
+            else:
+                program.pfr_reference_code = ''
+        else:
+            program.pfr_reference_code = ''
+
+    _touch_program(program)
+    session.add(program)
+    session.commit()
+
+    # If switching into API_15S, ensure the default API matrix exists
+    if old_program_type != 'API_15S' and program.program_type == 'API_15S':
+        _seed_test_matrix(session, program)
+        _ensure_complete_test_matrix(session, program)
+
+    return RedirectResponse(url=f'/rnd/qualifications/{program.id}', status_code=303)
+    
+
 @router.post('/qualifications/{program_id}/tests/{test_id}')
 def rnd_update_test(program_id: int, test_id: int, status: str = Form(...), result_summary: str = Form(''), session: Session = Depends(get_session), user: User = Depends(_require_user)):
     test = session.get(RndQualificationTest, test_id)
