@@ -4259,130 +4259,98 @@ def _logo_path() -> str:
     # Put your logo here: app/static/images/logo.png
     return os.path.join(base_dir, "static", "images", "logo.png")
 
-def _draw_header_footer(c, title, doc_control_no=None, page_num=1, page_total=1, report=None):
+def _draw_header_footer(c, title="Short-Time Hydrostatic Burst Pressure Test Report", doc_control_no="QAW1401-F01", page_num=1, page_total=1, report=None):
     w, h = A4
-    margin_x = 12 * mm
 
-    # ------------------------------------------------------------
-    # TOP CENTERED LOGO HEADER
-    # ------------------------------------------------------------
-    logo_path = os.path.join(BASE_DIR, "static", "images", "logo.png")
-    logo_top_y = h - 16 * mm
+    left_x = 15 * mm
+    right_x = w - 15 * mm
+    top_y = h - 12 * mm
 
-    if os.path.exists(logo_path):
+    logo_w = 28 * mm
+    logo_h = 12 * mm
+
+    title_y = top_y - 16 * mm
+    subtitle_y = title_y - 6 * mm
+    info_top = subtitle_y - 8 * mm
+    info_h = 14 * mm
+
+    # ----------------------------
+    # logo centered at top
+    # ----------------------------
+    logo_path = None
+    possible_logo_paths = [
+        os.path.join("app", "static", "logo.png"),
+        os.path.join("app", "static", "img", "logo.png"),
+        os.path.join("app", "static", "images", "logo.png"),
+        os.path.join("static", "logo.png"),
+    ]
+    for p in possible_logo_paths:
+        if os.path.exists(p):
+            logo_path = p
+            break
+
+    if logo_path:
         try:
-            img = ImageReader(logo_path)
-            iw, ih = img.getSize()
-
-            target_h = 13 * mm
-            scale = target_h / float(ih)
-            dw = float(iw) * scale
-            dh = target_h
-
-            text_w = 42 * mm
-            total_w = dw + 4 * mm + text_w
-            start_x = (w - total_w) / 2.0
-
             c.drawImage(
-                img,
-                start_x,
-                logo_top_y - dh,
-                width=dw,
-                height=dh,
-                mask="auto"
+                logo_path,
+                (w - logo_w) / 2,
+                top_y - logo_h,
+                width=logo_w,
+                height=logo_h,
+                mask="auto",
+                preserveAspectRatio=True,
             )
-
         except Exception:
             pass
 
-    # ------------------------------------------------------------
-    # REPORT HEADER BOX
-    # ------------------------------------------------------------
-    box_top = h - 25 * mm
-    box_h = 18 * mm
-    box_w = w - (2 * margin_x)
+    # ----------------------------
+    # main title block
+    # ----------------------------
+    c.setFont("Helvetica-Bold", 14)
+    c.drawCentredString(w / 2, title_y, title)
 
-    c.setStrokeColor(colors.HexColor("#dbe3ee"))
-    c.setFillColor(colors.white)
-    c.roundRect(margin_x, box_top - box_h, box_w, box_h, 4 * mm, stroke=1, fill=1)
+    c.setFont("Helvetica-Bold", 9)
+    c.drawCentredString(w / 2, subtitle_y, "OFFICIAL DOCUMENT")
 
-    left_x = margin_x + 8 * mm
-    right_box_w = 34 * mm
+    # ----------------------------
+    # report meta row
+    # ----------------------------
+    mid_x = w / 2
+    c.rect(left_x, info_top - info_h, right_x - left_x, info_h, stroke=1, fill=0)
+    c.line(mid_x, info_top, mid_x, info_top - info_h)
 
-    c.setFont("Helvetica-Bold", 16)
-    c.drawString(left_x, box_top - 7 * mm, "Short-Time Hydrostatic Burst Pressure Test Report")
-
-    c.setFillColor(colors.HexColor("#4338ca"))
-    c.setFont("Helvetica-Bold", 7)
-    c.drawString(left_x + 46 * mm, box_top - 13 * mm, "OFFICIAL DOCUMENT")
-
-    rid_x = margin_x + box_w - right_box_w - 6 * mm
-    rid_y = box_top - 4 * mm
-    rid_h = 16 * mm
-
-    c.setFillColor(colors.HexColor("#f8fafc"))
-    c.setStrokeColor(colors.HexColor("#e5e7eb"))
-    c.roundRect(rid_x, rid_y - rid_h, right_box_w, rid_h, 3 * mm, stroke=1, fill=1)
-
-    c.setFont("Helvetica-Bold", 6)
-    c.setFillColor(colors.HexColor("#94a3b8"))
-    c.drawRightString(rid_x + right_box_w - 3 * mm, rid_y - 3 * mm, "REPORT ID")
-
-    rep_no = "-"
+    report_id_val = "-"
     if report is not None:
-        rep_no = str(getattr(report, "report_no", "") or "-")
+        try:
+            report_id_val = str(getattr(report, "id", None) or "-")
+        except Exception:
+            report_id_val = "-"
 
-    c.setFont("Helvetica-Bold", 11)
+    result_val = "NO RESULT"
+    if report is not None:
+        try:
+            result_val = (_txt(getattr(report, "overall_result", "")) or "").strip() or "NO RESULT"
+        except Exception:
+            result_val = "NO RESULT"
+
+    c.setFont("Helvetica-Bold", 8)
+    c.drawString(left_x + 3 * mm, info_top - 5 * mm, "REPORT ID")
+    c.drawString(mid_x + 3 * mm, info_top - 5 * mm, "RESULT")
+
+    c.setFont("Helvetica", 10)
+    c.drawString(left_x + 3 * mm, info_top - 10 * mm, report_id_val)
+    c.drawString(mid_x + 3 * mm, info_top - 10 * mm, result_val)
+
+    # ----------------------------
+    # footer line
+    # ----------------------------
+    c.setFont("Helvetica", 9)
+    c.setFillColor(colors.grey)
+    c.drawString(20 * mm, 12 * mm, doc_control_no)
+    c.drawRightString(w - 20 * mm, 12 * mm, f"Page {page_num}/{page_total}")
     c.setFillColor(colors.black)
-    c.drawRightString(rid_x + right_box_w - 3 * mm, rid_y - 8 * mm, rep_no)
 
-    rep_result = ""
-    if report is not None:
-        rep_result = str(getattr(report, "test_result", "") or "").upper()
-
-    if rep_result == "PASS":
-        pill_fill = colors.HexColor("#dcfce7")
-        pill_text = colors.HexColor("#15803d")
-        pill_label = "PASS RESULT"
-    elif rep_result == "FAIL":
-        pill_fill = colors.HexColor("#fee2e2")
-        pill_text = colors.HexColor("#b91c1c")
-        pill_label = "FAIL RESULT"
-    else:
-        pill_fill = colors.HexColor("#e5e7eb")
-        pill_text = colors.HexColor("#475569")
-        pill_label = "NO RESULT"
-
-    pill_w = 22 * mm
-    pill_h = 6.5 * mm
-    pill_x = rid_x + right_box_w - pill_w - 3 * mm
-    pill_y = rid_y - 13 * mm
-
-    c.setFillColor(pill_fill)
-    c.setStrokeColor(pill_fill)
-    c.roundRect(pill_x, pill_y, pill_w, pill_h, 3 * mm, stroke=1, fill=1)
-
-    c.setFillColor(pill_text)
-    c.setFont("Helvetica-Bold", 6.5)
-    c.drawCentredString(pill_x + pill_w / 2, pill_y + 2.1 * mm, pill_label)
-
-    # ------------------------------------------------------------
-    # FOOTER
-    # ------------------------------------------------------------
-    footer_y = 10 * mm
-    c.setStrokeColor(colors.HexColor("#d1d5db"))
-    c.line(margin_x, footer_y + 5 * mm, w - margin_x, footer_y + 5 * mm)
-
-    if doc_control_no:
-        c.setFillColor(colors.HexColor("#6b7280"))
-        c.setFont("Helvetica", 8)
-        c.drawString(margin_x, footer_y, str(doc_control_no))
-
-    c.setFillColor(colors.HexColor("#6b7280"))
-    c.setFont("Helvetica", 8)
-    c.drawRightString(w - margin_x, footer_y, f"Page {page_num}/{page_total}")
-
-    return box_top - box_h - 1.5 * mm
+    return info_top - info_h - 8 * mm
 
 def _draw_report_info_table(c, report, x, y):
     w, h = A4
