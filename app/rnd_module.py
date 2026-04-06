@@ -695,144 +695,334 @@ def get_specimen_prep(test_code: str):
 
 def get_test_guidance(test_code: str, test_row: Optional["RndQualificationTest"] = None) -> dict:
     code = (test_code or "").strip().upper()
+
+    TEST_GUIDANCE = {
+        "MPR_REG": {
+            "when_required": "Required for qualification of pressure-containing pipe families where long-term hydrostatic regression is needed.",
+            "specimen_count": "Minimum 18 specimens across pressure levels and time-to-failure distribution",
+            "api_clause": "API 15S 5.3.2",
+            "external_standard": "ASTM D2992 / ISO 9080 method basis where applicable",
+            "conditioning_required": "Yes, temperature stabilization before pressurization",
+            "conditioning_steps": [
+                "Confirm specimen dimensions and preparation record",
+                "Condition at the selected test temperature",
+                "Verify stabilization before pressurization"
+            ],
+            "core_process": [
+                "Assign specimens across pressure levels",
+                "Pressurize and hold until failure or runout",
+                "Record time to failure and failure mode",
+                "Use accepted data for regression evaluation"
+            ],
+            "acceptance": [
+                "Test data shall be technically valid and traceable",
+                "Failure records shall be complete",
+                "Regression issue shall reflect controlled specimen set"
+            ],
+            "retest_logic": "Retesting may be needed where invalid failures or preparation errors are confirmed.",
+            "practical_notes": [
+                "Do not use points below 10 hours in regression calculations.",
+                "Use only technically valid specimen results."
+            ],
+        },
+        "CYCLIC_REG": {
+            "when_required": "Required where cyclic pressure regression or fatigue pressure verification is part of qualification.",
+            "specimen_count": "Minimum 18 specimens unless the approved basis states otherwise",
+            "api_clause": "API 15S cyclic qualification basis",
+            "external_standard": "Project-specific cyclic regression basis",
+            "conditioning_required": "Yes, where temperature-controlled cycling is specified",
+            "conditioning_steps": [
+                "Confirm specimen dimensions and preparation record",
+                "Condition at required starting temperature",
+                "Verify setup before cycling begins"
+            ],
+            "core_process": [
+                "Assign specimens across stress or pressure levels",
+                "Run cyclic exposure until failure or runout",
+                "Record cycles to failure and failure mode",
+                "Use accepted points for cyclic regression interpretation"
+            ],
+            "acceptance": [
+                "Specimen records shall be complete and traceable",
+                "Cycle counts and failure records shall be technically valid"
+            ],
+            "retest_logic": "Repeat only where invalid setup or non-representative failure is confirmed.",
+            "practical_notes": [
+                "Keep specimen traceability strict across the full test matrix."
+            ],
+        },
+        "PV_1000H": {
+            "when_required": "Used to confirm pressure capacity for the applicable PV at the required duration.",
+            "specimen_count": "2 specimens for each PV",
+            "api_clause": "API 15S 5.3.4.1 / 5.3.4.2",
+            "external_standard": "Internal PV confirmation basis",
+            "conditioning_required": "Yes",
+            "conditioning_steps": [
+                "Dimensionally verify specimen",
+                "Condition at specified temperature",
+                "Release only after stabilization"
+            ],
+            "core_process": [
+                "Install specimen in pressure setup",
+                "Pressurize to the defined hold pressure",
+                "Maintain for the required duration",
+                "Record leakage, failure, or successful completion"
+            ],
+            "acceptance": [
+                "Specimen shall survive the required hold period unless failure is the intended evaluation outcome",
+                "Records shall include pressure, time, and observations"
+            ],
+            "retest_logic": "Retest only if the original test is invalidated by setup or instrumentation issues.",
+            "practical_notes": [
+                "Record both starting and ending observations clearly."
+            ],
+        },
+        "TEMP_ELEV": {
+            "when_required": "Applied when elevated-temperature pressure or integrity confirmation is required.",
+            "specimen_count": "As defined by qualification basis",
+            "api_clause": "Project / procedure basis",
+            "external_standard": "Internal elevated temperature method",
+            "conditioning_required": "Yes",
+            "conditioning_steps": [
+                "Condition at the target elevated temperature",
+                "Verify specimen stabilization before testing"
+            ],
+            "core_process": [
+                "Expose specimen to target temperature",
+                "Apply test pressure or defined load",
+                "Record outcome and observations"
+            ],
+            "acceptance": [
+                "No invalid setup-induced failure",
+                "All observations and pressures recorded"
+            ],
+            "retest_logic": "Repeat when invalid test interruption occurs.",
+            "practical_notes": [
+                "Make sure actual specimen temperature is recorded, not just chamber setpoint."
+            ],
+        },
+        "TEMP_CYCLE": {
+            "when_required": "Applied when thermal cycling performance must be demonstrated.",
+            "specimen_count": "As defined by qualification basis",
+            "api_clause": "Project / procedure basis",
+            "external_standard": "Internal thermal cycle method",
+            "conditioning_required": "Yes",
+            "conditioning_steps": [
+                "Stabilize at cycle start condition",
+                "Confirm setup integrity before full cycling"
+            ],
+            "core_process": [
+                "Run defined hot/cold or temperature cycle sequence",
+                "Monitor leakage, damage, and failure behavior",
+                "Record final condition"
+            ],
+            "acceptance": [
+                "Specimen shall meet the defined survival or integrity basis",
+                "Cycle count and condition records shall be complete"
+            ],
+            "retest_logic": "Retest only when interruption invalidates the sequence.",
+            "practical_notes": [
+                "Record both setup and final condition carefully."
+            ],
+        },
+        "RAPID_DECOMP": {
+            "when_required": "Applied where gas decompression resistance must be demonstrated.",
+            "specimen_count": "As required by qualification basis",
+            "api_clause": "Project / procedure basis",
+            "external_standard": "Rapid decompression method basis",
+            "conditioning_required": "Yes",
+            "conditioning_steps": [
+                "Condition specimen per gas/temperature setup",
+                "Confirm stabilization before pressurization"
+            ],
+            "core_process": [
+                "Charge specimen to soak condition",
+                "Apply decompression sequence",
+                "Record post-test damage and leakage observations"
+            ],
+            "acceptance": [
+                "Damage level and integrity shall meet the approved acceptance basis"
+            ],
+            "retest_logic": "Repeat only if invalid setup or equipment failure occurs.",
+            "practical_notes": [
+                "Post-test visual observations should be detailed and traceable."
+            ],
+        },
+        "OPERATING_MBR": {
+            "when_required": "Applied when minimum bend radius under operating or qualification condition is assessed.",
+            "specimen_count": "As required by qualification basis",
+            "api_clause": "Project / procedure basis",
+            "external_standard": "Internal MBR method",
+            "conditioning_required": "Depends on test condition",
+            "conditioning_steps": [
+                "Condition specimen if temperature-controlled bending is required"
+            ],
+            "core_process": [
+                "Bend to target radius",
+                "Inspect for damage, instability, or leakage where relevant",
+                "Record final result"
+            ],
+            "acceptance": [
+                "Specimen behavior shall satisfy the approved bend criterion"
+            ],
+            "retest_logic": "Retest only where handling error invalidates the result.",
+            "practical_notes": [
+                "Record actual bend radius and visible condition."
+            ],
+        },
+        "AXIAL_LOAD": {
+            "when_required": "Applied where axial response or axial integrity must be demonstrated.",
+            "specimen_count": "As required by qualification basis",
+            "api_clause": "Project / procedure basis",
+            "external_standard": "Internal axial method",
+            "conditioning_required": "Depends on test condition",
+            "conditioning_steps": [
+                "Condition if the method requires temperature stabilization"
+            ],
+            "core_process": [
+                "Apply axial load",
+                "Monitor duration, pressure interaction, and visible effects",
+                "Record mode and outcome"
+            ],
+            "acceptance": [
+                "Behavior shall satisfy the defined axial qualification basis"
+            ],
+            "retest_logic": "Repeat only for invalid setup or equipment interruption.",
+            "practical_notes": [
+                "Record applied load basis clearly."
+            ],
+        },
+        "CRUSH": {
+            "when_required": "Applied where external crush resistance must be demonstrated.",
+            "specimen_count": "As required by qualification basis",
+            "api_clause": "Project / procedure basis",
+            "external_standard": "Internal crush method",
+            "conditioning_required": "Depends on test condition",
+            "conditioning_steps": [
+                "Condition if required by the selected environment"
+            ],
+            "core_process": [
+                "Apply external crush load",
+                "Record deformation, damage, and final condition"
+            ],
+            "acceptance": [
+                "Outcome shall meet approved crush acceptance basis"
+            ],
+            "retest_logic": "Repeat only if test execution is invalidated.",
+            "practical_notes": [
+                "Photographic evidence is useful for crush tests."
+            ],
+        },
+        "LAOT": {
+            "when_required": "Applied where lowest allowable operating temperature qualification is required.",
+            "specimen_count": "As required by qualification basis",
+            "api_clause": "Project / procedure basis",
+            "external_standard": "Internal low-temperature method",
+            "conditioning_required": "Yes",
+            "conditioning_steps": [
+                "Condition at the selected low temperature",
+                "Confirm stabilization before test start"
+            ],
+            "core_process": [
+                "Expose to low-temperature condition",
+                "Perform the defined pressure or integrity assessment",
+                "Record condition and outcome"
+            ],
+            "acceptance": [
+                "Specimen shall meet low-temperature acceptance criteria"
+            ],
+            "retest_logic": "Retest only if environmental or setup error invalidates the test.",
+            "practical_notes": [
+                "Low-temperature handling should be controlled to avoid false damage."
+            ],
+        },
+        "IMPACT": {
+            "when_required": "Applied where impact resistance must be verified.",
+            "specimen_count": "As required by qualification basis",
+            "api_clause": "Project / procedure basis",
+            "external_standard": "Internal impact method",
+            "conditioning_required": "Depends on the required impact temperature",
+            "conditioning_steps": [
+                "Condition at test temperature where required",
+                "Protect specimen condition until impact event"
+            ],
+            "core_process": [
+                "Apply impact event under controlled setup",
+                "Inspect post-impact condition",
+                "Record visible damage and follow-up result"
+            ],
+            "acceptance": [
+                "Outcome shall satisfy the approved impact criterion"
+            ],
+            "retest_logic": "Retest only when the impact event is invalid or misapplied.",
+            "practical_notes": [
+                "Upload photos for pre- and post-impact condition when available."
+            ],
+        },
+        "TEC": {
+            "when_required": "Applied when thermal expansion coefficient or equivalent dimensional response is measured.",
+            "specimen_count": "As required by qualification basis",
+            "api_clause": "Project / procedure basis",
+            "external_standard": "Internal TEC method",
+            "conditioning_required": "Yes",
+            "conditioning_steps": [
+                "Condition at the required measurement temperature",
+                "Verify stabilization before measurement"
+            ],
+            "core_process": [
+                "Measure dimensional response over defined interval",
+                "Record data sheet values and interpretation"
+            ],
+            "acceptance": [
+                "Data set shall be complete and technically valid"
+            ],
+            "retest_logic": "Repeat only where measurement setup is invalidated.",
+            "practical_notes": [
+                "Use generated data sheet for measurement-oriented records."
+            ],
+        },
+        "GROWTH": {
+            "when_required": "Applied when growth or dimensional change must be recorded.",
+            "specimen_count": "As required by qualification basis",
+            "api_clause": "Project / procedure basis",
+            "external_standard": "Internal dimensional response method",
+            "conditioning_required": "Depends on method",
+            "conditioning_steps": [
+                "Condition if required by the selected method"
+            ],
+            "core_process": [
+                "Measure initial condition",
+                "Apply exposure or condition",
+                "Measure final condition and calculate change"
+            ],
+            "acceptance": [
+                "Recorded dimensional response shall meet the approved basis"
+            ],
+            "retest_logic": "Retest only for invalid measurement or setup interruption.",
+            "practical_notes": [
+                "Use the data sheet output where dimension tracking is the main purpose."
+            ],
+        },
+    }
+
     base = TEST_GUIDANCE.get(code, {
-        "when_required": "Refer to the approved qualification basis.",
-        "specimen_count": "As required by the approved route.",
-        "api_clause": "",
+        "when_required": "Defined by the applicable qualification basis.",
+        "specimen_count": "As required",
+        "api_clause": test_row.clause_ref if test_row else "",
         "external_standard": "",
-        "conditioning_required": "Refer to applicable procedure",
-        "conditioning_steps": ["Refer to the approved procedure and setup instructions."],
-        "core_process": ["Perform the test in accordance with the approved method."],
-        "acceptance": ["Apply the approved acceptance basis."],
-        "retest_logic": "Follow the approved retest logic.",
+        "conditioning_required": "Depends on the approved method",
+        "conditioning_steps": [],
+        "core_process": [],
+        "acceptance": [],
+        "retest_logic": "",
         "practical_notes": [],
     })
 
-    enriched = {
-        "when_required": base.get("when_required", ""),
-        "specimen_count": base.get("specimen_count", ""),
-        "api_clause": base.get("api_clause", ""),
-        "external_standard": base.get("external_standard", ""),
-        "conditioning_required": base.get("conditioning_required", ""),
-        "conditioning_steps": list(base.get("conditioning_steps", [])),
-        "core_process": list(base.get("core_process", [])),
-        "acceptance": list(base.get("acceptance", [])),
-        "retest_logic": base.get("retest_logic", ""),
-        "practical_notes": list(base.get("practical_notes", [])),
-    }
-
+    enriched = dict(base)
     if test_row:
-        if (test_row.guidance_when_required_override or "").strip():
-            enriched["when_required"] = test_row.guidance_when_required_override.strip()
-
-        if (test_row.guidance_specimen_count_override or "").strip():
-            enriched["specimen_count"] = test_row.guidance_specimen_count_override.strip()
-        elif test_row.specimen_count is not None and test_row.specimen_count > 0:
-            unit = "specimen" if test_row.specimen_count == 1 else "specimens"
-            enriched["specimen_count"] = f"{test_row.specimen_count} {unit}"
-        elif (test_row.specimen_requirement or "").strip():
-            enriched["specimen_count"] = test_row.specimen_requirement.strip()
-
-        if (test_row.guidance_api_clause_override or "").strip():
-            enriched["api_clause"] = test_row.guidance_api_clause_override.strip()
-
-        if (test_row.guidance_external_standard_override or "").strip():
-            enriched["external_standard"] = test_row.guidance_external_standard_override.strip()
-
-        if (test_row.guidance_conditioning_required_override or "").strip():
-            enriched["conditioning_required"] = test_row.guidance_conditioning_required_override.strip()
-
-        if (test_row.guidance_conditioning_steps_override or "").strip():
-            enriched["conditioning_steps"] = [
-                line.strip() for line in test_row.guidance_conditioning_steps_override.splitlines() if line.strip()
-            ]
-
-        if (test_row.guidance_core_process_override or "").strip():
-            enriched["core_process"] = [
-                line.strip() for line in test_row.guidance_core_process_override.splitlines() if line.strip()
-            ]
-
-        if (test_row.guidance_acceptance_override or "").strip():
-            enriched["acceptance"] = [
-                line.strip() for line in test_row.guidance_acceptance_override.splitlines() if line.strip()
-            ]
-
-        if (test_row.guidance_retest_logic_override or "").strip():
-            enriched["retest_logic"] = test_row.guidance_retest_logic_override.strip()
-
-        if (test_row.guidance_practical_notes_override or "").strip():
-            enriched["practical_notes"] = [
-                line.strip() for line in test_row.guidance_practical_notes_override.splitlines() if line.strip()
-            ]
-
-    test_procedure = []
-    for item in enriched.get("conditioning_steps", []):
-        test_procedure.append(item)
-    for item in enriched.get("core_process", []):
-        test_procedure.append(item)
-
-    operator_checks = [
-        "Verify specimen identity, batch traceability, and test assignment before setup.",
-        "Confirm the applicable fittings, fixtures, and calibrated instruments are available.",
-        "Confirm conditioning has been completed where required.",
-        "Record setup condition before applying load, pressure, temperature, or cycling.",
-        "Capture any abnormal observation immediately and do not rely on memory after the test.",
-    ]
-
-    records_to_capture = [
-        "Specimen ID",
-        "Operator / witness",
-        "Date and time",
-        "Applied setup / fixture basis",
-        "Pressure / temperature / time / cycles as applicable",
-        "Observed failure mode or survival condition",
-        "Acceptance decision",
-    ]
-
-    if code == "MPR_REG":
-        records_to_capture.extend([
-            "Failure hours",
-            "Pressure at failure",
-            "Failure location",
-            "Permissible / excluded failure decision",
-        ])
-    elif code == "PV_1000H":
-        records_to_capture.extend([
-            "Hold pressure",
-            "Elapsed hours",
-            "Leak / survival result",
-        ])
-    elif code == "TEMP_CYCLE":
-        records_to_capture.extend([
-            "Cycle range",
-            "Cycle count",
-            "Leak / post-cycle condition",
-        ])
-    elif code == "RAPID_DECOMP":
-        records_to_capture.extend([
-            "Soak pressure",
-            "Soak duration",
-            "Decompression result",
-            "Damage / blister / disbondment observation",
-        ])
-    elif code == "IMPACT":
-        records_to_capture.extend([
-            "Impact setup / energy",
-            "Post-impact condition",
-            "Follow-up proof result",
-        ])
-    elif code in {"AXIAL_LOAD", "AXIAL"}:
-        records_to_capture.extend([
-            "Applied axial load",
-            "Hold duration",
-            "Post-load proof result",
-        ])
-
-    enriched["test_procedure"] = test_procedure
-    enriched["operator_checks"] = operator_checks
-    enriched["records_to_capture"] = records_to_capture
+        if not enriched.get("api_clause"):
+            enriched["api_clause"] = test_row.clause_ref or ""
     return enriched
-
 def _fmt_date(value) -> str:
     if not value:
         return "-"
