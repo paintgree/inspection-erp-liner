@@ -3139,21 +3139,84 @@ def rnd_add_pv_extension(
 
 @router.get('/qualifications/{program_id}/regression')
 def rnd_regression_view(program_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
-    program = session.get(RndQualificationProgram, program_id)
-    if not program:
-        raise HTTPException(404, 'Program not found')
-    specimens = session.exec(select(RndQualificationSpecimen).where(RndQualificationSpecimen.program_id == program_id).order_by(RndQualificationSpecimen.created_at.asc())).all()
-    static_reg = _regression_from_specimens(specimens, 'STATIC_REGRESSION', program.npr_mpa, program.service_factor)
-    cyclic_reg = _regression_from_specimens(specimens, 'CYCLIC_REGRESSION', program.npr_mpa)
-    pv_formula = None
-    if program.pfr_or_pv == 'PV' and program.parent_program_id:
-        parent = session.get(RndQualificationProgram, program.parent_program_id)
-        if parent:
-            ratio = (program.npr_mpa / parent.npr_mpa) if parent.npr_mpa else None
-            pv_formula = {'pfr_code': parent.program_code, 'npr_pv': program.npr_mpa, 'npr_pfr': parent.npr_mpa, 'formula': 'PPV1000 = PPFR1000 x (NPR_PV / NPR_PFR)', 'ratio': ratio}
-    guide = _qualification_guide(program)
-    return TEMPLATES.TemplateResponse(request,'rnd_regression_view.html', {'request': request, 'user': user, 'program': program, 'specimens': specimens, 'static_reg': static_reg, 'cyclic_reg': cyclic_reg, 'pv_formula': pv_formula, 'guide': guide, 'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC, 'rcrt_hours': RCRT_HOURS})
+    from sqlmodel import text
 
+    program_row = session.exec(
+        text("""
+            SELECT
+                id,
+                program_code,
+                title,
+                program_type,
+                qualification_standard,
+                nominal_size_in,
+                npr_mpa,
+                maot_c,
+                laot_c,
+                pfr_or_pv,
+                parent_program_id,
+                pfr_reference_code,
+                service_medium,
+                service_factor,
+                intended_service,
+                product_family,
+                reinforcement_type,
+                liner_material,
+                reinforcement_material,
+                cover_material,
+                custom_requirements,
+                custom_acceptance_criteria,
+                status,
+                notes,
+                created_by_name,
+                created_at,
+                updated_at,
+                COALESCE(is_archived, FALSE) AS is_archived
+            FROM rndqualificationprogram
+            WHERE id = :program_id
+        """).bindparams(program_id=program_id)
+    ).first()
+
+    if not program_row:
+        raise HTTPException(404, 'Program not found')
+
+    class RowObj:
+        def __init__(self, r):
+            self.__dict__.update(dict(r._mapping))
+
+    program = RowObj(program_row)
+
+    specimen_rows = session.exec(
+        text("""
+            SELECT *
+            FROM rndqualificationspecimen
+            WHERE program_id = :program_id
+            ORDER BY created_at ASC
+        """).bindparams(program_id=program_id)
+    ).all()
+    specimens = [RowObj(r) for r in specimen_rows]
+
+    static_reg = _regression_from_specimens(specimens, 'STATIC_REGRESSION', program.npr_mpa, getattr(program, 'service_factor', 1.0))
+    cyclic_reg = _regression_from_specimens(specimens, 'CYCLIC_REGRESSION', program.npr_mpa)
+
+    pv_formula = None
+
+    return TEMPLATES.TemplateResponse(
+        request,
+        'rnd_regression_view.html',
+        {
+            'request': request,
+            'user': user,
+            'program': program,
+            'specimens': specimens,
+            'static_reg': static_reg,
+            'cyclic_reg': cyclic_reg,
+            'pv_formula': pv_formula,
+            'guide': _qualification_guide(program),
+            'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC,
+            'rcrt_hours': RCRT_HOURS,
+        }
+    )
 
 @router.get('/qualifications/{program_id}/tests/{test_id}')
 def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
