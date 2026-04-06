@@ -92,7 +92,583 @@ def _save_rnd_upload(program_id: int, uploaded_file: UploadFile) -> dict:
         "content_type": content_type,
         "file_size_bytes": size_bytes,
     }
+def _fmt_date(value) -> str:
+    if not value:
+        return "-"
+    try:
+        return value.strftime("%Y-%m-%d")
+    except Exception:
+        return str(value)
 
+def _fmt_datetime(value) -> str:
+    if not value:
+        return "-"
+    try:
+        return value.strftime("%Y-%m-%d %H:%M UTC")
+    except Exception:
+        return str(value)
+
+def _fmt_number(value, digits: int = 2) -> str:
+    if value is None or value == "":
+        return "-"
+    try:
+        return f"{float(value):,.{digits}f}"
+    except Exception:
+        return str(value)
+
+def _fmt_bool(value) -> str:
+    return "Yes" if bool(value) else "No"
+
+def _generated_report_options(test_code: str) -> list[dict]:
+    code = (test_code or "").strip().upper()
+
+    common = [
+        {"key": "TECHNICAL_REPORT", "label": "Technical Report"},
+        {"key": "RESULT_SHEET", "label": "Result Sheet"},
+    ]
+
+    if code in {"MPR_REG", "CYCLIC_REG"}:
+        return [
+            {"key": "TECHNICAL_REPORT", "label": "Technical Report"},
+            {"key": "REGRESSION_REPORT", "label": "Regression Report"},
+            {"key": "REGRESSION_GRAPH", "label": "Regression Graph"},
+            {"key": "PRESSURE_LOG", "label": "Pressure Log"},
+            {"key": "RESULT_SHEET", "label": "Result Sheet"},
+        ]
+
+    if code in {"PV_1000H", "TEMP_ELEV", "TEMP_CYCLE", "RAPID_DECOMP", "OPERATING_MBR", "AXIAL_LOAD", "CRUSH", "LAOT", "IMPACT"}:
+        return [
+            {"key": "TECHNICAL_REPORT", "label": "Technical Report"},
+            {"key": "RESULT_SHEET", "label": "Result Sheet"},
+            {"key": "PRESSURE_LOG", "label": "Pressure Log"},
+        ]
+
+    if code in {"TEC", "GROWTH"}:
+        return [
+            {"key": "TECHNICAL_REPORT", "label": "Technical Report"},
+            {"key": "RESULT_SHEET", "label": "Result Sheet"},
+            {"key": "DATA_SHEET", "label": "Data Sheet"},
+        ]
+
+    return common
+
+def _preferred_generated_document_type(test_code: str) -> str:
+    options = _generated_report_options(test_code)
+    return options[0]["key"] if options else "TECHNICAL_REPORT"
+
+def _auto_report_reference(program: RndQualificationProgram, test: RndQualificationTest) -> str:
+    stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    code = (program.program_code or f"PROGRAM-{program.id}").replace(" ", "-")
+    test_code = (test.code or "TEST").replace(" ", "-")
+    return f"RND-{code}-{test_code}-{stamp}"
+
+def _auto_report_title(test: RndQualificationTest, document_type: str) -> str:
+    base = (test.title or test.code or "Qualification Test").strip()
+    doc_type = (document_type or "TECHNICAL_REPORT").strip().upper()
+
+    mapping = {
+        "TECHNICAL_REPORT": f"{base} Technical Report",
+        "REGRESSION_REPORT": f"{base} Regression Report",
+        "REGRESSION_GRAPH": f"{base} Regression Graph",
+        "RESULT_SHEET": f"{base} Result Sheet",
+        "PRESSURE_LOG": f"{base} Pressure Log",
+        "DATA_SHEET": f"{base} Data Sheet",
+    }
+    return mapping.get(doc_type, f"{base} Report")
+
+DEFAULT_SPECIMEN_RULE = {
+    "min_specimens": "As defined by the applicable qualification test requirement.",
+    "minimum_cut_length": "Specimens shall be cut on the basis of total cut length and shall not be cut to active or effective test length only.",
+    "effective_length": "The effective test length shall be the active section defined by the applicable test setup, fixture arrangement, support span, or pressurized free length.",
+    "od_basis_notice": "Before any diameter-based preparation rule is applied, the actual qualified pipe outside diameter (OD) shall be confirmed from the controlled product definition, dimensional record, or approved size specification. Diameter-based rules shall not be calculated from nominal size designation alone unless the nominal size has already been mapped to a controlled OD value in the qualification basis.",
+    "calculation_rule_notice": "Any preparation rule expressed as D, OD, 1D, 3D, 5D, or 1.5 x OD shall be calculated using the confirmed pipe outside diameter and then converted into millimetres for specimen release and cutting control.",
+    "recorded_dimensions_notice": "Before cutting, the specimen register shall record the confirmed pipe OD, the rule basis used, the calculated effective length, the end allowances, the trimming margin, and the total cut length in millimetres.",
+    "end_allowance_each_side": "Unless a stricter test-specific requirement applies, each specimen shall include an end allowance on both sides sufficient for gripping, sealing, end fittings, support, trimming, and handling. The baseline preparation allowance shall be not less than 1.0 x outside diameter on each side.",
+    "total_length_formula": "Total cut length = effective test length + left end allowance + right end allowance + trimming margin.",
+    "marking_requirements": [
+        "Each specimen shall be assigned a unique identification number before cutting.",
+        "Each specimen shall be marked with pipe size, batch or lot reference, and intended test code.",
+        "Where applicable, the centerline or active test section shall be marked prior to preparation.",
+        "Identification markings should be placed outside the critical observation or expected failure zone whenever practical."
+    ],
+    "visual_acceptance": [
+        "Specimens shall be free from visible cuts, gouges, cracks, crushed areas, and other preparation damage.",
+        "Specimens shall be free from obvious ovality or deformation caused by handling.",
+        "Cut ends shall be square and suitable for the required end preparation.",
+        "Traceability markings shall remain legible after preparation."
+    ],
+    "preconditioning": {
+        "required": "depends",
+        "when_required": "Preconditioning shall be applied whenever required by the qualification basis, applicable procedure, test condition, or environmental exposure requirement.",
+        "medium": "Ambient air unless otherwise required by the applicable test method or internal procedure.",
+        "target_temperature": "As required by the selected test condition.",
+        "minimum_process": [
+            "Prepare, cut, and identify the specimen.",
+            "Verify dimensions, cut quality, and end preparation before conditioning.",
+            "Place the specimen in the required conditioning environment at the specified target temperature.",
+            "Allow the specimen to stabilize before commencement of testing.",
+            "Record conditioning start time, target temperature, observed temperature, and responsible operator.",
+            "Testing shall not begin until specimen stabilization has been confirmed."
+        ],
+        "records_required": [
+            "Conditioning start time",
+            "Conditioning end time or release time",
+            "Target temperature",
+            "Observed temperature",
+            "Conditioning medium or environment",
+            "Operator or approver"
+        ],
+    },
+    "technician_tips": [
+        "Do not cut specimens to effective test length only.",
+        "Record both total cut length and effective test length before release for test.",
+        "Where fixture or fitting engagement length is uncertain, confirm the requirement before cutting.",
+        "Reject any specimen damaged during cutting, machining, or handling."
+    ],
+    "release_checks": [
+        "Specimen identification is assigned and traceable to production batch.",
+        "Total cut length is measured and recorded.",
+        "Effective test length is identified.",
+        "End preparation is complete.",
+        "No visible damage is present after preparation.",
+        "Preconditioning is complete where required.",
+        "Specimen is released for testing by the responsible person."
+    ],
+}
+
+SPECIMEN_PREP_RULES = {
+    "mpr_reg": {
+        "min_specimens": 18,
+        "minimum_cut_length": "Specimens for long-term hydrostatic regression shall be cut to provide a consistent free pressurized section for the regression setup together with sufficient additional length for end terminations, sealing, and trimming.",
+        "effective_length": "The effective length shall be the free pressurized section between end terminations used for long-term hydrostatic exposure.",
+        "end_allowance_each_side": "A preparation allowance of not less than 1.5 x outside diameter shall be provided on each side as a baseline for long-term end termination and sealing requirements. Greater allowance shall be used where the termination system requires additional engagement length.",
+        "total_length_formula": "Total cut length = effective regression section + 2 x termination allowance + trimming margin.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Required before pressurization at the selected regression test temperature.",
+            "medium": "Controlled temperature environment matching the regression condition",
+            "target_temperature": "Selected regression temperature",
+        },
+    },
+    "pv_1000h": {
+        "min_specimens": 2,
+        "minimum_cut_length": "Specimens for the 1000-hour pressure confirmation test shall be cut to provide the required active pressurized section together with full end-sealing allowance.",
+        "effective_length": "The effective length shall be the active pressurized section between end fittings for the PV confirmation specimen.",
+        "end_allowance_each_side": "A baseline sealing allowance of not less than 1.0 x outside diameter shall be provided on each side.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Condition before the 1000-hour hold at the selected test temperature.",
+            "medium": "Controlled environment",
+            "target_temperature": "Selected PV confirmation temperature"
+        },
+    },
+    "temp_elev": {
+        "min_specimens": 1,
+        "minimum_cut_length": "Specimens shall be cut to provide the active elevated-temperature test section together with sufficient end engagement and trimming allowance.",
+        "effective_length": "The effective length shall be the section exposed to the elevated temperature and pressure condition.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Elevated-temperature stabilization is required before test start.",
+            "medium": "Controlled temperature environment",
+            "target_temperature": "Selected elevated test temperature"
+        },
+    },
+    "temp_cycle": {
+        "min_specimens": 2,
+        "minimum_cut_length": "Specimens shall be cut to provide the active thermal cycling section together with secure end engagement for the cycling setup.",
+        "effective_length": "The effective length shall be the section subjected to thermal cycling.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Stabilization at the starting temperature is required before thermal cycling begins.",
+            "medium": "Controlled temperature environment",
+            "target_temperature": "Cycle start temperature"
+        },
+    },
+    "rapid_decomp": {
+        "min_specimens": 1,
+        "minimum_cut_length": "Specimens shall be cut to provide the decompression exposure section together with safe end engagement and sealing allowance.",
+        "effective_length": "The effective length shall be the pressurized section exposed to gas decompression.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Conditioning shall be applied as required by the gas charging and temperature setup.",
+            "medium": "Gas exposure environment",
+            "target_temperature": "Selected rapid decompression temperature"
+        },
+    },
+    "operating_mbr": {
+        "min_specimens": 2,
+        "minimum_cut_length": "Specimens shall be prepared using the full length required to achieve the specified bending radius and safe handling arrangement.",
+        "effective_length": "The effective length shall be the full section involved in bending or respooling exposure.",
+        "end_allowance_each_side": "Additional length shall be included as required for gripping, handling, and fixture engagement.",
+    },
+    "axial_load": {
+        "min_specimens": 2,
+        "minimum_cut_length": "Specimens shall be cut to provide the required gauge section together with sufficient end gripping allowance.",
+        "effective_length": "The effective length shall be the section over which axial response is evaluated.",
+    },
+    "crush": {
+        "min_specimens": 3,
+        "minimum_cut_length": "Specimens shall be cut to a length sufficient to suit the crush test arrangement with proper support and alignment.",
+        "effective_length": "The effective length shall be the section subjected to radial external loading.",
+    },
+    "laot": {
+        "min_specimens": 2,
+        "minimum_cut_length": "Specimens shall be cut to provide the low-temperature qualification section together with the required end engagement.",
+        "effective_length": "The effective length shall be the section exposed to the lowest allowable operating temperature qualification condition.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Condition at the selected low temperature before test start.",
+            "medium": "Low-temperature environment",
+            "target_temperature": "Selected LAOT"
+        },
+    },
+    "impact": {
+        "min_specimens": 2,
+        "minimum_cut_length": "Specimens shall be cut to provide the required support span or impact location together with trimming margin.",
+        "effective_length": "The effective length shall be the supported test section containing the impact location.",
+        "end_allowance_each_side": "Preparation allowance shall be based on the support arrangement rather than pressure sealing requirements.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Required when impact testing is performed at a controlled test temperature.",
+            "medium": "Conditioning environment at test temperature",
+            "target_temperature": "Selected impact test temperature"
+        },
+    },
+    "tec": {
+        "min_specimens": 2,
+        "minimum_cut_length": "Specimens shall be cut to provide sufficient length for axial response measurement over the defined gauge or effective section.",
+        "effective_length": "The effective length shall be the section used for thermal expansion coefficient measurement.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Thermal stabilization is required before thermal expansion measurement.",
+            "medium": "Controlled temperature environment",
+            "target_temperature": "Selected TEC temperature"
+        },
+    },
+    "growth": {
+        "min_specimens": 2,
+        "minimum_cut_length": "Specimens shall be cut to provide sufficient length for measurement of growth or shrinkage over the intended gauge section.",
+        "effective_length": "The effective length shall be the section over which dimensional response is recorded.",
+    },
+    "cyclic_reg": {
+        "min_specimens": 18,
+        "minimum_cut_length": "Specimens for cyclic pressure regression shall be cut to provide the active cycling section together with full termination or fitting allowance.",
+        "effective_length": "The effective length shall be the active section subjected to repeated pressure cycling.",
+        "end_allowance_each_side": "Sufficient length shall be provided for termination and sealing without compromising the active cycling section.",
+        "preconditioning": {
+            "required": True,
+            "when_required": "Required when the cyclic test is conducted at controlled temperature or conditioned service state.",
+            "medium": "Controlled environment as required by the test condition",
+            "target_temperature": "Selected cyclic qualification temperature"
+        },
+    },
+}
+
+def _save_generated_test_report_docx(
+    *,
+    program: RndQualificationProgram,
+    test: RndQualificationTest,
+    guidance: dict,
+    specimens: list,
+    attachments: list,
+    evidence: dict,
+    materials: list,
+    document_type: str,
+) -> dict:
+    target_dir = _program_upload_dir(program.id)
+    stored_name = f"{uuid.uuid4().hex}.docx"
+    target_path = target_dir / stored_name
+
+    safe_document_type = (document_type or "TECHNICAL_REPORT").strip().upper()
+    pretty_type = safe_document_type.replace("_", " ").title()
+
+    doc = Document()
+    normal_style = doc.styles["Normal"]
+    normal_style.font.name = "Arial"
+    normal_style.font.size = Pt(9)
+
+    title = doc.add_heading(_auto_report_title(test, safe_document_type), level=0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    subtitle = doc.add_paragraph()
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subtitle.add_run(f"Program: {program.program_code or '-'} | Test Code: {test.code or '-'}").bold = True
+    subtitle.add_run(f"\nDocument Type: {pretty_type}")
+    subtitle.add_run(f"\nGenerated: {_fmt_datetime(datetime.utcnow())}")
+
+    doc.add_heading("1. Qualification summary", level=1)
+    summary = doc.add_table(rows=0, cols=2)
+    summary.style = "Table Grid"
+    for label, value in [
+        ("Program code", program.program_code or "-"),
+        ("Program title", program.title or "-"),
+        ("Qualification standard", program.qualification_standard or "-"),
+        ("Route", program.pfr_or_pv or "-"),
+        ("Nominal size (in)", _fmt_number(program.nominal_size_in)),
+        ("NPR (MPa)", _fmt_number(program.npr_mpa)),
+        ("MAOT (°C)", _fmt_number(program.maot_c)),
+        ("LAOT (°C)", _fmt_number(program.laot_c)),
+        ("Service medium", program.service_medium or "-"),
+        ("Test code", test.code or "-"),
+        ("Test title", test.title or "-"),
+        ("Clause reference", test.clause_ref or "-"),
+        ("Status", test.status or "-"),
+        ("Result summary", test.result_summary or "-"),
+    ]:
+        cells = summary.add_row().cells
+        cells[0].text = label
+        cells[1].text = str(value)
+
+    if safe_document_type == "REGRESSION_GRAPH":
+        doc.add_heading("2. Regression graph summary", level=1)
+        p = doc.add_paragraph()
+        p.add_run("Purpose: ").bold = True
+        p.add_run("This file is intended to hold the regression graph issue record for this test.")
+
+        graph_table = doc.add_table(rows=1, cols=5)
+        graph_table.style = "Table Grid"
+        headers = ["Specimen ID", "Failure Hours", "Failure Pressure (MPa)", "Failure Mode", "Include in Regression"]
+        for idx, h in enumerate(headers):
+            graph_table.rows[0].cells[idx].text = h
+
+        if specimens:
+            for s in specimens:
+                row = graph_table.add_row().cells
+                row[0].text = s.specimen_id or "-"
+                row[1].text = _fmt_number(s.failure_hours)
+                row[2].text = _fmt_number(s.actual_pressure_at_failure_mpa)
+                row[3].text = s.failure_mode or "-"
+                row[4].text = _fmt_bool(s.include_in_regression)
+        else:
+            row = graph_table.add_row().cells
+            row[0].text = "No regression specimens recorded"
+            for idx in range(1, 5):
+                row[idx].text = "-"
+
+        doc.add_paragraph("Note: chart image can be inserted later after external plotting / signed issue, then uploaded back as signed evidence.")
+    elif safe_document_type == "PRESSURE_LOG":
+        doc.add_heading("2. Pressure log", level=1)
+        pressure_table = doc.add_table(rows=1, cols=8)
+        pressure_table.style = "Table Grid"
+        headers = ["Specimen ID", "Date", "Planned Pressure", "Actual Pressure", "Hold Pressure", "Failure Time", "Result", "Notes"]
+        for idx, h in enumerate(headers):
+            pressure_table.rows[0].cells[idx].text = h
+
+        if specimens:
+            for s in specimens:
+                row = pressure_table.add_row().cells
+                row[0].text = s.specimen_id or "-"
+                row[1].text = _fmt_date(s.sample_date)
+                row[2].text = _fmt_number(s.planned_pressure_mpa)
+                row[3].text = _fmt_number(s.actual_pressure_at_failure_mpa)
+                row[4].text = _fmt_number(s.pressure_at_hold_mpa)
+                row[5].text = _fmt_number(s.failure_time_sec)
+                row[6].text = s.result_status or "-"
+                row[7].text = s.notes or "-"
+        else:
+            row = pressure_table.add_row().cells
+            row[0].text = "No pressure records recorded"
+            for idx in range(1, 8):
+                row[idx].text = "-"
+    elif safe_document_type in {"RESULT_SHEET", "DATA_SHEET"}:
+        doc.add_heading("2. Result sheet", level=1)
+        result_table = doc.add_table(rows=1, cols=10)
+        result_table.style = "Table Grid"
+        headers = [
+            "Specimen ID",
+            "Material Ref",
+            "Sample Date",
+            "Target / Planned",
+            "Actual",
+            "Failure Mode",
+            "Failure Location",
+            "Result",
+            "QA Review",
+            "Remarks",
+        ]
+        for idx, h in enumerate(headers):
+            result_table.rows[0].cells[idx].text = h
+
+        if specimens:
+            for s in specimens:
+                row = result_table.add_row().cells
+                row[0].text = s.specimen_id or "-"
+                row[1].text = s.material_ref or "-"
+                row[2].text = _fmt_date(s.sample_date)
+                row[3].text = _fmt_number(s.planned_pressure_mpa)
+                row[4].text = _fmt_number(s.actual_pressure_at_failure_mpa)
+                row[5].text = s.failure_mode or "-"
+                row[6].text = s.failure_location or "-"
+                row[7].text = s.result_status or "-"
+                row[8].text = s.qa_review_status or "-"
+                row[9].text = s.notes or "-"
+        else:
+            row = result_table.add_row().cells
+            row[0].text = "No specimen results recorded"
+            for idx in range(1, 10):
+                row[idx].text = "-"
+    else:
+        doc.add_heading("2. Test guidance and acceptance basis", level=1)
+        for label, value in [
+            ("When required", guidance.get("when_required", "")),
+            ("Specimen count", guidance.get("specimen_count", "")),
+            ("API clause", guidance.get("api_clause", "")),
+            ("External standard", guidance.get("external_standard", "")),
+            ("Conditioning required", guidance.get("conditioning_required", "")),
+            ("Retest logic", guidance.get("retest_logic", "")),
+        ]:
+            p = doc.add_paragraph()
+            p.add_run(f"{label}: ").bold = True
+            p.add_run(value or "-")
+
+        for heading, items in [
+            ("Conditioning steps", guidance.get("conditioning_steps", [])),
+            ("Core process", guidance.get("core_process", [])),
+            ("Acceptance criteria", guidance.get("acceptance", [])),
+            ("Practical notes", guidance.get("practical_notes", [])),
+        ]:
+            doc.add_paragraph(heading, style="List Bullet")
+            if items:
+                for item in items:
+                    doc.add_paragraph(str(item), style="List Bullet 2")
+            else:
+                doc.add_paragraph("-", style="List Bullet 2")
+
+        doc.add_heading("3. Material register", level=1)
+        material_table = doc.add_table(rows=1, cols=6)
+        material_table.style = "Table Grid"
+        headers = ["Component", "Material", "Manufacturer", "Grade", "Batch / Lot", "Status"]
+        for idx, h in enumerate(headers):
+            material_table.rows[0].cells[idx].text = h
+
+        if materials:
+            for m in materials:
+                row = material_table.add_row().cells
+                row[0].text = m.component or "-"
+                row[1].text = m.material_name or "-"
+                row[2].text = m.manufacturer_name or "-"
+                row[3].text = m.grade_name or "-"
+                row[4].text = " / ".join([x for x in [m.batch_ref, m.lot_ref] if x]) or "-"
+                row[5].text = m.status or "-"
+        else:
+            row = material_table.add_row().cells
+            row[0].text = "No materials recorded"
+            for idx in range(1, 6):
+                row[idx].text = "-"
+
+        doc.add_heading("4. Specimen execution record", level=1)
+        specimen_table = doc.add_table(rows=1, cols=10)
+        specimen_table.style = "Table Grid"
+        specimen_headers = [
+            "Specimen ID",
+            "Date",
+            "Material ref",
+            "Planned P (MPa)",
+            "Actual P (MPa)",
+            "Hours",
+            "Cycles",
+            "Result",
+            "QA review",
+            "Failure mode",
+        ]
+        for idx, h in enumerate(specimen_headers):
+            specimen_table.rows[0].cells[idx].text = h
+
+        if specimens:
+            for s in specimens:
+                row = specimen_table.add_row().cells
+                row[0].text = s.specimen_id or "-"
+                row[1].text = _fmt_date(s.sample_date)
+                row[2].text = s.material_ref or "-"
+                row[3].text = _fmt_number(s.planned_pressure_mpa)
+                row[4].text = _fmt_number(s.actual_pressure_at_failure_mpa)
+                row[5].text = _fmt_number(s.failure_hours)
+                row[6].text = _fmt_number(s.failure_cycles)
+                row[7].text = s.result_status or "-"
+                row[8].text = s.qa_review_status or "-"
+                row[9].text = s.failure_mode or "-"
+        else:
+            row = specimen_table.add_row().cells
+            row[0].text = "No specimens recorded"
+            for idx in range(1, 10):
+                row[idx].text = "-"
+
+        if specimens:
+            doc.add_heading("5. Detailed specimen observations", level=1)
+            for idx, s in enumerate(specimens, start=1):
+                p = doc.add_paragraph()
+                p.add_run(f"{idx}. {s.specimen_id or f'Specimen {idx}'}").bold = True
+
+                details = [
+                    f"Batch ref: {s.batch_ref or '-'}",
+                    f"Source pipe ref: {s.source_pipe_ref or '-'}",
+                    f"Preparation rule: {s.preparation_rule_basis or '-'}",
+                    f"Conditioning complete: {_fmt_bool(s.conditioning_complete)}",
+                    f"Pre-test visual OK: {_fmt_bool(s.pretest_visual_ok)}",
+                    f"Released for test: {_fmt_bool(s.released_for_test)}",
+                    f"Failure location: {s.failure_location or '-'}",
+                    f"Failure description: {s.failure_description or '-'}",
+                    f"Leak observation: {s.leak_observation or '-'}",
+                    f"Notes: {s.notes or '-'}",
+                ]
+                for item in details:
+                    doc.add_paragraph(item, style="List Bullet 2")
+
+        doc.add_heading("6. Evidence package status", level=1)
+        evidence_table = doc.add_table(rows=1, cols=3)
+        evidence_table.style = "Table Grid"
+        for idx, h in enumerate(["Document type", "Required", "Present"]):
+            evidence_table.rows[0].cells[idx].text = h
+
+        for row_data in evidence.get("rows", []):
+            row = evidence_table.add_row().cells
+            row[0].text = row_data.get("document_type", "-")
+            row[1].text = "Yes" if row_data.get("document_type") in evidence.get("required", []) else "No"
+            row[2].text = "Yes" if row_data.get("present") else "No"
+
+        missing = evidence.get("missing", [])
+        p = doc.add_paragraph()
+        p.add_run("Missing evidence items: ").bold = True
+        p.add_run(", ".join(missing) if missing else "None")
+
+        doc.add_heading("7. Attachment register", level=1)
+        attachment_table = doc.add_table(rows=1, cols=6)
+        attachment_table.style = "Table Grid"
+        for idx, h in enumerate(["Title", "Type", "Source", "Status", "Signed", "File name"]):
+            attachment_table.rows[0].cells[idx].text = h
+
+        if attachments:
+            for a in attachments:
+                row = attachment_table.add_row().cells
+                row[0].text = a.title or "-"
+                row[1].text = a.document_type or "-"
+                row[2].text = a.source_mode or "-"
+                row[3].text = a.approval_status or "-"
+                row[4].text = _fmt_bool(a.is_signed_copy)
+                row[5].text = a.original_filename or "-"
+        else:
+            row = attachment_table.add_row().cells
+            row[0].text = "No attachments recorded"
+            for idx in range(1, 6):
+                row[idx].text = "-"
+
+        doc.add_heading("8. Approval / close-out note", level=1)
+        close_note = doc.add_paragraph()
+        close_note.add_run("Readiness for closure: ").bold = True
+        if specimens and not missing and (test.result_summary or "").strip():
+            close_note.add_run("Ready for technical review and issue.")
+        else:
+            close_note.add_run("Not yet ready for closure. Complete missing evidence, specimen execution, or result summary first.")
+
+    doc.save(target_path)
+
+    return {
+        "original_filename": _safe_filename(f"{(program.program_code or 'program')}_{(test.code or 'test')}_{safe_document_type.lower()}.docx"),
+        "stored_filename": stored_name,
+        "file_path": str(target_path),
+        "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "file_size_bytes": target_path.stat().st_size,
+    }
     
 def get_specimen_prep(test_code: str):
     key = (test_code or '').strip().lower()
