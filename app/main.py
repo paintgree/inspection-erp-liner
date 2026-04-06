@@ -4917,6 +4917,16 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         report=report,
     )
 
+
+    def _fmt_dt(value):
+        if not value:
+            return "-"
+        try:
+            return value.strftime("%Y-%m-%d")
+        except Exception:
+            return str(value)
+    
+    
     def draw_section_title(text, y_pos):
         c.setFont("Helvetica-Bold", 10)
         c.drawString(left_x, y_pos, text)
