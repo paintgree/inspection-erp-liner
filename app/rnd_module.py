@@ -776,6 +776,9 @@ class RndQualificationProgram(SQLModel, table=True):
 
     intended_service: str = Field(default="Static water service")
     status: str = Field(default="DRAFT", index=True)
+    is_archived: bool = Field(default=False, index=True)
+    archived_at: Optional[datetime] = Field(default=None)
+    archived_by_name: str = Field(default="")
     notes: str = Field(default="")
     created_by_name: str = Field(default="")
 
@@ -2298,14 +2301,43 @@ def _active_stage(program: RndQualificationProgram, materials: List[RndMaterialQ
     }
 
 @router.get('/qualifications')
-def rnd_dashboard(request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
+def rnd_dashboard(
+    request: Request,
+    view: str = 'active',
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+):
+    safe_view = (view or 'active').strip().lower()
+    if safe_view not in {'active', 'archived', 'all'}:
+        safe_view = 'active'
+
+    base_query = select(RndQualificationProgram)
+
+    if safe_view == 'active':
+        base_query = base_query.where(RndQualificationProgram.is_archived == False)
+    elif safe_view == 'archived':
+        base_query = base_query.where(RndQualificationProgram.is_archived == True)
+
     programs = session.exec(
-        select(RndQualificationProgram).order_by(RndQualificationProgram.updated_at.desc())
+        base_query.order_by(RndQualificationProgram.updated_at.desc())
     ).all()
+
+    active_count = len(
+        session.exec(
+            select(RndQualificationProgram).where(RndQualificationProgram.is_archived == False)
+        ).all()
+    )
+    archived_count = len(
+        session.exec(
+            select(RndQualificationProgram).where(RndQualificationProgram.is_archived == True)
+        ).all()
+    )
 
     dashboard = []
     for program in programs:
-        _ensure_complete_test_matrix(session, program)
+        if not program.is_archived:
+            _ensure_complete_test_matrix(session, program)
+
         materials = session.exec(
             select(RndMaterialQualification)
             .where(RndMaterialQualification.program_id == program.id)
@@ -2337,6 +2369,9 @@ def rnd_dashboard(request: Request, session: Session = Depends(get_session), use
             'guide': guide,
             'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC,
             'rcrt_hours': RCRT_HOURS,
+            'view': safe_view,
+            'active_count': active_count,
+            'archived_count': archived_count,
         },
     )
 
@@ -2378,6 +2413,14 @@ def rnd_create_program(
     custom_acceptance_criteria: str = Form(''),
     custom_tests: str = Form(''),
 
+    selected_test_title: List[str] = Form(default=[], alias='selected_test_title[]'),
+    selected_test_code: List[str] = Form(default=[], alias='selected_test_code[]'),
+    selected_test_clause_ref: List[str] = Form(default=[], alias='selected_test_clause_ref[]'),
+    selected_test_specimen_requirement: List[str] = Form(default=[], alias='selected_test_specimen_requirement[]'),
+    selected_test_scope_tag: List[str] = Form(default=[], alias='selected_test_scope_tag[]'),
+    selected_test_source_standard: List[str] = Form(default=[], alias='selected_test_source_standard[]'),
+    selected_test_description: List[str] = Form(default=[], alias='selected_test_description[]'),
+
     notes: str = Form(''),
 ):
     safe_program_type = (program_type or 'API_15S').strip().upper()
@@ -2392,13 +2435,86 @@ def rnd_create_program(
     if safe_pfr_or_pv not in {'PFR', 'PV'}:
         safe_pfr_or_pv = 'PFR'
 
-    # OTHER programs should not pretend to be API 15S / PFR
     if safe_program_type == 'OTHER':
         safe_standard = (qualification_standard or 'OTHER QUALIFICATION').strip()
         safe_pfr_or_pv = 'PFR'
         parent_program_id = None
     else:
         safe_standard = (qualification_standard or 'API 15S R3').strip()
+
+    def _safe_list_value(values: List[str], idx: int, default: str = '') -> str:
+        if idx < len(values):
+            return (values[idx] or '').strip()
+        return default
+
+    selected_rows = []
+    selected_max = max(
+        len(selected_test_title),
+        len(selected_test_code),
+        len(selected_test_clause_ref),
+        len(selected_test_specimen_requirement),
+        len(selected_test_scope_tag),
+        len(selected_test_source_standard),
+        len(selected_test_description),
+        0,
+    )
+
+    for idx in range(selected_max):
+        title_part = _safe_list_value(selected_test_title, idx)
+        if not title_part:
+            continue
+
+        code_part = _safe_list_value(selected_test_code, idx, f'CUSTOM_{idx + 1}')
+        code_part = code_part.upper().replace(' ', '_').replace('-', '_')
+        if not code_part:
+            code_part = f'CUSTOM_{idx + 1}'
+
+        clause_part = _safe_list_value(selected_test_clause_ref, idx, 'CUSTOM')
+        specimens_part = _safe_list_value(selected_test_specimen_requirement, idx, 'As required')
+        scope_part = _safe_list_value(selected_test_scope_tag, idx, 'CUSTOM').upper()
+        source_part = _safe_list_value(selected_test_source_standard, idx, 'CUSTOM').upper()
+        desc_part = _safe_list_value(selected_test_description, idx, 'Custom qualification requirement.')
+
+        if scope_part not in {'BOTH', 'PFR', 'PV', 'CUSTOM'}:
+            scope_part = 'CUSTOM'
+
+        if source_part not in {'API_15S', 'CUSTOM', 'CLIENT', 'INTERNAL'}:
+            source_part = 'CUSTOM'
+
+        selected_rows.append({
+            'title': title_part,
+            'code': code_part,
+            'clause_ref': clause_part,
+            'specimen_requirement': specimens_part,
+            'scope_tag': scope_part,
+            'source_standard': source_part,
+            'description': desc_part,
+        })
+
+    if not selected_rows and (custom_tests or '').strip():
+        legacy_rows = []
+        for raw_line in (custom_tests or '').splitlines():
+            line = (raw_line or '').strip()
+            if not line:
+                continue
+
+            parts = [p.strip() for p in line.split('|')]
+            title_part = parts[0] if len(parts) > 0 else 'Custom Test'
+            specimens_part = parts[1] if len(parts) > 1 else 'As required'
+            clause_part = parts[2] if len(parts) > 2 else 'CUSTOM'
+            desc_part = parts[3] if len(parts) > 3 else 'Custom qualification requirement.'
+
+            legacy_rows.append({
+                'title': title_part,
+                'code': f'OTHER_{len(legacy_rows) + 1}',
+                'specimen_requirement': specimens_part,
+                'clause_ref': clause_part,
+                'description': desc_part,
+                'scope_tag': 'CUSTOM',
+                'source_standard': 'CUSTOM',
+            })
+
+        selected_rows = legacy_rows
 
     program = RndQualificationProgram(
         program_code=(program_code or '').strip().upper(),
@@ -2444,11 +2560,9 @@ def rnd_create_program(
             session.add(program)
             session.commit()
 
-    # Seed default API matrix only for API_15S programs
     if program.program_type == 'API_15S':
         _seed_test_matrix(session, program)
     else:
-        # Seed default material rows for custom programs too
         if not session.exec(
             select(RndMaterialQualification).where(RndMaterialQualification.program_id == program.id)
         ).first():
@@ -2476,47 +2590,44 @@ def rnd_create_program(
                 session.add(row)
             session.commit()
 
-        # Build custom tests from textarea lines
-        # Expected one line per test, example:
-        # Hydrostatic proof | 2 specimens | Client Spec 4.2 | Hold at pressure for 24 h
-        custom_rows = []
-        for raw_line in (custom_tests or '').splitlines():
-            line = (raw_line or '').strip()
-            if not line:
-                continue
+    existing_tests = session.exec(
+        select(RndQualificationTest)
+        .where(RndQualificationTest.program_id == program.id)
+        .order_by(RndQualificationTest.sort_order.asc(), RndQualificationTest.id.asc())
+    ).all()
 
-            parts = [p.strip() for p in line.split('|')]
-            title_part = parts[0] if len(parts) > 0 else 'Custom Test'
-            specimens_part = parts[1] if len(parts) > 1 else 'As required'
-            clause_part = parts[2] if len(parts) > 2 else 'CUSTOM'
-            desc_part = parts[3] if len(parts) > 3 else 'Custom qualification requirement.'
+    existing_codes = {((t.code or '').strip().upper()) for t in existing_tests if (t.code or '').strip()}
+    next_order = max([t.sort_order for t in existing_tests], default=0)
 
-            custom_rows.append({
-                'title': title_part,
-                'specimen_requirement': specimens_part,
-                'clause_ref': clause_part,
-                'description': desc_part,
-            })
+    for offset, item in enumerate(selected_rows, start=1):
+        base_code = (item.get('code') or f'CUSTOM_{offset}').strip().upper()
+        final_code = base_code
+        suffix = 2
+        while final_code in existing_codes:
+            final_code = f'{base_code}_{suffix}'
+            suffix += 1
+        existing_codes.add(final_code)
 
-        for idx, item in enumerate(custom_rows, start=1):
-            code = f'OTHER_{idx}'
-            session.add(
-                RndQualificationTest(
-                    program_id=program.id,
-                    sort_order=idx,
-                    clause_ref=item['clause_ref'],
-                    code=code,
-                    title=item['title'],
-                    description=item['description'],
-                    specimen_requirement=item['specimen_requirement'],
-                    applicability='CUSTOM',
-                    status='PLANNED',
-                )
+        session.add(
+            RndQualificationTest(
+                program_id=program.id,
+                sort_order=next_order + offset,
+                clause_ref=(item.get('clause_ref') or 'CUSTOM').strip(),
+                code=final_code,
+                title=(item.get('title') or 'Custom Test').strip(),
+                description=(item.get('description') or '').strip(),
+                specimen_requirement=(item.get('specimen_requirement') or 'As required').strip(),
+                applicability='CUSTOM',
+                scope_tag=(item.get('scope_tag') or 'CUSTOM').strip().upper(),
+                source_standard=(item.get('source_standard') or 'CUSTOM').strip().upper(),
+                status='PLANNED',
             )
+        )
 
-        session.commit()
+    session.commit()
 
     return RedirectResponse(url=f'/rnd/qualifications/{program.id}', status_code=303)
+
 
 @router.get('/qualifications/{program_id}')
 def rnd_program_view(program_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
@@ -2609,6 +2720,46 @@ def rnd_update_program_status(program_id: int, status: str = Form(...), session:
     program.status = (status or 'DRAFT').strip().upper(); _touch_program(program); session.add(program); session.commit()
     return RedirectResponse(url=f'/rnd/qualifications/{program_id}', status_code=303)
 
+
+@router.post('/qualifications/{program_id}/archive')
+def rnd_archive_program(
+    program_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+):
+    program = session.get(RndQualificationProgram, program_id)
+    if not program:
+        raise HTTPException(404, 'Program not found')
+
+    program.is_archived = True
+    program.archived_at = datetime.utcnow()
+    program.archived_by_name = (getattr(user, 'display_name', '') or getattr(user, 'username', '') or '')
+    _touch_program(program)
+    session.add(program)
+    session.commit()
+
+    return RedirectResponse(url='/rnd/qualifications?view=active', status_code=303)
+
+
+@router.post('/qualifications/{program_id}/restore')
+def rnd_restore_program(
+    program_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+):
+    program = session.get(RndQualificationProgram, program_id)
+    if not program:
+        raise HTTPException(404, 'Program not found')
+
+    program.is_archived = False
+    program.archived_at = None
+    program.archived_by_name = ''
+    _touch_program(program)
+    session.add(program)
+    session.commit()
+
+    return RedirectResponse(url='/rnd/qualifications?view=archived', status_code=303)
+    
 
 @router.get('/qualifications/{program_id}/edit')
 def rnd_edit_program_form(
