@@ -2135,7 +2135,7 @@ def _active_stage(program: RndQualificationProgram, materials: List[RndMaterialQ
 @router.get('/qualifications')
 def rnd_dashboard(request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
     programs = session.exec(
-        select(RndQualificationProgram).order_by(RndQualificationProgram.updated_at.desc())
+        select(RndProgram).order_by(RndProgram.updated_at.desc())
     ).all()
 
     dashboard = []
@@ -2172,6 +2172,9 @@ def rnd_dashboard(request: Request, session: Session = Depends(get_session), use
             'guide': guide,
             'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC,
             'rcrt_hours': RCRT_HOURS,
+            'view': 'all',
+            'active_count': len(programs),
+            'archived_count': 0,
         },
     )
 
