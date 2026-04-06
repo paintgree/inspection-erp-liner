@@ -372,6 +372,26 @@
   }
 }
 
+.qc-phase-monitor{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+
+.qc-phase-monitor .qc-phase-card{
+  min-height:120px;
+}
+
+@media (max-width:1100px){
+  .qc-phase-monitor{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media (max-width:768px){
+  .qc-phase-monitor{
+    grid-template-columns:1fr;
+  }
+}
+  
 @media (max-width:768px){
   .qc-card{
     padding:18px;
@@ -408,14 +428,27 @@
         <h1 class="qc-hero-title">{{ program.program_code }}</h1>
         <div class="qc-hero-subtitle">{{ program.title }}</div>
       </div>
+  
       <div class="qc-actions">
+        <a href="/rnd/qualifications/{{ program.id }}/edit" class="qc-workbench-btn" style="min-width:140px;">
+          Edit Program
+        </a>
+  
+        {% if (program.program_type or 'API_15S') == 'API_15S' %}
+        <form method="post" action="/rnd/qualifications/{{ program.id }}/add-pv-extension" style="display:inline;margin:0;">
+          <button type="submit" class="qc-workbench-btn" style="min-width:160px;">
+            Add PV Extension
+          </button>
+        </form>
+        {% endif %}
+  
         <span class="qc-chip">{{ program.qualification_standard or 'API 15S' }}</span>
         <span class="qc-chip">{{ program.status.replace('_',' ') }}</span>
         {% if program.is_archived %}
           <span class="qc-chip" style="background:#f8fafc;border-color:#cbd5e1;color:#475569;">ARCHIVED</span>
         {% endif %}
         <a class="btn btn-ghost" href="/rnd/qualifications">Back</a>
-
+  
         {% if not program.is_archived %}
           <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Regression</a>
           <form method="post" action="/rnd/qualifications/{{ program.id }}/archive" style="display:inline;">
@@ -432,47 +465,24 @@
         {% endif %}
       </div>
     </div>
-
+  
     <div class="qc-mini">
       <div class="qc-box"><b>Qualified Product</b>{{ program.nominal_size_in }} in / {{ program.npr_mpa }} MPa / {{ program.maot_c }} °C</div>
       <div class="qc-box"><b>Qualification Route</b>{{ program.pfr_or_pv }}{% if program.pfr_reference_code %} · Ref {{ program.pfr_reference_code }}{% endif %}</div>
       <div class="qc-box"><b>Service Medium</b>{{ program.service_medium or '-' }}</div>
       <div class="qc-box"><b>Report Goal</b>Monitor tests, finalize report, then support monogram submission.</div>
     </div>
-
+  
     <div style="margin-top:14px;">
       <div class="muted" style="margin-bottom:6px;">Program completion</div>
       <div class="qc-progress"><span style="width: {{ progress_pct }}%;"></span></div>
     </div>
-
+  
     <div class="qc-note" style="margin-top:14px;">
       This page is now the program command center: start the qualification track, monitor test execution, review evidence, close results, and prepare the final qualification package from one place.
     </div>
   </section>
 
-
-  <div class="qc-card" style="margin-bottom:18px;">
-    <div class="section-head">
-      <div>
-        <h2 class="qc-section-title">Program Settings</h2>
-        <div class="qc-section-subtitle">Manage program type, service factor, qualification basis, and scope from a separate edit page.</div>
-      </div>
-  
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <a href="/rnd/qualifications/{{ program.id }}/edit" class="qc-workbench-btn" style="min-width:140px;">
-          Edit Program
-        </a>
-  
-        {% if (program.program_type or 'API_15S') == 'API_15S' %}
-        <form method="post" action="/rnd/qualifications/{{ program.id }}/add-pv-extension" style="margin:0;">
-          <button type="submit" class="qc-workbench-btn" style="min-width:160px;">
-            Add PV Extension
-          </button>
-        </form>
-        {% endif %}
-      </div>
-    </div>
-  </div>
 
 
   
@@ -485,7 +495,7 @@
     </div>
     {% endfor %}
   </section>
-
+ 
   <section class="qc-grid">
     <div style="display:grid;gap:18px;">
       
@@ -506,8 +516,7 @@
             <a href="/rnd/qualifications/{{ program.id }}?scope=ALL" class="qc-chip {% if scope_filter == 'ALL' %}qc-app-core{% endif %}">All</a>
             <a href="/rnd/qualifications/{{ program.id }}?scope=PFR" class="qc-chip {% if scope_filter == 'PFR' %}qc-app-core{% endif %}">PFR</a>
             <a href="/rnd/qualifications/{{ program.id }}?scope=PV" class="qc-chip {% if scope_filter == 'PV' %}qc-app-core{% endif %}">PV</a>
-            <a href="/rnd/qualifications/{{ program.id }}?scope=BOTH" class="qc-chip {% if scope_filter == 'BOTH' %}qc-app-core{% endif %}">Shared</a>
-            <a href="/rnd/qualifications/{{ program.id }}?scope=CUSTOM" class="qc-chip {% if scope_filter == 'CUSTOM' %}qc-app-core{% endif %}">Custom</a>
+
           </div>
         </div>
         
