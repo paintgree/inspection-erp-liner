@@ -507,98 +507,100 @@
                 </tr>
               </thead>
               <tbody>
+                {% set scope_filter = (request.query_params.get('scope') or 'ALL').upper() %}
                 {% for test in tests %}
-                {% set row_scope = (test.scope_tag or 'BOTH').upper() %}
-                {% if scope_filter == 'ALL' or row_scope == scope_filter or (scope_filter == 'PFR' and row_scope == 'BOTH') or (scope_filter == 'PV' and row_scope == 'BOTH') %}
-                {% set ns = namespace(spec_count=0, executed=0, qa=0, att_count=0) %}
-                {% for s in specimens %}
-                  {% if s.test_id == test.id %}
-                    {% set ns.spec_count = ns.spec_count + 1 %}
-                    {% if (s.result_status or 'PENDING') != 'PENDING' %}
-                      {% set ns.executed = ns.executed + 1 %}
-                    {% endif %}
-                    {% if (s.qa_review_status or 'PENDING') in ['ACCEPTED','APPROVED'] %}
-                      {% set ns.qa = ns.qa + 1 %}
-                    {% endif %}
-                  {% endif %}
-                {% endfor %}
-                {% for a in attachments %}
-                  {% if a.test_id == test.id %}
-                    {% set ns.att_count = ns.att_count + 1 %}
-                  {% endif %}
-                {% endfor %}
-                <tr>
-                  <td>
-                    <div class="qc-test-title">{{ test.title }}</div>
-                    <div class="qc-test-code">{{ test.code }} · {{ test.clause_ref or 'CUSTOM' }}</div>
-                    <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
-                      <span class="qc-chip">{{ test.scope_tag or 'BOTH' }}</span>
-                      {% if test.source_standard %}
-                      <span class="qc-chip">{{ test.source_standard }}</span>
+                  {% set row_scope = (test.scope_tag or 'BOTH').upper() %}
+                  {% if scope_filter == 'ALL' or row_scope == scope_filter or (scope_filter == 'PFR' and row_scope == 'BOTH') or (scope_filter == 'PV' and row_scope == 'BOTH') %}
+                  {% set ns = namespace(spec_count=0, executed=0, qa=0, att_count=0) %}
+                  {% for s in specimens %}
+                    {% if s.test_id == test.id %}
+                      {% set ns.spec_count = ns.spec_count + 1 %}
+                      {% if (s.result_status or 'PENDING') != 'PENDING' %}
+                        {% set ns.executed = ns.executed + 1 %}
                       {% endif %}
-                    </div>
-                    <div class="qc-test-desc">{{ test.description or 'Qualification requirement under the selected route.' }}</div>
-                  </td>
-        
-                  <td>
-                    {% set app = (test.applicability or 'CORE').upper() %}
-                    {% if app == 'CORE' %}
-                      <span class="qc-chip qc-app-core">Required Core</span>
-                    {% elif app == 'SERVICE_DEP' %}
-                      <span class="qc-chip qc-app-service">Service-Dependent</span>
-                    {% elif app == 'RANGE_DEP' %}
-                      <span class="qc-chip qc-app-range">Variant / Range-Dependent</span>
-                    {% elif app == 'CUSTOM' %}
-                      <span class="qc-chip qc-app-custom">Custom / Extra</span>
-                    {% else %}
-                      <span class="qc-chip qc-app-muted">{{ test.applicability or 'General' }}</span>
+                      {% if (s.qa_review_status or 'PENDING') in ['ACCEPTED','APPROVED'] %}
+                        {% set ns.qa = ns.qa + 1 %}
+                      {% endif %}
                     {% endif %}
-                  </td>
-        
-                  <td>
-                    <div class="qc-stat">
-                      <div class="qc-stat-main">
-                        <span>{{ ns.spec_count }}</span>
-                        <span class="qc-stat-label">tracked</span>
-                      </div>
-                      <div class="qc-stat-sub">REQ: {{ test.specimen_requirement or '-' }}</div>
-                    </div>
-                  </td>
-        
-                  <td>
-                    <div class="qc-stat">
-                      <div class="qc-stat-main">
-                        <span class="qc-stat-dot {% if ns.executed > 0 %}good{% else %}mid{% endif %}"></span>
-                        <span>{{ ns.executed }}</span>
-                        <span class="qc-stat-label">executed</span>
-                      </div>
-                      <div class="qc-stat-sub">{{ ns.qa }} QA accepted</div>
-                    </div>
-                  </td>
-        
-                  <td>
-                    <div class="qc-stat">
-                      <div class="qc-stat-main">
-                        <span class="qc-stat-dot {% if ns.att_count > 0 %}good{% else %}mid{% endif %}"></span>
-                        <span>{{ ns.att_count }}</span>
-                        <span class="qc-stat-label">rows</span>
-                      </div>
-                      <div class="qc-stat-sub">Reports, logs, photos, certificates</div>
-                    </div>
-                  </td>
-        
-                  <td>
-                    {% if test.result_summary %}
-                      <div style="font-weight:600;color:#0f172a;line-height:1.45;">{{ test.result_summary }}</div>
-                    {% else %}
-                      <span class="qc-chip qc-mid">Pending closeout</span>
+                  {% endfor %}
+                  {% for a in attachments %}
+                    {% if a.test_id == test.id %}
+                      {% set ns.att_count = ns.att_count + 1 %}
                     {% endif %}
-                  </td>
-        
-                  <td>
-                    <a class="qc-workbench-btn" href="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}">Workbench</a>
-                  </td>
-                </tr>
+                  {% endfor %}
+                  <tr>
+                    <td>
+                      <div class="qc-test-title">{{ test.title }}</div>
+                      <div class="qc-test-code">{{ test.code }} · {{ test.clause_ref or 'CUSTOM' }}</div>
+                      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+                        <span class="qc-chip">{{ test.scope_tag or 'BOTH' }}</span>
+                        {% if test.source_standard %}
+                        <span class="qc-chip">{{ test.source_standard }}</span>
+                        {% endif %}
+                      </div>
+                      <div class="qc-test-desc">{{ test.description or 'Qualification requirement under the selected route.' }}</div>
+                    </td>
+              
+                    <td>
+                      {% set app = (test.applicability or 'CORE').upper() %}
+                      {% if app == 'CORE' %}
+                        <span class="qc-chip qc-app-core">Required Core</span>
+                      {% elif app == 'SERVICE_DEP' %}
+                        <span class="qc-chip qc-app-service">Service-Dependent</span>
+                      {% elif app == 'RANGE_DEP' %}
+                        <span class="qc-chip qc-app-range">Variant / Range-Dependent</span>
+                      {% elif app == 'CUSTOM' %}
+                        <span class="qc-chip qc-app-custom">Custom / Extra</span>
+                      {% else %}
+                        <span class="qc-chip qc-app-muted">{{ test.applicability or 'General' }}</span>
+                      {% endif %}
+                    </td>
+              
+                    <td>
+                      <div class="qc-stat">
+                        <div class="qc-stat-main">
+                          <span>{{ ns.spec_count }}</span>
+                          <span class="qc-stat-label">tracked</span>
+                        </div>
+                        <div class="qc-stat-sub">REQ: {{ test.specimen_requirement or '-' }}</div>
+                      </div>
+                    </td>
+              
+                    <td>
+                      <div class="qc-stat">
+                        <div class="qc-stat-main">
+                          <span class="qc-stat-dot {% if ns.executed > 0 %}good{% else %}mid{% endif %}"></span>
+                          <span>{{ ns.executed }}</span>
+                          <span class="qc-stat-label">executed</span>
+                        </div>
+                        <div class="qc-stat-sub">{{ ns.qa }} QA accepted</div>
+                      </div>
+                    </td>
+              
+                    <td>
+                      <div class="qc-stat">
+                        <div class="qc-stat-main">
+                          <span class="qc-stat-dot {% if ns.att_count > 0 %}good{% else %}mid{% endif %}"></span>
+                          <span>{{ ns.att_count }}</span>
+                          <span class="qc-stat-label">rows</span>
+                        </div>
+                        <div class="qc-stat-sub">Reports, logs, photos, certificates</div>
+                      </div>
+                    </td>
+              
+                    <td>
+                      {% if test.result_summary %}
+                        <div style="font-weight:600;color:#0f172a;line-height:1.45;">{{ test.result_summary }}</div>
+                      {% else %}
+                        <span class="qc-chip qc-mid">Pending closeout</span>
+                      {% endif %}
+                    </td>
+              
+                    <td>
+                      <a class="qc-workbench-btn" href="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}">Workbench</a>
+                    </td>
+                  </tr>
+                  {% endif %}
                 {% endfor %}
               </tbody>
             </table>
