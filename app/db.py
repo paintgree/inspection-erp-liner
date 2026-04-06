@@ -634,6 +634,17 @@ def apply_rnd_schema_patches():
 
         "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS scope_tag VARCHAR(50) DEFAULT 'BOTH';",
         "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS source_standard VARCHAR(50) DEFAULT 'API_15S';",
+        "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS specimen_count INTEGER NULL;",
+        "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS guidance_when_required_override TEXT DEFAULT '';",
+        "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS guidance_specimen_count_override TEXT DEFAULT '';",
+        "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS guidance_api_clause_override TEXT DEFAULT '';",
+        "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS guidance_external_standard_override TEXT DEFAULT '';",
+        "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS guidance_conditioning_required_override TEXT DEFAULT '';",
+        "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS guidance_conditioning_steps_override TEXT DEFAULT '';",
+        "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS guidance_core_process_override TEXT DEFAULT '';",
+        "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS guidance_acceptance_override TEXT DEFAULT '';",
+        "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS guidance_retest_logic_override TEXT DEFAULT '';",
+        "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS guidance_practical_notes_override TEXT DEFAULT '';",
 
         "ALTER TABLE rndqualificationspecimen ADD COLUMN IF NOT EXISTS scope_tag VARCHAR(50) DEFAULT 'BOTH';",
 
