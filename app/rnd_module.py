@@ -2135,7 +2135,7 @@ def _active_stage(program: RndQualificationProgram, materials: List[RndMaterialQ
 @router.get('/qualifications')
 def rnd_dashboard(request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
     programs = session.exec(
-        select(RndProgram).order_by(RndProgram.updated_at.desc())
+        select(RndQualificationProgram).order_by(RndQualificationProgram.updated_at.desc())
     ).all()
 
     dashboard = []
@@ -2452,8 +2452,8 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
     if not program:
         raise HTTPException(404, 'Program not found')
 
-    _seed_test_matrix(session, program)
-    if (program.program_type or 'API_15S') == 'API_15S':
+    if (program.program_type or 'API_15S').strip().upper() == 'API_15S':
+        _seed_test_matrix(session, program)
         _ensure_complete_test_matrix(session, program)
 
     tests = session.exec(
@@ -2503,7 +2503,6 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
     static_reg = _regression_from_specimens(specimens, 'STATIC_REGRESSION', program.npr_mpa, program.service_factor)
     cyclic_reg = _regression_from_specimens(specimens, 'CYCLIC_REGRESSION', program.npr_mpa)
     counts = _matrix_counts(tests)
-    guidance = get_test_guidance(test.code, test)
     phase_cards = _phase_cards(program, tests, materials, specimens, attachments)
 
     return TEMPLATES.TemplateResponse(
