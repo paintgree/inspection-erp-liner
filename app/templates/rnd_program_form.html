@@ -271,7 +271,7 @@
           </div>
 
           <div>
-            <label class="qp-label">Qualification Standard / Basis</label>
+            <label class="qp-label">Qualification Standard</label>
             <input type="text" name="qualification_standard" id="qualification_standard" value="API 15S R3" class="qp-input">
           </div>
         </div>
@@ -324,11 +324,6 @@
           <div>
             <label class="qp-label">Service Factor</label>
             <input type="number" step="0.001" name="service_factor" value="1.0" class="qp-input">
-          </div>
-
-          <div>
-            <label class="qp-label">Intended Service</label>
-            <input type="text" name="intended_service" value="Static water service" class="qp-input">
           </div>
         </div>
       </div>
@@ -393,6 +388,11 @@
           For non-API qualifications, define only what really matters. The actual qualification structure should come from the selected test list below, not from a long free-text dump.
         </div>
 
+        <div style="margin-bottom:14px;">
+          <label class="qp-label">Client / Internal Standard Name</label>
+          <input type="text" name="qualification_standard" id="qualification_standard_other" class="qp-input" placeholder="Example: Client Spec 4.2 / PDO Qualification Basis / Internal Validation Protocol">
+        </div>
+
         <div class="qp-grid-2">
           <div>
             <label class="qp-label">Qualification Requirements</label>
@@ -404,7 +404,6 @@
             <textarea name="custom_acceptance_criteria" class="qp-textarea" placeholder="Describe the overall acceptance basis, approval rule, or engineering release condition."></textarea>
           </div>
         </div>
-      </div>
 
       <div class="qp-section">
         <div class="qp-section-title">3) Test Builder</div>
@@ -469,28 +468,28 @@
 
 <script>
 const COMMON_TEST_LIBRARY = [
-  { code: "HYD_PROOF", title: "Hydrostatic Proof", clause_ref: "", specimen_requirement: "2 specimens", scope_tag: "BOTH", description: "Short-term proof or hold test under defined pressure and temperature condition." },
-  { code: "BURST", title: "Burst Test", clause_ref: "", specimen_requirement: "2 specimens", scope_tag: "BOTH", description: "Burst performance verification at defined condition." },
-  { code: "TEMP_CYCLE", title: "Thermal Cycling", clause_ref: "", specimen_requirement: "2 specimens", scope_tag: "BOTH", description: "Thermal cycling resistance under repeated temperature transitions." },
-  { code: "PRESSURE_CYCLE", title: "Pressure Cycling", clause_ref: "", specimen_requirement: "2 specimens", scope_tag: "BOTH", description: "Cyclic pressure resistance under repeated internal pressure variation." },
-  { code: "MPR_REG", title: "Long-Term Hydrostatic Regression", clause_ref: "API 15S 5.3.2", specimen_requirement: "18 specimens", scope_tag: "PFR", description: "Long-term hydrostatic regression basis for pressure rating confirmation." },
-  { code: "PV_1000H", title: "1000-Hour Pressure Verification", clause_ref: "API 15S 5.3.4", specimen_requirement: "2 specimens", scope_tag: "PV", description: "1000-hour pressure confirmation for PV membership." },
-  { code: "TEMP_ELEV", title: "Elevated Temperature Verification", clause_ref: "API 15S 5.3.5", specimen_requirement: "1 specimen", scope_tag: "BOTH", description: "Performance confirmation above MAOT under defined pressure." },
-  { code: "OPERATING_MBR", title: "Operating MBR", clause_ref: "API 15S 5.3.8.1", specimen_requirement: "2 specimens", scope_tag: "BOTH", description: "Verification of installed/pressurized bend capability." },
-  { code: "HANDLING_MBR", title: "Handling MBR", clause_ref: "API 15S 5.3.8.2", specimen_requirement: "2 specimens", scope_tag: "PFR", description: "Pre-bend or handling bend qualification before proof route." },
-  { code: "HANDLING_AND_SPOOLING", title: "Handling and Spooling", clause_ref: "API 15S 5.3.8.3", specimen_requirement: "2 specimens", scope_tag: "PFR", description: "Damage screening after handling/spooling cycles." },
-  { code: "RESPOOLING", title: "Respooling", clause_ref: "API 15S 5.3.8.4", specimen_requirement: "2 specimens", scope_tag: "PFR", description: "Verification after allowed respooling exposure." },
-  { code: "AXIAL_LOAD", title: "Axial Load Conditioning", clause_ref: "API 15S 5.3.9", specimen_requirement: "2 specimens", scope_tag: "BOTH", description: "Axial load conditioning before follow-on proof route." },
-  { code: "CRUSH", title: "Crush / External Load", clause_ref: "API 15S 5.3.10", specimen_requirement: "3 specimens", scope_tag: "PV", description: "External load characterization or crush resistance." },
-  { code: "LAOT", title: "LAOT Verification", clause_ref: "API 15S 5.3.11", specimen_requirement: "2 specimens", scope_tag: "BOTH", description: "Low temperature qualification at selected LAOT." },
-  { code: "IMPACT", title: "Impact Resistance", clause_ref: "API 15S 5.3.12", specimen_requirement: "2 specimens", scope_tag: "BOTH", description: "Impact resistance verification at defined installation temperature." },
-  { code: "TEC", title: "Thermal Expansion Coefficient", clause_ref: "API 15S 5.3.13", specimen_requirement: "2 specimens", scope_tag: "BOTH", description: "Measurement of axial or hoop thermal expansion behavior." },
-  { code: "GROWTH", title: "Growth / Shrinkage", clause_ref: "API 15S 5.3.14", specimen_requirement: "2 specimens", scope_tag: "BOTH", description: "Dimensional response under pressure or hydrotest condition." },
-  { code: "RAPID_DECOMP", title: "Rapid Decompression", clause_ref: "API 15S 5.3.7", specimen_requirement: "1 specimen", scope_tag: "PV", description: "Gas decompression damage susceptibility verification." },
-  { code: "CYCLIC_REG", title: "Cyclic Regression", clause_ref: "API 15S 5.3.16", specimen_requirement: "18 specimens", scope_tag: "BOTH", description: "Cyclic-service qualification route for pipe intended for cyclic duty." },
-  { code: "FLATTENING", title: "Flattening", clause_ref: "", specimen_requirement: "3 specimens", scope_tag: "CUSTOM", description: "Flattening resistance or deformation response." },
-  { code: "OVALITY", title: "Ovality / Dimensional Stability", clause_ref: "", specimen_requirement: "3 specimens", scope_tag: "CUSTOM", description: "Dimensional verification before/after processing or conditioning." },
-  { code: "VISUAL", title: "Visual Examination", clause_ref: "", specimen_requirement: "Lot based", scope_tag: "CUSTOM", description: "Visual examination for external and internal defects." }
+  { code: "HYD_PROOF", title: "Hydrostatic Proof", clause_ref: "", specimen_count: "2 specimens", scope_tag: "BOTH", description: "Short-term proof or hold test under defined pressure and temperature condition." },
+  { code: "BURST", title: "Burst Test", clause_ref: "", specimen_count: "2 specimens", scope_tag: "BOTH", description: "Burst performance verification at defined condition." },
+  { code: "TEMP_CYCLE", title: "Thermal Cycling", clause_ref: "", specimen_count: "2 specimens", scope_tag: "BOTH", description: "Thermal cycling resistance under repeated temperature transitions." },
+  { code: "PRESSURE_CYCLE", title: "Pressure Cycling", clause_ref: "", specimen_count: "2 specimens", scope_tag: "BOTH", description: "Cyclic pressure resistance under repeated internal pressure variation." },
+  { code: "MPR_REG", title: "Long-Term Hydrostatic Regression", clause_ref: "API 15S 5.3.2", specimen_count: "18 specimens", scope_tag: "PFR", description: "Long-term hydrostatic regression basis for pressure rating confirmation." },
+  { code: "PV_1000H", title: "1000-Hour Pressure Verification", clause_ref: "API 15S 5.3.4", specimen_count: "2 specimens", scope_tag: "PV", description: "1000-hour pressure confirmation for PV membership." },
+  { code: "TEMP_ELEV", title: "Elevated Temperature Verification", clause_ref: "API 15S 5.3.5", specimen_count: 1, scope_tag: "BOTH", description: "Performance confirmation above MAOT under defined pressure." },
+  { code: "OPERATING_MBR", title: "Operating MBR", clause_ref: "API 15S 5.3.8.1", specimen_count: "2 specimens", scope_tag: "BOTH", description: "Verification of installed/pressurized bend capability." },
+  { code: "HANDLING_MBR", title: "Handling MBR", clause_ref: "API 15S 5.3.8.2", specimen_count: "2 specimens", scope_tag: "PFR", description: "Pre-bend or handling bend qualification before proof route." },
+  { code: "HANDLING_AND_SPOOLING", title: "Handling and Spooling", clause_ref: "API 15S 5.3.8.3", specimen_count: "2 specimens", scope_tag: "PFR", description: "Damage screening after handling/spooling cycles." },
+  { code: "RESPOOLING", title: "Respooling", clause_ref: "API 15S 5.3.8.4", specimen_count: "2 specimens", scope_tag: "PFR", description: "Verification after allowed respooling exposure." },
+  { code: "AXIAL_LOAD", title: "Axial Load Conditioning", clause_ref: "API 15S 5.3.9", specimen_count: "2 specimens", scope_tag: "BOTH", description: "Axial load conditioning before follow-on proof route." },
+  { code: "CRUSH", title: "Crush / External Load", clause_ref: "API 15S 5.3.10", specimen_count: "3 specimens", scope_tag: "PV", description: "External load characterization or crush resistance." },
+  { code: "LAOT", title: "LAOT Verification", clause_ref: "API 15S 5.3.11", specimen_count: "2 specimens", scope_tag: "BOTH", description: "Low temperature qualification at selected LAOT." },
+  { code: "IMPACT", title: "Impact Resistance", clause_ref: "API 15S 5.3.12", specimen_count: "2 specimens", scope_tag: "BOTH", description: "Impact resistance verification at defined installation temperature." },
+  { code: "TEC", title: "Thermal Expansion Coefficient", clause_ref: "API 15S 5.3.13", specimen_count: "2 specimens", scope_tag: "BOTH", description: "Measurement of axial or hoop thermal expansion behavior." },
+  { code: "GROWTH", title: "Growth / Shrinkage", clause_ref: "API 15S 5.3.14", specimen_count: "2 specimens", scope_tag: "BOTH", description: "Dimensional response under pressure or hydrotest condition." },
+  { code: "RAPID_DECOMP", title: "Rapid Decompression", clause_ref: "API 15S 5.3.7", specimen_count: "1 specimen", scope_tag: "PV", description: "Gas decompression damage susceptibility verification." },
+  { code: "CYCLIC_REG", title: "Cyclic Regression", clause_ref: "API 15S 5.3.16", specimen_count: "18 specimens", scope_tag: "BOTH", description: "Cyclic-service qualification route for pipe intended for cyclic duty." },
+  { code: "FLATTENING", title: "Flattening", clause_ref: "", specimen_count: "3 specimens", scope_tag: "CUSTOM", description: "Flattening resistance or deformation response." },
+  { code: "OVALITY", title: "Ovality / Dimensional Stability", clause_ref: "", specimen_count: "3 specimens", scope_tag: "CUSTOM", description: "Dimensional verification before/after processing or conditioning." },
+  { code: "VISUAL", title: "Visual Examination", clause_ref: "", specimen_count: "Lot based", scope_tag: "CUSTOM", description: "Visual examination for external and internal defects." }
 ];
 
 let testIndex = 0;
@@ -500,12 +499,16 @@ function toggleProgramTypeFields() {
   const apiBox = document.getElementById('api15s_fields');
   const otherBox = document.getElementById('other_fields');
   const standard = document.getElementById('qualification_standard');
+  const standardOther = document.getElementById('qualification_standard_other');
 
   if (type === 'OTHER') {
     apiBox.classList.add('qp-hidden');
     otherBox.classList.remove('qp-hidden');
     if (!standard.value || standard.value === 'API 15S R3') {
       standard.value = 'OTHER QUALIFICATION';
+    }
+    if (standardOther && !standardOther.value && standard.value !== 'OTHER QUALIFICATION') {
+      standardOther.value = standard.value;
     }
   } else {
     apiBox.classList.remove('qp-hidden');
@@ -523,7 +526,7 @@ function populateLibrary() {
   COMMON_TEST_LIBRARY.forEach((test, idx) => {
     const option = document.createElement('option');
     option.value = idx;
-    option.textContent = `${test.title} (${test.specimen_requirement})`;
+    option.textContent = `${test.title} (${test.specimen_count || '-'} specimens)`;
     library.appendChild(option);
   });
 }
@@ -538,7 +541,7 @@ function addSelectedLibraryTest() {
     code: selected.code,
     title: selected.title,
     clause_ref: selected.clause_ref,
-    specimen_requirement: selected.specimen_requirement,
+    specimen_count: selected.specimen_count,
     scope_tag: selected.scope_tag,
     source_standard: sourceStandard,
     description: selected.description
@@ -580,8 +583,8 @@ function addTestCard(data) {
         <input type="text" name="selected_test_clause_ref[]" class="qp-input" value="${escapeHtml(data.clause_ref || '')}">
       </div>
       <div>
-        <label class="qp-label">Specimens</label>
-        <input type="text" name="selected_test_specimen_requirement[]" class="qp-input" value="${escapeHtml(data.specimen_requirement || '')}">
+        <label class="qp-label">Specimen Count</label>
+        <input type="number" min="1" step="1" name="selected_test_specimen_count[]" class="qp-input" value="${escapeHtml(data.specimen_count || '')}">
       </div>
     </div>
 
@@ -640,5 +643,16 @@ document.addEventListener('DOMContentLoaded', function () {
   populateLibrary();
   toggleProgramTypeFields();
 });
+
+
+  const otherBasisInput = document.getElementById('qualification_standard_other');
+  if (otherBasisInput) {
+    otherBasisInput.addEventListener('input', function () {
+      const mainBasis = document.getElementById('qualification_standard');
+      if (document.getElementById('program_type').value === 'OTHER') {
+        mainBasis.value = this.value.trim() || 'OTHER QUALIFICATION';
+      }
+    });
+  }
 </script>
 {% endblock %}
