@@ -119,31 +119,62 @@ def _fmt_number(value, digits: int = 2) -> str:
 def _fmt_bool(value) -> str:
     return "Yes" if bool(value) else "No"
 
-def _preferred_generated_document_type(test_code: str) -> str:
+def _generated_report_options(test_code: str) -> list[dict]:
     code = (test_code or "").strip().upper()
+
+    common = [
+        {"key": "TECHNICAL_REPORT", "label": "Technical Report"},
+        {"key": "RESULT_SHEET", "label": "Result Sheet"},
+    ]
+
     if code in {"MPR_REG", "CYCLIC_REG"}:
-        return "REGRESSION_REPORT"
-    if code in {
-        "PV_1000H",
-        "TEMP_ELEV",
-        "TEMP_CYCLE",
-        "RAPID_DECOMP",
-        "OPERATING_MBR",
-        "AXIAL_LOAD",
-        "CRUSH",
-        "LAOT",
-        "IMPACT",
-        "TEC",
-        "GROWTH",
-    }:
-        return "RESULT_SHEET"
-    return "TEST_REPORT"
+        return [
+            {"key": "TECHNICAL_REPORT", "label": "Technical Report"},
+            {"key": "REGRESSION_REPORT", "label": "Regression Report"},
+            {"key": "REGRESSION_GRAPH", "label": "Regression Graph"},
+            {"key": "PRESSURE_LOG", "label": "Pressure Log"},
+            {"key": "RESULT_SHEET", "label": "Result Sheet"},
+        ]
+
+    if code in {"PV_1000H", "TEMP_ELEV", "TEMP_CYCLE", "RAPID_DECOMP", "OPERATING_MBR", "AXIAL_LOAD", "CRUSH", "LAOT", "IMPACT"}:
+        return [
+            {"key": "TECHNICAL_REPORT", "label": "Technical Report"},
+            {"key": "RESULT_SHEET", "label": "Result Sheet"},
+            {"key": "PRESSURE_LOG", "label": "Pressure Log"},
+        ]
+
+    if code in {"TEC", "GROWTH"}:
+        return [
+            {"key": "TECHNICAL_REPORT", "label": "Technical Report"},
+            {"key": "RESULT_SHEET", "label": "Result Sheet"},
+            {"key": "DATA_SHEET", "label": "Data Sheet"},
+        ]
+
+    return common
+
+def _preferred_generated_document_type(test_code: str) -> str:
+    options = _generated_report_options(test_code)
+    return options[0]["key"] if options else "TECHNICAL_REPORT"
 
 def _auto_report_reference(program: RndQualificationProgram, test: RndQualificationTest) -> str:
     stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
     code = (program.program_code or f"PROGRAM-{program.id}").replace(" ", "-")
     test_code = (test.code or "TEST").replace(" ", "-")
     return f"RND-{code}-{test_code}-{stamp}"
+
+def _auto_report_title(test: RndQualificationTest, document_type: str) -> str:
+    base = (test.title or test.code or "Qualification Test").strip()
+    doc_type = (document_type or "TECHNICAL_REPORT").strip().upper()
+
+    mapping = {
+        "TECHNICAL_REPORT": f"{base} Technical Report",
+        "REGRESSION_REPORT": f"{base} Regression Report",
+        "REGRESSION_GRAPH": f"{base} Regression Graph",
+        "RESULT_SHEET": f"{base} Result Sheet",
+        "PRESSURE_LOG": f"{base} Pressure Log",
+        "DATA_SHEET": f"{base} Data Sheet",
+    }
+    return mapping.get(doc_type, f"{base} Report")
 
 def _save_generated_test_report_docx(
     *,
@@ -154,22 +185,27 @@ def _save_generated_test_report_docx(
     attachments: list,
     evidence: dict,
     materials: list,
+    document_type: str,
 ) -> dict:
     target_dir = _program_upload_dir(program.id)
     stored_name = f"{uuid.uuid4().hex}.docx"
     target_path = target_dir / stored_name
+
+    safe_document_type = (document_type or "TECHNICAL_REPORT").strip().upper()
+    pretty_type = safe_document_type.replace("_", " ").title()
 
     doc = Document()
     normal_style = doc.styles["Normal"]
     normal_style.font.name = "Arial"
     normal_style.font.size = Pt(9)
 
-    title = doc.add_heading(f"{(test.title or 'Qualification Test').strip()} Report", level=0)
+    title = doc.add_heading(_auto_report_title(test, safe_document_type), level=0)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     subtitle = doc.add_paragraph()
     subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
     subtitle.add_run(f"Program: {program.program_code or '-'} | Test Code: {test.code or '-'}").bold = True
+    subtitle.add_run(f"\nDocument Type: {pretty_type}")
     subtitle.add_run(f"\nGenerated: {_fmt_datetime(datetime.utcnow())}")
 
     doc.add_heading("1. Qualification summary", level=1)
@@ -195,721 +231,257 @@ def _save_generated_test_report_docx(
         cells[0].text = label
         cells[1].text = str(value)
 
-    doc.add_heading("2. Test guidance and acceptance basis", level=1)
-    for label, value in [
-        ("When required", guidance.get("when_required", "")),
-        ("Specimen count", guidance.get("specimen_count", "")),
-        ("API clause", guidance.get("api_clause", "")),
-        ("External standard", guidance.get("external_standard", "")),
-        ("Conditioning required", guidance.get("conditioning_required", "")),
-        ("Retest logic", guidance.get("retest_logic", "")),
-    ]:
+    if safe_document_type == "REGRESSION_GRAPH":
+        doc.add_heading("2. Regression graph summary", level=1)
         p = doc.add_paragraph()
-        p.add_run(f"{label}: ").bold = True
-        p.add_run(value or "-")
+        p.add_run("Purpose: ").bold = True
+        p.add_run("This file is intended to hold the regression graph issue record for this test.")
 
-    for heading, items in [
-        ("Conditioning steps", guidance.get("conditioning_steps", [])),
-        ("Core process", guidance.get("core_process", [])),
-        ("Acceptance criteria", guidance.get("acceptance", [])),
-        ("Practical notes", guidance.get("practical_notes", [])),
-    ]:
-        doc.add_paragraph(heading, style="List Bullet")
-        if items:
-            for item in items:
-                doc.add_paragraph(str(item), style="List Bullet 2")
+        graph_table = doc.add_table(rows=1, cols=5)
+        graph_table.style = "Table Grid"
+        headers = ["Specimen ID", "Failure Hours", "Failure Pressure (MPa)", "Failure Mode", "Include in Regression"]
+        for idx, h in enumerate(headers):
+            graph_table.rows[0].cells[idx].text = h
+
+        if specimens:
+            for s in specimens:
+                row = graph_table.add_row().cells
+                row[0].text = s.specimen_id or "-"
+                row[1].text = _fmt_number(s.failure_hours)
+                row[2].text = _fmt_number(s.actual_pressure_at_failure_mpa)
+                row[3].text = s.failure_mode or "-"
+                row[4].text = _fmt_bool(s.include_in_regression)
         else:
-            doc.add_paragraph("-", style="List Bullet 2")
+            row = graph_table.add_row().cells
+            row[0].text = "No regression specimens recorded"
+            for idx in range(1, 5):
+                row[idx].text = "-"
 
-    doc.add_heading("3. Material register", level=1)
-    material_table = doc.add_table(rows=1, cols=6)
-    material_table.style = "Table Grid"
-    headers = ["Component", "Material", "Manufacturer", "Grade", "Batch / Lot", "Status"]
-    for idx, h in enumerate(headers):
-        material_table.rows[0].cells[idx].text = h
+        doc.add_paragraph("Note: chart image can be inserted later after external plotting / signed issue, then uploaded back as signed evidence.")
+    elif safe_document_type == "PRESSURE_LOG":
+        doc.add_heading("2. Pressure log", level=1)
+        pressure_table = doc.add_table(rows=1, cols=8)
+        pressure_table.style = "Table Grid"
+        headers = ["Specimen ID", "Date", "Planned Pressure", "Actual Pressure", "Hold Pressure", "Failure Time", "Result", "Notes"]
+        for idx, h in enumerate(headers):
+            pressure_table.rows[0].cells[idx].text = h
 
-    if materials:
-        for m in materials:
-            row = material_table.add_row().cells
-            row[0].text = m.component or "-"
-            row[1].text = m.material_name or "-"
-            row[2].text = m.manufacturer_name or "-"
-            row[3].text = m.grade_name or "-"
-            row[4].text = " / ".join([x for x in [m.batch_ref, m.lot_ref] if x]) or "-"
-            row[5].text = m.status or "-"
+        if specimens:
+            for s in specimens:
+                row = pressure_table.add_row().cells
+                row[0].text = s.specimen_id or "-"
+                row[1].text = _fmt_date(s.sample_date)
+                row[2].text = _fmt_number(s.planned_pressure_mpa)
+                row[3].text = _fmt_number(s.actual_pressure_at_failure_mpa)
+                row[4].text = _fmt_number(s.pressure_at_hold_mpa)
+                row[5].text = _fmt_number(s.failure_time_sec)
+                row[6].text = s.result_status or "-"
+                row[7].text = s.notes or "-"
+        else:
+            row = pressure_table.add_row().cells
+            row[0].text = "No pressure records recorded"
+            for idx in range(1, 8):
+                row[idx].text = "-"
+    elif safe_document_type in {"RESULT_SHEET", "DATA_SHEET"}:
+        doc.add_heading("2. Result sheet", level=1)
+        result_table = doc.add_table(rows=1, cols=10)
+        result_table.style = "Table Grid"
+        headers = [
+            "Specimen ID",
+            "Material Ref",
+            "Sample Date",
+            "Target / Planned",
+            "Actual",
+            "Failure Mode",
+            "Failure Location",
+            "Result",
+            "QA Review",
+            "Remarks",
+        ]
+        for idx, h in enumerate(headers):
+            result_table.rows[0].cells[idx].text = h
+
+        if specimens:
+            for s in specimens:
+                row = result_table.add_row().cells
+                row[0].text = s.specimen_id or "-"
+                row[1].text = s.material_ref or "-"
+                row[2].text = _fmt_date(s.sample_date)
+                row[3].text = _fmt_number(s.planned_pressure_mpa)
+                row[4].text = _fmt_number(s.actual_pressure_at_failure_mpa)
+                row[5].text = s.failure_mode or "-"
+                row[6].text = s.failure_location or "-"
+                row[7].text = s.result_status or "-"
+                row[8].text = s.qa_review_status or "-"
+                row[9].text = s.notes or "-"
+        else:
+            row = result_table.add_row().cells
+            row[0].text = "No specimen results recorded"
+            for idx in range(1, 10):
+                row[idx].text = "-"
     else:
-        row = material_table.add_row().cells
-        row[0].text = "No materials recorded"
-        for idx in range(1, 6):
-            row[idx].text = "-"
-
-    doc.add_heading("4. Specimen execution record", level=1)
-    specimen_table = doc.add_table(rows=1, cols=10)
-    specimen_table.style = "Table Grid"
-    specimen_headers = [
-        "Specimen ID",
-        "Date",
-        "Material ref",
-        "Planned P (MPa)",
-        "Actual P (MPa)",
-        "Hours",
-        "Cycles",
-        "Result",
-        "QA review",
-        "Failure mode",
-    ]
-    for idx, h in enumerate(specimen_headers):
-        specimen_table.rows[0].cells[idx].text = h
-
-    if specimens:
-        for s in specimens:
-            row = specimen_table.add_row().cells
-            row[0].text = s.specimen_id or "-"
-            row[1].text = _fmt_date(s.sample_date)
-            row[2].text = s.material_ref or "-"
-            row[3].text = _fmt_number(s.planned_pressure_mpa)
-            row[4].text = _fmt_number(s.actual_pressure_at_failure_mpa)
-            row[5].text = _fmt_number(s.failure_hours)
-            row[6].text = _fmt_number(s.failure_cycles)
-            row[7].text = s.result_status or "-"
-            row[8].text = s.qa_review_status or "-"
-            row[9].text = s.failure_mode or "-"
-    else:
-        row = specimen_table.add_row().cells
-        row[0].text = "No specimens recorded"
-        for idx in range(1, 10):
-            row[idx].text = "-"
-
-    if specimens:
-        doc.add_heading("5. Detailed specimen observations", level=1)
-        for idx, s in enumerate(specimens, start=1):
+        doc.add_heading("2. Test guidance and acceptance basis", level=1)
+        for label, value in [
+            ("When required", guidance.get("when_required", "")),
+            ("Specimen count", guidance.get("specimen_count", "")),
+            ("API clause", guidance.get("api_clause", "")),
+            ("External standard", guidance.get("external_standard", "")),
+            ("Conditioning required", guidance.get("conditioning_required", "")),
+            ("Retest logic", guidance.get("retest_logic", "")),
+        ]:
             p = doc.add_paragraph()
-            p.add_run(f"{idx}. {s.specimen_id or f'Specimen {idx}'}").bold = True
+            p.add_run(f"{label}: ").bold = True
+            p.add_run(value or "-")
 
-            details = [
-                f"Batch ref: {s.batch_ref or '-'}",
-                f"Source pipe ref: {s.source_pipe_ref or '-'}",
-                f"Preparation rule: {s.preparation_rule_basis or '-'}",
-                f"Conditioning complete: {_fmt_bool(s.conditioning_complete)}",
-                f"Pre-test visual OK: {_fmt_bool(s.pretest_visual_ok)}",
-                f"Released for test: {_fmt_bool(s.released_for_test)}",
-                f"Failure location: {s.failure_location or '-'}",
-                f"Failure description: {s.failure_description or '-'}",
-                f"Leak observation: {s.leak_observation or '-'}",
-                f"Notes: {s.notes or '-'}",
-            ]
-            for item in details:
-                doc.add_paragraph(item, style="List Bullet 2")
+        for heading, items in [
+            ("Conditioning steps", guidance.get("conditioning_steps", [])),
+            ("Core process", guidance.get("core_process", [])),
+            ("Acceptance criteria", guidance.get("acceptance", [])),
+            ("Practical notes", guidance.get("practical_notes", [])),
+        ]:
+            doc.add_paragraph(heading, style="List Bullet")
+            if items:
+                for item in items:
+                    doc.add_paragraph(str(item), style="List Bullet 2")
+            else:
+                doc.add_paragraph("-", style="List Bullet 2")
 
-    doc.add_heading("6. Evidence package status", level=1)
-    evidence_table = doc.add_table(rows=1, cols=3)
-    evidence_table.style = "Table Grid"
-    for idx, h in enumerate(["Document type", "Required", "Present"]):
-        evidence_table.rows[0].cells[idx].text = h
+        doc.add_heading("3. Material register", level=1)
+        material_table = doc.add_table(rows=1, cols=6)
+        material_table.style = "Table Grid"
+        headers = ["Component", "Material", "Manufacturer", "Grade", "Batch / Lot", "Status"]
+        for idx, h in enumerate(headers):
+            material_table.rows[0].cells[idx].text = h
 
-    for row_data in evidence.get("rows", []):
-        row = evidence_table.add_row().cells
-        row[0].text = row_data.get("document_type", "-")
-        row[1].text = "Yes" if row_data.get("document_type") in evidence.get("required", []) else "No"
-        row[2].text = "Yes" if row_data.get("present") else "No"
+        if materials:
+            for m in materials:
+                row = material_table.add_row().cells
+                row[0].text = m.component or "-"
+                row[1].text = m.material_name or "-"
+                row[2].text = m.manufacturer_name or "-"
+                row[3].text = m.grade_name or "-"
+                row[4].text = " / ".join([x for x in [m.batch_ref, m.lot_ref] if x]) or "-"
+                row[5].text = m.status or "-"
+        else:
+            row = material_table.add_row().cells
+            row[0].text = "No materials recorded"
+            for idx in range(1, 6):
+                row[idx].text = "-"
 
-    missing = evidence.get("missing", [])
-    p = doc.add_paragraph()
-    p.add_run("Missing evidence items: ").bold = True
-    p.add_run(", ".join(missing) if missing else "None")
+        doc.add_heading("4. Specimen execution record", level=1)
+        specimen_table = doc.add_table(rows=1, cols=10)
+        specimen_table.style = "Table Grid"
+        specimen_headers = [
+            "Specimen ID",
+            "Date",
+            "Material ref",
+            "Planned P (MPa)",
+            "Actual P (MPa)",
+            "Hours",
+            "Cycles",
+            "Result",
+            "QA review",
+            "Failure mode",
+        ]
+        for idx, h in enumerate(specimen_headers):
+            specimen_table.rows[0].cells[idx].text = h
 
-    doc.add_heading("7. Attachment register", level=1)
-    attachment_table = doc.add_table(rows=1, cols=6)
-    attachment_table.style = "Table Grid"
-    for idx, h in enumerate(["Title", "Type", "Source", "Status", "Signed", "File name"]):
-        attachment_table.rows[0].cells[idx].text = h
+        if specimens:
+            for s in specimens:
+                row = specimen_table.add_row().cells
+                row[0].text = s.specimen_id or "-"
+                row[1].text = _fmt_date(s.sample_date)
+                row[2].text = s.material_ref or "-"
+                row[3].text = _fmt_number(s.planned_pressure_mpa)
+                row[4].text = _fmt_number(s.actual_pressure_at_failure_mpa)
+                row[5].text = _fmt_number(s.failure_hours)
+                row[6].text = _fmt_number(s.failure_cycles)
+                row[7].text = s.result_status or "-"
+                row[8].text = s.qa_review_status or "-"
+                row[9].text = s.failure_mode or "-"
+        else:
+            row = specimen_table.add_row().cells
+            row[0].text = "No specimens recorded"
+            for idx in range(1, 10):
+                row[idx].text = "-"
 
-    if attachments:
-        for a in attachments:
+        if specimens:
+            doc.add_heading("5. Detailed specimen observations", level=1)
+            for idx, s in enumerate(specimens, start=1):
+                p = doc.add_paragraph()
+                p.add_run(f"{idx}. {s.specimen_id or f'Specimen {idx}'}").bold = True
+
+                details = [
+                    f"Batch ref: {s.batch_ref or '-'}",
+                    f"Source pipe ref: {s.source_pipe_ref or '-'}",
+                    f"Preparation rule: {s.preparation_rule_basis or '-'}",
+                    f"Conditioning complete: {_fmt_bool(s.conditioning_complete)}",
+                    f"Pre-test visual OK: {_fmt_bool(s.pretest_visual_ok)}",
+                    f"Released for test: {_fmt_bool(s.released_for_test)}",
+                    f"Failure location: {s.failure_location or '-'}",
+                    f"Failure description: {s.failure_description or '-'}",
+                    f"Leak observation: {s.leak_observation or '-'}",
+                    f"Notes: {s.notes or '-'}",
+                ]
+                for item in details:
+                    doc.add_paragraph(item, style="List Bullet 2")
+
+        doc.add_heading("6. Evidence package status", level=1)
+        evidence_table = doc.add_table(rows=1, cols=3)
+        evidence_table.style = "Table Grid"
+        for idx, h in enumerate(["Document type", "Required", "Present"]):
+            evidence_table.rows[0].cells[idx].text = h
+
+        for row_data in evidence.get("rows", []):
+            row = evidence_table.add_row().cells
+            row[0].text = row_data.get("document_type", "-")
+            row[1].text = "Yes" if row_data.get("document_type") in evidence.get("required", []) else "No"
+            row[2].text = "Yes" if row_data.get("present") else "No"
+
+        missing = evidence.get("missing", [])
+        p = doc.add_paragraph()
+        p.add_run("Missing evidence items: ").bold = True
+        p.add_run(", ".join(missing) if missing else "None")
+
+        doc.add_heading("7. Attachment register", level=1)
+        attachment_table = doc.add_table(rows=1, cols=6)
+        attachment_table.style = "Table Grid"
+        for idx, h in enumerate(["Title", "Type", "Source", "Status", "Signed", "File name"]):
+            attachment_table.rows[0].cells[idx].text = h
+
+        if attachments:
+            for a in attachments:
+                row = attachment_table.add_row().cells
+                row[0].text = a.title or "-"
+                row[1].text = a.document_type or "-"
+                row[2].text = a.source_mode or "-"
+                row[3].text = a.approval_status or "-"
+                row[4].text = _fmt_bool(a.is_signed_copy)
+                row[5].text = a.original_filename or "-"
+        else:
             row = attachment_table.add_row().cells
-            row[0].text = a.title or "-"
-            row[1].text = a.document_type or "-"
-            row[2].text = a.source_mode or "-"
-            row[3].text = a.approval_status or "-"
-            row[4].text = _fmt_bool(a.is_signed_copy)
-            row[5].text = a.original_filename or "-"
-    else:
-        row = attachment_table.add_row().cells
-        row[0].text = "No attachments recorded"
-        for idx in range(1, 6):
-            row[idx].text = "-"
+            row[0].text = "No attachments recorded"
+            for idx in range(1, 6):
+                row[idx].text = "-"
 
-    doc.add_heading("8. Approval / close-out note", level=1)
-    close_note = doc.add_paragraph()
-    close_note.add_run("Readiness for closure: ").bold = True
-    if specimens and not missing and (test.result_summary or "").strip():
-        close_note.add_run("Ready for technical review and issue.")
-    else:
-        close_note.add_run("Not yet ready for closure. Complete missing evidence, specimen execution, or result summary first.")
+        doc.add_heading("8. Approval / close-out note", level=1)
+        close_note = doc.add_paragraph()
+        close_note.add_run("Readiness for closure: ").bold = True
+        if specimens and not missing and (test.result_summary or "").strip():
+            close_note.add_run("Ready for technical review and issue.")
+        else:
+            close_note.add_run("Not yet ready for closure. Complete missing evidence, specimen execution, or result summary first.")
 
     doc.save(target_path)
 
     return {
-        "original_filename": _safe_filename(f"{(program.program_code or 'program')}_{(test.code or 'test')}_report.docx"),
+        "original_filename": _safe_filename(f"{(program.program_code or 'program')}_{(test.code or 'test')}_{safe_document_type.lower()}.docx"),
         "stored_filename": stored_name,
         "file_path": str(target_path),
         "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "file_size_bytes": target_path.stat().st_size,
     }
-DEFAULT_SPECIMEN_RULE = {
-    "min_specimens": "As defined by the applicable qualification test requirement.",
-    "minimum_cut_length": "Specimens shall be cut on the basis of total cut length and shall not be cut to active or effective test length only.",
-    "effective_length": "The effective test length shall be the active section defined by the applicable test setup, fixture arrangement, support span, or pressurized free length.",
-    "od_basis_notice": "Before any diameter-based preparation rule is applied, the actual qualified pipe outside diameter (OD) shall be confirmed from the controlled product definition, dimensional record, or approved size specification. Diameter-based rules shall not be calculated from nominal size designation alone unless the nominal size has already been mapped to a controlled OD value in the qualification basis.",
-    "calculation_rule_notice": "Any preparation rule expressed as D, OD, 1D, 3D, 5D, or 1.5 x OD shall be calculated using the confirmed pipe outside diameter and then converted into millimetres for specimen release and cutting control.",
-    "recorded_dimensions_notice": "Before cutting, the specimen register shall record the confirmed pipe OD, the rule basis used, the calculated effective length, the end allowances, the trimming margin, and the total cut length in millimetres.",
-    "end_allowance_each_side": "Unless a stricter test-specific requirement applies, each specimen shall include an end allowance on both sides sufficient for gripping, sealing, end fittings, support, trimming, and handling. The baseline preparation allowance shall be not less than 1.0 x outside diameter on each side.",
-    "total_length_formula": "Total cut length = effective test length + left end allowance + right end allowance + trimming margin.",
-    "marking_requirements": [
-        "Each specimen shall be assigned a unique identification number before cutting.",
-        "Each specimen shall be marked with pipe size, batch or lot reference, and intended test code.",
-        "Where applicable, the centerline or active test section shall be marked prior to preparation.",
-        "Identification markings should be placed outside the critical observation or expected failure zone whenever practical."
-    ],
-    "visual_acceptance": [
-        "Specimens shall be free from visible cuts, gouges, cracks, crushed areas, and other preparation damage.",
-        "Specimens shall be free from obvious ovality or deformation caused by handling.",
-        "Cut ends shall be square and suitable for the required end preparation.",
-        "Traceability markings shall remain legible after preparation."
-    ],
-    "preconditioning": {
-        "required": "depends",
-        "when_required": "Preconditioning shall be applied whenever required by the qualification basis, applicable procedure, test condition, or environmental exposure requirement.",
-        "medium": "Ambient air unless otherwise required by the applicable test method or internal procedure.",
-        "target_temperature": "As required by the selected test condition.",
-        "minimum_process": [
-            "Prepare, cut, and identify the specimen.",
-            "Verify dimensions, cut quality, and end preparation before conditioning.",
-            "Place the specimen in the required conditioning environment at the specified target temperature.",
-            "Allow the specimen to stabilize before commencement of testing.",
-            "Record conditioning start time, target temperature, observed temperature, and responsible operator.",
-            "Testing shall not begin until specimen stabilization has been confirmed."
-        ],
-        "records_required": [
-            "Conditioning start time",
-            "Conditioning end time or release time",
-            "Target temperature",
-            "Observed temperature",
-            "Conditioning medium or environment",
-            "Operator or approver"
-        ],
-    },
-    "technician_tips": [
-        "Do not cut specimens to effective test length only.",
-        "Record both total cut length and effective test length before release for test.",
-        "Where fixture or fitting engagement length is uncertain, confirm the requirement before cutting.",
-        "Reject any specimen damaged during cutting, machining, or handling."
-    ],
-    "release_checks": [
-        "Specimen identification is assigned and traceable to production batch.",
-        "Total cut length is measured and recorded.",
-        "Effective test length is identified.",
-        "End preparation is complete.",
-        "No visible damage is present after preparation.",
-        "Preconditioning is complete where required.",
-        "Specimen is released for testing by the responsible person."
-    ],
-}
-
-SPECIMEN_PREP_RULES = {
-    "mpr_reg": {
-        "min_specimens": 18,
-        "minimum_cut_length": "Specimens for long-term hydrostatic regression shall be cut to provide a consistent free pressurized section for the regression setup together with sufficient additional length for end terminations, sealing, and trimming.",
-        "effective_length": "The effective length shall be the free pressurized section between end terminations used for long-term hydrostatic exposure.",
-        "end_allowance_each_side": "A preparation allowance of not less than 1.5 x outside diameter shall be provided on each side as a baseline for long-term end termination and sealing requirements. Greater allowance shall be used where the termination system requires additional engagement length.",
-        "total_length_formula": "Total cut length = effective regression section + 2 x termination allowance + trimming margin.",
-        "preconditioning": {
-            "required": True,
-            "when_required": "Required before pressurization at the selected regression test temperature.",
-            "medium": "Controlled temperature environment matching the regression condition",
-            "target_temperature": "Selected regression temperature",
-        },
-    },
-    "pv_1000h": {
-        "min_specimens": 2,
-        "minimum_cut_length": "Specimens for the 1000-hour pressure confirmation test shall be cut to provide the required active pressurized section together with full end-sealing allowance.",
-        "effective_length": "The effective length shall be the active pressurized section between end fittings for the PV confirmation specimen.",
-        "end_allowance_each_side": "A baseline sealing allowance of not less than 1.0 x outside diameter shall be provided on each side.",
-        "preconditioning": {
-            "required": True,
-            "when_required": "Condition before the 1000-hour hold at the selected test temperature.",
-            "medium": "Controlled environment",
-            "target_temperature": "Selected PV confirmation temperature"
-        },
-    },
-    "temp_elev": {
-        "min_specimens": 1,
-        "minimum_cut_length": "Specimens shall be cut to provide the active elevated-temperature test section together with sufficient end engagement and trimming allowance.",
-        "effective_length": "The effective length shall be the section exposed to the elevated temperature and pressure condition.",
-        "preconditioning": {
-            "required": True,
-            "when_required": "Elevated-temperature stabilization is required before test start.",
-            "medium": "Controlled temperature environment",
-            "target_temperature": "Selected elevated test temperature"
-        },
-    },
-    "temp_cycle": {
-        "min_specimens": 2,
-        "minimum_cut_length": "Specimens shall be cut to provide the active thermal cycling section together with secure end engagement for the cycling setup.",
-        "effective_length": "The effective length shall be the section subjected to thermal cycling.",
-        "preconditioning": {
-            "required": True,
-            "when_required": "Stabilization at the starting temperature is required before thermal cycling begins.",
-            "medium": "Controlled temperature environment",
-            "target_temperature": "Cycle start temperature"
-        },
-    },
-    "rapid_decomp": {
-        "min_specimens": 1,
-        "minimum_cut_length": "Specimens shall be cut to provide the decompression exposure section together with safe end engagement and sealing allowance.",
-        "effective_length": "The effective length shall be the pressurized section exposed to gas decompression.",
-        "preconditioning": {
-            "required": True,
-            "when_required": "Conditioning shall be applied as required by the gas charging and temperature setup.",
-            "medium": "Gas exposure environment",
-            "target_temperature": "Selected rapid decompression temperature"
-        },
-    },
-    "operating_mbr": {
-        "min_specimens": 2,
-        "minimum_cut_length": "Specimens shall be prepared using the full length required to achieve the specified bending radius and safe handling arrangement.",
-        "effective_length": "The effective length shall be the full section involved in bending or respooling exposure.",
-        "end_allowance_each_side": "Additional length shall be included as required for gripping, handling, and fixture engagement.",
-    },
-    "axial_load": {
-        "min_specimens": 2,
-        "minimum_cut_length": "Specimens shall be cut to provide the required gauge section together with sufficient end gripping allowance.",
-        "effective_length": "The effective length shall be the section over which axial response is evaluated.",
-    },
-    "crush": {
-        "min_specimens": 3,
-        "minimum_cut_length": "Specimens shall be cut to a length sufficient to suit the crush test arrangement with proper support and alignment.",
-        "effective_length": "The effective length shall be the section subjected to radial external loading.",
-    },
-    "laot": {
-        "min_specimens": 2,
-        "minimum_cut_length": "Specimens shall be cut to provide the low-temperature qualification section together with the required end engagement.",
-        "effective_length": "The effective length shall be the section exposed to the lowest allowable operating temperature qualification condition.",
-        "preconditioning": {
-            "required": True,
-            "when_required": "Condition at the selected low temperature before test start.",
-            "medium": "Low-temperature environment",
-            "target_temperature": "Selected LAOT"
-        },
-    },
-    "impact": {
-        "min_specimens": 2,
-        "minimum_cut_length": "Specimens shall be cut to provide the required support span or impact location together with trimming margin.",
-        "effective_length": "The effective length shall be the supported test section containing the impact location.",
-        "end_allowance_each_side": "Preparation allowance shall be based on the support arrangement rather than pressure sealing requirements.",
-        "preconditioning": {
-            "required": True,
-            "when_required": "Required when impact testing is performed at a controlled test temperature.",
-            "medium": "Conditioning environment at test temperature",
-            "target_temperature": "Selected impact test temperature"
-        },
-    },
-    "tec": {
-        "min_specimens": 2,
-        "minimum_cut_length": "Specimens shall be cut to provide sufficient length for axial response measurement over the defined gauge or effective section.",
-        "effective_length": "The effective length shall be the section used for thermal expansion coefficient measurement.",
-        "preconditioning": {
-            "required": True,
-            "when_required": "Thermal stabilization is required before thermal expansion measurement.",
-            "medium": "Controlled temperature environment",
-            "target_temperature": "Selected TEC temperature"
-        },
-    },
-    "growth": {
-        "min_specimens": 2,
-        "minimum_cut_length": "Specimens shall be cut to provide sufficient length for measurement of growth or shrinkage over the intended gauge section.",
-        "effective_length": "The effective length shall be the section over which dimensional response is recorded.",
-    },
-    "cyclic_reg": {
-        "min_specimens": 18,
-        "minimum_cut_length": "Specimens for cyclic pressure regression shall be cut to provide the active cycling section together with full termination or fitting allowance.",
-        "effective_length": "The effective length shall be the active section subjected to repeated pressure cycling.",
-        "end_allowance_each_side": "Sufficient length shall be provided for termination and sealing without compromising the active cycling section.",
-        "preconditioning": {
-            "required": True,
-            "when_required": "Required when the cyclic test is conducted at controlled temperature or conditioned service state.",
-            "medium": "Controlled environment as required by the test condition",
-            "target_temperature": "Selected cyclic qualification temperature"
-        },
-    },
-}
-
-
-TEST_GUIDANCE = {
-    "MPR_REG": {
-        "when_required": "Always for the PFR qualification route.",
-        "specimen_count": "18 specimens minimum target",
-        "api_clause": "API 15S 5.3.2",
-        "external_standard": "ASTM D1598 or ISO 1167-1; ASTM D2992-18 Procedure B",
-        "conditioning_required": "Conditional",
-        "conditioning_steps": [
-            "Either pass the applicable 5.3.8 bend / handling preconditioning route, or precondition the PFR specimens to the required handling MBR / respooling cycle condition before regression testing.",
-            "Use field fittings for PV testing where applicable.",
-            "Run the long-term hydrostatic test with unrestricted ends.",
-        ],
-        "core_process": [
-            "Run long-term hydrostatic test with unrestricted ends.",
-            "Use specimen length in accordance with the approved setup and end termination requirements.",
-            "Develop regression per ASTM D2992 Procedure B and determine LCL at RCRT.",
-            "Do not use points below 10 hours in regression calculations.",
-        ],
-        "acceptance": [
-            "MPR equals LCL RCT x selected service factor.",
-            "All failures shall be reported in the qualification report.",
-            "Tensile rupture of reinforcement is permissible where allowed by the basis for non-metallic reinforcement.",
-        ],
-        "retest_logic": "Retesting per 5.5 is triggered if required preconditioning steps are not satisfied.",
-        "practical_notes": [
-            "Laboratory test fittings are allowed for MPR determination if their stated limitations are understood.",
-            "This is the core PV membership test for non-metallic reinforcement.",
-        ],
-    },
-    "PV_1000H": {
-        "when_required": "Every PV in the qualified family.",
-        "specimen_count": "2 specimens for each PV",
-        "api_clause": "API 15S 5.3.4.1 / 5.3.4.2",
-        "external_standard": "ASTM D1598 or ISO 1167-1",
-        "conditioning_required": "No standard bend preconditioning unless stated in the selected route",
-        "conditioning_steps": [
-            "Use field fittings for PV testing.",
-            "Set pressure using the selected PV basis.",
-            "Test 2 specimens at the qualification temperature for 1000 hours.",
-        ],
-        "core_process": [
-            "Run the constant-pressure exposure for 1000 hours at the qualified condition.",
-            "Record any time-to-failure and compare to the 1000-hour requirement.",
-        ],
-        "acceptance": [
-            "Both original or retest specimens shall survive to 1000 hours, otherwise full qualification is required.",
-        ],
-        "retest_logic": "If any specimen fails before 1000 hours, apply 5.5 retest logic.",
-        "practical_notes": [
-            "This is the core PV membership test for non-metallic reinforcement.",
-        ],
-    },
-    "TEMP_ELEV": {
-        "when_required": "Always for listed PFR / PV boundaries where elevated temperature confirmation applies.",
-        "specimen_count": "1 specimen per pressure / temperature condition",
-        "api_clause": "API 15S 5.3.5",
-        "external_standard": "API 15S Eq. (4) / API 15S procedure",
-        "conditioning_required": "No bend preconditioning specified",
-        "conditioning_steps": [
-            "Install unrestrained field end-fittings or couplings.",
-            "Choose test temperature above MAOT.",
-            "Set minimum test pressure to 1.5 x NDR.",
-        ],
-        "core_process": [
-            "Maintain internal medium and outer wall within the required test temperature tolerance throughout the test.",
-            "After the main test, depressurize and store at ambient for at least 24 hours.",
-            "Then leak test at 150 psi +/- 50 psi for 24 hours at ambient and check for visible leakage.",
-        ],
-        "acceptance": [
-            "No leakage through the full main test period.",
-            "No visible leakage during the 24-hour ambient leak check.",
-            "Brittle failure is not allowed.",
-        ],
-        "retest_logic": "Retest per 5.5 after resolving the brittle-failure cause if applicable.",
-        "practical_notes": [
-            "For polyethylene use alpha = 0.112 decades/C, otherwise determine alpha or assume 0.05 decades/C.",
-        ],
-    },
-    "TEMP_CYCLE": {
-        "when_required": "Always for listed PFR / PV boundaries.",
-        "specimen_count": "2 specimens",
-        "api_clause": "API 15S 5.3.6",
-        "external_standard": "API 15S procedure",
-        "conditioning_required": "Temperature conditioning is built into the test",
-        "conditioning_steps": [
-            "Condition the specimen to the fitting lowest installation temperature for at least 2.5 hours.",
-            "Install fittings per written instructions at that temperature.",
-        ],
-        "core_process": [
-            "Condition to MAOT for at least 2.5 hours, then to the lower cycle temperature for at least 2.5 hours.",
-            "Repeat the MAOT / lower-temperature sequence for a total of 3 cycles.",
-            "Return to ambient for at least 2.5 hours.",
-            "Leak test at 1.5 x NPR for at least 2 minutes.",
-        ],
-        "acceptance": [
-            "No leakage during the final leak test.",
-        ],
-        "retest_logic": "Retest per 5.5.",
-        "practical_notes": [
-            "Installation temperature limits may differ from operating temperature limits.",
-        ],
-    },
-    "RAPID_DECOMP": {
-        "when_required": "Only for gas or multiphase service where the selected PV is susceptible.",
-        "specimen_count": "1 selected PV specimen",
-        "api_clause": "API 15S 5.3.7 and Annex B",
-        "external_standard": "API 15S Annex B",
-        "conditioning_required": "No separate bend preconditioning specified",
-        "conditioning_steps": [
-            "Select the PV with the highest susceptibility to rapid decompression damage.",
-            "Run the decompression test at maximum design temperature using Annex B laboratory method.",
-        ],
-        "core_process": [
-            "Inspect for collapse, blistering, cover blow-off, and disbondment after decompression.",
-        ],
-        "acceptance": [
-            "No collapse, blistering, or cover blow-off.",
-            "No disbondment beyond manufacturer acceptance criteria.",
-        ],
-        "retest_logic": "Not intended for gas or multiphase service if unsuccessful; check class or service applicability.",
-        "practical_notes": [
-            "Pipe not intended for gas or multiphase service must be clearly marked accordingly.",
-        ],
-    },
-    "OPERATING_MBR": {
-        "when_required": "Always where operating MBR confirmation is required.",
-        "specimen_count": "2 specimens",
-        "api_clause": "API 15S 5.3.8.1",
-        "external_standard": "Follow-on test: 5.3.4.2",
-        "conditioning_required": "Yes",
-        "conditioning_steps": [
-            "Place the specimen in a fixture at the operating MBR.",
-            "No prior bend cycles are required unless triggered elsewhere.",
-        ],
-        "core_process": [
-            "Hold the specimen at operating MBR during the 1000-hour follow-on proof test.",
-        ],
-        "acceptance": [
-            "Pass the follow-on 1000-hour proof test or an allowed alternative on PVs if justified.",
-        ],
-        "retest_logic": "Retest per 5.5.",
-        "practical_notes": [
-            "This is the actual confirmation of installed / pressurized bend capability.",
-        ],
-    },
-    "HANDLING_MBR": {
-        "when_required": "Only if handling MBR is smaller than operating MBR.",
-        "specimen_count": "2 qualification specimens",
-        "api_clause": "API 15S 5.3.8.2",
-        "external_standard": "Uses 5.3.8.1 follow-on test",
-        "conditioning_required": "Yes",
-        "conditioning_steps": [
-            "Pre-bend the specimen to handling MBR.",
-            "Then hold at operating MBR during the 1000-hour proof test.",
-        ],
-        "core_process": [
-            "Perform the operating MBR confirmation of 5.3.8.1 after handling-MBR preconditioning.",
-        ],
-        "acceptance": [
-            "Pass the follow-on proof test.",
-        ],
-        "retest_logic": "If unsuccessful, all PFR MPR specimens must be preconditioned to handling MBR before full qualification.",
-        "practical_notes": [
-            "If handling MBR is greater than or equal to operating MBR, no extra preconditioning step beyond 5.3.8.1 is needed.",
-        ],
-    },
-    "HANDLING_AND_SPOOLING": {
-        "when_required": "Always for PFR where handling/spooling damage screening is required.",
-        "specimen_count": "2 PFR specimens",
-        "api_clause": "API 15S 5.3.8.3",
-        "external_standard": "Follow-on test: 5.3.4.2",
-        "conditioning_required": "Yes",
-        "conditioning_steps": [
-            "Precondition 2 PFR specimens with 10 bending cycles to operating MBR or smaller.",
-            "If handling MBR is smaller than operating MBR, 1 of the 10 cycles shall be at handling MBR.",
-        ],
-        "core_process": [
-            "After preconditioning, run the 1000-hour follow-on proof test.",
-        ],
-        "acceptance": [
-            "Pass the follow-on 1000-hour proof test.",
-        ],
-        "retest_logic": "If unsuccessful, or if preferred, full PFR qualification specimens shall be conditioned with 1 cycle at qualification MBR and full PFR qualification repeated.",
-        "practical_notes": [
-            "This is a key durability / damage-screening step before full PFR qualification.",
-        ],
-    },
-    "RESPOOLING": {
-        "when_required": "Only if respooling is allowed / claimed.",
-        "specimen_count": "2 PFR specimens",
-        "api_clause": "API 15S 5.3.8.4",
-        "external_standard": "Follow-on test: 5.3.4.2",
-        "conditioning_required": "Yes",
-        "conditioning_steps": [
-            "Precondition 2 PFR specimens to the stated allowable number of cycles at the applicable respooling MBR.",
-        ],
-        "core_process": [
-            "After respooling preconditioning, run the 1000-hour follow-on proof test.",
-        ],
-        "acceptance": [
-            "Pass the follow-on 1000-hour proof test.",
-        ],
-        "retest_logic": "If unsuccessful, all PFR MPR specimens must be preconditioned to respooling MBR before full qualification per 5.3.2.",
-        "practical_notes": [
-            "If respooling cycles are 10 or more and respooling MBR is less than or equal to operating MBR, this can also satisfy 5.3.8.3.",
-        ],
-    },
-    "AXIAL_LOAD": {
-        "when_required": "Always where installation load conditioning applies.",
-        "specimen_count": "2 specimens",
-        "api_clause": "API 15S 5.3.9",
-        "external_standard": "Follow-on test: 5.3.4.2 or 5.3.4.2 burst alternative if justified",
-        "conditioning_required": "Yes (axial load conditioning)",
-        "conditioning_steps": [
-            "If installation uses pulling pipe with attached fittings / couplings, test the assembled pipe body.",
-            "Apply allowable axial tension load at less than or equal to 50% of the lowest measured or calculated failure tension.",
-            "Reach target load in 1 to 20 minutes and hold for at least 1 hour with no internal pressure.",
-        ],
-        "core_process": [
-            "Run the 1000-hour follow-on proof test after axial load conditioning.",
-        ],
-        "acceptance": [
-            "Pass the follow-on 1000-hour proof test.",
-        ],
-        "retest_logic": "Retest per 5.5.",
-        "practical_notes": [
-            "This is conditioning before proof testing, not bend preconditioning.",
-        ],
-    },
-    "CRUSH": {
-        "when_required": "Mandatory only for selected PV characterization cases.",
-        "specimen_count": "3 specimens",
-        "api_clause": "API 15S 5.3.10",
-        "external_standard": "ASTM D2412",
-        "conditioning_required": "No specific preconditioning stated",
-        "conditioning_steps": [
-            "No specific conditioning step defined beyond approved setup preparation.",
-        ],
-        "core_process": [
-            "Characterize external load performance using ASTM D2412 with 3 specimens that may be cut from the same pipe.",
-        ],
-        "acceptance": [
-            "Characterization data shall be obtained per ASTM D2412.",
-        ],
-        "retest_logic": "No special retest language beyond general engineering disposition.",
-        "practical_notes": [
-            "This frames the characterization rather than a detailed pass/fail formula in the clause.",
-        ],
-    },
-    "LAOT": {
-        "when_required": "Mandatory for listed PV boundaries.",
-        "specimen_count": "2 specimens",
-        "api_clause": "API 15S 5.3.11",
-        "external_standard": "API 15S procedure",
-        "conditioning_required": "Yes (temperature conditioning)",
-        "conditioning_steps": [
-            "Condition specimen to steady state at LAOT and hold for at least 2.5 hours.",
-        ],
-        "core_process": [
-            "Use only field-fittings qualified by the pipe manufacturer.",
-            "Then perform leak test at MPR for at least 60 minutes.",
-            "Then perform leak test at 150 psi +/- 50 psi for at least 10 minutes at LAOT.",
-        ],
-        "acceptance": [
-            "All specimens shall survive without leakage for the full test period.",
-        ],
-        "retest_logic": "Retest per 5.5.",
-        "practical_notes": [
-            "Use only qualified field-fittings.",
-        ],
-    },
-    "IMPACT": {
-        "when_required": "Always for listed PFR / PV boundaries.",
-        "specimen_count": "2 specimens",
-        "api_clause": "API 15S 5.3.12",
-        "external_standard": "ASTM D2444 Tup B or equivalent; follow-on 5.3.4.2",
-        "conditioning_required": "Yes (test at lowest allowable installation temperature)",
-        "conditioning_steps": [
-            "Condition the specimens to the lowest allowable installation temperature before impact.",
-        ],
-        "core_process": [
-            "Impact 2 specimens using applicable sections of ASTM D2444 Tup B or equivalent.",
-            "After impact, run the 1000-hour follow-on proof test.",
-            "Inspect the cover for breach.",
-        ],
-        "acceptance": [
-            "Follow-on proof test shall pass.",
-            "The cover shall not be breached.",
-        ],
-        "retest_logic": "Retest per 5.5.",
-        "practical_notes": [
-            "Impact energy / report can help establish deployment-condition impact resistance.",
-        ],
-    },
-    "TEC": {
-        "when_required": "Always for listed PFR / PV boundaries.",
-        "specimen_count": "2 specimens",
-        "api_clause": "API 15S 5.3.13",
-        "external_standard": "API 15S procedure",
-        "conditioning_required": "Optional",
-        "conditioning_steps": [
-            "Specimens may be preconditioned if desired or needed by the manufacturer; document the method if used.",
-        ],
-        "core_process": [
-            "Use specimen length greater than or equal to 6 x nominal diameter.",
-            "Measure axial thermal expansion coefficient over at least 50 F (28 C) range.",
-            "Measurements shall be conducted unpressurized and at NPR as required by the design basis.",
-            "Where OD clearance is critical, determine hoop TEC.",
-        ],
-        "acceptance": [
-            "Measured and reported TEC values shall be established.",
-        ],
-        "retest_logic": "No explicit pass/fail formula in the clause; use results in design and installation basis.",
-        "practical_notes": [
-            "API notes that preconditioning may affect TEC for some designs.",
-        ],
-    },
-    "GROWTH": {
-        "when_required": "Always for listed PFR / PV boundaries.",
-        "specimen_count": "2 specimens",
-        "api_clause": "API 15S 5.3.14",
-        "external_standard": "API 15S procedure",
-        "conditioning_required": "No specific preconditioning stated",
-        "conditioning_steps": [
-            "No separate conditioning is specified beyond approved preparation and setup.",
-        ],
-        "core_process": [
-            "Use specimen length greater than or equal to 6 x nominal diameter.",
-            "Measure change in length and diameter from ambient to expected field hydrotest pressure or included pressure condition.",
-            "Keep specimen unconstrained so values represent likely field behavior.",
-        ],
-        "acceptance": [
-            "Measured and reported growth / shrinkage values shall be established.",
-        ],
-        "retest_logic": "No explicit pass/fail formula in the clause; use results for installation and restraint design.",
-        "practical_notes": [
-            "Useful for anchor spacing, tie-in movement, and field hydrotest planning.",
-        ],
-    },
-    "CYCLIC_REG": {
-        "when_required": "Only if the product is intended for cyclic service.",
-        "specimen_count": "Per Annex D / at least 18 pipe regression points plus 2 preconditioned burst specimens where required",
-        "api_clause": "API 15S 5.3.16 and Annex D",
-        "external_standard": "Annex D; ASTM D2992-18 Procedure A; ASTM E466 / ASTM D3479 route for reinforcement materials",
-        "conditioning_required": "Conditional",
-        "conditioning_steps": [
-            "Confirm the product is intended for cyclic service (>7000 cycles and dP/NPR >= 6%).",
-            "Choose cyclic route for pipe, reinforcement, or material validation as applicable.",
-            "Precondition at least 2 pipe specimens with field-fittings to the allowable number of cycles at MAOT where required for the service-factor check.",
-        ],
-        "core_process": [
-            "For pipe route, regression requires at least 18 points at MAOT with Annex D exceptions.",
-            "Apply service factor <= 0.1 to cycles from LCL where required.",
-            "Run the preconditioned burst check after establishing the cyclic regression basis where applicable.",
-        ],
-        "acceptance": [
-            "Final preconditioned burst result is reported but is not itself a direct pass/fail criterion.",
-        ],
-        "retest_logic": "If retest is failed in the screening step, full cyclic regression testing is required.",
-        "practical_notes": [
-            "Only include this row in qualification planning when cyclic service is claimed or expected.",
-        ],
-    },
-}
-
+    
 def get_specimen_prep(test_code: str):
     key = (test_code or '').strip().lower()
     base = {
@@ -3506,6 +3078,7 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
     specimen_lifecycle = _specimen_lifecycle_summary(specimens)
     progress = _test_progress_snapshot(test, specimens, attachments)
     generated_report_document_type = _preferred_generated_document_type(test.code)
+    generated_report_options = _generated_report_options(test.code)
 
     return TEMPLATES.TemplateResponse(
         request,
@@ -3529,6 +3102,7 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
             'material_options': material_options,
             'mpr_test': mpr_test,
             'generated_report_document_type': generated_report_document_type,
+            'generated_report_options': generated_report_options,
         }
     )
 
@@ -3952,6 +3526,8 @@ def rnd_generate_test_report(
     guidance = get_test_guidance(test.code, test)
     evidence = _evidence_status(test.code, attachments)
 
+    safe_document_type = (document_type or '').strip().upper() or _preferred_generated_document_type(test.code)
+
     saved = _save_generated_test_report_docx(
         program=program,
         test=test,
@@ -3960,9 +3536,10 @@ def rnd_generate_test_report(
         attachments=attachments,
         evidence=evidence,
         materials=materials,
+        document_type=safe_document_type,
     )
 
-    safe_document_type = (document_type or '').strip().upper() or _preferred_generated_document_type(test.code)
+    safe_title = (title or '').strip() or _auto_report_title(test, safe_document_type)
     safe_reference_no = (reference_no or '').strip() or _auto_report_reference(program, test)
     safe_title = (title or '').strip() or f"{test.title or test.code or 'Qualification Test'} Report"
 
