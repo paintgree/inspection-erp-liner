@@ -8,6 +8,9 @@ from typing import Optional, List
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, File
 from fastapi.responses import RedirectResponse, FileResponse
+from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Pt
 from fastapi.templating import Jinja2Templates
 from sqlmodel import SQLModel, Field, Session, select
 from pathlib import Path
@@ -89,7 +92,270 @@ def _save_rnd_upload(program_id: int, uploaded_file: UploadFile) -> dict:
         "content_type": content_type,
         "file_size_bytes": size_bytes,
     }
+def _fmt_date(value) -> str:
+    if not value:
+        return "-"
+    try:
+        return value.strftime("%Y-%m-%d")
+    except Exception:
+        return str(value)
 
+def _fmt_datetime(value) -> str:
+    if not value:
+        return "-"
+    try:
+        return value.strftime("%Y-%m-%d %H:%M UTC")
+    except Exception:
+        return str(value)
+
+def _fmt_number(value, digits: int = 2) -> str:
+    if value is None or value == "":
+        return "-"
+    try:
+        return f"{float(value):,.{digits}f}"
+    except Exception:
+        return str(value)
+
+def _fmt_bool(value) -> str:
+    return "Yes" if bool(value) else "No"
+
+def _preferred_generated_document_type(test_code: str) -> str:
+    code = (test_code or "").strip().upper()
+    if code in {"MPR_REG", "CYCLIC_REG"}:
+        return "REGRESSION_REPORT"
+    if code in {
+        "PV_1000H",
+        "TEMP_ELEV",
+        "TEMP_CYCLE",
+        "RAPID_DECOMP",
+        "OPERATING_MBR",
+        "AXIAL_LOAD",
+        "CRUSH",
+        "LAOT",
+        "IMPACT",
+        "TEC",
+        "GROWTH",
+    }:
+        return "RESULT_SHEET"
+    return "TEST_REPORT"
+
+def _auto_report_reference(program: RndQualificationProgram, test: RndQualificationTest) -> str:
+    stamp = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    code = (program.program_code or f"PROGRAM-{program.id}").replace(" ", "-")
+    test_code = (test.code or "TEST").replace(" ", "-")
+    return f"RND-{code}-{test_code}-{stamp}"
+
+def _save_generated_test_report_docx(
+    *,
+    program: RndQualificationProgram,
+    test: RndQualificationTest,
+    guidance: dict,
+    specimens: list,
+    attachments: list,
+    evidence: dict,
+    materials: list,
+) -> dict:
+    target_dir = _program_upload_dir(program.id)
+    stored_name = f"{uuid.uuid4().hex}.docx"
+    target_path = target_dir / stored_name
+
+    doc = Document()
+    normal_style = doc.styles["Normal"]
+    normal_style.font.name = "Arial"
+    normal_style.font.size = Pt(9)
+
+    title = doc.add_heading(f"{(test.title or 'Qualification Test').strip()} Report", level=0)
+    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    subtitle = doc.add_paragraph()
+    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    subtitle.add_run(f"Program: {program.program_code or '-'} | Test Code: {test.code or '-'}").bold = True
+    subtitle.add_run(f"\nGenerated: {_fmt_datetime(datetime.utcnow())}")
+
+    doc.add_heading("1. Qualification summary", level=1)
+    summary = doc.add_table(rows=0, cols=2)
+    summary.style = "Table Grid"
+    for label, value in [
+        ("Program code", program.program_code or "-"),
+        ("Program title", program.title or "-"),
+        ("Qualification standard", program.qualification_standard or "-"),
+        ("Route", program.pfr_or_pv or "-"),
+        ("Nominal size (in)", _fmt_number(program.nominal_size_in)),
+        ("NPR (MPa)", _fmt_number(program.npr_mpa)),
+        ("MAOT (°C)", _fmt_number(program.maot_c)),
+        ("LAOT (°C)", _fmt_number(program.laot_c)),
+        ("Service medium", program.service_medium or "-"),
+        ("Test code", test.code or "-"),
+        ("Test title", test.title or "-"),
+        ("Clause reference", test.clause_ref or "-"),
+        ("Status", test.status or "-"),
+        ("Result summary", test.result_summary or "-"),
+    ]:
+        cells = summary.add_row().cells
+        cells[0].text = label
+        cells[1].text = str(value)
+
+    doc.add_heading("2. Test guidance and acceptance basis", level=1)
+    for label, value in [
+        ("When required", guidance.get("when_required", "")),
+        ("Specimen count", guidance.get("specimen_count", "")),
+        ("API clause", guidance.get("api_clause", "")),
+        ("External standard", guidance.get("external_standard", "")),
+        ("Conditioning required", guidance.get("conditioning_required", "")),
+        ("Retest logic", guidance.get("retest_logic", "")),
+    ]:
+        p = doc.add_paragraph()
+        p.add_run(f"{label}: ").bold = True
+        p.add_run(value or "-")
+
+    for heading, items in [
+        ("Conditioning steps", guidance.get("conditioning_steps", [])),
+        ("Core process", guidance.get("core_process", [])),
+        ("Acceptance criteria", guidance.get("acceptance", [])),
+        ("Practical notes", guidance.get("practical_notes", [])),
+    ]:
+        doc.add_paragraph(heading, style="List Bullet")
+        if items:
+            for item in items:
+                doc.add_paragraph(str(item), style="List Bullet 2")
+        else:
+            doc.add_paragraph("-", style="List Bullet 2")
+
+    doc.add_heading("3. Material register", level=1)
+    material_table = doc.add_table(rows=1, cols=6)
+    material_table.style = "Table Grid"
+    headers = ["Component", "Material", "Manufacturer", "Grade", "Batch / Lot", "Status"]
+    for idx, h in enumerate(headers):
+        material_table.rows[0].cells[idx].text = h
+
+    if materials:
+        for m in materials:
+            row = material_table.add_row().cells
+            row[0].text = m.component or "-"
+            row[1].text = m.material_name or "-"
+            row[2].text = m.manufacturer_name or "-"
+            row[3].text = m.grade_name or "-"
+            row[4].text = " / ".join([x for x in [m.batch_ref, m.lot_ref] if x]) or "-"
+            row[5].text = m.status or "-"
+    else:
+        row = material_table.add_row().cells
+        row[0].text = "No materials recorded"
+        for idx in range(1, 6):
+            row[idx].text = "-"
+
+    doc.add_heading("4. Specimen execution record", level=1)
+    specimen_table = doc.add_table(rows=1, cols=10)
+    specimen_table.style = "Table Grid"
+    specimen_headers = [
+        "Specimen ID",
+        "Date",
+        "Material ref",
+        "Planned P (MPa)",
+        "Actual P (MPa)",
+        "Hours",
+        "Cycles",
+        "Result",
+        "QA review",
+        "Failure mode",
+    ]
+    for idx, h in enumerate(specimen_headers):
+        specimen_table.rows[0].cells[idx].text = h
+
+    if specimens:
+        for s in specimens:
+            row = specimen_table.add_row().cells
+            row[0].text = s.specimen_id or "-"
+            row[1].text = _fmt_date(s.sample_date)
+            row[2].text = s.material_ref or "-"
+            row[3].text = _fmt_number(s.planned_pressure_mpa)
+            row[4].text = _fmt_number(s.actual_pressure_at_failure_mpa)
+            row[5].text = _fmt_number(s.failure_hours)
+            row[6].text = _fmt_number(s.failure_cycles)
+            row[7].text = s.result_status or "-"
+            row[8].text = s.qa_review_status or "-"
+            row[9].text = s.failure_mode or "-"
+    else:
+        row = specimen_table.add_row().cells
+        row[0].text = "No specimens recorded"
+        for idx in range(1, 10):
+            row[idx].text = "-"
+
+    if specimens:
+        doc.add_heading("5. Detailed specimen observations", level=1)
+        for idx, s in enumerate(specimens, start=1):
+            p = doc.add_paragraph()
+            p.add_run(f"{idx}. {s.specimen_id or f'Specimen {idx}'}").bold = True
+
+            details = [
+                f"Batch ref: {s.batch_ref or '-'}",
+                f"Source pipe ref: {s.source_pipe_ref or '-'}",
+                f"Preparation rule: {s.preparation_rule_basis or '-'}",
+                f"Conditioning complete: {_fmt_bool(s.conditioning_complete)}",
+                f"Pre-test visual OK: {_fmt_bool(s.pretest_visual_ok)}",
+                f"Released for test: {_fmt_bool(s.released_for_test)}",
+                f"Failure location: {s.failure_location or '-'}",
+                f"Failure description: {s.failure_description or '-'}",
+                f"Leak observation: {s.leak_observation or '-'}",
+                f"Notes: {s.notes or '-'}",
+            ]
+            for item in details:
+                doc.add_paragraph(item, style="List Bullet 2")
+
+    doc.add_heading("6. Evidence package status", level=1)
+    evidence_table = doc.add_table(rows=1, cols=3)
+    evidence_table.style = "Table Grid"
+    for idx, h in enumerate(["Document type", "Required", "Present"]):
+        evidence_table.rows[0].cells[idx].text = h
+
+    for row_data in evidence.get("rows", []):
+        row = evidence_table.add_row().cells
+        row[0].text = row_data.get("document_type", "-")
+        row[1].text = "Yes" if row_data.get("document_type") in evidence.get("required", []) else "No"
+        row[2].text = "Yes" if row_data.get("present") else "No"
+
+    missing = evidence.get("missing", [])
+    p = doc.add_paragraph()
+    p.add_run("Missing evidence items: ").bold = True
+    p.add_run(", ".join(missing) if missing else "None")
+
+    doc.add_heading("7. Attachment register", level=1)
+    attachment_table = doc.add_table(rows=1, cols=6)
+    attachment_table.style = "Table Grid"
+    for idx, h in enumerate(["Title", "Type", "Source", "Status", "Signed", "File name"]):
+        attachment_table.rows[0].cells[idx].text = h
+
+    if attachments:
+        for a in attachments:
+            row = attachment_table.add_row().cells
+            row[0].text = a.title or "-"
+            row[1].text = a.document_type or "-"
+            row[2].text = a.source_mode or "-"
+            row[3].text = a.approval_status or "-"
+            row[4].text = _fmt_bool(a.is_signed_copy)
+            row[5].text = a.original_filename or "-"
+    else:
+        row = attachment_table.add_row().cells
+        row[0].text = "No attachments recorded"
+        for idx in range(1, 6):
+            row[idx].text = "-"
+
+    doc.add_heading("8. Approval / close-out note", level=1)
+    close_note = doc.add_paragraph()
+    close_note.add_run("Readiness for closure: ").bold = True
+    if specimens and not missing and (test.result_summary or "").strip():
+        close_note.add_run("Ready for technical review and issue.")
+    else:
+        close_note.add_run("Not yet ready for closure. Complete missing evidence, specimen execution, or result summary first.")
+
+    doc.save(target_path)
+
+    return {
+        "original_filename": _safe_filename(f"{(program.program_code or 'program')}_{(test.code or 'test')}_report.docx"),
+        "stored_filename": stored_name,
+        "file_path": str(target_path),
+        "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "file_size_bytes": target_path.stat().st_size,
+    }
 DEFAULT_SPECIMEN_RULE = {
     "min_specimens": "As defined by the applicable qualification test requirement.",
     "minimum_cut_length": "Specimens shall be cut on the basis of total cut length and shall not be cut to active or effective test length only.",
@@ -3209,11 +3475,8 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
     if int(program_id) != int(test.program_id):
         raise HTTPException(400, 'Test does not belong to this program')
 
-
-
-
     prep = get_specimen_prep(test.code)
-    guidance = get_test_guidance(test.code)
+    guidance = get_test_guidance(test.code, test)
 
     specimens = session.exec(
         select(RndQualificationSpecimen)
@@ -3242,6 +3505,7 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
     specimen_state = _specimen_readiness(specimens, prep)
     specimen_lifecycle = _specimen_lifecycle_summary(specimens)
     progress = _test_progress_snapshot(test, specimens, attachments)
+    generated_report_document_type = _preferred_generated_document_type(test.code)
 
     return TEMPLATES.TemplateResponse(
         request,
@@ -3264,6 +3528,7 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
             'materials': materials,
             'material_options': material_options,
             'mpr_test': mpr_test,
+            'generated_report_document_type': generated_report_document_type,
         }
     )
 
@@ -3644,6 +3909,94 @@ def rnd_update_test_specimen(
         url=f'/rnd/qualifications/{program_id}/tests/{test_id}?tab=specimens&specimen_id={specimen.id}',
         status_code=303,
     )
+
+@router.post('/qualifications/{program_id}/tests/{test_id}/generate-report')
+def rnd_generate_test_report(
+    program_id: int,
+    test_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+    title: str = Form(''),
+    reference_no: str = Form(''),
+    document_type: str = Form(''),
+    approval_status: str = Form('PENDING'),
+):
+    program = session.get(RndQualificationProgram, program_id)
+    if not program:
+        raise HTTPException(404, 'Program not found')
+
+    test = session.get(RndQualificationTest, test_id)
+    if not test or test.program_id != program_id:
+        raise HTTPException(404, 'Test not found')
+
+    specimens = session.exec(
+        select(RndQualificationSpecimen)
+        .where(RndQualificationSpecimen.program_id == program_id)
+        .where(RndQualificationSpecimen.test_id == test_id)
+        .order_by(RndQualificationSpecimen.created_at.asc())
+    ).all()
+
+    attachments = session.exec(
+        select(RndAttachmentRegister)
+        .where(RndAttachmentRegister.program_id == program_id)
+        .where(RndAttachmentRegister.test_id == test_id)
+        .order_by(RndAttachmentRegister.created_at.asc())
+    ).all()
+
+    materials = session.exec(
+        select(RndMaterialQualification)
+        .where(RndMaterialQualification.program_id == program_id)
+        .order_by(RndMaterialQualification.component.asc(), RndMaterialQualification.id.asc())
+    ).all()
+
+    guidance = get_test_guidance(test.code, test)
+    evidence = _evidence_status(test.code, attachments)
+
+    saved = _save_generated_test_report_docx(
+        program=program,
+        test=test,
+        guidance=guidance,
+        specimens=specimens,
+        attachments=attachments,
+        evidence=evidence,
+        materials=materials,
+    )
+
+    safe_document_type = (document_type or '').strip().upper() or _preferred_generated_document_type(test.code)
+    safe_reference_no = (reference_no or '').strip() or _auto_report_reference(program, test)
+    safe_title = (title or '').strip() or f"{test.title or test.code or 'Qualification Test'} Report"
+
+    row = RndAttachmentRegister(
+        program_id=program_id,
+        test_id=test_id,
+        category='REPORT',
+        document_type=safe_document_type,
+        title=safe_title,
+        reference_no=safe_reference_no,
+        file_note='System-generated technical report based on current program, specimen, and evidence records.',
+        is_mandatory=False,
+        uploaded_by_name=(getattr(user, 'display_name', '') or getattr(user, 'username', '') or ''),
+        approval_status=(approval_status or 'PENDING').strip().upper(),
+        original_filename=saved['original_filename'],
+        stored_filename=saved['stored_filename'],
+        file_path=saved['file_path'],
+        content_type=saved['content_type'],
+        file_size_bytes=saved['file_size_bytes'],
+        source_mode='GENERATED',
+        is_signed_copy=False,
+    )
+    session.add(row)
+
+    test.status = 'IN_PROGRESS' if (test.status or '').upper() == 'PLANNED' else test.status
+    _touch_row(test)
+    session.add(test)
+
+    _touch_program(program)
+    session.add(program)
+
+    session.commit()
+    return RedirectResponse(url=f'/rnd/qualifications/{program_id}/tests/{test_id}?tab=evidence', status_code=303)
+
 @router.post('/qualifications/{program_id}/tests/{test_id}/attachments/new')
 def rnd_add_test_attachment(
     program_id: int,
