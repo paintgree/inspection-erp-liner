@@ -2492,7 +2492,7 @@ def rnd_create_program(
 def rnd_program_view(program_id: int, request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
     from sqlmodel import text
 
-    row = session.exec(
+    program_row = session.exec(
         text("""
             SELECT
                 id,
@@ -2528,44 +2528,40 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
         """).bindparams(program_id=program_id)
     ).first()
 
-    if not row:
+    if not program_row:
         raise HTTPException(404, 'Program not found')
 
-    class ProgramViewRow:
+    class RowObj:
         def __init__(self, r):
-            self.id = r.id
-            self.program_code = r.program_code
-            self.title = r.title
-            self.program_type = r.program_type
-            self.qualification_standard = r.qualification_standard
-            self.nominal_size_in = r.nominal_size_in
-            self.npr_mpa = r.npr_mpa
-            self.maot_c = r.maot_c
-            self.laot_c = r.laot_c
-            self.pfr_or_pv = r.pfr_or_pv
-            self.parent_program_id = r.parent_program_id
-            self.pfr_reference_code = r.pfr_reference_code
-            self.service_medium = r.service_medium
-            self.service_factor = r.service_factor
-            self.intended_service = r.intended_service
-            self.product_family = r.product_family
-            self.reinforcement_type = r.reinforcement_type
-            self.liner_material = r.liner_material
-            self.reinforcement_material = r.reinforcement_material
-            self.cover_material = r.cover_material
-            self.custom_requirements = r.custom_requirements
-            self.custom_acceptance_criteria = r.custom_acceptance_criteria
-            self.status = r.status
-            self.notes = r.notes
-            self.created_by_name = r.created_by_name
-            self.created_at = r.created_at
-            self.updated_at = r.updated_at
-            self.is_archived = bool(r.is_archived)
+            self.__dict__.update(dict(r._mapping))
 
-    program = ProgramViewRow(row)
+    program = RowObj(program_row)
 
+    test_rows = session.exec(
+        text("""
+            SELECT
+                id,
+                program_id,
+                sort_order,
+                clause_ref,
+                code,
+                title,
+                description,
+                specimen_requirement,
+                specimen_count,
+                applicability,
+                COALESCE(scope_tag, 'BOTH') AS scope_tag,
+                COALESCE(source_standard, 'API_15S') AS source_standard,
+                status,
+                result_summary
+            FROM rndqualificationtest
+            WHERE program_id = :program_id
+            ORDER BY sort_order ASC, id ASC
+        """).bindparams(program_id=program_id)
+    ).all()
+    tests = [RowObj(r) for r in test_rows]
 
-    specimens = session.exec(
+    specimen_rows = session.exec(
         text("""
             SELECT *
             FROM rndqualificationspecimen
@@ -2573,8 +2569,9 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
             ORDER BY created_at DESC
         """).bindparams(program_id=program_id)
     ).all()
+    specimens = [RowObj(r) for r in specimen_rows]
 
-    materials = session.exec(
+    material_rows = session.exec(
         text("""
             SELECT *
             FROM rndmaterialqualification
@@ -2582,6 +2579,26 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
             ORDER BY id ASC
         """).bindparams(program_id=program_id)
     ).all()
+    materials = [RowObj(r) for r in material_rows]
+
+    attachment_rows = session.exec(
+        text("""
+            SELECT *
+            FROM rndattachmentregister
+            WHERE program_id = :program_id
+            ORDER BY created_at DESC
+        """).bindparams(program_id=program_id)
+    ).all()
+    attachments = [RowObj(r) for r in attachment_rows]
+
+    counts = {'PLANNED': 0, 'IN_PROGRESS': 0, 'PASSED': 0, 'FAILED': 0, 'WAIVED': 0, 'COMPLETE': 0}
+    for t in tests:
+        key = (getattr(t, 'status', 'PLANNED') or 'PLANNED').upper()
+        counts[key] = counts.get(key, 0) + 1
+
+    total_tests = len(tests)
+    done_tests = counts.get('PASSED', 0) + counts.get('WAIVED', 0) + counts.get('COMPLETE', 0)
+    progress_pct = int(round((done_tests / total_tests) * 100)) if total_tests else 0
 
     return TEMPLATES.TemplateResponse(
         request,
@@ -2595,18 +2612,19 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
             'materials': materials,
             'material_tests': [],
             'material_dashboard': [],
-            'attachments': [],
+            'attachments': attachments,
             'static_reg': {'count': 0, 'required_minimum': 18, 'warning': ''},
             'cyclic_reg': {'count': 0, 'required_minimum': 18, 'warning': ''},
-            'counts': {'PLANNED': 0, 'IN_PROGRESS': 0, 'PASSED': 0, 'FAILED': 0, 'WAIVED': 0},
-            'progress_pct': 0,
+            'counts': counts,
+            'progress_pct': progress_pct,
             'guide': _qualification_guide(program),
             'phase_cards': [],
             'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC,
             'rcrt_hours': RCRT_HOURS,
-            'qual_is_other': ((program.program_type or 'API_15S').strip().upper() == 'OTHER'),
+            'qual_is_other': ((getattr(program, 'program_type', 'API_15S') or 'API_15S').strip().upper() == 'OTHER'),
         }
     )
+    
 @router.post('/qualifications/{program_id}/status')
 def rnd_update_program_status(program_id: int, status: str = Form(...), session: Session = Depends(get_session), user: User = Depends(_require_user)):
     program = session.get(RndQualificationProgram, program_id)
