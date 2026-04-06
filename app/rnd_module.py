@@ -3802,18 +3802,19 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
     test = session.get(RndQualificationTest, test_id)
     if not test:
         raise HTTPException(404, 'Test not found')
-    
+
     program = session.get(RndQualificationProgram, test.program_id)
+    if not program:
+        raise HTTPException(404, 'Program not found')
+
+    if int(program_id) != int(test.program_id):
+        raise HTTPException(400, 'Test does not belong to this program')
+
     mpr_test = session.exec(
         select(RndQualificationTest)
         .where(RndQualificationTest.program_id == program_id)
         .where(RndQualificationTest.code == 'MPR_REG')
     ).first()
-    if not program:
-        raise HTTPException(404, 'Program not found')
-    
-    if int(program_id) != int(test.program_id):
-        raise HTTPException(400, 'Test does not belong to this program')
 
     prep = get_specimen_prep(test.code)
     guidance = get_test_guidance(test.code, test)
@@ -3837,6 +3838,7 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
         .where(RndMaterialQualification.program_id == program_id)
         .order_by(RndMaterialQualification.component.asc(), RndMaterialQualification.id.asc())
     ).all()
+
     material_options = _material_reference_options(materials)
 
     execution = _execution_requirements(test.code)
@@ -3845,8 +3847,59 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
     specimen_state = _specimen_readiness(specimens, prep)
     specimen_lifecycle = _specimen_lifecycle_summary(specimens)
     progress = _test_progress_snapshot(test, specimens, attachments)
+
     generated_report_document_type = _preferred_generated_document_type(test.code)
     generated_report_options = _generated_report_options(test.code)
+
+    attachment_map = {}
+    for a in attachments:
+        key = (a.document_type or '').strip().upper()
+        if key and key not in attachment_map:
+            attachment_map[key] = a
+
+    evidence_rows = []
+    seen_doc_types = set()
+
+    for row in evidence.get("rows", []):
+        doc_type = (row.get("document_type") or "").strip().upper()
+        seen_doc_types.add(doc_type)
+        matched = attachment_map.get(doc_type)
+
+        evidence_rows.append({
+            "title": matched.title if matched and matched.title else doc_type.replace("_", " ").title(),
+            "reference_no": matched.reference_no if matched else "PENDING_ENTRY",
+            "document_type": doc_type,
+            "approval_status": matched.approval_status if matched else "PENDING",
+            "requirement_label": "Mandatory" if doc_type in evidence.get("required", []) else "Optional",
+            "is_required": doc_type in evidence.get("required", []),
+            "source_mode": matched.source_mode if matched else "",
+            "is_signed_copy": bool(matched.is_signed_copy) if matched else False,
+            "file_name": matched.original_filename if matched and matched.original_filename else "",
+            "attachment_id": matched.id if matched else None,
+            "present": bool(matched),
+            "is_extra": False,
+        })
+
+    extras = []
+    for a in attachments:
+        doc_type = (a.document_type or '').strip().upper()
+        if doc_type not in seen_doc_types:
+            extras.append({
+                "title": a.title or doc_type.replace("_", " ").title() or "Other file",
+                "reference_no": a.reference_no or "",
+                "document_type": doc_type or "OTHER",
+                "approval_status": a.approval_status or "PENDING",
+                "requirement_label": "Extra",
+                "is_required": False,
+                "source_mode": a.source_mode or "",
+                "is_signed_copy": bool(a.is_signed_copy),
+                "file_name": a.original_filename or "",
+                "attachment_id": a.id,
+                "present": True,
+                "is_extra": True,
+            })
+
+    evidence_rows.extend(extras)
 
     return TEMPLATES.TemplateResponse(
         request,
@@ -3862,6 +3915,7 @@ def rnd_test_detail(program_id: int, test_id: int, request: Request, session: Se
             'execution': execution,
             'acceptance': acceptance,
             'evidence': evidence,
+            'evidence_rows': evidence_rows,
             'specimen_state': specimen_state,
             'specimen_lifecycle': specimen_lifecycle,
             'progress': progress,
