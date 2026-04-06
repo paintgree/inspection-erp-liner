@@ -628,6 +628,9 @@ def apply_rnd_schema_patches():
         "ALTER TABLE rndqualificationprogram ADD COLUMN IF NOT EXISTS service_factor DOUBLE PRECISION DEFAULT 1.0;",
         "ALTER TABLE rndqualificationprogram ADD COLUMN IF NOT EXISTS custom_requirements TEXT DEFAULT '';",
         "ALTER TABLE rndqualificationprogram ADD COLUMN IF NOT EXISTS custom_acceptance_criteria TEXT DEFAULT '';",
+        "ALTER TABLE rndqualificationprogram ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE;",
+        "ALTER TABLE rndqualificationprogram ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP NULL;",
+        "ALTER TABLE rndqualificationprogram ADD COLUMN IF NOT EXISTS archived_by_name TEXT DEFAULT '';",
 
         "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS scope_tag VARCHAR(50) DEFAULT 'BOTH';",
         "ALTER TABLE rndqualificationtest ADD COLUMN IF NOT EXISTS source_standard VARCHAR(50) DEFAULT 'API_15S';",
