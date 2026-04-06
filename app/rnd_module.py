@@ -2565,30 +2565,6 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
     program = ProgramViewRow(row)
 
 
-    tests = session.exec(
-        text("""
-            SELECT
-                id,
-                program_id,
-                sort_order,
-                clause_ref,
-                code,
-                title,
-                description,
-                specimen_requirement,
-                COALESCE(specimen_count, NULL) AS specimen_count,
-                applicability,
-                COALESCE(scope_tag, 'BOTH') AS scope_tag,
-                COALESCE(source_standard, 'API_15S') AS source_standard,
-                status,
-                result_summary
-            FROM rndqualificationtest
-            WHERE program_id = :program_id
-            ORDER BY sort_order ASC, id ASC
-        """),
-        {"program_id": program_id}
-    ).all()
-
     specimens = session.exec(
         text("""
             SELECT *
