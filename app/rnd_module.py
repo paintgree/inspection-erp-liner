@@ -2134,21 +2134,92 @@ def _active_stage(program: RndQualificationProgram, materials: List[RndMaterialQ
 
 @router.get('/qualifications')
 def rnd_dashboard(request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
+    from sqlmodel import text
+
+    rows = session.exec(
+        text("""
+            SELECT
+                id,
+                program_code,
+                title,
+                nominal_size_in,
+                npr_mpa,
+                maot_c,
+                pfr_or_pv,
+                program_type,
+                qualification_standard,
+                service_medium,
+                intended_service,
+                status,
+                COALESCE(is_archived, FALSE) AS is_archived,
+                updated_at
+            FROM rndqualificationprogram
+            ORDER BY updated_at DESC, id DESC
+        """)
+    ).all()
+
+    class DashboardProgram:
+        def __init__(self, row):
+            self.id = row.id
+            self.program_code = row.program_code
+            self.title = row.title
+            self.nominal_size_in = row.nominal_size_in
+            self.npr_mpa = row.npr_mpa
+            self.maot_c = row.maot_c
+            self.pfr_or_pv = row.pfr_or_pv
+            self.program_type = row.program_type
+            self.qualification_standard = row.qualification_standard
+            self.service_medium = row.service_medium
+            self.intended_service = row.intended_service
+            self.status = row.status
+            self.is_archived = bool(row.is_archived)
+
+    dashboard = []
+    active_count = 0
+    archived_count = 0
+
+    for row in rows:
+        program = DashboardProgram(row)
+
+        if program.is_archived:
+            archived_count += 1
+        else:
+            active_count += 1
+
+        flow_name = 'review'
+        status_key = (program.status or 'DRAFT').strip().upper()
+        if status_key in {'DRAFT', 'PLANNED'}:
+            flow_name = 'materials'
+        elif status_key in {'IN_PROGRESS', 'ACTIVE'}:
+            flow_name = 'regression'
+        elif status_key in {'COMPLETE', 'CLOSED', 'APPROVED'}:
+            flow_name = 'review'
+
+        dashboard.append({
+            "program": program,
+            "flow": {
+                "current": flow_name,
+                "progress_pct": 35 if flow_name == 'materials' else (75 if flow_name == 'regression' else 100),
+            },
+        })
+
     return TEMPLATES.TemplateResponse(
         request=request,
         name='rnd_dashboard.html',
         context={
             'request': request,
             'user': user,
-            'dashboard': [],
+            'dashboard': dashboard,
             'guide': _qualification_guide(),
             'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC,
             'rcrt_hours': RCRT_HOURS,
             'view': 'all',
-            'active_count': 0,
-            'archived_count': 0,
+            'active_count': active_count,
+            'archived_count': archived_count,
         },
     )
+
+
 @router.get('/qualifications/new')
 def rnd_new_program_form(request: Request, user: User = Depends(_require_user)):
     return TEMPLATES.TemplateResponse(request,'rnd_program_form.html', {'request': request, 'user': user})
