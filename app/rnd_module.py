@@ -2736,6 +2736,86 @@ def rnd_edit_program(
     return RedirectResponse(url=f'/rnd/qualifications/{program.id}', status_code=303)
     
 
+@router.get('/qualifications/{program_id}/tests/{test_id}/guidance-edit')
+def rnd_test_guidance_edit_page(
+    program_id: int,
+    test_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+):
+    program = session.get(RndQualificationProgram, program_id)
+    if not program:
+        raise HTTPException(404, 'Program not found')
+
+    test = session.get(RndQualificationTest, test_id)
+    if not test or test.program_id != program_id:
+        raise HTTPException(404, 'Test not found')
+
+    guidance = get_test_guidance(test.code, test)
+
+    return TEMPLATES.TemplateResponse(
+        request=request,
+        name='rnd_test_guidance_edit.html',
+        context={
+            'request': request,
+            'user': user,
+            'program': program,
+            'test': test,
+            'guidance': guidance,
+        },
+    )
+
+
+@router.post('/qualifications/{program_id}/tests/{test_id}/guidance-edit')
+def rnd_test_guidance_edit_save(
+    program_id: int,
+    test_id: int,
+    session: Session = Depends(get_session),
+    user: User = Depends(_require_user),
+
+    specimen_count: Optional[int] = Form(None),
+    when_required: str = Form(''),
+    api_clause: str = Form(''),
+    external_standard: str = Form(''),
+    conditioning_required: str = Form(''),
+    conditioning_steps: str = Form(''),
+    core_process: str = Form(''),
+    acceptance: str = Form(''),
+    retest_logic: str = Form(''),
+    practical_notes: str = Form(''),
+):
+    program = session.get(RndQualificationProgram, program_id)
+    if not program:
+        raise HTTPException(404, 'Program not found')
+
+    test = session.get(RndQualificationTest, test_id)
+    if not test or test.program_id != program_id:
+        raise HTTPException(404, 'Test not found')
+
+    test.specimen_count = specimen_count
+    if specimen_count is not None and specimen_count > 0:
+        unit = 'specimen' if specimen_count == 1 else 'specimens'
+        test.specimen_requirement = f'{specimen_count} {unit}'
+
+    test.guidance_when_required_override = (when_required or '').strip()
+    test.guidance_specimen_count_override = test.specimen_requirement or ''
+    test.guidance_api_clause_override = (api_clause or '').strip()
+    test.guidance_external_standard_override = (external_standard or '').strip()
+    test.guidance_conditioning_required_override = (conditioning_required or '').strip()
+    test.guidance_conditioning_steps_override = (conditioning_steps or '').strip()
+    test.guidance_core_process_override = (core_process or '').strip()
+    test.guidance_acceptance_override = (acceptance or '').strip()
+    test.guidance_retest_logic_override = (retest_logic or '').strip()
+    test.guidance_practical_notes_override = (practical_notes or '').strip()
+    test.updated_at = datetime.utcnow()
+
+    session.add(test)
+    session.commit()
+
+    return RedirectResponse(url=f'/rnd/qualifications/{program_id}', status_code=303)
+    
+
 @router.post('/qualifications/{program_id}/tests/{test_id}')
 def rnd_update_test(program_id: int, test_id: int, status: str = Form(...), result_summary: str = Form(''), session: Session = Depends(get_session), user: User = Depends(_require_user)):
     test = session.get(RndQualificationTest, test_id)
