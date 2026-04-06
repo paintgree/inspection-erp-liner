@@ -92,6 +92,171 @@ def _save_rnd_upload(program_id: int, uploaded_file: UploadFile) -> dict:
         "content_type": content_type,
         "file_size_bytes": size_bytes,
     }
+
+    
+def get_specimen_prep(test_code: str):
+    key = (test_code or '').strip().lower()
+    base = {
+        **DEFAULT_SPECIMEN_RULE,
+        "marking_requirements": list(DEFAULT_SPECIMEN_RULE["marking_requirements"]),
+        "visual_acceptance": list(DEFAULT_SPECIMEN_RULE["visual_acceptance"]),
+        "technician_tips": list(DEFAULT_SPECIMEN_RULE["technician_tips"]),
+        "release_checks": list(DEFAULT_SPECIMEN_RULE["release_checks"]),
+        "preconditioning": {
+            **DEFAULT_SPECIMEN_RULE["preconditioning"],
+            "minimum_process": list(DEFAULT_SPECIMEN_RULE["preconditioning"]["minimum_process"]),
+            "records_required": list(DEFAULT_SPECIMEN_RULE["preconditioning"]["records_required"]),
+        },
+    }
+    override = SPECIMEN_PREP_RULES.get(key, {})
+    for k, v in override.items():
+        if isinstance(v, dict) and k in base and isinstance(base[k], dict):
+            merged = dict(base[k]); merged.update(v); base[k] = merged
+        else:
+            base[k] = v
+    return base
+
+
+def get_test_guidance(test_code: str, test_row: Optional["RndQualificationTest"] = None) -> dict:
+    code = (test_code or "").strip().upper()
+    base = TEST_GUIDANCE.get(code, {
+        "when_required": "Refer to the approved qualification basis.",
+        "specimen_count": "As required by the approved route.",
+        "api_clause": "",
+        "external_standard": "",
+        "conditioning_required": "Refer to applicable procedure",
+        "conditioning_steps": ["Refer to the approved procedure and setup instructions."],
+        "core_process": ["Perform the test in accordance with the approved method."],
+        "acceptance": ["Apply the approved acceptance basis."],
+        "retest_logic": "Follow the approved retest logic.",
+        "practical_notes": [],
+    })
+
+    enriched = {
+        "when_required": base.get("when_required", ""),
+        "specimen_count": base.get("specimen_count", ""),
+        "api_clause": base.get("api_clause", ""),
+        "external_standard": base.get("external_standard", ""),
+        "conditioning_required": base.get("conditioning_required", ""),
+        "conditioning_steps": list(base.get("conditioning_steps", [])),
+        "core_process": list(base.get("core_process", [])),
+        "acceptance": list(base.get("acceptance", [])),
+        "retest_logic": base.get("retest_logic", ""),
+        "practical_notes": list(base.get("practical_notes", [])),
+    }
+
+    if test_row:
+        if (test_row.guidance_when_required_override or "").strip():
+            enriched["when_required"] = test_row.guidance_when_required_override.strip()
+
+        if (test_row.guidance_specimen_count_override or "").strip():
+            enriched["specimen_count"] = test_row.guidance_specimen_count_override.strip()
+        elif test_row.specimen_count is not None and test_row.specimen_count > 0:
+            unit = "specimen" if test_row.specimen_count == 1 else "specimens"
+            enriched["specimen_count"] = f"{test_row.specimen_count} {unit}"
+        elif (test_row.specimen_requirement or "").strip():
+            enriched["specimen_count"] = test_row.specimen_requirement.strip()
+
+        if (test_row.guidance_api_clause_override or "").strip():
+            enriched["api_clause"] = test_row.guidance_api_clause_override.strip()
+
+        if (test_row.guidance_external_standard_override or "").strip():
+            enriched["external_standard"] = test_row.guidance_external_standard_override.strip()
+
+        if (test_row.guidance_conditioning_required_override or "").strip():
+            enriched["conditioning_required"] = test_row.guidance_conditioning_required_override.strip()
+
+        if (test_row.guidance_conditioning_steps_override or "").strip():
+            enriched["conditioning_steps"] = [
+                line.strip() for line in test_row.guidance_conditioning_steps_override.splitlines() if line.strip()
+            ]
+
+        if (test_row.guidance_core_process_override or "").strip():
+            enriched["core_process"] = [
+                line.strip() for line in test_row.guidance_core_process_override.splitlines() if line.strip()
+            ]
+
+        if (test_row.guidance_acceptance_override or "").strip():
+            enriched["acceptance"] = [
+                line.strip() for line in test_row.guidance_acceptance_override.splitlines() if line.strip()
+            ]
+
+        if (test_row.guidance_retest_logic_override or "").strip():
+            enriched["retest_logic"] = test_row.guidance_retest_logic_override.strip()
+
+        if (test_row.guidance_practical_notes_override or "").strip():
+            enriched["practical_notes"] = [
+                line.strip() for line in test_row.guidance_practical_notes_override.splitlines() if line.strip()
+            ]
+
+    test_procedure = []
+    for item in enriched.get("conditioning_steps", []):
+        test_procedure.append(item)
+    for item in enriched.get("core_process", []):
+        test_procedure.append(item)
+
+    operator_checks = [
+        "Verify specimen identity, batch traceability, and test assignment before setup.",
+        "Confirm the applicable fittings, fixtures, and calibrated instruments are available.",
+        "Confirm conditioning has been completed where required.",
+        "Record setup condition before applying load, pressure, temperature, or cycling.",
+        "Capture any abnormal observation immediately and do not rely on memory after the test.",
+    ]
+
+    records_to_capture = [
+        "Specimen ID",
+        "Operator / witness",
+        "Date and time",
+        "Applied setup / fixture basis",
+        "Pressure / temperature / time / cycles as applicable",
+        "Observed failure mode or survival condition",
+        "Acceptance decision",
+    ]
+
+    if code == "MPR_REG":
+        records_to_capture.extend([
+            "Failure hours",
+            "Pressure at failure",
+            "Failure location",
+            "Permissible / excluded failure decision",
+        ])
+    elif code == "PV_1000H":
+        records_to_capture.extend([
+            "Hold pressure",
+            "Elapsed hours",
+            "Leak / survival result",
+        ])
+    elif code == "TEMP_CYCLE":
+        records_to_capture.extend([
+            "Cycle range",
+            "Cycle count",
+            "Leak / post-cycle condition",
+        ])
+    elif code == "RAPID_DECOMP":
+        records_to_capture.extend([
+            "Soak pressure",
+            "Soak duration",
+            "Decompression result",
+            "Damage / blister / disbondment observation",
+        ])
+    elif code == "IMPACT":
+        records_to_capture.extend([
+            "Impact setup / energy",
+            "Post-impact condition",
+            "Follow-up proof result",
+        ])
+    elif code in {"AXIAL_LOAD", "AXIAL"}:
+        records_to_capture.extend([
+            "Applied axial load",
+            "Hold duration",
+            "Post-load proof result",
+        ])
+
+    enriched["test_procedure"] = test_procedure
+    enriched["operator_checks"] = operator_checks
+    enriched["records_to_capture"] = records_to_capture
+    return enriched
+
 def _fmt_date(value) -> str:
     if not value:
         return "-"
@@ -481,169 +646,6 @@ def _save_generated_test_report_docx(
         "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "file_size_bytes": target_path.stat().st_size,
     }
-    
-def get_specimen_prep(test_code: str):
-    key = (test_code or '').strip().lower()
-    base = {
-        **DEFAULT_SPECIMEN_RULE,
-        "marking_requirements": list(DEFAULT_SPECIMEN_RULE["marking_requirements"]),
-        "visual_acceptance": list(DEFAULT_SPECIMEN_RULE["visual_acceptance"]),
-        "technician_tips": list(DEFAULT_SPECIMEN_RULE["technician_tips"]),
-        "release_checks": list(DEFAULT_SPECIMEN_RULE["release_checks"]),
-        "preconditioning": {
-            **DEFAULT_SPECIMEN_RULE["preconditioning"],
-            "minimum_process": list(DEFAULT_SPECIMEN_RULE["preconditioning"]["minimum_process"]),
-            "records_required": list(DEFAULT_SPECIMEN_RULE["preconditioning"]["records_required"]),
-        },
-    }
-    override = SPECIMEN_PREP_RULES.get(key, {})
-    for k, v in override.items():
-        if isinstance(v, dict) and k in base and isinstance(base[k], dict):
-            merged = dict(base[k]); merged.update(v); base[k] = merged
-        else:
-            base[k] = v
-    return base
-
-
-def get_test_guidance(test_code: str, test_row: Optional["RndQualificationTest"] = None) -> dict:
-    code = (test_code or "").strip().upper()
-    base = TEST_GUIDANCE.get(code, {
-        "when_required": "Refer to the approved qualification basis.",
-        "specimen_count": "As required by the approved route.",
-        "api_clause": "",
-        "external_standard": "",
-        "conditioning_required": "Refer to applicable procedure",
-        "conditioning_steps": ["Refer to the approved procedure and setup instructions."],
-        "core_process": ["Perform the test in accordance with the approved method."],
-        "acceptance": ["Apply the approved acceptance basis."],
-        "retest_logic": "Follow the approved retest logic.",
-        "practical_notes": [],
-    })
-
-    enriched = {
-        "when_required": base.get("when_required", ""),
-        "specimen_count": base.get("specimen_count", ""),
-        "api_clause": base.get("api_clause", ""),
-        "external_standard": base.get("external_standard", ""),
-        "conditioning_required": base.get("conditioning_required", ""),
-        "conditioning_steps": list(base.get("conditioning_steps", [])),
-        "core_process": list(base.get("core_process", [])),
-        "acceptance": list(base.get("acceptance", [])),
-        "retest_logic": base.get("retest_logic", ""),
-        "practical_notes": list(base.get("practical_notes", [])),
-    }
-
-    if test_row:
-        if (test_row.guidance_when_required_override or "").strip():
-            enriched["when_required"] = test_row.guidance_when_required_override.strip()
-
-        if (test_row.guidance_specimen_count_override or "").strip():
-            enriched["specimen_count"] = test_row.guidance_specimen_count_override.strip()
-        elif test_row.specimen_count is not None and test_row.specimen_count > 0:
-            unit = "specimen" if test_row.specimen_count == 1 else "specimens"
-            enriched["specimen_count"] = f"{test_row.specimen_count} {unit}"
-        elif (test_row.specimen_requirement or "").strip():
-            enriched["specimen_count"] = test_row.specimen_requirement.strip()
-
-        if (test_row.guidance_api_clause_override or "").strip():
-            enriched["api_clause"] = test_row.guidance_api_clause_override.strip()
-
-        if (test_row.guidance_external_standard_override or "").strip():
-            enriched["external_standard"] = test_row.guidance_external_standard_override.strip()
-
-        if (test_row.guidance_conditioning_required_override or "").strip():
-            enriched["conditioning_required"] = test_row.guidance_conditioning_required_override.strip()
-
-        if (test_row.guidance_conditioning_steps_override or "").strip():
-            enriched["conditioning_steps"] = [
-                line.strip() for line in test_row.guidance_conditioning_steps_override.splitlines() if line.strip()
-            ]
-
-        if (test_row.guidance_core_process_override or "").strip():
-            enriched["core_process"] = [
-                line.strip() for line in test_row.guidance_core_process_override.splitlines() if line.strip()
-            ]
-
-        if (test_row.guidance_acceptance_override or "").strip():
-            enriched["acceptance"] = [
-                line.strip() for line in test_row.guidance_acceptance_override.splitlines() if line.strip()
-            ]
-
-        if (test_row.guidance_retest_logic_override or "").strip():
-            enriched["retest_logic"] = test_row.guidance_retest_logic_override.strip()
-
-        if (test_row.guidance_practical_notes_override or "").strip():
-            enriched["practical_notes"] = [
-                line.strip() for line in test_row.guidance_practical_notes_override.splitlines() if line.strip()
-            ]
-
-    test_procedure = []
-    for item in enriched.get("conditioning_steps", []):
-        test_procedure.append(item)
-    for item in enriched.get("core_process", []):
-        test_procedure.append(item)
-
-    operator_checks = [
-        "Verify specimen identity, batch traceability, and test assignment before setup.",
-        "Confirm the applicable fittings, fixtures, and calibrated instruments are available.",
-        "Confirm conditioning has been completed where required.",
-        "Record setup condition before applying load, pressure, temperature, or cycling.",
-        "Capture any abnormal observation immediately and do not rely on memory after the test.",
-    ]
-
-    records_to_capture = [
-        "Specimen ID",
-        "Operator / witness",
-        "Date and time",
-        "Applied setup / fixture basis",
-        "Pressure / temperature / time / cycles as applicable",
-        "Observed failure mode or survival condition",
-        "Acceptance decision",
-    ]
-
-    if code == "MPR_REG":
-        records_to_capture.extend([
-            "Failure hours",
-            "Pressure at failure",
-            "Failure location",
-            "Permissible / excluded failure decision",
-        ])
-    elif code == "PV_1000H":
-        records_to_capture.extend([
-            "Hold pressure",
-            "Elapsed hours",
-            "Leak / survival result",
-        ])
-    elif code == "TEMP_CYCLE":
-        records_to_capture.extend([
-            "Cycle range",
-            "Cycle count",
-            "Leak / post-cycle condition",
-        ])
-    elif code == "RAPID_DECOMP":
-        records_to_capture.extend([
-            "Soak pressure",
-            "Soak duration",
-            "Decompression result",
-            "Damage / blister / disbondment observation",
-        ])
-    elif code == "IMPACT":
-        records_to_capture.extend([
-            "Impact setup / energy",
-            "Post-impact condition",
-            "Follow-up proof result",
-        ])
-    elif code in {"AXIAL_LOAD", "AXIAL"}:
-        records_to_capture.extend([
-            "Applied axial load",
-            "Hold duration",
-            "Post-load proof result",
-        ])
-
-    enriched["test_procedure"] = test_procedure
-    enriched["operator_checks"] = operator_checks
-    enriched["records_to_capture"] = records_to_capture
-    return enriched
 
 def _specimen_lifecycle_summary(specimens: list[RndQualificationSpecimen]) -> dict:
     total = len(specimens)
