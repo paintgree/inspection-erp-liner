@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Edit Test Guidance{% endblock %}
+{% block content %}
+<style>
+.gg-wrap{max-width:1100px;margin:0 auto;display:grid;gap:18px}
+.gg-card{background:#fff;border:1px solid #e5e7eb;border-radius:22px;padding:22px;box-shadow:0 10px 28px rgba(15,23,42,.05)}
+.gg-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.gg-label{display:block;font-size:12px;font-weight:800;color:#334155;margin-bottom:6px}
+.gg-input,.gg-textarea{width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;box-sizing:border-box}
+.gg-textarea{min-height:120px;resize:vertical}
+.gg-actions{display:flex;gap:10px;flex-wrap:wrap}
+@media (max-width:900px){.gg-grid-2{grid-template-columns:1fr}}
+</style>
+
+<div class="gg-wrap">
+  <div class="gg-card">
+    <h1 style="margin-top:0;">Edit Guidance</h1>
+    <div class="muted" style="margin-bottom:14px;">
+      {{ program.program_code }} · {{ test.title }}
+    </div>
+
+    <form method="post" action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/guidance-edit">
+      <div class="gg-grid-2">
+        <div>
+          <label class="gg-label">Specimen Count</label>
+          <input class="gg-input" type="number" min="1" step="1" name="specimen_count" value="{{ test.specimen_count or '' }}">
+        </div>
+        <div>
+          <label class="gg-label">Clause / Basis</label>
+          <input class="gg-input" type="text" name="api_clause" value="{{ guidance.api_clause or '' }}">
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label class="gg-label">When Required</label>
+        <textarea class="gg-textarea" name="when_required">{{ guidance.when_required or '' }}</textarea>
+      </div>
+
+      <div class="gg-grid-2" style="margin-top:14px;">
+        <div>
+          <label class="gg-label">External Standard / Method</label>
+          <input class="gg-input" type="text" name="external_standard" value="{{ guidance.external_standard or '' }}">
+        </div>
+        <div>
+          <label class="gg-label">Conditioning Required</label>
+          <input class="gg-input" type="text" name="conditioning_required" value="{{ guidance.conditioning_required or '' }}">
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label class="gg-label">Conditioning Steps</label>
+        <textarea class="gg-textarea" name="conditioning_steps">{% for x in guidance.conditioning_steps %}{{ x }}
+{% endfor %}</textarea>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label class="gg-label">Core Process</label>
+        <textarea class="gg-textarea" name="core_process">{% for x in guidance.core_process %}{{ x }}
+{% endfor %}</textarea>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label class="gg-label">Acceptance</label>
+        <textarea class="gg-textarea" name="acceptance">{% for x in guidance.acceptance %}{{ x }}
+{% endfor %}</textarea>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label class="gg-label">Retest Logic</label>
+        <textarea class="gg-textarea" name="retest_logic">{{ guidance.retest_logic or '' }}</textarea>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label class="gg-label">Practical Notes</label>
+        <textarea class="gg-textarea" name="practical_notes">{% for x in guidance.practical_notes %}{{ x }}
+{% endfor %}</textarea>
+      </div>
+
+      <div class="gg-actions" style="margin-top:16px;">
+        <button class="btn btn-primary" type="submit">Save Guidance</button>
+        <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
