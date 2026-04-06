@@ -2582,7 +2582,7 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
     ).all()
 
     
-        tests = session.exec(
+    tests = session.exec(
         select(RndQualificationTest)
         .where(RndQualificationTest.program_id == program_id)
         .order_by(RndQualificationTest.sort_order.asc(), RndQualificationTest.id.asc())
