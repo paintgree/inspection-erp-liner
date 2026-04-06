@@ -2581,6 +2581,37 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
         .order_by(RndMaterialTestRecord.test_date.desc(), RndMaterialTestRecord.id.desc())
     ).all()
 
+    
+        tests = session.exec(
+        select(RndQualificationTest)
+        .where(RndQualificationTest.program_id == program_id)
+        .order_by(RndQualificationTest.sort_order.asc(), RndQualificationTest.id.asc())
+    ).all()
+
+    specimens = session.exec(
+        select(RndQualificationSpecimen)
+        .where(RndQualificationSpecimen.program_id == program_id)
+        .order_by(RndQualificationSpecimen.created_at.desc())
+    ).all()
+
+    materials = session.exec(
+        select(RndMaterialQualification)
+        .where(RndMaterialQualification.program_id == program_id)
+        .order_by(RndMaterialQualification.id.asc())
+    ).all()
+
+    attachments = session.exec(
+        select(RndAttachmentRegister)
+        .where(RndAttachmentRegister.program_id == program_id)
+        .order_by(RndAttachmentRegister.created_at.desc())
+    ).all()
+
+    material_tests = session.exec(
+        select(RndMaterialTestRecord)
+        .where(RndMaterialTestRecord.program_id == program_id)
+        .order_by(RndMaterialTestRecord.test_date.desc(), RndMaterialTestRecord.id.desc())
+    ).all()
+
     material_dashboard = _material_dashboard_rows(materials, material_tests, program)
 
     counts = {'PLANNED': 0, 'IN_PROGRESS': 0, 'PASSED': 0, 'FAILED': 0, 'WAIVED': 0, 'COMPLETE': 0}
