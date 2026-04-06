@@ -659,7 +659,7 @@ def get_specimen_prep(test_code: str):
     return base
 
 
-def get_test_guidance(test_code: str) -> dict:
+def get_test_guidance(test_code: str, test_row: Optional["RndQualificationTest"] = None) -> dict:
     code = (test_code or "").strip().upper()
     base = TEST_GUIDANCE.get(code, {
         "when_required": "Refer to the approved qualification basis.",
@@ -674,10 +674,67 @@ def get_test_guidance(test_code: str) -> dict:
         "practical_notes": [],
     })
 
+    enriched = {
+        "when_required": base.get("when_required", ""),
+        "specimen_count": base.get("specimen_count", ""),
+        "api_clause": base.get("api_clause", ""),
+        "external_standard": base.get("external_standard", ""),
+        "conditioning_required": base.get("conditioning_required", ""),
+        "conditioning_steps": list(base.get("conditioning_steps", [])),
+        "core_process": list(base.get("core_process", [])),
+        "acceptance": list(base.get("acceptance", [])),
+        "retest_logic": base.get("retest_logic", ""),
+        "practical_notes": list(base.get("practical_notes", [])),
+    }
+
+    if test_row:
+        if (test_row.guidance_when_required_override or "").strip():
+            enriched["when_required"] = test_row.guidance_when_required_override.strip()
+
+        if (test_row.guidance_specimen_count_override or "").strip():
+            enriched["specimen_count"] = test_row.guidance_specimen_count_override.strip()
+        elif test_row.specimen_count is not None and test_row.specimen_count > 0:
+            unit = "specimen" if test_row.specimen_count == 1 else "specimens"
+            enriched["specimen_count"] = f"{test_row.specimen_count} {unit}"
+        elif (test_row.specimen_requirement or "").strip():
+            enriched["specimen_count"] = test_row.specimen_requirement.strip()
+
+        if (test_row.guidance_api_clause_override or "").strip():
+            enriched["api_clause"] = test_row.guidance_api_clause_override.strip()
+
+        if (test_row.guidance_external_standard_override or "").strip():
+            enriched["external_standard"] = test_row.guidance_external_standard_override.strip()
+
+        if (test_row.guidance_conditioning_required_override or "").strip():
+            enriched["conditioning_required"] = test_row.guidance_conditioning_required_override.strip()
+
+        if (test_row.guidance_conditioning_steps_override or "").strip():
+            enriched["conditioning_steps"] = [
+                line.strip() for line in test_row.guidance_conditioning_steps_override.splitlines() if line.strip()
+            ]
+
+        if (test_row.guidance_core_process_override or "").strip():
+            enriched["core_process"] = [
+                line.strip() for line in test_row.guidance_core_process_override.splitlines() if line.strip()
+            ]
+
+        if (test_row.guidance_acceptance_override or "").strip():
+            enriched["acceptance"] = [
+                line.strip() for line in test_row.guidance_acceptance_override.splitlines() if line.strip()
+            ]
+
+        if (test_row.guidance_retest_logic_override or "").strip():
+            enriched["retest_logic"] = test_row.guidance_retest_logic_override.strip()
+
+        if (test_row.guidance_practical_notes_override or "").strip():
+            enriched["practical_notes"] = [
+                line.strip() for line in test_row.guidance_practical_notes_override.splitlines() if line.strip()
+            ]
+
     test_procedure = []
-    for item in base.get("conditioning_steps", []):
+    for item in enriched.get("conditioning_steps", []):
         test_procedure.append(item)
-    for item in base.get("core_process", []):
+    for item in enriched.get("core_process", []):
         test_procedure.append(item)
 
     operator_checks = [
@@ -737,235 +794,10 @@ def get_test_guidance(test_code: str) -> dict:
             "Post-load proof result",
         ])
 
-    enriched = dict(base)
     enriched["test_procedure"] = test_procedure
     enriched["operator_checks"] = operator_checks
     enriched["records_to_capture"] = records_to_capture
     return enriched
-
-class RndQualificationProgram(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    program_code: str = Field(default="", index=True)
-    title: str = Field(default="", index=True)
-
-    # NEW: generic qualification handling
-    program_type: str = Field(default="API_15S", index=True)  # API_15S / OTHER
-    service_medium: str = Field(default="WATER", index=True)  # WATER / GAS / HYDROCARBON / LIQUIDS
-    service_factor: float = Field(default=1.0)
-
-    product_family: str = Field(default="LLRTP-PE-RT-PET-PE100")
-    qualification_standard: str = Field(default="API 15S R3")
-    reinforcement_type: str = Field(default="NONMETALLIC")
-
-    nominal_size_in: float = Field(default=4.0, index=True)
-    npr_mpa: float = Field(default=10.0)
-    maot_c: float = Field(default=65.0)
-    laot_c: float = Field(default=0.0)
-    design_life_hours: float = Field(default=RCRT_HOURS)
-
-    liner_material: str = Field(default="PE-RT")
-    reinforcement_material: str = Field(default="Polyester Fiber")
-    cover_material: str = Field(default="PE100")
-
-    pfr_or_pv: str = Field(default="PFR")
-    parent_program_id: Optional[int] = Field(default=None, index=True)
-    pfr_reference_code: str = Field(default="")
-
-    intended_service: str = Field(default="Static water service")
-    status: str = Field(default="DRAFT", index=True)
-    is_archived: bool = Field(default=False, index=True)
-    archived_at: Optional[datetime] = Field(default=None)
-    archived_by_name: str = Field(default="")
-    notes: str = Field(default="")
-    created_by_name: str = Field(default="")
-
-    # NEW: for custom qualification programs
-    custom_requirements: str = Field(default="")
-    custom_acceptance_criteria: str = Field(default="")
-
-
-class RndQualificationTest(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    program_id: int = Field(index=True)
-    sort_order: int = Field(default=0)
-    clause_ref: str = Field(default="")
-    code: str = Field(default="")
-    title: str = Field(default="")
-    description: str = Field(default="")
-    specimen_requirement: str = Field(default="")
-    applicability: str = Field(default="")
-    scope_tag: str = Field(default="BOTH", index=True)  # PFR / PV / BOTH / CUSTOM
-    source_standard: str = Field(default="API_15S", index=True)  # API_15S / CUSTOM / CLIENT / INTERNAL
-    status: str = Field(default="PLANNED", index=True)
-    result_summary: str = Field(default="")
-
-
-class RndQualificationSpecimen(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    program_id: int = Field(index=True)
-    test_id: Optional[int] = Field(default=None, index=True)
-
-    specimen_id: str = Field(default="", index=True)
-    test_type: str = Field(default="STATIC_REGRESSION", index=True)
-    sample_date: date = Field(default_factory=date.today)
-
-    scope_tag: str = Field(default="BOTH", index=True)  # PFR / PV / BOTH / CUSTOM
-
-    material_ref: str = Field(default="", index=True)
-    conditioning_required: Optional[bool] = Field(default=None)
-    nominal_size_in: float = Field(default=0.0)
-    confirmed_od_mm: Optional[float] = Field(default=None)
-    preparation_rule_basis: str = Field(default="")
-
-    pressure_mpa: float = Field(default=0.0)
-    temperature_c: float = Field(default=0.0)
-    failure_hours: Optional[float] = Field(default=None)
-    failure_cycles: Optional[float] = Field(default=None)
-
-    failure_mode: str = Field(default="")
-    permissible_failure: bool = Field(default=True)
-    is_runout: bool = Field(default=False)
-    include_in_regression: bool = Field(default=True)
-
-    fitting_type: str = Field(default="Field fitting")
-    lab_name: str = Field(default="")
-    witness_name: str = Field(default="")
-    notes: str = Field(default="")
-
-    batch_ref: str = Field(default="", index=True)
-    source_pipe_ref: str = Field(default="", index=True)
-    cut_by: str = Field(default="")
-    total_cut_length_mm: Optional[float] = Field(default=None)
-    effective_length_mm: Optional[float] = Field(default=None)
-    end_allowance_each_side_mm: Optional[float] = Field(default=None)
-    trimming_margin_mm: Optional[float] = Field(default=None)
-
-    conditioning_complete: bool = Field(default=False)
-    pretest_visual_ok: bool = Field(default=False)
-    released_for_test: bool = Field(default=False)
-
-    planned_pressure_mpa: Optional[float] = Field(default=None)
-    actual_pressure_at_failure_mpa: Optional[float] = Field(default=None)
-    pressure_at_hold_mpa: Optional[float] = Field(default=None)
-    failure_time_sec: Optional[float] = Field(default=None)
-    pre_failure_condition: str = Field(default="")
-    pre_failure_visual: str = Field(default="")
-    post_failure_visual: str = Field(default="")
-    failure_location: str = Field(default="")
-    failure_description: str = Field(default="")
-    leak_observation: str = Field(default="")
-    result_status: str = Field(default="PENDING", index=True)
-    qa_review_status: str = Field(default="PENDING", index=True)
-
-class RndMaterialQualification(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    program_id: int = Field(index=True)
-
-    component: str = Field(default="LINER", index=True)
-    material_name: str = Field(default="")
-    supplier_name: str = Field(default="")
-    manufacturer_name: str = Field(default="")
-    grade_name: str = Field(default="")
-    trade_name: str = Field(default="")
-    certificate_ref: str = Field(default="")
-    batch_ref: str = Field(default="")
-    lot_ref: str = Field(default="")
-    status: str = Field(default="PLANNED", index=True)
-    notes: str = Field(default="")
-
-    standard_ref: str = Field(default="")
-    material_family: str = Field(default="")
-    service_fluid_basis: str = Field(default="")
-    service_notes: str = Field(default="")
-    max_service_temp_c: Optional[float] = Field(default=None)
-    min_service_temp_c: Optional[float] = Field(default=None)
-
-    classification_basis: str = Field(default="")
-    pe_cell_class: str = Field(default="")
-    hdb_basis: str = Field(default="")
-    uv_class: str = Field(default="")
-
-    reinforcement_type: str = Field(default="", index=True)
-    reinforcement_form: str = Field(default="")
-    reinforcement_layer_count: Optional[int] = Field(default=None)
-    reinforcement_layout_notes: str = Field(default="")
-    reinforcement_matrix_material: str = Field(default="")
-    steel_processing_history: str = Field(default="")
-    fiber_sizing_notes: str = Field(default="")
-
-    matrix_material_name: str = Field(default="")
-    matrix_resin_type: str = Field(default="")
-    cure_method: str = Field(default="")
-    tg_min_c: Optional[float] = Field(default=None)
-
-    compatibility_status: str = Field(default="UNKNOWN", index=True)
-    evidence_status: str = Field(default="MISSING", index=True)
-    review_outcome: str = Field(default="MORE_DATA_REQUIRED", index=True)
-    review_summary: str = Field(default="")
-    clarification_required: str = Field(default="")
-    additional_tests_required: str = Field(default="")
-    change_requalification_flag: bool = Field(default=False)
-
-
-class RndMaterialTestRecord(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-    program_id: int = Field(index=True)
-    material_id: int = Field(index=True)
-
-    test_type: str = Field(default="", index=True)
-    standard_ref: str = Field(default="")
-    specimen_ref: str = Field(default="")
-    report_ref: str = Field(default="")
-    lab_name: str = Field(default="")
-    test_date: Optional[date] = Field(default=None)
-
-    result_value: str = Field(default="")
-    result_unit: str = Field(default="")
-    acceptance_basis: str = Field(default="")
-    decision: str = Field(default="PENDING", index=True)
-    notes: str = Field(default="")
-
-class RndAttachmentRegister(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-    program_id: int = Field(index=True)
-    test_id: Optional[int] = Field(default=None, index=True)
-    specimen_id: Optional[int] = Field(default=None, index=True)
-
-    scope_tag: str = Field(default="BOTH", index=True)  # PFR / PV / BOTH / CUSTOM
-
-    category: str = Field(default="REPORT", index=True)
-    title: str = Field(default="")
-    reference_no: str = Field(default="")
-    file_note: str = Field(default="")
-    document_type: str = Field(default="", index=True)
-    is_mandatory: bool = Field(default=False)
-    uploaded_by_name: str = Field(default="")
-    approval_status: str = Field(default="PENDING", index=True)
-
-    original_filename: str = Field(default="")
-    stored_filename: str = Field(default="")
-    file_path: str = Field(default="")
-    content_type: str = Field(default="")
-    file_size_bytes: Optional[int] = Field(default=None)
-    source_mode: str = Field(default="UPLOAD", index=True)  # UPLOAD / GENERATED
-    is_signed_copy: bool = Field(default=False, index=True)
 
 def _specimen_lifecycle_summary(specimens: list[RndQualificationSpecimen]) -> dict:
     total = len(specimens)
@@ -2416,7 +2248,7 @@ def rnd_create_program(
     selected_test_title: List[str] = Form(default=[], alias='selected_test_title[]'),
     selected_test_code: List[str] = Form(default=[], alias='selected_test_code[]'),
     selected_test_clause_ref: List[str] = Form(default=[], alias='selected_test_clause_ref[]'),
-    selected_test_specimen_requirement: List[str] = Form(default=[], alias='selected_test_specimen_requirement[]'),
+    selected_test_specimen_count: List[str] = Form(default=[], alias='selected_test_specimen_count[]'),
     selected_test_scope_tag: List[str] = Form(default=[], alias='selected_test_scope_tag[]'),
     selected_test_source_standard: List[str] = Form(default=[], alias='selected_test_source_standard[]'),
     selected_test_description: List[str] = Form(default=[], alias='selected_test_description[]'),
@@ -2452,7 +2284,7 @@ def rnd_create_program(
         len(selected_test_title),
         len(selected_test_code),
         len(selected_test_clause_ref),
-        len(selected_test_specimen_requirement),
+        len(selected_test_specimen_count),
         len(selected_test_scope_tag),
         len(selected_test_source_standard),
         len(selected_test_description),
@@ -2470,7 +2302,19 @@ def rnd_create_program(
             code_part = f'CUSTOM_{idx + 1}'
 
         clause_part = _safe_list_value(selected_test_clause_ref, idx, 'CUSTOM')
-        specimens_part = _safe_list_value(selected_test_specimen_requirement, idx, 'As required')
+        specimen_count_raw = _safe_list_value(selected_test_specimen_count, idx, '')
+        specimen_count_value = None
+        if specimen_count_raw:
+            try:
+                specimen_count_value = int(float(specimen_count_raw))
+            except Exception:
+                specimen_count_value = None
+
+        if specimen_count_value is not None and specimen_count_value > 0:
+            unit = 'specimen' if specimen_count_value == 1 else 'specimens'
+            specimens_part = f'{specimen_count_value} {unit}'
+        else:
+            specimens_part = 'As required'
         scope_part = _safe_list_value(selected_test_scope_tag, idx, 'CUSTOM').upper()
         source_part = _safe_list_value(selected_test_source_standard, idx, 'CUSTOM').upper()
         desc_part = _safe_list_value(selected_test_description, idx, 'Custom qualification requirement.')
@@ -2486,6 +2330,7 @@ def rnd_create_program(
             'code': code_part,
             'clause_ref': clause_part,
             'specimen_requirement': specimens_part,
+            'specimen_count': specimen_count_value,
             'scope_tag': scope_part,
             'source_standard': source_part,
             'description': desc_part,
@@ -2617,6 +2462,7 @@ def rnd_create_program(
                 title=(item.get('title') or 'Custom Test').strip(),
                 description=(item.get('description') or '').strip(),
                 specimen_requirement=(item.get('specimen_requirement') or 'As required').strip(),
+                specimen_count=item.get('specimen_count'),
                 applicability='CUSTOM',
                 scope_tag=(item.get('scope_tag') or 'CUSTOM').strip().upper(),
                 source_standard=(item.get('source_standard') or 'CUSTOM').strip().upper(),
@@ -2636,7 +2482,8 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
         raise HTTPException(404, 'Program not found')
 
     _seed_test_matrix(session, program)
-    _ensure_complete_test_matrix(session, program)
+    if (program.program_type or 'API_15S') == 'API_15S':
+        _ensure_complete_test_matrix(session, program)
 
     tests = session.exec(
         select(RndQualificationTest)
@@ -2685,7 +2532,7 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
     static_reg = _regression_from_specimens(specimens, 'STATIC_REGRESSION', program.npr_mpa, program.service_factor)
     cyclic_reg = _regression_from_specimens(specimens, 'CYCLIC_REGRESSION', program.npr_mpa)
     counts = _matrix_counts(tests)
-    guide = _qualification_guide(program)
+    guidance = get_test_guidance(test.code, test)
     phase_cards = _phase_cards(program, tests, materials, specimens, attachments)
 
     return TEMPLATES.TemplateResponse(
