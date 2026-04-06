@@ -519,45 +519,97 @@
   display:grid;
   gap:14px;
 }
-.evidence-type-grid{
-  display:grid;
-  grid-template-columns:repeat(2,minmax(0,1fr));
-  gap:10px;
+.evidence-select-help{
+  margin-top:8px;
+  padding:12px 14px;
+  border:1px solid #dbeafe;
+  background:#f8fbff;
+  border-radius:14px;
+  font-size:12px;
+  line-height:1.45;
+  color:#475569;
 }
-.evidence-type-tile{
+.evidence-inline-check{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
   border:1px solid #dbe4f0;
+  border-radius:14px;
+  padding:12px 14px;
+  min-height:58px;
   background:#fff;
-  border-radius:16px;
-  padding:14px 14px;
+}
+.evidence-inline-check .meta{
   display:grid;
-  gap:6px;
-  cursor:pointer;
-  transition:all .18s ease;
+  gap:3px;
 }
-.evidence-type-tile:hover{
-  border-color:#a78bfa;
-  box-shadow:0 10px 20px rgba(124,58,237,.08);
-}
-.evidence-type-tile input{
-  display:none;
-}
-.evidence-type-tile.active-like,
-.evidence-type-tile input:checked + .evidence-type-copy{
-  color:inherit;
-}
-.evidence-type-copy{
-  display:grid;
-  gap:4px;
-}
-.evidence-type-title{
-  font-size:13px;
-  font-weight:900;
+.evidence-inline-check .meta strong{
+  font-size:12px;
   color:#0f172a;
 }
-.evidence-type-sub{
-  font-size:12px;
+.evidence-inline-check .meta span{
+  font-size:11px;
   color:#64748b;
   line-height:1.35;
+}
+.evidence-inline-check input[type="checkbox"]{
+  width:18px;
+  height:18px;
+  margin:0;
+}
+.evidence-row-present{
+  background:#f0fdf4;
+}
+.evidence-row-missing{
+  background:#fffaf5;
+}
+.evidence-row-extra{
+  background:#f8fafc;
+}
+.evidence-pill-source{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:74px;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:800;
+  border:1px solid #dbe4f0;
+  color:#475569;
+  background:#f8fafc;
+}
+.evidence-pill-source.generated{
+  background:#ede9fe;
+  color:#6d28d9;
+  border-color:#ddd6fe;
+}
+.evidence-pill-source.upload{
+  background:#ecfeff;
+  color:#0f766e;
+  border-color:#bae6fd;
+}
+.evidence-pill-signed{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:46px;
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:11px;
+  font-weight:800;
+  border:1px solid #dbe4f0;
+}
+.evidence-pill-signed.yes{
+  background:#ecfdf5;
+  color:#047857;
+  border-color:#bbf7d0;
+}
+.evidence-pill-signed.no{
+  background:#f8fafc;
+  color:#64748b;
+  border-color:#e2e8f0;
 }
 .evidence-generate-note{
   padding:14px 16px;
@@ -1114,59 +1166,36 @@
                 action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/generate-report"
                 class="evidence-generate-form"
                 style="margin-top:14px;">
-
-            <div>
-              <label style="display:grid;gap:8px;font-weight:800;font-size:11px;color:#667085;text-transform:uppercase;letter-spacing:.03em;">
-                Report output
-                <div class="evidence-type-grid">
+          
+            <div class="rnd-form-grid evidence-form-wide">
+              <label class="span-12">Report output
+                <select name="document_type">
                   {% for option in generated_report_options %}
-                  <label class="evidence-type-tile">
-                    <input type="radio"
-                           name="document_type"
-                           value="{{ option.key }}"
-                           {% if option.key == generated_report_document_type %}checked{% endif %}>
-                    <div class="evidence-type-copy">
-                      <div class="evidence-type-title">{{ option.label }}</div>
-                      <div class="evidence-type-sub">
-                        {% if option.key == 'TECHNICAL_REPORT' %}
-                          Full internal report with summary, specimens, materials, evidence, and closeout note
-                        {% elif option.key == 'REGRESSION_REPORT' %}
-                          Regression-oriented report issue for long-term or cyclic regression tests
-                        {% elif option.key == 'REGRESSION_GRAPH' %}
-                          Regression graph issue file prepared from specimen failure data
-                        {% elif option.key == 'RESULT_SHEET' %}
-                          Simple execution/result register for this test
-                        {% elif option.key == 'PRESSURE_LOG' %}
-                          Pressure, hold, and failure log sheet
-                        {% elif option.key == 'DATA_SHEET' %}
-                          Structured test data sheet for dimensional or measured outputs
-                        {% else %}
-                          Generated from the current test context
-                        {% endif %}
-                      </div>
-                    </div>
-                  </label>
+                  <option value="{{ option.key }}" {% if option.key == generated_report_document_type %}selected{% endif %}>
+                    {{ option.label }}
+                  </option>
                   {% endfor %}
+                </select>
+                <div class="evidence-select-help">
+                  Select the report output you want to generate. This will create an internal draft file only. Final signed files from the lab or third party should still be uploaded in the evidence section for audit records.
                 </div>
               </label>
-            </div>
-
-            <div class="rnd-form-grid evidence-form-wide">
+          
               <label class="span-7">Report title
                 <input type="text" name="title" placeholder="Leave empty to auto-generate title from the selected report type">
               </label>
-
+          
               <label class="span-5">Approval status
                 <select name="approval_status">
                   <option value="PENDING">PENDING</option>
                   <option value="APPROVED">APPROVED</option>
                 </select>
               </label>
-
+          
               <label class="span-12">Reference No.
                 <input type="text" name="reference_no" placeholder="Leave empty to auto-generate report reference">
               </label>
-
+          
               <div class="span-12 rnd-form-actions">
                 <button class="btn btn-primary" type="submit">Generate selected report</button>
               </div>
@@ -1220,17 +1249,14 @@
               </select>
             </label>
 
-            <div class="span-2 evidence-checkbox-cell">
-              <div class="evidence-checkbox-card">
-                <div class="evidence-checkbox-text">
-                  <div class="evidence-checkbox-title">Signed copy</div>
-                  <div class="evidence-checkbox-sub">Mark only if this upload is the final signed version</div>
+            <div class="span-2">
+              <label class="evidence-inline-check">
+                <div class="meta">
+                  <strong>Signed copy</strong>
+                  <span>Tick this only when the uploaded file is the final signed or stamped version</span>
                 </div>
-                <label class="evidence-checkbox-toggle">
-                  <input type="checkbox" name="is_signed_copy">
-                  <span class="evidence-checkbox-ui"></span>
-                </label>
-              </div>
+                <input type="checkbox" name="is_signed_copy">
+              </label>
             </div>
 
             <label class="span-6">Title
@@ -1328,66 +1354,99 @@
       </article>
   
       <article class="rnd-card" style="margin-top:18px;">
-        <div class="rnd-card-head evidence-card-head">
+        <div class="rnd-card-head">
           <div>
-            <h3 class="rnd-panel-title" style="margin-bottom:4px;">Uploaded evidence files</h3>
-            <div class="rnd-panel-sub">All uploaded evidence linked to this test</div>
+            <h3 class="rnd-panel-title" style="margin-bottom:4px;">Evidence register</h3>
+            <div class="rnd-panel-sub">
+              One combined view of required evidence items, generated drafts, uploaded signed files, and any extra supporting records
+            </div>
           </div>
         </div>
-  
-        <div style="overflow:auto;">
+      
+        <div class="table-wrap">
           <table class="rnd-table">
             <thead>
               <tr>
                 <th>Title</th>
-                <th>Document Type</th>
-                <th>Source</th>
+                <th>Type</th>
                 <th>Status</th>
-                <th>File Name</th>
+                <th>Requirement</th>
+                <th>Source</th>
                 <th>Signed</th>
+                <th>File</th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody>
-              {% for a in attachments %}
-              <tr>
+              {% for row in evidence_rows %}
+              <tr class="{% if row.present and row.is_required %}evidence-row-present{% elif not row.present and row.is_required %}evidence-row-missing{% elif row.is_extra %}evidence-row-extra{% endif %}">
                 <td>
-                  <strong>{{ a.title or 'Untitled evidence' }}</strong>
-                  <div class="rnd-sub">{{ a.file_note or '-' }}</div>
-                </td>
-                <td><span class="rnd-badge muted">{{ a.document_type or '-' }}</span></td>
-                <td><span class="rnd-badge muted">{{ a.source_mode or 'UPLOAD' }}</span></td>
-                <td>
-                  {% if (a.approval_status or 'PENDING') in ['APPROVED','ACCEPTED'] %}
-                  <span class="rnd-badge ok">{{ a.approval_status }}</span>
-                  {% else %}
-                  <span class="rnd-badge warn">{{ a.approval_status or 'PENDING' }}</span>
-                  {% endif %}
-                </td>
-                <td>{{ a.original_filename or '-' }}</td>
-                <td>
-                  {% if a.is_signed_copy %}
-                  <span class="rnd-badge ok">YES</span>
-                  {% else %}
-                  <span class="rnd-badge muted">NO</span>
-                  {% endif %}
-                </td>
-                <td>
-                  {% if a.file_path %}
-                  <div class="evidence-action-stack">
-                    <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/attachments/{{ a.id }}/download">Download</a>
-                    {% if (a.content_type or '').lower().startswith('application/pdf') %}
-                    <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/attachments/{{ a.id }}/view" target="_blank">View</a>
+                  <strong>{{ row.title }}</strong>
+                  <div class="muted" style="margin-top:2px;">
+                    {% if row.reference_no %}
+                      Ref: {{ row.reference_no }}
+                    {% else %}
+                      No reference
                     {% endif %}
                   </div>
+                </td>
+      
+                <td>
+                  <span class="rnd-badge">{{ row.document_type }}</span>
+                </td>
+      
+                <td>
+                  <span class="status-pill pending">{{ row.approval_status }}</span>
+                </td>
+      
+                <td>
+                  {% if row.is_extra %}
+                    <span class="status-pill neutral">Extra</span>
+                  {% elif row.is_required %}
+                    <span class="status-pill pending">Mandatory</span>
                   {% else %}
-                  <span class="rnd-empty">No file</span>
+                    <span class="status-pill neutral">Optional</span>
                   {% endif %}
                 </td>
-              </tr>
-              {% else %}
-              <tr>
-                <td colspan="7" class="rnd-empty">No uploaded evidence files yet.</td>
+      
+                <td>
+                  {% if row.present %}
+                    <span class="evidence-pill-source {% if (row.source_mode or '').upper() == 'GENERATED' %}generated{% else %}upload{% endif %}">
+                      {{ row.source_mode or 'UPLOAD' }}
+                    </span>
+                  {% else %}
+                    <span class="muted">—</span>
+                  {% endif %}
+                </td>
+      
+                <td>
+                  {% if row.present %}
+                    <span class="evidence-pill-signed {% if row.is_signed_copy %}yes{% else %}no{% endif %}">
+                      {% if row.is_signed_copy %}YES{% else %}NO{% endif %}
+                    </span>
+                  {% else %}
+                    <span class="muted">—</span>
+                  {% endif %}
+                </td>
+      
+                <td>
+                  {% if row.present %}
+                    {{ row.file_name or 'Attached file' }}
+                  {% else %}
+                    <span class="muted">No file</span>
+                  {% endif %}
+                </td>
+      
+                <td>
+                  {% if row.attachment_id %}
+                    <div class="evidence-action-stack">
+                      <a class="btn btn-light btn-sm" href="/rnd/qualifications/{{ program.id }}/attachments/{{ row.attachment_id }}/download">Download</a>
+                      <a class="btn btn-light btn-sm" href="/rnd/qualifications/{{ program.id }}/attachments/{{ row.attachment_id }}/view" target="_blank">View</a>
+                    </div>
+                  {% else %}
+                    <span class="muted">—</span>
+                  {% endif %}
+                </td>
               </tr>
               {% endfor %}
             </tbody>
