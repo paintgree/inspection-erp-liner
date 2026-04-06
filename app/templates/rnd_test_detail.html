@@ -1017,86 +1017,127 @@
         </div>
       </div>
   
-      <article class="rnd-card evidence-upload-card" style="margin-top:18px;">
-        <div class="rnd-card-head evidence-card-head">
-          <div>
-            <h3 class="rnd-panel-title" style="margin-bottom:4px;">Upload evidence file</h3>
-            <div class="rnd-panel-sub">Use this form to upload the real backend file, not only a register row</div>
-          </div>
-          <span class="rnd-badge muted">Multipart upload</span>
-        </div>
-  
-        <form method="post"
-              action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/attachments/new"
-              enctype="multipart/form-data"
-              class="rnd-form-grid evidence-form">
-  
-          <label class="span-3">Category
-            <input type="text" name="category" value="REPORT">
-          </label>
-  
-          <label class="span-3">Document Type
-            <select name="document_type" required>
-              <option value="">Select document type</option>
-              {% for row in evidence.rows %}
-              <option value="{{ row.document_type }}">{{ row.document_type.replace('_',' ').title() }}</option>
-              {% endfor %}
-              <option value="SIGNED_REPORT">Signed Report</option>
-              <option value="THIRD_PARTY_REPORT">Third Party Report</option>
-              <option value="CLIENT_SIGNED_COPY">Client Signed Copy</option>
-              <option value="OTHER">Other</option>
-            </select>
-          </label>
-  
-          <label class="span-3">Approval Status
-            <select name="approval_status">
-              <option value="PENDING">PENDING</option>
-              <option value="APPROVED">APPROVED</option>
-              <option value="REJECTED">REJECTED</option>
-            </select>
-          </label>
-  
-          <label class="span-3">Reference No.
-            <input type="text" name="reference_no" placeholder="Report / log / cert number">
-          </label>
-  
-          <label class="span-6">Title
-            <input type="text" name="title" required placeholder="Example: 1000 Hour Pressure Test Report">
-          </label>
-  
-          <label class="span-3">Source Mode
-            <select name="source_mode">
-              <option value="UPLOAD">UPLOAD</option>
-              <option value="GENERATED">GENERATED</option>
-            </select>
-          </label>
-  
-          <div class="span-3 evidence-checkbox-cell">
-            <div class="evidence-checkbox-card">
-              <div class="evidence-checkbox-text">
-                <div class="evidence-checkbox-title">Signed copy</div>
-                <div class="evidence-checkbox-sub">Use this when the uploaded file is the final signed or stamped version</div>
-              </div>
-              <label class="evidence-checkbox-toggle">
-                <input type="checkbox" name="is_signed_copy">
-                <span class="evidence-checkbox-ui"></span>
-              </label>
+      <div class="rnd-grid" style="margin-top:18px; gap:18px;">
+        <article class="rnd-card evidence-upload-card">
+          <div class="rnd-card-head evidence-card-head">
+            <div>
+              <h3 class="rnd-panel-title" style="margin-bottom:4px;">Generate technical report</h3>
+              <div class="rnd-panel-sub">Create a structured Word report from the current program, test, specimen, material, and evidence records</div>
             </div>
+            <span class="rnd-badge ok">DOCX</span>
           </div>
-  
-          <label class="span-12">Choose File
-            <input type="file" name="uploaded_file" required>
-          </label>
-  
-          <label class="span-12">Notes
-            <textarea name="file_note" rows="3" placeholder="Add notes about source, issuer, reviewer, signature status, or external lab details"></textarea>
-          </label>
-  
-          <div class="span-12 rnd-form-actions">
-            <button class="btn btn-primary" type="submit">Upload evidence</button>
+
+          <div class="rnd-note" style="margin-bottom:14px;">
+            Use this when you want the system to create the test report automatically. The generated report will be saved in the evidence register as a real downloadable file.
           </div>
-        </form>
-      </article>
+
+          <form method="post"
+                action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/generate-report"
+                class="rnd-form-grid evidence-form">
+
+            <input type="hidden" name="document_type" value="{{ generated_report_document_type }}">
+
+            <label class="span-6">Report title
+              <input type="text" name="title" value="{{ test.title or test.code }} Report">
+            </label>
+
+            <label class="span-3">Document type
+              <input type="text" value="{{ generated_report_document_type.replace('_',' ').title() }}" readonly>
+            </label>
+
+            <label class="span-3">Approval status
+              <select name="approval_status">
+                <option value="PENDING">PENDING</option>
+                <option value="APPROVED">APPROVED</option>
+              </select>
+            </label>
+
+            <label class="span-12">Reference No.
+              <input type="text" name="reference_no" placeholder="Leave empty to auto-generate report reference">
+            </label>
+
+            <div class="span-12 rnd-form-actions">
+              <button class="btn btn-primary" type="submit">Generate technical report</button>
+            </div>
+          </form>
+        </article>
+
+        <article class="rnd-card evidence-upload-card">
+          <div class="rnd-card-head evidence-card-head">
+            <div>
+              <h3 class="rnd-panel-title" style="margin-bottom:4px;">Upload external evidence</h3>
+              <div class="rnd-panel-sub">Upload lab reports, certificates, setup photos, logs, signed copies, or other supporting evidence</div>
+            </div>
+            <span class="rnd-badge muted">FILE UPLOAD</span>
+          </div>
+
+          <form method="post"
+                action="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/attachments/new"
+                enctype="multipart/form-data"
+                class="rnd-form-grid evidence-form">
+
+            <input type="hidden" name="source_mode" value="UPLOAD">
+
+            <label class="span-3">Category
+              <input type="text" name="category" value="REPORT">
+            </label>
+
+            <label class="span-3">Document Type
+              <select name="document_type" required>
+                <option value="">Select document type</option>
+                {% for row in evidence.rows %}
+                <option value="{{ row.document_type }}">{{ row.document_type.replace('_',' ').title() }}</option>
+                {% endfor %}
+                <option value="SIGNED_REPORT">Signed Report</option>
+                <option value="THIRD_PARTY_REPORT">Third Party Report</option>
+                <option value="CLIENT_SIGNED_COPY">Client Signed Copy</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </label>
+
+            <label class="span-3">Approval Status
+              <select name="approval_status">
+                <option value="PENDING">PENDING</option>
+                <option value="APPROVED">APPROVED</option>
+                <option value="REJECTED">REJECTED</option>
+              </select>
+            </label>
+
+            <div class="span-3 evidence-checkbox-cell">
+              <div class="evidence-checkbox-card">
+                <div class="evidence-checkbox-text">
+                  <div class="evidence-checkbox-title">Signed copy</div>
+                  <div class="evidence-checkbox-sub">Turn this on only if this file is the final signed or stamped version</div>
+                </div>
+                <label class="evidence-checkbox-toggle">
+                  <input type="checkbox" name="is_signed_copy">
+                  <span class="evidence-checkbox-ui"></span>
+                </label>
+              </div>
+            </div>
+
+            <label class="span-6">Title
+              <input type="text" name="title" required placeholder="Example: 1000 Hour Pressure Test Report">
+            </label>
+
+            <label class="span-6">Reference No.
+              <input type="text" name="reference_no" placeholder="Report / log / cert number">
+            </label>
+
+            <label class="span-12">Choose File
+              <input type="file" name="uploaded_file" required>
+            </label>
+
+            <label class="span-12">Notes
+              <textarea name="file_note" rows="3" placeholder="Add notes about source, issuer, reviewer, signature status, or external lab details"></textarea>
+            </label>
+
+            <div class="span-12 rnd-form-actions">
+              <button class="btn btn-primary" type="submit">Upload evidence file</button>
+            </div>
+          </form>
+        </article>
+      </div>
   
       <article class="rnd-card" style="margin-top:18px;">
         <div class="rnd-card-head evidence-card-head">
