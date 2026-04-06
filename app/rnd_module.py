@@ -2133,43 +2133,14 @@ def _active_stage(program: RndQualificationProgram, materials: List[RndMaterialQ
     }
 
 @router.get('/qualifications')
-def rnd_dashboard(
-    request: Request,
-    view: str = 'active',
-    session: Session = Depends(get_session),
-    user: User = Depends(_require_user),
-):
-    safe_view = (view or 'active').strip().lower()
-    if safe_view not in {'active', 'archived', 'all'}:
-        safe_view = 'active'
-
-    base_query = select(RndQualificationProgram)
-
-    if safe_view == 'active':
-        base_query = base_query.where(RndQualificationProgram.is_archived == False)
-    elif safe_view == 'archived':
-        base_query = base_query.where(RndQualificationProgram.is_archived == True)
-
+def rnd_dashboard(request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
     programs = session.exec(
-        base_query.order_by(RndQualificationProgram.updated_at.desc())
+        select(RndQualificationProgram).order_by(RndQualificationProgram.updated_at.desc())
     ).all()
-
-    active_count = len(
-        session.exec(
-            select(RndQualificationProgram).where(RndQualificationProgram.is_archived == False)
-        ).all()
-    )
-    archived_count = len(
-        session.exec(
-            select(RndQualificationProgram).where(RndQualificationProgram.is_archived == True)
-        ).all()
-    )
 
     dashboard = []
     for program in programs:
-        if not program.is_archived:
-            _ensure_complete_test_matrix(session, program)
-
+        _ensure_complete_test_matrix(session, program)
         materials = session.exec(
             select(RndMaterialQualification)
             .where(RndMaterialQualification.program_id == program.id)
@@ -2201,9 +2172,6 @@ def rnd_dashboard(
             'guide': guide,
             'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC,
             'rcrt_hours': RCRT_HOURS,
-            'view': safe_view,
-            'active_count': active_count,
-            'archived_count': archived_count,
         },
     )
 
