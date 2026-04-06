@@ -483,18 +483,6 @@
     </div>
   </section>
 
-
-
-  
-  <section class="qc-phase">
-    {% for card in phase_cards %}
-    <div class="qc-phase-card">
-      <b>{{ card.name }}</b>
-      <div style="font-weight:800; margin-bottom:6px;">{{ card.status }}</div>
-      <div class="muted">{{ card.detail }}</div>
-    </div>
-    {% endfor %}
-  </section>
  
   <section class="qc-grid">
     <div style="display:grid;gap:18px;">
@@ -523,7 +511,15 @@
         <div class="qc-note" style="margin-bottom:14px;">
           Keep all relevant tests visible. Use color to highlight what is core to qualification, while still allowing service-dependent, range-dependent, and extra engineering tests for stronger records and additional product data.
         </div>
-        
+        <section class="qc-phase qc-phase-monitor" style="margin:0 0 14px 0;">
+          {% for card in phase_cards %}
+          <div class="qc-phase-card">
+            <b>{{ card.name }}</b>
+            <div style="font-weight:800; margin-bottom:6px;">{{ card.status }}</div>
+            <div class="muted">{{ card.detail }}</div>
+          </div>
+          {% endfor %}
+        </section>
         <div class="qc-test-shell">
           <div class="qc-table-wrap">
             <table class="qc-table">
