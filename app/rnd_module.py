@@ -16,7 +16,15 @@ import uuid
 import mimetypes
 
 from .db import get_session
-from .models import User
+from .models import (
+    User,
+    RndQualificationProgram,
+    RndQualificationTest,
+    RndQualificationSpecimen,
+    RndMaterialQualification,
+    RndMaterialTestRecord,
+    RndAttachmentRegister,
+)
 
 router = APIRouter(prefix="/rnd", tags=["R&D Qualification"])
 TEMPLATES = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
