@@ -436,7 +436,7 @@
     <div class="qc-mini">
       <div class="qc-box"><b>Qualified Product</b>{{ program.nominal_size_in }} in / {{ program.npr_mpa }} MPa / {{ program.maot_c }} °C</div>
       <div class="qc-box"><b>Qualification Route</b>{{ program.pfr_or_pv }}{% if program.pfr_reference_code %} · Ref {{ program.pfr_reference_code }}{% endif %}</div>
-      <div class="qc-box"><b>Intended Service</b>{{ program.intended_service or '-' }}</div>
+      <div class="qc-box"><b>Service Medium</b>{{ program.service_medium or '-' }}</div>
       <div class="qc-box"><b>Report Goal</b>Monitor tests, finalize report, then support monogram submission.</div>
     </div>
 
@@ -492,7 +492,13 @@
         <div class="section-head" style="margin-bottom:14px;">
           <div>
             <h2 class="qc-section-title">Test Monitor</h2>
-            <div class="qc-section-subtitle">Full qualification matrix showing required and conditional tests</div>
+            <div class="qc-section-subtitle">
+              {% if (program.program_type or 'API_15S') == 'OTHER' %}
+                Selected qualification test plan for this custom program
+              {% else %}
+                Full qualification matrix showing required and conditional tests
+              {% endif %}
+            </div>
           </div>
         
           {% set scope_filter = (request.query_params.get('scope') or 'ALL').upper() %}
