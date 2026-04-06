@@ -620,7 +620,10 @@
                     </td>
               
                     <td>
-                      <a class="qc-workbench-btn" href="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}">Workbench</a>
+                      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <a class="qc-workbench-btn" href="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}">Workbench</a>
+                        <a class="qc-workbench-btn" href="/rnd/qualifications/{{ program.id }}/tests/{{ test.id }}/guidance-edit">Edit Guidance</a>
+                      </div>
                     </td>
                   </tr>
                   {% endif %}
