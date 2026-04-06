@@ -2525,8 +2525,7 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
                 COALESCE(is_archived, FALSE) AS is_archived
             FROM rndqualificationprogram
             WHERE id = :program_id
-        """),
-        {"program_id": program_id}
+        """).bindparams(program_id=program_id)
     ).first()
 
     if not row:
@@ -2596,8 +2595,7 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
             FROM rndqualificationspecimen
             WHERE program_id = :program_id
             ORDER BY created_at DESC
-        """),
-        {"program_id": program_id}
+        """).bindparams(program_id=program_id)
     ).all()
 
     materials = session.exec(
@@ -2606,8 +2604,7 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
             FROM rndmaterialqualification
             WHERE program_id = :program_id
             ORDER BY id ASC
-        """),
-        {"program_id": program_id}
+        """).bindparams(program_id=program_id)
     ).all()
 
     return TEMPLATES.TemplateResponse(
