@@ -2518,70 +2518,6 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
 
     program = RowObj(program_row)
 
-    test_rows = session.exec(
-        text("""
-            SELECT
-                id,
-                program_id,
-                sort_order,
-                clause_ref,
-                code,
-                title,
-                description,
-                specimen_requirement,
-                specimen_count,
-                applicability,
-                COALESCE(scope_tag, 'BOTH') AS scope_tag,
-                COALESCE(source_standard, 'API_15S') AS source_standard,
-                status,
-                result_summary
-            FROM rndqualificationtest
-            WHERE program_id = :program_id
-            ORDER BY sort_order ASC, id ASC
-        """).bindparams(program_id=program_id)
-    ).all()
-    tests = [RowObj(r) for r in test_rows]
-
-    specimen_rows = session.exec(
-        text("""
-            SELECT *
-            FROM rndqualificationspecimen
-            WHERE program_id = :program_id
-            ORDER BY created_at DESC
-        """).bindparams(program_id=program_id)
-    ).all()
-    specimens = [RowObj(r) for r in specimen_rows]
-
-
-
-    attachment_rows = session.exec(
-        text("""
-            SELECT *
-            FROM rndattachmentregister
-            WHERE program_id = :program_id
-            ORDER BY created_at DESC
-        """).bindparams(program_id=program_id)
-    ).all()
-    attachments = [RowObj(r) for r in attachment_rows]
-
-    counts = {'PLANNED': 0, 'IN_PROGRESS': 0, 'PASSED': 0, 'FAILED': 0, 'WAIVED': 0, 'COMPLETE': 0}
-    for t in tests:
-        key = (getattr(t, 'status', 'PLANNED') or 'PLANNED').upper()
-        counts[key] = counts.get(key, 0) + 1
-
-    total_tests = len(tests)
-    done_tests = counts.get('PASSED', 0) + counts.get('WAIVED', 0) + counts.get('COMPLETE', 0)
-    progress_pct = int(round((done_tests / total_tests) * 100)) if total_tests else 0
-
-    
-
-    material_tests = session.exec(
-        select(RndMaterialTestRecord)
-        .where(RndMaterialTestRecord.program_id == program_id)
-        .order_by(RndMaterialTestRecord.test_date.desc(), RndMaterialTestRecord.id.desc())
-    ).all()
-
-    
     tests = session.exec(
         select(RndQualificationTest)
         .where(RndQualificationTest.program_id == program_id)
@@ -2613,6 +2549,20 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
     ).all()
 
     material_dashboard = _material_dashboard_rows(materials, material_tests, program)
+    phase_cards = _phase_cards(program, tests, materials, specimens, attachments)
+
+    static_reg = _regression_from_specimens(
+        specimens,
+        'STATIC_REGRESSION',
+        getattr(program, 'npr_mpa', 0.0),
+        getattr(program, 'service_factor', 1.0),
+    )
+
+    cyclic_reg = _regression_from_specimens(
+        specimens,
+        'CYCLIC_REGRESSION',
+        getattr(program, 'npr_mpa', 0.0),
+    )
 
     counts = {'PLANNED': 0, 'IN_PROGRESS': 0, 'PASSED': 0, 'FAILED': 0, 'WAIVED': 0, 'COMPLETE': 0}
     for t in tests:
@@ -2636,12 +2586,12 @@ def rnd_program_view(program_id: int, request: Request, session: Session = Depen
             'material_tests': material_tests,
             'material_dashboard': material_dashboard,
             'attachments': attachments,
-            'static_reg': {'count': 0, 'required_minimum': 18, 'warning': ''},
-            'cyclic_reg': {'count': 0, 'required_minimum': 18, 'warning': ''},
+            'static_reg': static_reg,
+            'cyclic_reg': cyclic_reg,
             'counts': counts,
             'progress_pct': progress_pct,
             'guide': _qualification_guide(program),
-            'phase_cards': [],
+            'phase_cards': phase_cards,
             'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC,
             'rcrt_hours': RCRT_HOURS,
             'qual_is_other': ((getattr(program, 'program_type', 'API_15S') or 'API_15S').strip().upper() == 'OTHER'),
