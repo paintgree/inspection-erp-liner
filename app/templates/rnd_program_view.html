@@ -411,8 +411,25 @@
       <div class="qc-actions">
         <span class="qc-chip">{{ program.qualification_standard or 'API 15S' }}</span>
         <span class="qc-chip">{{ program.status.replace('_',' ') }}</span>
+        {% if program.is_archived %}
+          <span class="qc-chip" style="background:#f8fafc;border-color:#cbd5e1;color:#475569;">ARCHIVED</span>
+        {% endif %}
         <a class="btn btn-ghost" href="/rnd/qualifications">Back</a>
-        <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Regression</a>
+
+        {% if not program.is_archived %}
+          <a class="btn btn-primary" href="/rnd/qualifications/{{ program.id }}/regression">Regression</a>
+          <form method="post" action="/rnd/qualifications/{{ program.id }}/archive" style="display:inline;">
+            <button type="submit" class="qc-workbench-btn" style="background:#fff7ed;border-color:#fed7aa;color:#9a3412;">
+              Archive
+            </button>
+          </form>
+        {% else %}
+          <form method="post" action="/rnd/qualifications/{{ program.id }}/restore" style="display:inline;">
+            <button type="submit" class="qc-workbench-btn" style="background:#ecfdf3;border-color:#b7ebcd;color:#027a48;">
+              Restore
+            </button>
+          </form>
+        {% endif %}
       </div>
     </div>
 
