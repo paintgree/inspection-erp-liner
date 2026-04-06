@@ -3659,7 +3659,7 @@ def rnd_add_test_attachment(
     approval_status: str = Form('PENDING'),
     source_mode: str = Form('UPLOAD'),
     is_signed_copy: Optional[str] = Form(None),
-    uploaded_file: UploadFile = File(...),
+    uploaded_file: Optional[UploadFile] = File(None),
 ):
     program = session.get(RndQualificationProgram, program_id)
     if not program:
@@ -3669,7 +3669,44 @@ def rnd_add_test_attachment(
     if not test or test.program_id != program_id:
         raise HTTPException(404, 'Test not found')
 
-    saved = _save_rnd_upload(program_id, uploaded_file)
+    safe_source_mode = (source_mode or 'UPLOAD').strip().upper()
+
+    saved = None
+
+    if safe_source_mode == 'UPLOAD':
+        if uploaded_file is None or not getattr(uploaded_file, 'filename', None):
+            raise HTTPException(400, 'Please choose a file to upload.')
+        saved = _save_rnd_upload(program_id, uploaded_file)
+
+    elif safe_source_mode == 'GENERATED':
+        generated_dir = _program_upload_dir(program_id)
+        generated_name = f"{uuid.uuid4().hex}.txt"
+        generated_path = generated_dir / generated_name
+
+        generated_content = []
+        generated_content.append(f"Qualification Program: {program.program_code} - {program.title}")
+        generated_content.append(f"Test: {test.code} - {test.title}")
+        generated_content.append(f"Clause: {test.clause_ref or ''}")
+        generated_content.append(f"Generated At: {datetime.utcnow().isoformat()} UTC")
+        generated_content.append("")
+        generated_content.append("Result Summary:")
+        generated_content.append(test.result_summary or "No result summary yet.")
+        generated_content.append("")
+        generated_content.append("Guidance:")
+        generated_content.append(get_test_guidance(test.code, test).get("when_required", ""))
+
+        generated_path.write_text("\n".join(generated_content), encoding="utf-8")
+
+        saved = {
+            "original_filename": f"{(test.code or 'report').lower()}_generated_report.txt",
+            "stored_filename": generated_name,
+            "file_path": str(generated_path),
+            "content_type": "text/plain",
+            "file_size_bytes": generated_path.stat().st_size,
+        }
+
+    else:
+        raise HTTPException(400, f'Unsupported source mode: {safe_source_mode}')
 
     row = RndAttachmentRegister(
         program_id=program_id,
@@ -3687,7 +3724,7 @@ def rnd_add_test_attachment(
         file_path=saved["file_path"],
         content_type=saved["content_type"],
         file_size_bytes=saved["file_size_bytes"],
-        source_mode=(source_mode or 'UPLOAD').strip().upper(),
+        source_mode=safe_source_mode,
         is_signed_copy=bool(is_signed_copy),
     )
     session.add(row)
@@ -3700,7 +3737,7 @@ def rnd_add_test_attachment(
     session.add(program)
 
     session.commit()
-    return RedirectResponse(url=f'/rnd/qualifications/{program_id}/tests/{test_id}', status_code=303)
+    return RedirectResponse(url=f'/rnd/qualifications/{program_id}/tests/{test_id}?tab=evidence', status_code=303)
 
 @router.get('/qualifications/{program_id}/attachments/{attachment_id}/download')
 def rnd_download_attachment(
