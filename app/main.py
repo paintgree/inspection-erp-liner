@@ -4899,23 +4899,191 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         return ""
 
     # ------------------------------------------------------------
-    # PAGE 1: report contents
+    # PAGE 1: redesigned summary page
     # ------------------------------------------------------------
     buf, c, title = new_page()
     w, h = A4
-    y = _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1, report=report)
 
-    y = _draw_report_info_table(c, report, 20 * mm, y)
-    y -= 8 * mm
+    left_x = 15 * mm
+    right_x = w - 15 * mm
+    content_w = right_x - left_x
 
-    y = _draw_specimen_blocks(c, report, samples, y)
+    y = _draw_header_footer(
+        c,
+        title=title,
+        doc_control_no=doc_no,
+        page_num=1,
+        page_total=1,
+        report=report,
+    )
 
-    if y < 85 * mm:
-        c.showPage()
-        y = _draw_header_footer(c, title=title, doc_control_no=doc_no, page_num=1, page_total=1, report=report)
+    def draw_section_title(text, y_pos):
+        c.setFont("Helvetica-Bold", 10)
+        c.drawString(left_x, y_pos, text)
+        c.line(left_x, y_pos - 2 * mm, right_x, y_pos - 2 * mm)
+        return y_pos - 7 * mm
 
-    y = _draw_results_table(c, samples, y)
-    _draw_signatures(c, report, y, pdf_qaqc_name, pdf_qaqc_date)
+    def draw_info_grid(y_top):
+        label_w = 32 * mm
+        row_h = 8 * mm
+        col_gap = 6 * mm
+        col_w = (content_w - col_gap) / 2
+
+        rows = [
+            ("BATCH NO", _txt(getattr(report, "batch_number", "")) or "-",
+             "CLIENT", _txt(getattr(report, "client_name", "")) or "-"),
+            ("CLIENT PO", _txt(getattr(report, "client_po", "")) or "-",
+             "PIPE SPEC", _txt(getattr(report, "pipe_specification", "")) or "-"),
+            ("TEST MEDIUM", _txt(getattr(report, "test_medium", "")) or "-",
+             "LAB TEMP", _txt(getattr(report, "lab_temperature", "")) or "-"),
+            ("STANDARD", _txt(getattr(report, "standard_name", "")) or "API 15S / ASTM-D1599",
+             "PROCEDURE", _txt(getattr(report, "procedure_no", "")) or "QAW1401"),
+            ("SYSTEM MAX", _txt(getattr(report, "system_max_pressure_MPa", "")) or "-",
+             "SPECIMENS", str(specimen_count)),
+            ("TEST DATE", _fmt_dt(getattr(report, "tested_at", None) or getattr(report, "created_at", None)),
+             "REPORT ID", str(report.id or "-")),
+        ]
+
+        total_h = len(rows) * row_h
+        c.rect(left_x, y_top - total_h, content_w, total_h, stroke=1, fill=0)
+
+        for i, row in enumerate(rows):
+            row_y_top = y_top - (i * row_h)
+            row_y_mid = row_y_top - row_h + 2.5 * mm
+
+            if i > 0:
+                c.line(left_x, row_y_top, right_x, row_y_top)
+
+            mid_x = left_x + col_w
+            c.line(mid_x + col_gap / 2, row_y_top, mid_x + col_gap / 2, row_y_top - row_h)
+
+            l1, v1, l2, v2 = row
+
+            c.setFont("Helvetica-Bold", 8)
+            c.drawString(left_x + 2 * mm, row_y_mid, l1)
+            c.drawString(left_x + col_w + col_gap + 2 * mm, row_y_mid, l2)
+
+            c.setFont("Helvetica", 8)
+            c.drawRightString(left_x + col_w - 2 * mm, row_y_mid, v1)
+            c.drawRightString(right_x - 2 * mm, row_y_mid, v2)
+
+        return y_top - total_h - 7 * mm
+
+    def draw_specimen_table(y_top):
+        col_widths = [12 * mm, 28 * mm, 22 * mm, 22 * mm, 22 * mm, 32 * mm, 32 * mm]
+        headers = ["#", "SERIAL NO", "LINER", "REINF.", "COVER", "TOTAL LEN", "EFFECTIVE LEN"]
+        row_h = 8 * mm
+
+        total_h = (len(samples) + 1) * row_h
+        c.rect(left_x, y_top - total_h, sum(col_widths), total_h, stroke=1, fill=0)
+
+        x = left_x
+        for cw in col_widths[:-1]:
+            x += cw
+            c.line(x, y_top, x, y_top - total_h)
+
+        for i in range(len(samples) + 1):
+            yy = y_top - (i * row_h)
+            c.line(left_x, yy, left_x + sum(col_widths), yy)
+
+        x = left_x
+        c.setFont("Helvetica-Bold", 8)
+        for header, cw in zip(headers, col_widths):
+            c.drawCentredString(x + cw / 2, y_top - 5.5 * mm, header)
+            x += cw
+
+        c.setFont("Helvetica", 8)
+        for idx, s in enumerate(samples, start=1):
+            vals = [
+                str(idx),
+                _txt(getattr(s, "sample_serial_number", "")) or "-",
+                f"{_txt(getattr(s, 'liner_thickness_mm', '')) or '0.0'} mm",
+                f"{_txt(getattr(s, 'reinforcement_thickness_mm', '')) or '0.0'} mm",
+                f"{_txt(getattr(s, 'cover_thickness_mm', '')) or '0.0'} mm",
+                f"{_txt(getattr(s, 'sample_total_length_mm', '')) or '-'} mm",
+                f"{_txt(getattr(s, 'sample_effective_length_mm', '')) or '-'} mm",
+            ]
+
+            row_y = y_top - ((idx + 1) * row_h) + 2.5 * mm
+            x = left_x
+            for val, cw in zip(vals, col_widths):
+                c.drawCentredString(x + cw / 2, row_y + 1.2 * mm, val)
+                x += cw
+
+        return y_top - total_h - 7 * mm
+
+    def draw_results_table(y_top):
+        col_widths = [12 * mm, 32 * mm, 42 * mm, 35 * mm, 26 * mm]
+        headers = ["#", "SERIAL NO", "ACTUAL BURST PRESS.", "TIME", "RESULT"]
+        row_h = 8 * mm
+
+        total_h = (len(samples) + 1) * row_h
+        c.rect(left_x, y_top - total_h, sum(col_widths), total_h, stroke=1, fill=0)
+
+        x = left_x
+        for cw in col_widths[:-1]:
+            x += cw
+            c.line(x, y_top, x, y_top - total_h)
+
+        for i in range(len(samples) + 1):
+            yy = y_top - (i * row_h)
+            c.line(left_x, yy, left_x + sum(col_widths), yy)
+
+        x = left_x
+        c.setFont("Helvetica-Bold", 8)
+        for header, cw in zip(headers, col_widths):
+            c.drawCentredString(x + cw / 2, y_top - 5.5 * mm, header)
+            x += cw
+
+        c.setFont("Helvetica", 8)
+        for idx, s in enumerate(samples, start=1):
+            vals = [
+                str(idx),
+                _txt(getattr(s, "sample_serial_number", "")) or "-",
+                f"{_txt(getattr(s, 'actual_burst_MPa', '')) or '-'} MPa",
+                f"{_txt(getattr(s, 'pressurization_time_sec', '')) or '-'} s",
+                _txt(getattr(s, "test_result", "")) or "-",
+            ]
+
+            row_y = y_top - ((idx + 1) * row_h) + 2.5 * mm
+            x = left_x
+            for val, cw in zip(vals, col_widths):
+                c.drawCentredString(x + cw / 2, row_y + 1.2 * mm, val)
+                x += cw
+
+        return y_top - total_h - 9 * mm
+
+    def draw_signature_block(y_top):
+        box_h = 18 * mm
+        col_w = content_w / 2
+
+        c.rect(left_x, y_top - box_h, content_w, box_h, stroke=1, fill=0)
+        c.line(left_x + col_w, y_top, left_x + col_w, y_top - box_h)
+
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(left_x + 3 * mm, y_top - 5 * mm, "TECHNICIAN")
+        c.drawString(left_x + 3 * mm, y_top - 11 * mm, "DATE")
+        c.drawString(left_x + col_w + 3 * mm, y_top - 5 * mm, "QAQC REVIEW")
+        c.drawString(left_x + col_w + 3 * mm, y_top - 11 * mm, "DATE")
+
+        c.setFont("Helvetica", 8)
+        c.drawRightString(left_x + col_w - 3 * mm, y_top - 5 * mm, _txt(getattr(report, "technician_name", "")) or "Tota")
+        c.drawRightString(left_x + col_w - 3 * mm, y_top - 11 * mm, _fmt_dt(getattr(report, "tested_at", None) or getattr(report, "created_at", None)))
+        c.drawRightString(right_x - 3 * mm, y_top - 5 * mm, pdf_qaqc_name or "-")
+        c.drawRightString(right_x - 3 * mm, y_top - 11 * mm, _fmt_dt(pdf_qaqc_date))
+
+        return y_top - box_h - 5 * mm
+
+    y = draw_section_title("REPORT INFORMATION", y)
+    y = draw_info_grid(y)
+
+    y = draw_section_title("SPECIMEN DETAILS", y)
+    y = draw_specimen_table(y)
+
+    y = draw_section_title("TEST RESULTS", y)
+    y = draw_results_table(y)
+
+    draw_signature_block(y)
 
     c.showPage()
     c.save()
@@ -4923,55 +5091,31 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
     # ------------------------------------------------------------
     # ------------------------------------------------------------
-    # NEXT PAGES: one attachment page per specimen
-    # old-style layout
+    # ------------------------------------------------------------
+    # NEXT PAGES: one clean attachment page per specimen
     # ------------------------------------------------------------
     for idx, s in enumerate(samples, start=1):
         buf2, c2, _ = new_page()
         w2, h2 = A4
 
-        margin_x = 12 * mm
+        margin_x = 15 * mm
+        right_x = w2 - 15 * mm
+        usable_w = w2 - (2 * margin_x)
+
         content_top = _draw_header_footer(
             c2,
             title="Short-Time Hydrostatic Burst Pressure Test Report",
             doc_control_no=doc_no,
             page_num=1,
             page_total=1,
+            report=report,
         )
 
         serial = _txt(getattr(s, "sample_serial_number", "")) or f"Specimen #{idx}"
-
         length_txt = _txt(getattr(s, "sample_length_m", "")) or "-"
         burst_txt = _txt(getattr(s, "actual_burst_MPa", "")) or "-"
         result_txt = _txt(getattr(s, "test_result", "")) or "-"
 
-        c2.setFont("Helvetica-Bold", 12)
-        c2.drawString(margin_x, content_top, f"Specimen Serial No: {serial}")
-
-        info_y = content_top - 8 * mm
-        c2.setFont("Helvetica", 9)
-        c2.drawString(
-            margin_x,
-            info_y,
-            f"Length: {length_txt}   Actual Burst: {burst_txt}   Result: {result_txt}",
-        )
-
-        gap = 4 * mm
-        usable_w = w2 - (2 * margin_x)
-
-        chart_y_top = info_y - 8 * mm
-        chart_h = 70 * mm
-
-        full_y_top = chart_y_top - chart_h - 10 * mm
-        full_h = 48 * mm
-
-        bottom_y_top = full_y_top - full_h - 10 * mm
-        bottom_h = 42 * mm
-        half_w = (usable_w - gap) / 2
-
-        # ----------------------------
-        # Attachment lookup
-        # ----------------------------
         sid = getattr(s, "id", None)
 
         full_path = _get_att_path(sid, "PHOTO_FULL")
@@ -4979,24 +5123,41 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         b_path = _get_att_path(sid, "PHOTO_B")
         chart_path = _get_att_path(sid, "CHART")
 
-        
+        def draw_section_title(text, y):
+            c2.setFont("Helvetica-Bold", 10)
+            c2.drawString(margin_x, y, text)
+            c2.line(margin_x, y - 2 * mm, right_x, y - 2 * mm)
+            return y - 6 * mm
+
+        def draw_info_box(y_top):
+            box_h = 20 * mm
+            c2.rect(margin_x, y_top - box_h, usable_w, box_h, stroke=1, fill=0)
+
+            c2.setFont("Helvetica-Bold", 14)
+            c2.drawString(margin_x + 4 * mm, y_top - 7 * mm, f"Specimen Serial No: {serial}")
+
+            c2.setFont("Helvetica", 10)
+            c2.drawString(margin_x + 4 * mm, y_top - 14 * mm, f"Length: {length_txt} m")
+            c2.drawString(margin_x + 55 * mm, y_top - 14 * mm, f"Actual Burst: {burst_txt} MPa")
+            c2.drawString(margin_x + 115 * mm, y_top - 14 * mm, f"Result: {result_txt}")
+
+            return y_top - box_h - 6 * mm
+
         def draw_labeled_image(path, x, y_top, box_w, box_h, label, allow_rotate=False, fill_box=False):
-            c2.setFont("Helvetica", 9)
+            c2.setFont("Helvetica-Bold", 9)
+            c2.drawString(x, y_top, label)
 
-            # Move label a bit lower so it sits just above its own box
-            label_y = y_top - 4 * mm
-            c2.drawString(x, label_y, label)
-
-            # Keep a small gap between label and box
-            img_top = label_y - 3 * mm
+            img_top = y_top - 4 * mm
             c2.rect(x, img_top - box_h, box_w, box_h, stroke=1, fill=0)
 
             if not path:
+                c2.setFont("Helvetica", 9)
                 c2.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
                 return
 
             real_path = resolve_burst_file_path(path)
             if not real_path or not os.path.exists(real_path):
+                c2.setFont("Helvetica", 9)
                 c2.drawString(x + 4 * mm, img_top - 10 * mm, "Not uploaded")
                 return
 
@@ -5017,12 +5178,66 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
                     mask="auto",
                 )
             except Exception:
+                c2.setFont("Helvetica", 9)
                 c2.drawString(x + 4 * mm, img_top - 10 * mm, "Could not load image")
 
-        draw_labeled_image(chart_path, margin_x, chart_y_top, usable_w, chart_h, "CHART", allow_rotate=False, fill_box=False)
-        draw_labeled_image(full_path, margin_x, full_y_top, usable_w, full_h, "FULL LENGTH:", allow_rotate=True, fill_box=True)
-        draw_labeled_image(a_path, margin_x, bottom_y_top, half_w, bottom_h, "SIDE A:", allow_rotate=True, fill_box=True)
-        draw_labeled_image(b_path, margin_x + half_w + gap, bottom_y_top, half_w, bottom_h, "SIDE B:", allow_rotate=True, fill_box=True)
+        y = content_top
+        y = draw_section_title(f"SPECIMEN #{idx}", y)
+        y = draw_info_box(y)
+
+        chart_h = 78 * mm
+        full_h = 48 * mm
+        bottom_h = 38 * mm
+        gap = 5 * mm
+        half_w = (usable_w - gap) / 2
+
+        draw_labeled_image(
+            chart_path,
+            margin_x,
+            y,
+            usable_w,
+            chart_h,
+            "CHART",
+            allow_rotate=False,
+            fill_box=False,
+        )
+
+        y = y - chart_h - 12 * mm
+
+        draw_labeled_image(
+            full_path,
+            margin_x,
+            y,
+            usable_w,
+            full_h,
+            "FULL LENGTH",
+            allow_rotate=True,
+            fill_box=True,
+        )
+
+        y = y - full_h - 12 * mm
+
+        draw_labeled_image(
+            a_path,
+            margin_x,
+            y,
+            half_w,
+            bottom_h,
+            "SIDE A",
+            allow_rotate=True,
+            fill_box=True,
+        )
+
+        draw_labeled_image(
+            b_path,
+            margin_x + half_w + gap,
+            y,
+            half_w,
+            bottom_h,
+            "SIDE B",
+            allow_rotate=True,
+            fill_box=True,
+        )
 
         c2.showPage()
         c2.save()
