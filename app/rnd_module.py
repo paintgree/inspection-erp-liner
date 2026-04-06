@@ -2134,52 +2134,21 @@ def _active_stage(program: RndQualificationProgram, materials: List[RndMaterialQ
 
 @router.get('/qualifications')
 def rnd_dashboard(request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
-    programs = session.exec(
-        select(RndQualificationProgram).order_by(RndQualificationProgram.updated_at.desc())
-    ).all()
-
-    dashboard = []
-    for program in programs:
-        if (program.program_type or 'API_15S').strip().upper() == 'API_15S':
-            _ensure_complete_test_matrix(session, program)
-
-        materials = session.exec(
-            select(RndMaterialQualification)
-            .where(RndMaterialQualification.program_id == program.id)
-            .order_by(RndMaterialQualification.id.asc())
-        ).all()
-
-        specimens = session.exec(
-            select(RndQualificationSpecimen)
-            .where(RndQualificationSpecimen.program_id == program.id)
-            .order_by(RndQualificationSpecimen.created_at.desc())
-        ).all()
-
-        flow = _active_stage(program, materials, specimens)
-
-        dashboard.append({
-            "program": program,
-            "flow": flow,
-        })
-
-    guide = _qualification_guide()
-
     return TEMPLATES.TemplateResponse(
         request=request,
         name='rnd_dashboard.html',
         context={
             'request': request,
             'user': user,
-            'dashboard': dashboard,
-            'guide': guide,
+            'dashboard': [],
+            'guide': _qualification_guide(),
             'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC,
             'rcrt_hours': RCRT_HOURS,
             'view': 'all',
-            'active_count': len(programs),
+            'active_count': 0,
             'archived_count': 0,
         },
     )
-
 @router.get('/qualifications/new')
 def rnd_new_program_form(request: Request, user: User = Depends(_require_user)):
     return TEMPLATES.TemplateResponse(request,'rnd_program_form.html', {'request': request, 'user': user})
