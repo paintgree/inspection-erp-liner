@@ -391,17 +391,18 @@
             <input name="pressurization_time_s_{{ s.id }}" type="text" value="{{ s.pressurization_time_s or '' }}">
           </div>
           <div>
-            <label>Result</label>
-            <select name="test_result_{{ s.id }}">
-              <option value="" {% if not s.test_result %}selected{% endif %}>Select</option>
-              <option value="PASS" {% if s.test_result == 'PASS' %}selected{% endif %}>PASS</option>
-              <option value="FAIL" {% if s.test_result == 'FAIL' %}selected{% endif %}>FAIL</option>
-            </select>
-            <div class="form-group">
-                <label>Failure Mode</label>
-                <input type="text" name="failure_mode" class="form-control"
-                       value="{{ s.failure_mode or '' }}">
-            </div>
+              <label>Result</label>
+              <select name="test_result_{{ s.id }}">
+                  <option value="" {% if not s.test_result %}selected{% endif %}>Select</option>
+                  <option value="PASS" {% if s.test_result == 'PASS' %}selected{% endif %}>PASS</option>
+                  <option value="FAIL" {% if s.test_result == 'FAIL' %}selected{% endif %}>FAIL</option>
+              </select>
+          
+              <div class="form-group">
+                  <label>Failure Mode</label>
+                  <input type="text" name="failure_mode_{{ s.id }}" class="form-control"
+                         value="{{ s.failure_mode or '' }}">
+              </div>
           </div>
           <div>
             <label>Liner Material</label>
