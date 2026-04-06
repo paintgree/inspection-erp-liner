@@ -4068,6 +4068,7 @@ async def burst_update(
 
 
     sample_result_values = [(getattr(s, "test_result", "") or "").strip().upper() for s in db_samples]
+    sample.failure_mode = form.get("failure_mode")
 
     if "FAIL" in sample_result_values:
         rep.test_result = "FAIL"
@@ -4972,20 +4973,61 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
         c.setFont("Helvetica", 8)
         for idx, s in enumerate(samples, start=1):
-            vals = [
+        
+            # -------------------------
+            # VALUES
+            # -------------------------
+            serial = _txt(getattr(s, "sample_serial_number", "")) or "-"
+        
+            liner_thk = f"{_txt(getattr(s, 'liner_thickness_mm', '')) or '0.0'} mm"
+            reinf_thk = f"{_txt(getattr(s, 'reinforcement_thickness_mm', '')) or '0.0'} mm"
+            cover_thk = f"{_txt(getattr(s, 'cover_thickness_mm', '')) or '0.0'} mm"
+        
+            liner_mat = _txt(getattr(s, "liner_material_grade", "")) or "-"
+            reinf_mat = _txt(getattr(s, "reinforcement_material_grade", "")) or "-"
+            cover_mat = _txt(getattr(s, "cover_material_grade", "")) or "-"
+        
+            total_len = f"{_txt(getattr(s, 'sample_total_length_mm', '')) or '-'} mm"
+            eff_len = f"{_txt(getattr(s, 'sample_effective_length_mm', '')) or '-'} mm"
+        
+            # -------------------------
+            # ROW 1 → THICKNESS
+            # -------------------------
+            row_y1 = y_top - ((idx * 2) * row_h) + 2.5 * mm
+        
+            vals1 = [
                 str(idx),
-                _txt(getattr(s, "sample_serial_number", "")) or "-",
-                f"{_txt(getattr(s, 'liner_thickness_mm', '')) or '0.0'} mm",
-                f"{_txt(getattr(s, 'reinforcement_thickness_mm', '')) or '0.0'} mm",
-                f"{_txt(getattr(s, 'cover_thickness_mm', '')) or '0.0'} mm",
-                f"{_txt(getattr(s, 'sample_total_length_mm', '')) or '-'} mm",
-                f"{_txt(getattr(s, 'sample_effective_length_mm', '')) or '-'} mm",
+                serial,
+                liner_thk,
+                reinf_thk,
+                cover_thk,
+                total_len,
+                eff_len,
             ]
-
-            row_y = y_top - ((idx + 1) * row_h) + 2.5 * mm
+        
             x = left_x
-            for val, cw in zip(vals, col_widths):
-                c.drawCentredString(x + cw / 2, row_y + 1.2 * mm, val)
+            for val, cw in zip(vals1, col_widths):
+                c.drawCentredString(x + cw / 2, row_y1, val)
+                x += cw
+        
+            # -------------------------
+            # ROW 2 → MATERIAL
+            # -------------------------
+            row_y2 = y_top - ((idx * 2 + 1) * row_h) + 2.5 * mm
+        
+            vals2 = [
+                "",          # empty for #
+                "",          # empty serial
+                liner_mat,
+                reinf_mat,
+                cover_mat,
+                "",
+                "",
+            ]
+        
+            x = left_x
+            for val, cw in zip(vals2, col_widths):
+                c.drawCentredString(x + cw / 2, row_y2, val)
                 x += cw
 
         return y_top - total_h - 7 * mm
@@ -4995,7 +5037,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         headers = ["#", "SERIAL NO", "ACTUAL BURST PRESS.", "TIME", "RESULT"]
         row_h = 8 * mm
 
-        total_h = (len(samples) + 1) * row_h
+        total_h = (len(samples) * 2 + 1) * row_h
         c.rect(left_x, y_top - total_h, sum(col_widths), total_h, stroke=1, fill=0)
 
         x = left_x
