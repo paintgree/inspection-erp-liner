@@ -16,7 +16,15 @@ import uuid
 import mimetypes
 
 from .db import get_session
-from .models import User
+from .models import (
+    User,
+    RndQualificationProgram,
+    RndQualificationTest,
+    RndQualificationSpecimen,
+    RndMaterialQualification,
+    RndMaterialTestRecord,
+    RndAttachmentRegister,
+)
 
 router = APIRouter(prefix="/rnd", tags=["R&D Qualification"])
 TEMPLATES = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
@@ -2134,18 +2142,48 @@ def _active_stage(program: RndQualificationProgram, materials: List[RndMaterialQ
 
 @router.get('/qualifications')
 def rnd_dashboard(request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
+    programs = session.exec(
+        select(RndQualificationProgram).order_by(RndQualificationProgram.updated_at.desc())
+    ).all()
+
+    dashboard = []
+    for program in programs:
+        if (program.program_type or 'API_15S').strip().upper() == 'API_15S':
+            _ensure_complete_test_matrix(session, program)
+
+        materials = session.exec(
+            select(RndMaterialQualification)
+            .where(RndMaterialQualification.program_id == program.id)
+            .order_by(RndMaterialQualification.id.asc())
+        ).all()
+
+        specimens = session.exec(
+            select(RndQualificationSpecimen)
+            .where(RndQualificationSpecimen.program_id == program.id)
+            .order_by(RndQualificationSpecimen.created_at.desc())
+        ).all()
+
+        flow = _active_stage(program, materials, specimens)
+
+        dashboard.append({
+            "program": program,
+            "flow": flow,
+        })
+
+    guide = _qualification_guide()
+
     return TEMPLATES.TemplateResponse(
         request=request,
         name='rnd_dashboard.html',
         context={
             'request': request,
             'user': user,
-            'dashboard': [],
-            'guide': _qualification_guide(),
+            'dashboard': dashboard,
+            'guide': guide,
             'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC,
             'rcrt_hours': RCRT_HOURS,
             'view': 'all',
-            'active_count': 0,
+            'active_count': len(programs),
             'archived_count': 0,
         },
     )
