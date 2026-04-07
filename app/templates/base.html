@@ -476,30 +476,43 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function renderModule(moduleKey) {
-    const config = moduleConfigs[moduleKey];
-    if (!config) return;
+function setModuleContent(moduleKey, animate = false) {
+  const config = moduleConfigs[moduleKey];
+  if (!config) return;
 
-    const badge = document.getElementById('erpPanelBadge');
-    const title = document.getElementById('erpPanelTitle');
-    const links = document.getElementById('erpPanelLinks');
+  const content = document.getElementById('erpSidebarContent');
+  const badge = document.getElementById('erpPanelBadge');
+  const title = document.getElementById('erpPanelTitle');
+  const links = document.getElementById('erpPanelLinks');
 
+  if (!content) return;
+
+  if (animate) {
+    content.classList.add('is-switching');
+    setTimeout(() => {
+      if (badge) badge.textContent = config.badge;
+      if (title) title.textContent = config.title;
+      if (links) links.innerHTML = config.links;
+      updateActiveModuleButton(moduleKey);
+      requestAnimationFrame(() => {
+        content.classList.remove('is-switching');
+      });
+    }, 120);
+  } else {
     if (badge) badge.textContent = config.badge;
     if (title) title.textContent = config.title;
     if (links) links.innerHTML = config.links;
-
     updateActiveModuleButton(moduleKey);
   }
+}
 
-  window.selectModule = function (moduleKey) {
-    renderModule(moduleKey);
-  };
+window.selectModule = function (moduleKey) {
+  setModuleContent(moduleKey, true);
+};
 
-  window.toggleSidebarGroup = toggleSidebarGroup;
-
-  document.addEventListener('DOMContentLoaded', function () {
-    renderModule(getInitialModule());
-  });
+document.addEventListener('DOMContentLoaded', function () {
+  setModuleContent(getInitialModule(), false);
+});
 })();
 </script>
 </body>
