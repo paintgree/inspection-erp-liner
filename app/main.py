@@ -12,7 +12,8 @@ import traceback
 import subprocess
 
 from datetime import datetime, date, time as dtime, timedelta
-from io import BytesIO
+from typing import Optional
+from fastapi.responses import StreamingResponse
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from types import SimpleNamespace
@@ -22,7 +23,11 @@ from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.platypus import Table, TableStyle
 from passlib.context import CryptContext
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse,RedirectResponse, FileResponse
+from openpyxl import load_workbook, Workbook
+from sqlmodel import select
+from .models import CalibrationInstrument
+
 
 
 # ======================
@@ -2410,6 +2415,137 @@ def stamp_signatures_on_pdf(
 
 
 
+CALIBRATION_TEMPLATE_SHEET_NAME = "Master Calibration list"
+
+
+def _excel_date_to_python(value):
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return None
+        for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%m/%d/%Y", "%d-%b-%Y", "%d/%b/%Y"):
+            try:
+                return datetime.strptime(value, fmt).date()
+            except ValueError:
+                continue
+    return None
+
+
+def _cell_str(value) -> str:
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
+def _normalize_header(value: str) -> str:
+    return _cell_str(value).strip().lower()
+
+
+def _build_calibration_header_map(header_row_values):
+    normalized = [_normalize_header(v) for v in header_row_values]
+    return {name: idx for idx, name in enumerate(normalized) if name}
+
+
+def _find_calibration_sheet(wb):
+    if CALIBRATION_TEMPLATE_SHEET_NAME in wb.sheetnames:
+        return wb[CALIBRATION_TEMPLATE_SHEET_NAME]
+    return wb[wb.sheetnames[0]]
+
+
+def _parse_calibration_workbook(upload_file_bytes: bytes):
+    wb = load_workbook(filename=BytesIO(upload_file_bytes), data_only=True)
+    ws = _find_calibration_sheet(wb)
+
+    # Expected headers are on row 3 based on your template
+    header_row_number = 3
+    header_values = [cell.value for cell in ws[header_row_number]]
+    header_map = _build_calibration_header_map(header_values)
+
+    required_headers = {
+        "til no": "til_no",
+        "item name": "item_name",
+        "asset no": "asset_no",
+        "serial no": "serial_no",
+        "capacity (range)": "capacity_range",
+        "maker": "maker",
+        "location": "location",
+        "date issued": "date_issued",
+        "ref std/master gauge no": "ref_std_master_gauge_no",
+        "calibration date": "calibration_date",
+        "status": "status",
+        "calibrated by": "calibrated_by",
+    }
+
+    missing = [k for k in required_headers.keys() if k not in header_map]
+    if missing:
+        raise ValueError(f"Missing required columns in Excel template: {', '.join(missing)}")
+
+    rows = []
+    for row_idx in range(header_row_number + 1, ws.max_row + 1):
+        row = [ws.cell(row=row_idx, column=col_idx + 1).value for col_idx in range(ws.max_column)]
+
+        item_name = _cell_str(row[header_map["item name"]])
+        asset_no = _cell_str(row[header_map["asset no"]])
+        serial_no = _cell_str(row[header_map["serial no"]])
+
+        # Skip fully empty rows
+        if not any(_cell_str(v) for v in row):
+            continue
+
+        # If row has some formatting junk but no meaningful identity, skip it
+        if not item_name and not asset_no and not serial_no:
+            continue
+
+        rows.append({
+            "til_no": _cell_str(row[header_map["til no"]]),
+            "item_name": item_name,
+            "asset_no": asset_no,
+            "serial_no": serial_no,
+            "capacity_range": _cell_str(row[header_map["capacity (range)"]]),
+            "maker": _cell_str(row[header_map["maker"]]),
+            "location": _cell_str(row[header_map["location"]]),
+            "date_issued": _excel_date_to_python(row[header_map["date issued"]]),
+            "ref_std_master_gauge_no": _cell_str(row[header_map["ref std/master gauge no"]]),
+            "calibration_date": _excel_date_to_python(row[header_map["calibration date"]]),
+            "status": _cell_str(row[header_map["status"]]),
+            "calibrated_by": _cell_str(row[header_map["calibrated by"]]),
+        })
+
+    return rows
+
+
+def _build_calibration_template_file():
+    wb = Workbook()
+    ws = wb.active
+    ws.title = CALIBRATION_TEMPLATE_SHEET_NAME
+
+    ws["A1"] = "Calibration Master Upload Template"
+    ws["A3"] = "TIL NO"
+    ws["B3"] = "ITEM NAME"
+    ws["C3"] = "Asset NO"
+    ws["D3"] = "Serial No"
+    ws["E3"] = "Capacity (Range)"
+    ws["F3"] = "Maker"
+    ws["G3"] = "Location"
+    ws["H3"] = "Date Issued"
+    ws["I3"] = "Ref Std/Master Gauge No"
+    ws["J3"] = "Calibration Date"
+    ws["K3"] = "Status"
+    ws["L3"] = "Calibrated by"
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+
 app = FastAPI()
 app.include_router(rnd_router)
 # Session middleware (required for request.session in require_user)
@@ -2558,6 +2694,181 @@ def docs_calibration_list_page(request: Request, session: Session = Depends(get_
         },
     )
 
+
+
+@app.get("/documentation/calibration-list")
+def docs_calibration_list_page(request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+
+    q = (request.query_params.get("q") or "").strip()
+    stmt = select(CalibrationInstrument)
+
+    if q:
+        like = f"%{q}%"
+        stmt = stmt.where(
+            (CalibrationInstrument.til_no.ilike(like)) |
+            (CalibrationInstrument.item_name.ilike(like)) |
+            (CalibrationInstrument.asset_no.ilike(like)) |
+            (CalibrationInstrument.serial_no.ilike(like)) |
+            (CalibrationInstrument.location.ilike(like)) |
+            (CalibrationInstrument.status.ilike(like))
+        )
+
+    rows = session.exec(
+        stmt.order_by(CalibrationInstrument.id.desc())
+    ).all()
+
+    return TEMPLATES.TemplateResponse(
+        "docs_calibration_list.html",
+        {
+            "request": request,
+            "user": user,
+            "rows": rows,
+            "q": q,
+        },
+    )
+
+
+@app.get("/documentation/calibration-list/template")
+def docs_calibration_list_template_download(
+    request: Request,
+    session: Session = Depends(get_session)
+):
+    user = get_current_user(request, session)
+    output = _build_calibration_template_file()
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": 'attachment; filename="QAP0500-F01 Master List of TMMDE Upload Template.xlsx"'
+        },
+    )
+
+
+@app.post("/documentation/calibration-list/add")
+def docs_calibration_list_add_single(
+    request: Request,
+    session: Session = Depends(get_session),
+    til_no: str = Form(""),
+    item_name: str = Form(""),
+    asset_no: str = Form(""),
+    serial_no: str = Form(""),
+    capacity_range: str = Form(""),
+    maker: str = Form(""),
+    location: str = Form(""),
+    date_issued: str = Form(""),
+    ref_std_master_gauge_no: str = Form(""),
+    calibration_date: str = Form(""),
+    status: str = Form(""),
+    calibrated_by: str = Form(""),
+):
+    user = get_current_user(request, session)
+
+    row = CalibrationInstrument(
+        til_no=til_no.strip(),
+        item_name=item_name.strip(),
+        asset_no=asset_no.strip(),
+        serial_no=serial_no.strip(),
+        capacity_range=capacity_range.strip(),
+        maker=maker.strip(),
+        location=location.strip(),
+        date_issued=_excel_date_to_python(date_issued),
+        ref_std_master_gauge_no=ref_std_master_gauge_no.strip(),
+        calibration_date=_excel_date_to_python(calibration_date),
+        status=status.strip(),
+        calibrated_by=calibrated_by.strip(),
+        updated_at=datetime.utcnow(),
+    )
+    session.add(row)
+    session.commit()
+
+    return RedirectResponse("/documentation/calibration-list", status_code=303)
+
+
+@app.post("/documentation/calibration-list/upload")
+async def docs_calibration_list_bulk_upload(
+    request: Request,
+    session: Session = Depends(get_session),
+    file: UploadFile = File(...),
+    upload_mode: str = Form("append"),
+):
+    user = get_current_user(request, session)
+
+    if not file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(status_code=400, detail="Only .xlsx files are allowed.")
+
+    content = await file.read()
+    parsed_rows = _parse_calibration_workbook(content)
+
+    if upload_mode == "replace":
+        existing = session.exec(select(CalibrationInstrument)).all()
+        for row in existing:
+            session.delete(row)
+        session.commit()
+
+    now = datetime.utcnow()
+    for item in parsed_rows:
+        db_row = CalibrationInstrument(
+            til_no=item["til_no"],
+            item_name=item["item_name"],
+            asset_no=item["asset_no"],
+            serial_no=item["serial_no"],
+            capacity_range=item["capacity_range"],
+            maker=item["maker"],
+            location=item["location"],
+            date_issued=item["date_issued"],
+            ref_std_master_gauge_no=item["ref_std_master_gauge_no"],
+            calibration_date=item["calibration_date"],
+            status=item["status"],
+            calibrated_by=item["calibrated_by"],
+            updated_at=now,
+        )
+        session.add(db_row)
+
+    session.commit()
+
+    return RedirectResponse("/documentation/calibration-list", status_code=303)
+
+
+@app.post("/documentation/calibration-list/delete/{row_id}")
+def docs_calibration_list_delete_one(
+    row_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+
+    row = session.get(CalibrationInstrument, row_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Calibration row not found.")
+
+    session.delete(row)
+    session.commit()
+
+    return RedirectResponse("/documentation/calibration-list", status_code=303)
+
+
+@app.post("/documentation/calibration-list/bulk-delete")
+async def docs_calibration_list_bulk_delete(
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+    form = await request.form()
+    selected_ids = form.getlist("selected_ids")
+
+    for raw_id in selected_ids:
+        try:
+            row_id = int(raw_id)
+        except Exception:
+            continue
+        row = session.get(CalibrationInstrument, row_id)
+        if row:
+            session.delete(row)
+
+    session.commit()
+    return RedirectResponse("/documentation/calibration-list", status_code=303)
+    
 
 @app.exception_handler(HTTPException)
 async def app_http_exception_handler(request: Request, exc: HTTPException):
