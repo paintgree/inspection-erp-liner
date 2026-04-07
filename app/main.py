@@ -4855,9 +4855,9 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     buf, c, title = new_page()
     w, h = A4
 
-    left_x = 15 * mm
-    right_x = w - 15 * mm
-    content_w = right_x - left_x
+    page_left = 15 * mm
+    page_right = w - 15 * mm
+    page_content_w = page_right - page_left
 
     y = _draw_header_footer(
         c,
@@ -4878,40 +4878,40 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
     def draw_section_title(text, y_pos):
         c.setFont("Helvetica-Bold", 10)
-        c.drawString(left_x, y_pos, text)
-        c.line(left_x, y_pos - 2 * mm, right_x, y_pos - 2 * mm)
+        c.drawString(page_left, y_pos, text)
+        c.line(page_left, y_pos - 2 * mm, page_right, y_pos - 2 * mm)
         return y_pos - 6 * mm
 
     def draw_info_grid(y_top):
         col_widths = [26 * mm, 38 * mm, 26 * mm, 38 * mm]
-        headers = None
         row_h = 7 * mm
         table_w = sum(col_widths)
+        table_x = (w - table_w) / 2
 
         rows = [
-            ("BATCH NO", _txt(getattr(report, "batch_number", "")) or "-", "CLIENT", _txt(getattr(report, "client_name", "")) or "-"),
+            ("BATCH NO", _txt(getattr(report, "batch_no", "")) or "-", "CLIENT", _txt(getattr(report, "client_name", "")) or "-"),
             ("CLIENT PO", _txt(getattr(report, "client_po", "")) or "-", "PIPE SPEC", _txt(getattr(report, "pipe_specification", "")) or "-"),
-            ("TEST MEDIUM", _txt(getattr(report, "test_medium", "")) or "-", "LAB TEMP", _txt(getattr(report, "lab_temperature", "")) or "-"),
-            ("STANDARD", _txt(getattr(report, "standard_name", "")) or "API 15S / ASTM-D1599", "PROCEDURE", _txt(getattr(report, "procedure_no", "")) or "QAW1401"),
+            ("TEST MEDIUM", _txt(getattr(report, "testing_medium", "")) or "-", "LAB TEMP", _txt(getattr(report, "laboratory_temperature", "")) or "-"),
+            ("STANDARD", _txt(getattr(report, "reference_standard", "")) or "API 15S / ASTM-D1599", "PROCEDURE", _txt(getattr(report, "reference_dhtp_procedure", "")) or "QAW1401"),
             ("SPECIMENS", str(specimen_count), "TEST DATE", _fmt_dt(getattr(report, "tested_at", None) or getattr(report, "created_at", None))),
         ]
 
         total_h = len(rows) * row_h
-        c.roundRect(left_x, y_top - total_h, table_w, total_h, 2 * mm, stroke=1, fill=0)
+        c.roundRect(table_x, y_top - total_h, table_w, total_h, 2 * mm, stroke=1, fill=0)
 
-        x = left_x
+        x = table_x
         for cw in col_widths[:-1]:
             x += cw
             c.line(x, y_top, x, y_top - total_h)
 
         for i in range(len(rows) + 1):
             yy = y_top - (i * row_h)
-            c.line(left_x, yy, left_x + table_w, yy)
+            c.line(table_x, yy, table_x + table_w, yy)
 
         for i, row in enumerate(rows):
             row_y = y_top - (i * row_h) - 4.8 * mm
             vals = list(row)
-            x = left_x
+            x = table_x
             for j, (val, cw) in enumerate(zip(vals, col_widths)):
                 if j % 2 == 0:
                     c.setFont("Helvetica-Bold", 7.5)
@@ -4928,23 +4928,46 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         headers = ["#", "SERIAL NO", "LINER", "REINF.", "COVER", "TOTAL LEN", "EFFECTIVE LEN"]
         row_h = 6.5 * mm
         table_w = sum(col_widths)
+        table_x = (w - table_w) / 2
 
+        # 1 header row + 2 rows per specimen
         total_rows = 1 + (len(samples) * 2)
         total_h = total_rows * row_h
 
-        c.roundRect(left_x, y_top - total_h, table_w, total_h, 2 * mm, stroke=1, fill=0)
+        c.roundRect(table_x, y_top - total_h, table_w, total_h, 2 * mm, stroke=1, fill=0)
 
-        x = left_x
-        for cw in col_widths[:-1]:
-            x += cw
+        # full-height vertical borders
+        x_positions = [table_x]
+        running_x = table_x
+        for cw in col_widths:
+            running_x += cw
+            x_positions.append(running_x)
+
+        for x in x_positions[1:-1]:
             c.line(x, y_top, x, y_top - total_h)
 
+        # horizontal lines:
+        # full width for header and for each specimen pair boundary
         for i in range(total_rows + 1):
             yy = y_top - (i * row_h)
-            c.line(left_x, yy, left_x + table_w, yy)
 
+            # header boundary
+            if i in (0, 1):
+                c.line(table_x, yy, table_x + table_w, yy)
+                continue
+
+            # every even row after header = end of specimen block => full width
+            if (i - 1) % 2 == 0:
+                c.line(table_x, yy, table_x + table_w, yy)
+            else:
+                # material separator only across liner/reinf/cover area
+                liner_start = table_x + col_widths[0] + col_widths[1]
+                cover_end = liner_start + col_widths[2] + col_widths[3] + col_widths[4]
+                c.line(liner_start, yy, cover_end, yy)
+
+        # header text
         c.setFont("Helvetica-Bold", 7.5)
-        x = left_x
+        x = table_x
         for header, cw in zip(headers, col_widths):
             c.drawCentredString(x + cw / 2, y_top - 4.4 * mm, header)
             x += cw
@@ -4966,22 +4989,40 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
             eff_len = f"{_txt(getattr(s, 'sample_effective_length_mm', '')) or '-'} mm"
 
             row1_index = 1 + ((idx - 1) * 2)
-            row1_y = y_top - (row1_index * row_h) - 4.4 * mm
-            vals1 = [str(idx), serial, liner_thk, reinf_thk, cover_thk, total_len, eff_len]
-
-            x = left_x
-            for val, cw in zip(vals1, col_widths):
-                c.drawCentredString(x + cw / 2, row1_y, val)
-                x += cw
-
             row2_index = row1_index + 1
-            row2_y = y_top - (row2_index * row_h) - 4.4 * mm
-            vals2 = ["", "", liner_mat, reinf_mat, cover_mat, "", ""]
 
-            x = left_x
-            for val, cw in zip(vals2, col_widths):
-                c.drawCentredString(x + cw / 2, row2_y, val)
-                x += cw
+            row1_y = y_top - (row1_index * row_h) - 4.4 * mm
+            row2_y = y_top - (row2_index * row_h) - 4.4 * mm
+
+            # merged-like cells for # / serial / total / effective
+            merged_y = y_top - (row1_index * row_h) - (row_h / 2) - 4.4 * mm
+
+            # # column
+            x0 = table_x
+            c.drawCentredString(x0 + col_widths[0] / 2, merged_y, str(idx))
+
+            # serial
+            x1 = x0 + col_widths[0]
+            c.drawCentredString(x1 + col_widths[1] / 2, merged_y, serial)
+
+            # liner / reinf / cover thickness row
+            x2 = x1 + col_widths[1]
+            c.drawCentredString(x2 + col_widths[2] / 2, row1_y, liner_thk)
+            c.drawCentredString(x2 + col_widths[2] + col_widths[3] / 2, row1_y, reinf_thk)
+            c.drawCentredString(x2 + col_widths[2] + col_widths[3] + col_widths[4] / 2, row1_y, cover_thk)
+
+            # liner / reinf / cover material row
+            c.drawCentredString(x2 + col_widths[2] / 2, row2_y, liner_mat)
+            c.drawCentredString(x2 + col_widths[2] + col_widths[3] / 2, row2_y, reinf_mat)
+            c.drawCentredString(x2 + col_widths[2] + col_widths[3] + col_widths[4] / 2, row2_y, cover_mat)
+
+            # total len
+            x5 = x2 + col_widths[2] + col_widths[3] + col_widths[4]
+            c.drawCentredString(x5 + col_widths[5] / 2, merged_y, total_len)
+
+            # effective len
+            x6 = x5 + col_widths[5]
+            c.drawCentredString(x6 + col_widths[6] / 2, merged_y, eff_len)
 
         return y_top - total_h - 6 * mm
 
@@ -4990,21 +5031,22 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         headers = ["#", "SERIAL NO", "ACTUAL BURST", "TIME", "FAILURE MODE", "RESULT"]
         row_h = 7 * mm
         table_w = sum(col_widths)
+        table_x = (w - table_w) / 2
 
         total_h = (len(samples) + 1) * row_h
-        c.roundRect(left_x, y_top - total_h, table_w, total_h, 2 * mm, stroke=1, fill=0)
+        c.roundRect(table_x, y_top - total_h, table_w, total_h, 2 * mm, stroke=1, fill=0)
 
-        x = left_x
+        x = table_x
         for cw in col_widths[:-1]:
             x += cw
             c.line(x, y_top, x, y_top - total_h)
 
         for i in range(len(samples) + 1):
             yy = y_top - (i * row_h)
-            c.line(left_x, yy, left_x + table_w, yy)
+            c.line(table_x, yy, table_x + table_w, yy)
 
         c.setFont("Helvetica-Bold", 7.5)
-        x = left_x
+        x = table_x
         for header, cw in zip(headers, col_widths):
             c.drawCentredString(x + cw / 2, y_top - 4.8 * mm, header)
             x += cw
@@ -5021,7 +5063,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
             ]
 
             row_y = y_top - (idx * row_h) - 4.8 * mm
-            x = left_x
+            x = table_x
             for val, cw in zip(vals, col_widths):
                 c.drawCentredString(x + cw / 2, row_y, val)
                 x += cw
@@ -5029,19 +5071,33 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         return y_top - total_h - 8 * mm
 
     def draw_signature_block(y_top):
-        box_h = 16 * mm
-        col_w = content_w / 2
+        box_h = 18 * mm
+        box_w = 78 * mm
+        gap = 18 * mm
+        total_w = box_w * 2 + gap
+        box_x = (w - total_w) / 2
 
-        c.roundRect(left_x, y_top - box_h, content_w, box_h, 2 * mm, stroke=1, fill=0)
-        c.line(left_x + col_w, y_top, left_x + col_w, y_top - box_h)
+        tech_name = _txt(getattr(report, "technician_name", "")) or "-"
+        tech_date = _fmt_dt(getattr(report, "tested_at", None) or getattr(report, "created_at", None))
+        qaqc_name = pdf_qaqc_name or "-"
+        qaqc_date = _fmt_dt(pdf_qaqc_date)
 
+        # left box
+        c.roundRect(box_x, y_top - box_h, box_w, box_h, 2 * mm, stroke=1, fill=0)
         c.setFont("Helvetica-Bold", 8)
-        c.drawCentredString(left_x + col_w / 2, y_top - 5 * mm, "TECHNICIAN SIGNATURE")
-        c.drawCentredString(left_x + col_w + col_w / 2, y_top - 5 * mm, "QA/QC SIGNATURE")
+        c.drawCentredString(box_x + box_w / 2, y_top - 5 * mm, "TECHNICIAN")
+        c.setFont("Helvetica", 7.5)
+        c.drawCentredString(box_x + box_w / 2, y_top - 10 * mm, tech_name)
+        c.drawCentredString(box_x + box_w / 2, y_top - 14 * mm, tech_date)
 
-        c.setFont("Helvetica", 7)
-        c.drawCentredString(left_x + col_w / 2, y_top - 10.5 * mm, "Date: ____________")
-        c.drawCentredString(left_x + col_w + col_w / 2, y_top - 10.5 * mm, "Date: ____________")
+        # right box
+        rx = box_x + box_w + gap
+        c.roundRect(rx, y_top - box_h, box_w, box_h, 2 * mm, stroke=1, fill=0)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawCentredString(rx + box_w / 2, y_top - 5 * mm, "QAQC REVIEW")
+        c.setFont("Helvetica", 7.5)
+        c.drawCentredString(rx + box_w / 2, y_top - 10 * mm, qaqc_name)
+        c.drawCentredString(rx + box_w / 2, y_top - 14 * mm, qaqc_date)
 
         return y_top - box_h - 4 * mm
 
