@@ -89,29 +89,29 @@
         <div id="erpSidebarContent" class="erp-sidebar-content morphing">
           <div class="erp-sidebar-section-label">Main Modules</div>
 
-          <a href="/dashboard"
-             class="erp-module-row {% if selected_module == 'orders' %}active{% endif %}"
-             style="text-decoration:none;">
+          <button type="button"
+                  class="erp-module-row {% if selected_module == 'orders' %}active{% endif %}"
+                  onclick="selectModule('orders')">
             <span class="erp-module-row-icon">◈</span>
             <span class="erp-module-row-text">Orders Production</span>
             <span class="erp-module-row-arrow">›</span>
-          </a>
+          </button>
           
-          <a href="/rnd"
-             class="erp-module-row {% if selected_module == 'rnd' %}active{% endif %}"
-             style="text-decoration:none;">
+          <button type="button"
+                  class="erp-module-row {% if selected_module == 'rnd' %}active{% endif %}"
+                  onclick="selectModule('rnd')">
             <span class="erp-module-row-icon">⌬</span>
             <span class="erp-module-row-text">R&amp;D</span>
             <span class="erp-module-row-arrow">›</span>
-          </a>
+          </button>
           
-          <a href="/docs"
-             class="erp-module-row {% if selected_module == 'docs' %}active{% endif %}"
-             style="text-decoration:none;">
+          <button type="button"
+                  class="erp-module-row {% if selected_module == 'docs' %}active{% endif %}"
+                  onclick="selectModule('docs')">
             <span class="erp-module-row-icon">▤</span>
             <span class="erp-module-row-text">Documentations</span>
             <span class="erp-module-row-arrow">›</span>
-          </a>
+          </button>
 
           <div class="erp-sidebar-divider"></div>
 
@@ -341,6 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 </script>
 <script>
+<script>
 (function () {
   const moduleConfigs = {
     orders: {
@@ -392,7 +393,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="erp-sidebar-link-icon">⌂</span>
           <span>Qualification</span>
         </a>
-    
+
         <div class="erp-sidebar-link-group">
           <button
             type="button"
@@ -403,7 +404,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <span>Lab Tests</span>
             <span class="erp-sidebar-link-arrow" id="arrow-rnd-lab-tests">${window.location.pathname.startsWith('/rnd/lab-tests') ? '▾' : '▸'}</span>
           </button>
-    
+
           <div
             id="group-rnd-lab-tests"
             class="erp-sidebar-sub-links"
@@ -413,12 +414,12 @@ document.addEventListener("DOMContentLoaded", () => {
               <span class="erp-sidebar-link-icon">•</span>
               <span>Tensile Test Pipe</span>
             </a>
-    
+
             <a class="erp-sidebar-link erp-sidebar-sublink ${window.location.pathname.startsWith('/rnd/lab-tests/tensile-fiber') ? 'active' : ''}" href="/rnd/lab-tests/tensile-fiber">
               <span class="erp-sidebar-link-icon">•</span>
               <span>Tensile Test Fiber</span>
             </a>
-    
+
             <a class="erp-sidebar-link erp-sidebar-sublink ${window.location.pathname.startsWith('/rnd/lab-tests/permeation-test') ? 'active' : ''}" href="/rnd/lab-tests/permeation-test">
               <span class="erp-sidebar-link-icon">•</span>
               <span>Permeation Test</span>
@@ -436,7 +437,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="erp-sidebar-link-icon">≣</span>
           <span>Procedures</span>
         </a>
-    
+
         <a class="erp-sidebar-link ${window.location.pathname.startsWith('/documentation/calibration-list') ? 'active' : ''}" href="/documentation/calibration-list">
           <span class="erp-sidebar-link-icon">☷</span>
           <span>Calibration List</span>
@@ -462,47 +463,39 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  function renderModule(moduleKey) {
-    const config = moduleConfigs[moduleKey];
-    if (!config) return;
-  
-    const content = document.getElementById('erpSidebarContent');
-    const badge = document.getElementById('erpPanelBadge');
-    const title = document.getElementById('erpPanelTitle');
-    const links = document.getElementById('erpPanelLinks');
-  
-    if (!content) return;
-  
-    content.classList.add('is-switching');
-  
-    setTimeout(() => {
-      if (badge) badge.textContent = config.badge;
-      if (title) title.textContent = config.title;
-      if (links) links.innerHTML = config.links;
-  
-      updateActiveModuleButton(moduleKey);
-  
-      requestAnimationFrame(() => {
-        content.classList.remove('is-switching');
-      });
-    }, 120);
-  }
-
   function toggleSidebarGroup(groupId) {
     const group = document.getElementById(`group-${groupId}`);
     const arrow = document.getElementById(`arrow-${groupId}`);
     if (!group) return;
-  
+
     const isOpen = group.style.display === 'block';
     group.style.display = isOpen ? 'none' : 'block';
-  
+
     if (arrow) {
       arrow.textContent = isOpen ? '▸' : '▾';
     }
   }
+
+  function renderModule(moduleKey) {
+    const config = moduleConfigs[moduleKey];
+    if (!config) return;
+
+    const badge = document.getElementById('erpPanelBadge');
+    const title = document.getElementById('erpPanelTitle');
+    const links = document.getElementById('erpPanelLinks');
+
+    if (badge) badge.textContent = config.badge;
+    if (title) title.textContent = config.title;
+    if (links) links.innerHTML = config.links;
+
+    updateActiveModuleButton(moduleKey);
+  }
+
   window.selectModule = function (moduleKey) {
     renderModule(moduleKey);
   };
+
+  window.toggleSidebarGroup = toggleSidebarGroup;
 
   document.addEventListener('DOMContentLoaded', function () {
     renderModule(getInitialModule());
