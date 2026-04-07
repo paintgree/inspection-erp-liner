@@ -6,6 +6,25 @@
   <title>Inspection ERP</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
+
+<style>
+  .erp-sidebar-content {
+    transition: opacity 0.22s ease, transform 0.22s ease, filter 0.22s ease;
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+
+  .erp-sidebar-content.is-switching {
+    opacity: 0.35;
+    transform: translateY(4px) scale(0.985);
+    filter: blur(2px);
+  }
+
+  .erp-sidebar-links {
+    transition: opacity 0.22s ease, transform 0.22s ease;
+  }
+</style>
 <body>
   {% set current_path = request.url.path if request and request.url else '' %}
   {% set selected_module = 'orders' %}
@@ -386,16 +405,27 @@ document.addEventListener("DOMContentLoaded", () => {
   function renderModule(moduleKey) {
     const config = moduleConfigs[moduleKey];
     if (!config) return;
-
+  
+    const content = document.getElementById('erpSidebarContent');
     const badge = document.getElementById('erpPanelBadge');
     const title = document.getElementById('erpPanelTitle');
     const links = document.getElementById('erpPanelLinks');
-
-    if (badge) badge.textContent = config.badge;
-    if (title) title.textContent = config.title;
-    if (links) links.innerHTML = config.links;
-
-    updateActiveModuleButton(moduleKey);
+  
+    if (!content) return;
+  
+    content.classList.add('is-switching');
+  
+    setTimeout(() => {
+      if (badge) badge.textContent = config.badge;
+      if (title) title.textContent = config.title;
+      if (links) links.innerHTML = config.links;
+  
+      updateActiveModuleButton(moduleKey);
+  
+      requestAnimationFrame(() => {
+        content.classList.remove('is-switching');
+      });
+    }, 120);
   }
 
   window.selectModule = function (moduleKey) {
