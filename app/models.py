@@ -568,6 +568,7 @@ class RfiRecord(SQLModel, table=True):
 
     notes: str = Field(default="")
     result_notes: str = Field(default="")
+    covered_length_m: float = Field(default=0.0)
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
