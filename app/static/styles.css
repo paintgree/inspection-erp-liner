@@ -4896,17 +4896,42 @@ Burst search + filters
   display:flex;
   justify-content:space-between;
   align-items:flex-start;
-  gap:10px;
+  gap:12px;
   flex-wrap:wrap;
 }
 
-.workorder-card-topline-left,
+.workorder-card-topline-left{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  flex:1 1 220px;
+  min-width:0;
+}
+
 .batch-detail-pills,
 .batch-detail-actions{
   display:flex;
   align-items:center;
   gap:10px;
   flex-wrap:wrap;
+}
+
+.workorder-priority{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  white-space:nowrap;
+  flex:0 0 auto;
+}
+
+.priority-toggle-form{
+  margin:0;
+  flex:0 0 auto;
+}
+
+.priority-toggle-form .btn{
+  white-space:nowrap;
 }
 
 .priority-toggle-form,
@@ -4922,6 +4947,8 @@ Burst search + filters
 
 .calendar-panel-modern{
   background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);
+  padding:16px;
+  overflow:hidden;
 }
 
 .calendar-summary-strip{
@@ -4967,6 +4994,8 @@ Burst search + filters
 .calendar-board{
   display:grid;
   gap:12px;
+  width:100%;
+  min-width:0;
 }
 
 .calendar-column{
@@ -4974,6 +5003,8 @@ Burst search + filters
   background:#fff;
   border-radius:18px;
   padding:12px;
+  min-width:0;
+  box-sizing:border-box;
 }
 
 .calendar-column-head{
@@ -5000,11 +5031,14 @@ Burst search + filters
 .calendar-column-body{
   display:grid;
   gap:10px;
+  min-width:0;
 }
 
 .calendar-item{
   position:relative;
   overflow:hidden;
+  width:100%;
+  box-sizing:border-box;
 }
 
 .calendar-item-badge{
@@ -5037,4 +5071,18 @@ Burst search + filters
   .calendar-summary-strip{
     grid-template-columns:1fr;
   }
+}
+
+
+.topbar-search{
+  position:relative;
+}
+
+.search-results{
+  width:100%;
+  max-width:100%;
+  box-sizing:border-box;
+  margin-top:8px;
+  border-radius:16px;
+  overflow:hidden;
 }
