@@ -6,7 +6,42 @@
   <title>Inspection ERP</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
+<style>
+  .erp-single-sidebar {
+    width: 300px;
+    min-width: 300px;
+    transition: width 0.22s ease, min-width 0.22s ease;
+    overflow: hidden;
+  }
 
+  .erp-single-sidebar.collapsed {
+    width: 78px;
+    min-width: 78px;
+  }
+
+  .erp-single-sidebar.collapsed .erp-sidebar-brand-text,
+  .erp-single-sidebar.collapsed .erp-sidebar-section-label,
+  .erp-single-sidebar.collapsed .erp-sidebar-panel-wrap {
+    display: none;
+  }
+
+  .erp-single-sidebar.collapsed .erp-module-row-text,
+  .erp-single-sidebar.collapsed .erp-module-row-arrow {
+    display: none;
+  }
+
+  .erp-single-sidebar.collapsed .erp-module-row {
+    justify-content: center;
+  }
+
+  .erp-single-sidebar.collapsed .erp-sidebar-topbar {
+    justify-content: center;
+  }
+
+  .erp-content-shell {
+    transition: margin-left 0.22s ease, width 0.22s ease;
+  }
+</style>
 <style>
   .erp-sidebar-link-group {
     display: block;
@@ -515,6 +550,53 @@ document.addEventListener("DOMContentLoaded", () => {
     setModuleContent(getInitialModule(), false);
   });
 })();
+</script>
+
+  <script>
+function toggleSidebar() {
+  const sidebar = document.getElementById("erpSidebar");
+  const contentShell = document.querySelector(".erp-content-shell");
+  const toggleBtn = document.getElementById("erpSidebarToggle");
+
+  if (!sidebar) return;
+
+  const isCollapsed = sidebar.classList.toggle("collapsed");
+
+  if (contentShell) {
+    contentShell.classList.toggle("sidebar-collapsed", isCollapsed);
+  }
+
+  if (toggleBtn) {
+    toggleBtn.textContent = isCollapsed ? "›" : "‹";
+  }
+
+  try {
+    localStorage.setItem("erpSidebarCollapsed", isCollapsed ? "1" : "0");
+  } catch (e) {}
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  const sidebar = document.getElementById("erpSidebar");
+  const contentShell = document.querySelector(".erp-content-shell");
+  const toggleBtn = document.getElementById("erpSidebarToggle");
+
+  if (!sidebar) return;
+
+  let collapsed = false;
+  try {
+    collapsed = localStorage.getItem("erpSidebarCollapsed") === "1";
+  } catch (e) {}
+
+  if (collapsed) {
+    sidebar.classList.add("collapsed");
+    if (contentShell) contentShell.classList.add("sidebar-collapsed");
+    if (toggleBtn) toggleBtn.textContent = "›";
+  } else {
+    sidebar.classList.remove("collapsed");
+    if (contentShell) contentShell.classList.remove("sidebar-collapsed");
+    if (toggleBtn) toggleBtn.textContent = "‹";
+  }
+});
 </script>
 </body>
 </html>
