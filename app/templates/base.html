@@ -289,6 +289,118 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 </script>
+<script>
+(function () {
+  const moduleConfigs = {
+    orders: {
+      badge: "◈",
+      title: "Orders Production",
+      links: `
+        <a class="erp-sidebar-link ${window.location.pathname === '/dashboard' ? 'active' : ''}" href="/dashboard">
+          <span class="erp-sidebar-link-icon">⌂</span>
+          <span>Overview</span>
+        </a>
 
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rfi') ? 'active' : ''}" href="/rfi">
+          <span class="erp-sidebar-link-icon">☑</span>
+          <span>RFI Dashboard</span>
+        </a>
+
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/burst') ? 'active' : ''}" href="/burst">
+          <span class="erp-sidebar-link-icon">◫</span>
+          <span>Burst Report</span>
+        </a>
+
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/hydro') ? 'active' : ''}" href="/hydro">
+          <span class="erp-sidebar-link-icon">◔</span>
+          <span>Hydro Testing</span>
+        </a>
+
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/final') ? 'active' : ''}" href="/final">
+          <span class="erp-sidebar-link-icon">◌</span>
+          <span>Final Inspection</span>
+        </a>
+
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/mrr') ? 'active' : ''}" href="/mrr">
+          <span class="erp-sidebar-link-icon">▣</span>
+          <span>MRR Inspection</span>
+        </a>
+
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/runs') ? 'active' : ''}" href="/runs">
+          <span class="erp-sidebar-link-icon">△</span>
+          <span>In-Process Inspection</span>
+        </a>
+      `
+    },
+
+    rnd: {
+      badge: "⌬",
+      title: "R&D",
+      links: `
+        <a class="erp-sidebar-link ${window.location.pathname === '/rnd' || window.location.pathname === '/rnd/' || window.location.pathname.startsWith('/rnd/qualifications') ? 'active' : ''}" href="/rnd">
+          <span class="erp-sidebar-link-icon">⌂</span>
+          <span>Qualification Dashboard</span>
+        </a>
+
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rnd/qualifications/new') ? 'active' : ''}" href="/rnd/qualifications/new">
+          <span class="erp-sidebar-link-icon">＋</span>
+          <span>New Qualification Program</span>
+        </a>
+      `
+    },
+
+    docs: {
+      badge: "▤",
+      title: "Documentations",
+      links: `
+        <div class="erp-sidebar-link active" style="cursor:default; opacity:0.85;">
+          <span class="erp-sidebar-link-icon">⏳</span>
+          <span>Coming soon</span>
+        </div>
+      `
+    }
+  };
+
+  function getInitialModule() {
+    const path = window.location.pathname || "";
+    if (path.startsWith('/rnd')) return 'rnd';
+    if (path.startsWith('/docs')) return 'docs';
+    return 'orders';
+  }
+
+  function updateActiveModuleButton(moduleKey) {
+    document.querySelectorAll('.erp-module-row').forEach((btn) => {
+      btn.classList.remove('active');
+      const onclickValue = btn.getAttribute('onclick') || '';
+      if (onclickValue.includes(`'${moduleKey}'`) || onclickValue.includes(`"${moduleKey}"`)) {
+        btn.classList.add('active');
+      }
+    });
+  }
+
+  function renderModule(moduleKey) {
+    const config = moduleConfigs[moduleKey];
+    if (!config) return;
+
+    const badge = document.getElementById('erpPanelBadge');
+    const title = document.getElementById('erpPanelTitle');
+    const links = document.getElementById('erpPanelLinks');
+
+    if (badge) badge.textContent = config.badge;
+    if (title) title.textContent = config.title;
+    if (links) links.innerHTML = config.links;
+
+    updateActiveModuleButton(moduleKey);
+  }
+
+  window.selectModule = function (moduleKey) {
+    renderModule(moduleKey);
+  };
+
+  document.addEventListener('DOMContentLoaded', function () {
+    renderModule(getInitialModule());
+  });
+})();
+</script>
 </body>
 </html>
