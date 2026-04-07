@@ -4267,8 +4267,8 @@ def _draw_header_footer(c, title="Short-Time Hydrostatic Burst Pressure Test Rep
     right_x = w - 15 * mm
     top_y = h - 10 * mm
 
-    logo_w = 26 * mm
-    logo_h = 11 * mm
+    logo_w = 38 * mm
+    logo_h = 16 * mm
 
     # ----------------------------
     # logo centered at top
@@ -4302,7 +4302,7 @@ def _draw_header_footer(c, title="Short-Time Hydrostatic Burst Pressure Test Rep
     # ----------------------------
     # title
     # ----------------------------
-    title_y = top_y - 18 * mm
+    title_y = top_y - 23 * mm
     subtitle_y = title_y - 6 * mm
 
     c.setFont("Helvetica-Bold", 14)
@@ -4884,7 +4884,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
     def draw_info_grid(y_top):
         specimen_col_widths = [10 * mm, 22 * mm, 24 * mm, 24 * mm, 24 * mm, 28 * mm, 28 * mm]
-        table_x = page_left + 20 * mm
+        table_x = (w - target_w) / 2
         target_w = sum(specimen_col_widths)
 
         col_widths = [26 * mm, 39 * mm, 26 * mm, 39 * mm]
@@ -4939,7 +4939,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         headers = ["#", "SERIAL NO", "LINER", "REINF.", "COVER", "TOTAL LEN", "EFFECTIVE LEN"]
         row_h = 6.5 * mm
         table_w = sum(col_widths)
-        table_x = page_left + 20 * mm
+        table_x = (w - target_w) / 2
 
         # 1 header row + 2 rows per specimen
         total_rows = 1 + (len(samples) * 2)
@@ -5039,7 +5039,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
     def draw_results_table(y_top):
         specimen_col_widths = [10 * mm, 22 * mm, 24 * mm, 24 * mm, 24 * mm, 28 * mm, 28 * mm]
-        table_x = page_left + 20 * mm
+        table_x = (w - target_w) / 2
         target_w = sum(specimen_col_widths)
 
         col_widths = [10 * mm, 20 * mm, 28 * mm, 16 * mm, 34 * mm, 18 * mm]
