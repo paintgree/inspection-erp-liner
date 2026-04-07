@@ -8,6 +8,38 @@
 </head>
 
 <style>
+  .erp-sidebar-link-group {
+    display: block;
+    width: 100%;
+  }
+
+  .erp-sidebar-expand-btn {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: 0;
+    cursor: pointer;
+  }
+
+  .erp-sidebar-link-arrow {
+    margin-left: auto;
+    font-size: 12px;
+    opacity: 0.8;
+  }
+
+  .erp-sidebar-sub-links {
+    margin-left: 18px;
+    margin-top: 4px;
+  }
+
+  .erp-sidebar-sublink {
+    padding-left: 10px;
+    font-size: 0.95em;
+  }
+</style>
+  
+  
+<style>
   .erp-sidebar-content {
     transition: opacity 0.22s ease, transform 0.22s ease, filter 0.22s ease;
     opacity: 1;
@@ -360,11 +392,39 @@ document.addEventListener("DOMContentLoaded", () => {
           <span class="erp-sidebar-link-icon">⌂</span>
           <span>Qualification</span>
         </a>
-
-        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rnd/lab-tests') ? 'active' : ''}" href="/rnd/lab-tests">
-          <span class="erp-sidebar-link-icon">🧪</span>
-          <span>Lab Tests</span>
-        </a>
+    
+        <div class="erp-sidebar-link-group">
+          <button
+            type="button"
+            class="erp-sidebar-link erp-sidebar-expand-btn ${(window.location.pathname.startsWith('/rnd/lab-tests')) ? 'active' : ''}"
+            onclick="toggleSidebarGroup('rnd-lab-tests')"
+          >
+            <span class="erp-sidebar-link-icon">🧪</span>
+            <span>Lab Tests</span>
+            <span class="erp-sidebar-link-arrow" id="arrow-rnd-lab-tests">${window.location.pathname.startsWith('/rnd/lab-tests') ? '▾' : '▸'}</span>
+          </button>
+    
+          <div
+            id="group-rnd-lab-tests"
+            class="erp-sidebar-sub-links"
+            style="display:${window.location.pathname.startsWith('/rnd/lab-tests') ? 'block' : 'none'};"
+          >
+            <a class="erp-sidebar-link erp-sidebar-sublink ${window.location.pathname.startsWith('/rnd/lab-tests/tensile-pipe') ? 'active' : ''}" href="/rnd/lab-tests/tensile-pipe">
+              <span class="erp-sidebar-link-icon">•</span>
+              <span>Tensile Test Pipe</span>
+            </a>
+    
+            <a class="erp-sidebar-link erp-sidebar-sublink ${window.location.pathname.startsWith('/rnd/lab-tests/tensile-fiber') ? 'active' : ''}" href="/rnd/lab-tests/tensile-fiber">
+              <span class="erp-sidebar-link-icon">•</span>
+              <span>Tensile Test Fiber</span>
+            </a>
+    
+            <a class="erp-sidebar-link erp-sidebar-sublink ${window.location.pathname.startsWith('/rnd/lab-tests/permeation-test') ? 'active' : ''}" href="/rnd/lab-tests/permeation-test">
+              <span class="erp-sidebar-link-icon">•</span>
+              <span>Permeation Test</span>
+            </a>
+          </div>
+        </div>
       `
     },
 
@@ -428,6 +488,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }, 120);
   }
 
+  function toggleSidebarGroup(groupId) {
+    const group = document.getElementById(`group-${groupId}`);
+    const arrow = document.getElementById(`arrow-${groupId}`);
+    if (!group) return;
+  
+    const isOpen = group.style.display === 'block';
+    group.style.display = isOpen ? 'none' : 'block';
+  
+    if (arrow) {
+      arrow.textContent = isOpen ? '▸' : '▾';
+    }
+  }
   window.selectModule = function (moduleKey) {
     renderModule(moduleKey);
   };
