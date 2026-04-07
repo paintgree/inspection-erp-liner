@@ -2706,9 +2706,12 @@ def docs_calibration_list_page(request: Request, session: Session = Depends(get_
         stmt.order_by(CalibrationInstrument.id.desc())
     ).all()
 
+    from starlette.requests import Request as StarletteRequest
+
     return TEMPLATES.TemplateResponse(
-        "docs_calibration_list.html",
-        {
+        request=cast(StarletteRequest, request),
+        name="docs_calibration_list.html",
+        context={
             "request": request,
             "user": user,
             "rows": rows,
