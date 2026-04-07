@@ -339,12 +339,12 @@ document.addEventListener("DOMContentLoaded", () => {
       links: `
         <a class="erp-sidebar-link ${window.location.pathname === '/rnd' || window.location.pathname === '/rnd/' || window.location.pathname.startsWith('/rnd/qualifications') ? 'active' : ''}" href="/rnd">
           <span class="erp-sidebar-link-icon">⌂</span>
-          <span>Qualification Dashboard</span>
+          <span>Qualification</span>
         </a>
 
-        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rnd/qualifications/new') ? 'active' : ''}" href="/rnd/qualifications/new">
-          <span class="erp-sidebar-link-icon">＋</span>
-          <span>New Qualification Program</span>
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rnd/lab-tests') ? 'active' : ''}" href="/rnd/lab-tests">
+          <span class="erp-sidebar-link-icon">🧪</span>
+          <span>Lab Tests</span>
         </a>
       `
     },
@@ -353,10 +353,15 @@ document.addEventListener("DOMContentLoaded", () => {
       badge: "▤",
       title: "Documentations",
       links: `
-        <div class="erp-sidebar-link active" style="cursor:default; opacity:0.85;">
-          <span class="erp-sidebar-link-icon">⏳</span>
-          <span>Coming soon</span>
-        </div>
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/docs/procedures') ? 'active' : ''}" href="/docs/procedures">
+          <span class="erp-sidebar-link-icon">≣</span>
+          <span>Procedures</span>
+        </a>
+
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/docs/calibration-list') ? 'active' : ''}" href="/docs/calibration-list">
+          <span class="erp-sidebar-link-icon">☷</span>
+          <span>Calibration List</span>
+        </a>
       `
     }
   };
