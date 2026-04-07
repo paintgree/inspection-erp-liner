@@ -4883,10 +4883,21 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         return y_pos - 6 * mm
 
     def draw_info_grid(y_top):
-        col_widths = [24 * mm, 36 * mm, 24 * mm, 36 * mm]
-        row_h = 7 * mm
-        table_w = sum(col_widths)
+        specimen_col_widths = [10 * mm, 22 * mm, 24 * mm, 24 * mm, 24 * mm, 28 * mm, 28 * mm]
         table_x = page_left + 20 * mm
+        target_w = sum(specimen_col_widths)
+
+        col_widths = [26 * mm, 39 * mm, 26 * mm, 39 * mm]
+        table_w = sum(col_widths)
+
+        # make it exactly match specimen table width
+        if table_w != target_w:
+            extra = target_w - table_w
+            col_widths[1] += extra / 2
+            col_widths[3] += extra / 2
+            table_w = sum(col_widths)
+
+        row_h = 7 * mm
 
         rows = [
             ("BATCH NO", _txt(getattr(report, "batch_no", "")) or "-", "CLIENT", _txt(getattr(report, "client_name", "")) or "-"),
@@ -5027,11 +5038,21 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         return y_top - total_h - 6 * mm
 
     def draw_results_table(y_top):
-        col_widths = [10 * mm, 20 * mm, 28 * mm, 16 * mm, 34 * mm, 20 * mm]
+        specimen_col_widths = [10 * mm, 22 * mm, 24 * mm, 24 * mm, 24 * mm, 28 * mm, 28 * mm]
+        table_x = page_left + 20 * mm
+        target_w = sum(specimen_col_widths)
+
+        col_widths = [10 * mm, 20 * mm, 28 * mm, 16 * mm, 34 * mm, 18 * mm]
+        table_w = sum(col_widths)
+
+        # make it exactly match specimen table width
+        if table_w != target_w:
+            extra = target_w - table_w
+            col_widths[4] += extra
+            table_w = sum(col_widths)
+
         headers = ["#", "SERIAL NO", "ACTUAL BURST", "TIME", "FAILURE MODE", "RESULT"]
         row_h = 7 * mm
-        table_w = sum(col_widths)
-        table_x = page_left + 20 * mm
 
         total_h = (len(samples) + 1) * row_h
         c.roundRect(table_x, y_top - total_h, table_w, total_h, 2 * mm, stroke=1, fill=0)
