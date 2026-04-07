@@ -2462,23 +2462,23 @@ def _parse_calibration_workbook(upload_file_bytes: bytes):
     wb = load_workbook(filename=BytesIO(upload_file_bytes), data_only=True)
     ws = _find_calibration_sheet(wb)
 
-    header_row_number = 3
+    header_row_number = 1
     header_values = [cell.value for cell in ws[header_row_number]]
     header_map = _build_calibration_header_map(header_values)
 
     required_headers = {
-        "til no": "til_no",
         "item name": "item_name",
         "asset no": "asset_no",
         "serial no": "serial_no",
         "capacity (range)": "capacity_range",
         "maker": "maker",
-        "location": "location",
         "date issued": "date_issued",
         "calibration date": "calibration_date",
-        "certificate number": "certificate_number",
-        "status": "status",
+        "calibration frequency": "calibration_frequency",
+        "calibration due date": "calibration_due_date",
         "calibrated by": "calibrated_by",
+        "acceptance criteria": "acceptance_criteria",
+        "certificate no": "certificate_no",
     }
 
     missing = [k for k in required_headers.keys() if k not in header_map]
@@ -2500,18 +2500,18 @@ def _parse_calibration_workbook(upload_file_bytes: bytes):
             continue
 
         rows.append({
-            "til_no": _cell_str(row[header_map["til no"]]),
             "item_name": item_name,
             "asset_no": asset_no,
             "serial_no": serial_no,
             "capacity_range": _cell_str(row[header_map["capacity (range)"]]),
             "maker": _cell_str(row[header_map["maker"]]),
-            "location": _cell_str(row[header_map["location"]]),
             "date_issued": _excel_date_to_python(row[header_map["date issued"]]),
             "calibration_date": _excel_date_to_python(row[header_map["calibration date"]]),
-            "certificate_number": _cell_str(row[header_map["certificate number"]]),
-            "status": _cell_str(row[header_map["status"]]),
+            "calibration_frequency": _cell_str(row[header_map["calibration frequency"]]),
+            "calibration_due_date": _excel_date_to_python(row[header_map["calibration due date"]]),
             "calibrated_by": _cell_str(row[header_map["calibrated by"]]),
+            "acceptance_criteria": _cell_str(row[header_map["acceptance criteria"]]),
+            "certificate_no": _cell_str(row[header_map["certificate no"]]),
         })
 
     return rows
@@ -2522,19 +2522,18 @@ def _build_calibration_template_file():
     ws = wb.active
     ws.title = CALIBRATION_TEMPLATE_SHEET_NAME
 
-    ws["A1"] = "Calibration Master Upload Template"
-    ws["A3"] = "TIL NO"
-    ws["B3"] = "ITEM NAME"
-    ws["C3"] = "Asset NO"
-    ws["D3"] = "Serial No"
-    ws["E3"] = "Capacity (Range)"
-    ws["F3"] = "Maker"
-    ws["G3"] = "Location"
-    ws["H3"] = "Date Issued"
-    ws["I3"] = "Calibration Date"
-    ws["J3"] = "Certificate Number"
-    ws["K3"] = "Status"
-    ws["L3"] = "Calibrated by"
+    ws["A1"] = "ITEM NAME"
+    ws["B1"] = "Asset NO"
+    ws["C1"] = "Serial No"
+    ws["D1"] = "Capacity (Range)"
+    ws["E1"] = "Maker"
+    ws["F1"] = "Date Issued"
+    ws["G1"] = "Calibration Date"
+    ws["H1"] = "Calibration Frequency"
+    ws["I1"] = "Calibration due date"
+    ws["J1"] = "Calibrated by"
+    ws["K1"] = "Acceptance Criteria"
+    ws["L1"] = "Certificate No"
 
     output = BytesIO()
     wb.save(output)
@@ -2545,34 +2544,31 @@ def _build_calibration_template_file():
 def _serialize_calibration_row(row: CalibrationInstrument) -> dict:
     return {
         "id": row.id,
-        "til_no": row.til_no,
         "item_name": row.item_name,
         "asset_no": row.asset_no,
         "serial_no": row.serial_no,
         "capacity_range": row.capacity_range,
         "maker": row.maker,
-        "location": row.location,
         "date_issued": row.date_issued.isoformat() if row.date_issued else "",
         "calibration_date": row.calibration_date.isoformat() if row.calibration_date else "",
-        "certificate_number": row.certificate_number,
-        "status": row.status,
+        "calibration_frequency": row.calibration_frequency,
+        "calibration_due_date": row.calibration_due_date.isoformat() if row.calibration_due_date else "",
         "calibrated_by": row.calibrated_by,
+        "acceptance_criteria": row.acceptance_criteria,
+        "certificate_no": row.certificate_no,
     }
 
 
-def _row_due_state(calibration_date: Optional[date]) -> str:
-    if not calibration_date:
+def _row_due_state(calibration_due_date: Optional[date]) -> str:
+    if not calibration_due_date:
         return "normal"
 
     today = date.today()
-    if calibration_date < today:
+    if calibration_due_date < today:
         return "overdue"
-
-    if calibration_date <= today + timedelta(days=30):
+    if calibration_due_date <= today + timedelta(days=30):
         return "due_soon"
-
     return "valid"
-
 
 app = FastAPI()
 
@@ -2724,13 +2720,12 @@ def docs_calibration_list_page(request: Request, session: Session = Depends(get_
     if q:
         like = f"%{q}%"
         stmt = stmt.where(
-            (CalibrationInstrument.til_no.ilike(like)) |
             (CalibrationInstrument.item_name.ilike(like)) |
             (CalibrationInstrument.asset_no.ilike(like)) |
             (CalibrationInstrument.serial_no.ilike(like)) |
-            (CalibrationInstrument.location.ilike(like)) |
-            (CalibrationInstrument.status.ilike(like)) |
-            (CalibrationInstrument.certificate_number.ilike(like))
+            (CalibrationInstrument.maker.ilike(like)) |
+            (CalibrationInstrument.calibrated_by.ilike(like)) |
+            (CalibrationInstrument.certificate_no.ilike(like))
         )
 
     rows = session.exec(stmt.order_by(CalibrationInstrument.id.desc())).all()
@@ -2743,7 +2738,7 @@ def docs_calibration_list_page(request: Request, session: Session = Depends(get_
             .order_by(CalibrationChangeRequest.id.desc())
         ).all()
 
-    row_states = {row.id: _row_due_state(row.calibration_date) for row in rows}
+    row_states = {row.id: _row_due_state(row.calibration_due_date) for row in rows}
 
     return TEMPLATES.TemplateResponse(
         request=request,
@@ -2759,6 +2754,7 @@ def docs_calibration_list_page(request: Request, session: Session = Depends(get_
         },
     )
 
+
 @app.get("/documentation/calibration-list/template")
 def docs_calibration_list_template_download(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -2766,9 +2762,7 @@ def docs_calibration_list_template_download(request: Request, session: Session =
     return StreamingResponse(
         output,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={
-            "Content-Disposition": 'attachment; filename="QAP0500-F01 Master List of TMMDE Upload Template.xlsx"'
-        },
+        headers={"Content-Disposition": 'attachment; filename="Calibration_List_Template.xlsx"'},
     )
 
 
@@ -2776,40 +2770,40 @@ def docs_calibration_list_template_download(request: Request, session: Session =
 def docs_calibration_list_add_single(
     request: Request,
     session: Session = Depends(get_session),
-    til_no: str = Form(""),
     item_name: str = Form(""),
     asset_no: str = Form(""),
     serial_no: str = Form(""),
     capacity_range: str = Form(""),
     maker: str = Form(""),
-    location: str = Form(""),
     date_issued: str = Form(""),
     calibration_date: str = Form(""),
-    certificate_number: str = Form(""),
-    status: str = Form(""),
+    calibration_frequency: str = Form(""),
+    calibration_due_date: str = Form(""),
     calibrated_by: str = Form(""),
+    acceptance_criteria: str = Form(""),
+    certificate_no: str = Form(""),
 ):
     user = get_current_user(request, session)
 
     row = CalibrationInstrument(
-        til_no=til_no.strip(),
         item_name=item_name.strip(),
         asset_no=asset_no.strip(),
         serial_no=serial_no.strip(),
         capacity_range=capacity_range.strip(),
         maker=maker.strip(),
-        location=location.strip(),
         date_issued=_excel_date_to_python(date_issued),
         calibration_date=_excel_date_to_python(calibration_date),
-        certificate_number=certificate_number.strip(),
-        status=status.strip(),
+        calibration_frequency=calibration_frequency.strip(),
+        calibration_due_date=_excel_date_to_python(calibration_due_date),
         calibrated_by=calibrated_by.strip(),
+        acceptance_criteria=acceptance_criteria.strip(),
+        certificate_no=certificate_no.strip(),
         updated_at=datetime.utcnow(),
     )
     session.add(row)
     session.commit()
 
-    return RedirectResponse("/documentation/calibration-list", status_code=303)
+    return RedirectResponse("/documentation/calibration-list?edit=1", status_code=303)
 
 
 @app.post("/documentation/calibration-list/upload")
@@ -2836,32 +2830,28 @@ async def docs_calibration_list_bulk_upload(
     now = datetime.utcnow()
     for item in parsed_rows:
         db_row = CalibrationInstrument(
-            til_no=item["til_no"],
             item_name=item["item_name"],
             asset_no=item["asset_no"],
             serial_no=item["serial_no"],
             capacity_range=item["capacity_range"],
             maker=item["maker"],
-            location=item["location"],
             date_issued=item["date_issued"],
             calibration_date=item["calibration_date"],
-            certificate_number=item["certificate_number"],
-            status=item["status"],
+            calibration_frequency=item["calibration_frequency"],
+            calibration_due_date=item["calibration_due_date"],
             calibrated_by=item["calibrated_by"],
+            acceptance_criteria=item["acceptance_criteria"],
+            certificate_no=item["certificate_no"],
             updated_at=now,
         )
         session.add(db_row)
 
     session.commit()
-    return RedirectResponse("/documentation/calibration-list", status_code=303)
+    return RedirectResponse("/documentation/calibration-list?edit=1", status_code=303)
 
 
 @app.post("/documentation/calibration-list/request-edit/{row_id}")
-async def docs_calibration_request_edit(
-    row_id: int,
-    request: Request,
-    session: Session = Depends(get_session),
-):
+async def docs_calibration_request_edit(row_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     row = session.get(CalibrationInstrument, row_id)
     if not row:
@@ -2870,18 +2860,18 @@ async def docs_calibration_request_edit(
     form = await request.form()
 
     new_data = {
-        "til_no": (form.get("til_no") or "").strip(),
         "item_name": (form.get("item_name") or "").strip(),
         "asset_no": (form.get("asset_no") or "").strip(),
         "serial_no": (form.get("serial_no") or "").strip(),
         "capacity_range": (form.get("capacity_range") or "").strip(),
         "maker": (form.get("maker") or "").strip(),
-        "location": (form.get("location") or "").strip(),
         "date_issued": (form.get("date_issued") or "").strip(),
         "calibration_date": (form.get("calibration_date") or "").strip(),
-        "certificate_number": (form.get("certificate_number") or "").strip(),
-        "status": (form.get("status") or "").strip(),
+        "calibration_frequency": (form.get("calibration_frequency") or "").strip(),
+        "calibration_due_date": (form.get("calibration_due_date") or "").strip(),
         "calibrated_by": (form.get("calibrated_by") or "").strip(),
+        "acceptance_criteria": (form.get("acceptance_criteria") or "").strip(),
+        "certificate_no": (form.get("certificate_no") or "").strip(),
     }
 
     change_request = CalibrationChangeRequest(
@@ -2900,11 +2890,7 @@ async def docs_calibration_request_edit(
 
 
 @app.post("/documentation/calibration-list/request-delete/{row_id}")
-def docs_calibration_request_delete(
-    row_id: int,
-    request: Request,
-    session: Session = Depends(get_session),
-):
+def docs_calibration_request_delete(row_id: int, request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     row = session.get(CalibrationInstrument, row_id)
     if not row:
@@ -2924,42 +2910,6 @@ def docs_calibration_request_delete(
 
     return RedirectResponse("/documentation/calibration-list?edit=1", status_code=303)
 
-
-@app.post("/documentation/calibration-list/request-bulk-delete")
-async def docs_calibration_request_bulk_delete(
-    request: Request,
-    session: Session = Depends(get_session),
-):
-    user = get_current_user(request, session)
-    form = await request.form()
-    selected_ids = form.getlist("selected_ids")
-
-    rows = []
-    for raw_id in selected_ids:
-        try:
-            row_id = int(raw_id)
-        except Exception:
-            continue
-        row = session.get(CalibrationInstrument, row_id)
-        if row:
-            rows.append(_serialize_calibration_row(row))
-
-    if rows:
-        change_request = CalibrationChangeRequest(
-            instrument_id=None,
-            action_type="bulk_delete",
-            old_data_json=json.dumps(rows),
-            new_data_json="",
-            requested_by_user_id=user.id,
-            requested_by_user_name=user.display_name or user.username or "Unknown",
-            status="pending",
-        )
-        session.add(change_request)
-        session.commit()
-
-    return RedirectResponse("/documentation/calibration-list?edit=1", status_code=303)
-
-
 @app.post("/documentation/calibration-list/approve/{request_id}")
 def docs_calibration_approve_request(
     request_id: int,
@@ -2978,18 +2928,18 @@ def docs_calibration_approve_request(
         row = session.get(CalibrationInstrument, change_request.instrument_id)
         if row:
             new_data = json.loads(change_request.new_data_json or "{}")
-            row.til_no = new_data.get("til_no", "")
             row.item_name = new_data.get("item_name", "")
             row.asset_no = new_data.get("asset_no", "")
             row.serial_no = new_data.get("serial_no", "")
             row.capacity_range = new_data.get("capacity_range", "")
             row.maker = new_data.get("maker", "")
-            row.location = new_data.get("location", "")
             row.date_issued = _excel_date_to_python(new_data.get("date_issued"))
             row.calibration_date = _excel_date_to_python(new_data.get("calibration_date"))
-            row.certificate_number = new_data.get("certificate_number", "")
-            row.status = new_data.get("status", "")
+            row.calibration_frequency = new_data.get("calibration_frequency", "")
+            row.calibration_due_date = _excel_date_to_python(new_data.get("calibration_due_date"))
             row.calibrated_by = new_data.get("calibrated_by", "")
+            row.acceptance_criteria = new_data.get("acceptance_criteria", "")
+            row.certificate_no = new_data.get("certificate_no", "")
             row.updated_at = datetime.utcnow()
             session.add(row)
 
