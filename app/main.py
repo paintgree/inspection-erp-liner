@@ -7592,26 +7592,33 @@ def _search_match(query: str, *values: str) -> bool:
     if not q:
         return False
 
-    hay_parts = [str(v or "") for v in values]
+    hay_parts = [str(v or "") for v in values if str(v or "").strip()]
+    if not hay_parts:
+        return False
+
     hay = _normalize_search_text(" ".join(hay_parts))
     hay_compact = hay.replace(" ", "")
+    q_compact = q.replace(" ", "")
 
     tokens = [t for t in q.split() if t]
     if not tokens:
         return False
 
-    if q in hay or q.replace(" ", "") in hay_compact:
+    if q in hay or q_compact in hay_compact:
         return True
+
+    if len(tokens) == 1:
+        token = tokens[0]
+        if len(token) <= 3:
+            return token in hay or token in hay_compact
+        return token in hay or token in hay_compact
 
     matched = 0
     for token in tokens:
         if token in hay or token in hay_compact:
             matched += 1
 
-    if len(tokens) == 1:
-        return matched == 1
-
-    return matched >= max(2, len(tokens) - 1)
+    return matched >= max(1, len(tokens) - 1)
 
 
 def _batch_has_approved_hydro(session: Session, batch_no: str) -> bool:
@@ -7680,7 +7687,7 @@ def _compute_batch_status(session: Session, batch_no: str, runs: list[Production
         remaining_steps.append("Raise RFI")
         status_label = "In Production"
         status_class = "status-in-production"
-        next_action = "Continue production. After production, complete hydro and burst testing before raising RFI."
+        next_action = "Complete production"
     elif not hydro_done or not burst_done:
         current_stage = "Production Complete"
         remaining_steps = []
@@ -7691,44 +7698,44 @@ def _compute_batch_status(session: Session, batch_no: str, runs: list[Production
         remaining_steps.append("Raise RFI")
         status_label = "Testing Pending"
         status_class = "status-awaiting-rfi"
-        if not hydro_done and not burst_done:
-            next_action = "Complete hydro and burst testing before raising RFI."
-        elif not hydro_done:
-            next_action = "Complete hydro testing before raising RFI."
+        if not hydro_done:
+            next_action = "Hydro Testing"
+        elif not burst_done:
+            next_action = "Burst Testing"
         else:
-            next_action = "Complete burst testing before raising RFI."
+            next_action = "Raise RFI"
     elif latest_rfi is None:
         current_stage = "Testing Complete"
         remaining_steps = ["Raise RFI"]
         status_label = "Awaiting RFI"
         status_class = "status-awaiting-rfi"
-        next_action = "Raise RFI for the completed scope."
+        next_action = "Raise RFI"
     else:
         rfi_status = (latest_rfi.status or "").upper()
         if rfi_status in ["DRAFT", "SUBMITTED", "SCHEDULED"]:
             current_stage = "Awaiting TPI Visit"
-            remaining_steps = ["TPI visit", "Close RFI", "Dispatch"]
+            remaining_steps = ["TPI Visit", "Close RFI", "Dispatch"]
             status_label = "RFI Raised - Awaiting TPI"
             status_class = "status-awaiting-tpi"
-            next_action = "Follow up on inspection schedule / visit date."
+            next_action = "TPI Visit"
         elif rfi_status == "VISIT_COMPLETED":
             current_stage = "TPI Completed"
             remaining_steps = ["Dispatch"]
             status_label = "Ready for Dispatch"
             status_class = "status-ready-dispatch"
-            next_action = "Prepare release and dispatch."
+            next_action = "Dispatch"
         elif rfi_status == "CLOSED" and remaining:
             current_stage = "Previous RFI Closed"
             remaining_steps = [RFI_ACTIVITY_LABELS.get(x, x) for x in remaining]
             status_label = "Awaiting Next RFI"
             status_class = "status-awaiting-rfi"
-            next_action = "Raise next RFI for the remaining activities."
+            next_action = remaining_steps[0] if remaining_steps else "Raise RFI"
         else:
             current_stage = "Completed"
             remaining_steps = []
             status_label = "Closed"
             status_class = "status-closed"
-            next_action = "No action pending."
+            next_action = "No action"
 
     production_state = "done" if not pending_runs else "current"
     hydro_state = "done" if hydro_done else ("pending" if pending_runs else "current")
@@ -7753,13 +7760,15 @@ def _compute_batch_status(session: Session, batch_no: str, runs: list[Production
         {"label": "Dispatch", "state": dispatch_state, "note": next_action},
     ]
 
+    remaining_text = ", ".join(remaining_steps) if remaining_steps else "None"
+
     return {
         "latest_rfi": latest_rfi,
         "remaining_activities": remaining,
         "status_label": status_label,
         "status_class": status_class,
         "current_stage": current_stage,
-        "remaining_text": ", ".join(remaining_steps) if remaining_steps else "None",
+        "remaining_text": remaining_text,
         "next_action": next_action,
         "timeline_items": timeline_items,
         "hydro_done": hydro_done,
