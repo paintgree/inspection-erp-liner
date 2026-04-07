@@ -2746,8 +2746,9 @@ def docs_calibration_list_page(request: Request, session: Session = Depends(get_
     row_states = {row.id: _row_due_state(row.calibration_date) for row in rows}
 
     return TEMPLATES.TemplateResponse(
-        "docs_calibration_list.html",
-        {
+        request=request,
+        name="docs_calibration_list.html",
+        context={
             "request": request,
             "user": user,
             "rows": rows,
@@ -2757,7 +2758,6 @@ def docs_calibration_list_page(request: Request, session: Session = Depends(get_
             "pending_requests": pending_requests,
         },
     )
-
 
 @app.get("/documentation/calibration-list/template")
 def docs_calibration_list_template_download(request: Request, session: Session = Depends(get_session)):
