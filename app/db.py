@@ -564,6 +564,12 @@ def _ensure_schema_patches() -> None:
             "ALTER TABLE rfirecord ADD COLUMN IF NOT EXISTS linked_run_id INTEGER",
             "ALTER TABLE rfirecord ADD COLUMN linked_run_id INTEGER",
         ),
+        (
+            "rfirecord",
+            "covered_length_m",
+            "ALTER TABLE rfirecord ADD COLUMN IF NOT EXISTS covered_length_m DOUBLE PRECISION DEFAULT 0.0",
+            "ALTER TABLE rfirecord ADD COLUMN covered_length_m REAL DEFAULT 0.0",
+        ),
     ]
 
     for table, col, ddl_postgres, ddl_sqlite in column_patches:
