@@ -38,29 +38,29 @@
         <div id="erpSidebarContent" class="erp-sidebar-content morphing">
           <div class="erp-sidebar-section-label">Main Modules</div>
 
-          <button type="button"
-                  class="erp-module-row {% if selected_module == 'orders' %}active{% endif %}"
-                  onclick="selectModule('orders')">
+          <a href="/dashboard"
+             class="erp-module-row {% if selected_module == 'orders' %}active{% endif %}"
+             style="text-decoration:none;">
             <span class="erp-module-row-icon">◈</span>
             <span class="erp-module-row-text">Orders Production</span>
             <span class="erp-module-row-arrow">›</span>
-          </button>
-
-          <button type="button"
-                  class="erp-module-row {% if selected_module == 'rnd' %}active{% endif %}"
-                  onclick="selectModule('rnd')">
+          </a>
+          
+          <a href="/rnd"
+             class="erp-module-row {% if selected_module == 'rnd' %}active{% endif %}"
+             style="text-decoration:none;">
             <span class="erp-module-row-icon">⌬</span>
             <span class="erp-module-row-text">R&amp;D</span>
             <span class="erp-module-row-arrow">›</span>
-          </button>
-
-          <button type="button"
-                  class="erp-module-row {% if selected_module == 'docs' %}active{% endif %}"
-                  onclick="selectModule('docs')">
+          </a>
+          
+          <a href="/docs"
+             class="erp-module-row {% if selected_module == 'docs' %}active{% endif %}"
+             style="text-decoration:none;">
             <span class="erp-module-row-icon">▤</span>
             <span class="erp-module-row-text">Documentations</span>
             <span class="erp-module-row-arrow">›</span>
-          </button>
+          </a>
 
           <div class="erp-sidebar-divider"></div>
 
