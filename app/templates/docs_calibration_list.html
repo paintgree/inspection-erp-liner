@@ -21,10 +21,67 @@
   .cal-toolbar form { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 
   .cal-table-wrap {
-    overflow:auto; border:1px solid #d9e2ec; border-radius:12px; background:#fff;
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    border: 1px solid #d9e2ec;
+    border-radius: 12px;
+    background: #fff;
   }
   .cal-table {
-    width:100%; border-collapse:collapse; min-width:1700px; font-size:13px;
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+    min-width: 0;
+    font-size: 13px;
+  }
+  .page,
+  .erp-content-shell,
+  .cal-card {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .cal-card {
+    overflow: hidden;
+  }
+
+  .cal-table td:nth-child(13) {
+    min-width: 180px;
+  }
+  
+  .cal-table td:nth-child(2) {
+    min-width: 220px;
+  }
+  .cal-table th,
+  .cal-table td {
+    border-right: 1px solid #d4dbe5;
+    border-bottom: 1px solid #d4dbe5;
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: middle;
+    white-space: normal;
+    word-break: break-word;
+  }
+  
+  .cal-table th {
+    white-space: nowrap;
+  }
+  
+  .cal-table td:nth-child(2),
+  .cal-table td:nth-child(3),
+  .cal-table td:nth-child(4),
+  .cal-table td:nth-child(5),
+  .cal-table td:nth-child(6),
+  .cal-table td:nth-child(7),
+  .cal-table td:nth-child(8),
+  .cal-table td:nth-child(9),
+  .cal-table td:nth-child(10),
+  .cal-table td:nth-child(11),
+  .cal-table td:nth-child(12),
+  .cal-table td:nth-child(13),
+  .cal-table td:nth-child(14) {
+    min-width: 90px;
   }
   .cal-table thead th {
     position:sticky; top:0; background:#3f78bb; color:#fff; z-index:1; border-bottom:1px solid #2f5f95; white-space:nowrap;
