@@ -2462,7 +2462,6 @@ def _parse_calibration_workbook(upload_file_bytes: bytes):
     wb = load_workbook(filename=BytesIO(upload_file_bytes), data_only=True)
     ws = _find_calibration_sheet(wb)
 
-    # Expected headers are on row 3 based on your template
     header_row_number = 3
     header_values = [cell.value for cell in ws[header_row_number]]
     header_map = _build_calibration_header_map(header_values)
@@ -2476,8 +2475,8 @@ def _parse_calibration_workbook(upload_file_bytes: bytes):
         "maker": "maker",
         "location": "location",
         "date issued": "date_issued",
-        "ref std/master gauge no": "ref_std_master_gauge_no",
         "calibration date": "calibration_date",
+        "certificate number": "certificate_number",
         "status": "status",
         "calibrated by": "calibrated_by",
     }
@@ -2494,11 +2493,9 @@ def _parse_calibration_workbook(upload_file_bytes: bytes):
         asset_no = _cell_str(row[header_map["asset no"]])
         serial_no = _cell_str(row[header_map["serial no"]])
 
-        # Skip fully empty rows
         if not any(_cell_str(v) for v in row):
             continue
 
-        # If row has some formatting junk but no meaningful identity, skip it
         if not item_name and not asset_no and not serial_no:
             continue
 
@@ -2511,8 +2508,8 @@ def _parse_calibration_workbook(upload_file_bytes: bytes):
             "maker": _cell_str(row[header_map["maker"]]),
             "location": _cell_str(row[header_map["location"]]),
             "date_issued": _excel_date_to_python(row[header_map["date issued"]]),
-            "ref_std_master_gauge_no": _cell_str(row[header_map["ref std/master gauge no"]]),
             "calibration_date": _excel_date_to_python(row[header_map["calibration date"]]),
+            "certificate_number": _cell_str(row[header_map["certificate number"]]),
             "status": _cell_str(row[header_map["status"]]),
             "calibrated_by": _cell_str(row[header_map["calibrated by"]]),
         })
@@ -2534,8 +2531,8 @@ def _build_calibration_template_file():
     ws["F3"] = "Maker"
     ws["G3"] = "Location"
     ws["H3"] = "Date Issued"
-    ws["I3"] = "Ref Std/Master Gauge No"
-    ws["J3"] = "Calibration Date"
+    ws["I3"] = "Calibration Date"
+    ws["J3"] = "Certificate Number"
     ws["K3"] = "Status"
     ws["L3"] = "Calibrated by"
 
@@ -2544,6 +2541,37 @@ def _build_calibration_template_file():
     output.seek(0)
     return output
 
+
+def _serialize_calibration_row(row: CalibrationInstrument) -> dict:
+    return {
+        "id": row.id,
+        "til_no": row.til_no,
+        "item_name": row.item_name,
+        "asset_no": row.asset_no,
+        "serial_no": row.serial_no,
+        "capacity_range": row.capacity_range,
+        "maker": row.maker,
+        "location": row.location,
+        "date_issued": row.date_issued.isoformat() if row.date_issued else "",
+        "calibration_date": row.calibration_date.isoformat() if row.calibration_date else "",
+        "certificate_number": row.certificate_number,
+        "status": row.status,
+        "calibrated_by": row.calibrated_by,
+    }
+
+
+def _row_due_state(calibration_date: Optional[date]) -> str:
+    if not calibration_date:
+        return "normal"
+
+    today = date.today()
+    if calibration_date < today:
+        return "overdue"
+
+    if calibration_date <= today + timedelta(days=30):
+        return "due_soon"
+
+    return "valid"
 
 
 app = FastAPI()
@@ -2689,6 +2717,8 @@ def docs_calibration_list_page(request: Request, session: Session = Depends(get_
     user = get_current_user(request, session)
 
     q = (request.query_params.get("q") or "").strip()
+    edit_mode = (request.query_params.get("edit") or "").strip() == "1"
+
     stmt = select(CalibrationInstrument)
 
     if q:
@@ -2699,31 +2729,38 @@ def docs_calibration_list_page(request: Request, session: Session = Depends(get_
             (CalibrationInstrument.asset_no.ilike(like)) |
             (CalibrationInstrument.serial_no.ilike(like)) |
             (CalibrationInstrument.location.ilike(like)) |
-            (CalibrationInstrument.status.ilike(like))
+            (CalibrationInstrument.status.ilike(like)) |
+            (CalibrationInstrument.certificate_number.ilike(like))
         )
 
-    rows = session.exec(
-        stmt.order_by(CalibrationInstrument.id.desc())
-    ).all()
+    rows = session.exec(stmt.order_by(CalibrationInstrument.id.desc())).all()
 
-    from starlette.requests import Request as StarletteRequest
+    pending_requests = []
+    if user.role and user.role.upper() == "MANAGER":
+        pending_requests = session.exec(
+            select(CalibrationChangeRequest)
+            .where(CalibrationChangeRequest.status == "pending")
+            .order_by(CalibrationChangeRequest.id.desc())
+        ).all()
+
+    row_states = {row.id: _row_due_state(row.calibration_date) for row in rows}
 
     return TEMPLATES.TemplateResponse(
-        request=request,
-        name="docs_calibration_list.html",
-        context={
+        "docs_calibration_list.html",
+        {
             "request": request,
             "user": user,
             "rows": rows,
             "q": q,
+            "edit_mode": edit_mode,
+            "row_states": row_states,
+            "pending_requests": pending_requests,
         },
     )
 
+
 @app.get("/documentation/calibration-list/template")
-def docs_calibration_list_template_download(
-    request: Request,
-    session: Session = Depends(get_session)
-):
+def docs_calibration_list_template_download(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
     output = _build_calibration_template_file()
     return StreamingResponse(
@@ -2747,8 +2784,8 @@ def docs_calibration_list_add_single(
     maker: str = Form(""),
     location: str = Form(""),
     date_issued: str = Form(""),
-    ref_std_master_gauge_no: str = Form(""),
     calibration_date: str = Form(""),
+    certificate_number: str = Form(""),
     status: str = Form(""),
     calibrated_by: str = Form(""),
 ):
@@ -2763,8 +2800,8 @@ def docs_calibration_list_add_single(
         maker=maker.strip(),
         location=location.strip(),
         date_issued=_excel_date_to_python(date_issued),
-        ref_std_master_gauge_no=ref_std_master_gauge_no.strip(),
         calibration_date=_excel_date_to_python(calibration_date),
+        certificate_number=certificate_number.strip(),
         status=status.strip(),
         calibrated_by=calibrated_by.strip(),
         updated_at=datetime.utcnow(),
@@ -2807,8 +2844,8 @@ async def docs_calibration_list_bulk_upload(
             maker=item["maker"],
             location=item["location"],
             date_issued=item["date_issued"],
-            ref_std_master_gauge_no=item["ref_std_master_gauge_no"],
             calibration_date=item["calibration_date"],
+            certificate_number=item["certificate_number"],
             status=item["status"],
             calibrated_by=item["calibrated_by"],
             updated_at=now,
@@ -2816,30 +2853,80 @@ async def docs_calibration_list_bulk_upload(
         session.add(db_row)
 
     session.commit()
-
     return RedirectResponse("/documentation/calibration-list", status_code=303)
 
 
-@app.post("/documentation/calibration-list/delete/{row_id}")
-def docs_calibration_list_delete_one(
+@app.post("/documentation/calibration-list/request-edit/{row_id}")
+async def docs_calibration_request_edit(
     row_id: int,
     request: Request,
     session: Session = Depends(get_session),
 ):
     user = get_current_user(request, session)
-
     row = session.get(CalibrationInstrument, row_id)
     if not row:
         raise HTTPException(status_code=404, detail="Calibration row not found.")
 
-    session.delete(row)
+    form = await request.form()
+
+    new_data = {
+        "til_no": (form.get("til_no") or "").strip(),
+        "item_name": (form.get("item_name") or "").strip(),
+        "asset_no": (form.get("asset_no") or "").strip(),
+        "serial_no": (form.get("serial_no") or "").strip(),
+        "capacity_range": (form.get("capacity_range") or "").strip(),
+        "maker": (form.get("maker") or "").strip(),
+        "location": (form.get("location") or "").strip(),
+        "date_issued": (form.get("date_issued") or "").strip(),
+        "calibration_date": (form.get("calibration_date") or "").strip(),
+        "certificate_number": (form.get("certificate_number") or "").strip(),
+        "status": (form.get("status") or "").strip(),
+        "calibrated_by": (form.get("calibrated_by") or "").strip(),
+    }
+
+    change_request = CalibrationChangeRequest(
+        instrument_id=row.id,
+        action_type="edit",
+        old_data_json=json.dumps(_serialize_calibration_row(row)),
+        new_data_json=json.dumps(new_data),
+        requested_by_user_id=user.id,
+        requested_by_user_name=user.display_name or user.username or "Unknown",
+        status="pending",
+    )
+    session.add(change_request)
     session.commit()
 
-    return RedirectResponse("/documentation/calibration-list", status_code=303)
+    return RedirectResponse("/documentation/calibration-list?edit=1", status_code=303)
 
 
-@app.post("/documentation/calibration-list/bulk-delete")
-async def docs_calibration_list_bulk_delete(
+@app.post("/documentation/calibration-list/request-delete/{row_id}")
+def docs_calibration_request_delete(
+    row_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+    row = session.get(CalibrationInstrument, row_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Calibration row not found.")
+
+    change_request = CalibrationChangeRequest(
+        instrument_id=row.id,
+        action_type="delete",
+        old_data_json=json.dumps(_serialize_calibration_row(row)),
+        new_data_json="",
+        requested_by_user_id=user.id,
+        requested_by_user_name=user.display_name or user.username or "Unknown",
+        status="pending",
+    )
+    session.add(change_request)
+    session.commit()
+
+    return RedirectResponse("/documentation/calibration-list?edit=1", status_code=303)
+
+
+@app.post("/documentation/calibration-list/request-bulk-delete")
+async def docs_calibration_request_bulk_delete(
     request: Request,
     session: Session = Depends(get_session),
 ):
@@ -2847,6 +2934,7 @@ async def docs_calibration_list_bulk_delete(
     form = await request.form()
     selected_ids = form.getlist("selected_ids")
 
+    rows = []
     for raw_id in selected_ids:
         try:
             row_id = int(raw_id)
@@ -2854,9 +2942,106 @@ async def docs_calibration_list_bulk_delete(
             continue
         row = session.get(CalibrationInstrument, row_id)
         if row:
+            rows.append(_serialize_calibration_row(row))
+
+    if rows:
+        change_request = CalibrationChangeRequest(
+            instrument_id=None,
+            action_type="bulk_delete",
+            old_data_json=json.dumps(rows),
+            new_data_json="",
+            requested_by_user_id=user.id,
+            requested_by_user_name=user.display_name or user.username or "Unknown",
+            status="pending",
+        )
+        session.add(change_request)
+        session.commit()
+
+    return RedirectResponse("/documentation/calibration-list?edit=1", status_code=303)
+
+
+@app.post("/documentation/calibration-list/approve/{request_id}")
+def docs_calibration_approve_request(
+    request_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
+    if not user.role or user.role.upper() != "MANAGER":
+        raise HTTPException(status_code=403, detail="Manager approval required.")
+
+    change_request = session.get(CalibrationChangeRequest, request_id)
+    if not change_request or change_request.status != "pending":
+        raise HTTPException(status_code=404, detail="Pending request not found.")
+
+    if change_request.action_type == "edit":
+        row = session.get(CalibrationInstrument, change_request.instrument_id)
+        if row:
+            new_data = json.loads(change_request.new_data_json or "{}")
+            row.til_no = new_data.get("til_no", "")
+            row.item_name = new_data.get("item_name", "")
+            row.asset_no = new_data.get("asset_no", "")
+            row.serial_no = new_data.get("serial_no", "")
+            row.capacity_range = new_data.get("capacity_range", "")
+            row.maker = new_data.get("maker", "")
+            row.location = new_data.get("location", "")
+            row.date_issued = _excel_date_to_python(new_data.get("date_issued"))
+            row.calibration_date = _excel_date_to_python(new_data.get("calibration_date"))
+            row.certificate_number = new_data.get("certificate_number", "")
+            row.status = new_data.get("status", "")
+            row.calibrated_by = new_data.get("calibrated_by", "")
+            row.updated_at = datetime.utcnow()
+            session.add(row)
+
+    elif change_request.action_type == "delete":
+        row = session.get(CalibrationInstrument, change_request.instrument_id)
+        if row:
             session.delete(row)
 
+    elif change_request.action_type == "bulk_delete":
+        old_rows = json.loads(change_request.old_data_json or "[]")
+        for item in old_rows:
+            row_id = item.get("id")
+            if row_id:
+                row = session.get(CalibrationInstrument, row_id)
+                if row:
+                    session.delete(row)
+
+    change_request.status = "approved"
+    change_request.reviewed_by_user_id = user.id
+    change_request.reviewed_by_user_name = user.display_name or user.username or "Manager"
+    change_request.reviewed_at = datetime.utcnow()
+
+    session.add(change_request)
     session.commit()
+
+    return RedirectResponse("/documentation/calibration-list", status_code=303)
+
+
+@app.post("/documentation/calibration-list/reject/{request_id}")
+def docs_calibration_reject_request(
+    request_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+    rejection_reason: str = Form(""),
+):
+    user = get_current_user(request, session)
+    if not user.role or user.role.upper() != "MANAGER":
+        raise HTTPException(status_code=403, detail="Manager approval required.")
+
+    change_request = session.get(CalibrationChangeRequest, request_id)
+    if not change_request or change_request.status != "pending":
+        raise HTTPException(status_code=404, detail="Pending request not found.")
+
+    change_request.status = "rejected"
+    change_request.reviewed_by_user_id = user.id
+    change_request.reviewed_by_user_name = user.display_name or user.username or "Manager"
+    change_request.reviewed_at = datetime.utcnow()
+    change_request.rejection_reason = rejection_reason.strip()
+
+    session.add(change_request)
+    session.commit()
+
     return RedirectResponse("/documentation/calibration-list", status_code=303)
     
 
