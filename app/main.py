@@ -4884,7 +4884,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
     def draw_info_grid(y_top):
         specimen_col_widths = [10 * mm, 22 * mm, 24 * mm, 24 * mm, 24 * mm, 28 * mm, 28 * mm]
-        table_x = (w - target_w) / 2
+        table_x = (w - table_w) / 2
         target_w = sum(specimen_col_widths)
 
         col_widths = [26 * mm, 39 * mm, 26 * mm, 39 * mm]
