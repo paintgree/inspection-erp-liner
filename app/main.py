@@ -4884,19 +4884,18 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
     def draw_info_grid(y_top):
         specimen_col_widths = [10 * mm, 22 * mm, 24 * mm, 24 * mm, 24 * mm, 28 * mm, 28 * mm]
-        table_x = (w - table_w) / 2
         target_w = sum(specimen_col_widths)
 
         col_widths = [26 * mm, 39 * mm, 26 * mm, 39 * mm]
         table_w = sum(col_widths)
 
-        # make it exactly match specimen table width
         if table_w != target_w:
             extra = target_w - table_w
             col_widths[1] += extra / 2
             col_widths[3] += extra / 2
             table_w = sum(col_widths)
 
+        table_x = (w - table_w) / 2
         row_h = 7 * mm
 
         rows = [
@@ -5039,18 +5038,17 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
     def draw_results_table(y_top):
         specimen_col_widths = [10 * mm, 22 * mm, 24 * mm, 24 * mm, 24 * mm, 28 * mm, 28 * mm]
-        table_x = (w - target_w) / 2
         target_w = sum(specimen_col_widths)
 
         col_widths = [10 * mm, 20 * mm, 28 * mm, 16 * mm, 34 * mm, 18 * mm]
         table_w = sum(col_widths)
 
-        # make it exactly match specimen table width
         if table_w != target_w:
             extra = target_w - table_w
             col_widths[4] += extra
             table_w = sum(col_widths)
 
+        table_x = (w - table_w) / 2
         headers = ["#", "SERIAL NO", "ACTUAL BURST", "TIME", "FAILURE MODE", "RESULT"]
         row_h = 7 * mm
 
