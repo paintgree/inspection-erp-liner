@@ -3,197 +3,68 @@
 {% block content %}
 <style>
   .cal-page-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 16px;
-    margin-bottom: 18px;
-    flex-wrap: wrap;
+    display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:18px; flex-wrap:wrap;
   }
-
   .cal-card {
-    background: #fff;
-    border: 1px solid #d9e2ec;
-    border-radius: 14px;
-    padding: 16px;
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
-    margin-bottom: 16px;
+    background:#fff; border:1px solid #d9e2ec; border-radius:14px; padding:16px; box-shadow:0 4px 14px rgba(15,23,42,0.05); margin-bottom:16px;
   }
-
   .cal-actions-grid {
-    display: grid;
-    grid-template-columns: 1.2fr 1fr;
-    gap: 16px;
+    display:grid; grid-template-columns:1.2fr 1fr; gap:16px;
   }
-
   .cal-form-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(140px, 1fr));
-    gap: 10px;
+    display:grid; grid-template-columns:repeat(4, minmax(140px,1fr)); gap:10px;
   }
-
-  .cal-form-grid input,
-  .cal-form-grid select {
-    width: 100%;
-    padding: 9px 10px;
-    border-radius: 8px;
-    border: 1px solid #cbd5e1;
-    background: #fff;
+  .cal-form-grid input, .cal-form-grid select {
+    width:100%; padding:9px 10px; border-radius:8px; border:1px solid #cbd5e1; background:#fff;
   }
-
-  .cal-toolbar {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    align-items: center;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
-  }
-
-  .cal-toolbar form {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    align-items: center;
-  }
+  .cal-toolbar { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:12px; flex-wrap:wrap; }
+  .cal-toolbar form { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
 
   .cal-table-wrap {
-    overflow: auto;
-    border: 1px solid #d9e2ec;
-    border-radius: 12px;
-    background: #fff;
+    overflow:auto; border:1px solid #d9e2ec; border-radius:12px; background:#fff;
   }
-
   .cal-table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 1500px;
-    font-size: 13px;
+    width:100%; border-collapse:collapse; min-width:1700px; font-size:13px;
   }
-
   .cal-table thead th {
-    position: sticky;
-    top: 0;
-    background: #eef4fb;
-    z-index: 1;
-    border-bottom: 1px solid #cbd5e1;
-    white-space: nowrap;
+    position:sticky; top:0; background:#3f78bb; color:#fff; z-index:1; border-bottom:1px solid #2f5f95; white-space:nowrap;
   }
-
-  .cal-table th,
-  .cal-table td {
-    border-right: 1px solid #e5e7eb;
-    border-bottom: 1px solid #e5e7eb;
-    padding: 8px 10px;
-    text-align: left;
-    vertical-align: middle;
-    white-space: nowrap;
+  .cal-table th, .cal-table td {
+    border-right:1px solid #d4dbe5; border-bottom:1px solid #d4dbe5; padding:8px 10px; text-align:left; vertical-align:middle; white-space:nowrap;
   }
+  .cal-table th:last-child, .cal-table td:last-child { border-right:0; }
 
-  .cal-table tr:nth-child(even) td {
-    background: #fafcff;
-  }
+  .cal-row-due-soon td { background:#fff7ed !important; }
+  .cal-row-overdue td { background:#fef2f2 !important; }
 
-  .cal-table th:last-child,
-  .cal-table td:last-child {
-    border-right: 0;
-  }
+  .cal-due-valid { color:#15803d; font-weight:700; }
+  .cal-due-soon { color:#c2410c; font-weight:700; }
+  .cal-due-overdue { color:#b91c1c; font-weight:700; }
 
-  .cal-row-due-soon td {
-    background: #fff7ed !important;
-  }
-
-  .cal-row-overdue td {
-    background: #fef2f2 !important;
-  }
-
-  .cal-due-valid {
-    color: #15803d;
-    font-weight: 700;
-  }
-
-  .cal-due-soon {
-    color: #c2410c;
-    font-weight: 700;
-  }
-
-  .cal-due-overdue {
-    color: #b91c1c;
-    font-weight: 700;
-  }
-
-  .btn-row {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-
+  .btn-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .btn {
-    border: 0;
-    padding: 9px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 700;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+    border:0; padding:9px 12px; border-radius:8px; cursor:pointer; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:6px;
   }
-
-  .btn-primary {
-    background: #0f766e;
-    color: #fff;
-  }
-
-  .btn-secondary {
-    background: #e2e8f0;
-    color: #0f172a;
-  }
-
-  .btn-danger {
-    background: #b91c1c;
-    color: #fff;
-  }
-
-  .btn-outline {
-    background: #fff;
-    color: #0f172a;
-    border: 1px solid #cbd5e1;
-  }
-
-  .btn-warning {
-    background: #f59e0b;
-    color: #111827;
-  }
-
-  .app-muted {
-    color: #64748b;
-  }
+  .btn-primary { background:#0f766e; color:#fff; }
+  .btn-secondary { background:#e2e8f0; color:#0f172a; }
+  .btn-danger { background:#b91c1c; color:#fff; }
+  .btn-outline { background:#fff; color:#0f172a; border:1px solid #cbd5e1; }
+  .btn-warning { background:#f59e0b; color:#111827; }
 
   .pending-box {
-    border: 1px solid #facc15;
-    background: #fffbeb;
-    border-radius: 12px;
-    padding: 12px;
-    margin-bottom: 12px;
+    border:1px solid #facc15; background:#fffbeb; border-radius:12px; padding:12px; margin-bottom:12px;
   }
 
-  @media (max-width: 1100px) {
-    .cal-actions-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .cal-form-grid {
-      grid-template-columns: repeat(2, minmax(140px, 1fr));
-    }
+  @media (max-width:1100px) {
+    .cal-actions-grid { grid-template-columns:1fr; }
+    .cal-form-grid { grid-template-columns:repeat(2, minmax(140px,1fr)); }
   }
 </style>
 
 <div class="cal-page-head">
   <div>
     <h1 style="margin:0 0 6px 0;">Calibration List</h1>
-    <div class="app-muted">Manage instruments with manual entry, Excel upload, and approval-controlled edits.</div>
+    <div class="app-muted">Manage instruments with controlled edits and official upload template.</div>
   </div>
 
   <div class="btn-row">
@@ -205,25 +76,26 @@
   </div>
 </div>
 
+{% if edit_mode %}
 <div class="cal-actions-grid">
   <div class="cal-card">
     <h3 style="margin-top:0;">Manual Single Add</h3>
     <form method="post" action="/documentation/calibration-list/add">
       <div class="cal-form-grid">
-        <input name="til_no" placeholder="TIL NO">
         <input name="item_name" placeholder="ITEM NAME" required>
         <input name="asset_no" placeholder="Asset NO">
         <input name="serial_no" placeholder="Serial No">
-
         <input name="capacity_range" placeholder="Capacity (Range)">
-        <input name="maker" placeholder="Maker">
-        <input name="location" placeholder="Location">
-        <input name="date_issued" type="date">
 
+        <input name="maker" placeholder="Maker">
+        <input name="date_issued" type="date">
         <input name="calibration_date" type="date">
-        <input name="certificate_number" placeholder="Certificate Number">
-        <input name="status" placeholder="Status">
+        <input name="calibration_frequency" placeholder="Calibration Frequency">
+
+        <input name="calibration_due_date" type="date">
         <input name="calibrated_by" placeholder="Calibrated by">
+        <input name="acceptance_criteria" placeholder="Acceptance Criteria">
+        <input name="certificate_no" placeholder="Certificate No">
       </div>
 
       <div style="margin-top:12px;">
@@ -254,11 +126,11 @@
     </form>
   </div>
 </div>
+{% endif %}
 
 {% if user.role and user.role.upper() == "MANAGER" and pending_requests %}
 <div class="cal-card">
   <h3 style="margin-top:0;">Pending Approval Requests</h3>
-
   {% for req in pending_requests %}
     <div class="pending-box">
       <div><strong>Request #{{ req.id }}</strong></div>
@@ -285,7 +157,7 @@
 <div class="cal-card">
   <div class="cal-toolbar">
     <form method="get" action="/documentation/calibration-list">
-      <input type="text" name="q" value="{{ q or '' }}" placeholder="Search by item, serial, asset, location, certificate"
+      <input type="text" name="q" value="{{ q or '' }}" placeholder="Search by item, serial, asset, maker, certificate"
              style="min-width:320px; padding:9px 10px; border-radius:8px; border:1px solid #cbd5e1;">
       {% if edit_mode %}
         <input type="hidden" name="edit" value="1">
@@ -306,85 +178,75 @@
       <table class="cal-table">
         <thead>
           <tr>
-            {% if edit_mode %}
-            <th><input type="checkbox" onclick="toggleAllCalibrationRows(this)"></th>
-            {% endif %}
+            {% if edit_mode %}<th><input type="checkbox" onclick="toggleAllCalibrationRows(this)"></th>{% endif %}
             <th>ID</th>
-            <th>TIL NO</th>
             <th>ITEM NAME</th>
             <th>Asset NO</th>
             <th>Serial No</th>
             <th>Capacity (Range)</th>
             <th>Maker</th>
-            <th>Location</th>
             <th>Date Issued</th>
-            <th>Calibration Due Date</th>
-            <th>Certificate Number</th>
-            <th>Status</th>
+            <th>Calibration Date</th>
+            <th>Calibration Frequency</th>
+            <th>Calibration due date</th>
             <th>Calibrated by</th>
-            {% if edit_mode %}
-            <th>Actions</th>
-            {% endif %}
+            <th>Acceptance Criteria</th>
+            <th>Certificate No</th>
+            {% if edit_mode %}<th>Actions</th>{% endif %}
           </tr>
         </thead>
         <tbody>
           {% for row in rows %}
           {% set row_state = row_states.get(row.id, 'normal') %}
           <tr class="{% if row_state == 'due_soon' %}cal-row-due-soon{% elif row_state == 'overdue' %}cal-row-overdue{% endif %}">
-            {% if edit_mode %}
-            <td><input type="checkbox" name="selected_ids" value="{{ row.id }}"></td>
-            {% endif %}
-
+            {% if edit_mode %}<td><input type="checkbox" name="selected_ids" value="{{ row.id }}"></td>{% endif %}
             <td>{{ row.id }}</td>
 
             {% if edit_mode %}
             <form method="post" action="/documentation/calibration-list/request-edit/{{ row.id }}" onsubmit="return confirm('Are you sure you want to save your changes? This will require manager approval.');">
-              <td><input name="til_no" value="{{ row.til_no }}" style="width:120px;"></td>
               <td><input name="item_name" value="{{ row.item_name }}" style="width:180px;"></td>
               <td><input name="asset_no" value="{{ row.asset_no }}" style="width:120px;"></td>
               <td><input name="serial_no" value="{{ row.serial_no }}" style="width:120px;"></td>
               <td><input name="capacity_range" value="{{ row.capacity_range }}" style="width:140px;"></td>
               <td><input name="maker" value="{{ row.maker }}" style="width:120px;"></td>
-              <td><input name="location" value="{{ row.location }}" style="width:120px;"></td>
               <td><input type="date" name="date_issued" value="{{ row.date_issued or '' }}" style="width:140px;"></td>
-              <td>
-                <input type="date" name="calibration_date" value="{{ row.calibration_date or '' }}" style="width:150px;">
-              </td>
-              <td><input name="certificate_number" value="{{ row.certificate_number }}" style="width:160px;"></td>
-              <td><input name="status" value="{{ row.status }}" style="width:100px;"></td>
+              <td><input type="date" name="calibration_date" value="{{ row.calibration_date or '' }}" style="width:140px;"></td>
+              <td><input name="calibration_frequency" value="{{ row.calibration_frequency }}" style="width:140px;"></td>
+              <td><input type="date" name="calibration_due_date" value="{{ row.calibration_due_date or '' }}" style="width:150px;"></td>
               <td><input name="calibrated_by" value="{{ row.calibrated_by }}" style="width:140px;"></td>
+              <td><input name="acceptance_criteria" value="{{ row.acceptance_criteria }}" style="width:180px;"></td>
+              <td><input name="certificate_no" value="{{ row.certificate_no }}" style="width:140px;"></td>
               <td>
                 <div class="btn-row">
                   <button class="btn btn-primary" type="submit">Save</button>
             </form>
-
                   <form method="post" action="/documentation/calibration-list/request-delete/{{ row.id }}" onsubmit="return confirm('Send delete request for manager approval?');">
                     <button class="btn btn-danger" type="submit">Delete</button>
                   </form>
                 </div>
               </td>
             {% else %}
-              <td>{{ row.til_no }}</td>
               <td>{{ row.item_name }}</td>
               <td>{{ row.asset_no }}</td>
               <td>{{ row.serial_no }}</td>
               <td>{{ row.capacity_range }}</td>
               <td>{{ row.maker }}</td>
-              <td>{{ row.location }}</td>
               <td>{{ row.date_issued or '' }}</td>
+              <td>{{ row.calibration_date or '' }}</td>
+              <td>{{ row.calibration_frequency }}</td>
               <td>
                 <span class="{% if row_state == 'valid' %}cal-due-valid{% elif row_state == 'due_soon' %}cal-due-soon{% elif row_state == 'overdue' %}cal-due-overdue{% endif %}">
-                  {{ row.calibration_date or '' }}
+                  {{ row.calibration_due_date or '' }}
                 </span>
               </td>
-              <td>{{ row.certificate_number }}</td>
-              <td>{{ row.status }}</td>
               <td>{{ row.calibrated_by }}</td>
+              <td>{{ row.acceptance_criteria }}</td>
+              <td>{{ row.certificate_no }}</td>
             {% endif %}
           </tr>
           {% else %}
           <tr>
-            <td colspan="{% if edit_mode %}15{% else %}13{% endif %}" style="text-align:center; padding:20px;">No calibration records found.</td>
+            <td colspan="{% if edit_mode %}15{% else %}14{% endif %}" style="text-align:center; padding:20px;">No calibration records found.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -397,9 +259,9 @@
 </div>
 
 <script>
-  function toggleAllCalibrationRows(source) {
-    const checkboxes = document.querySelectorAll('input[name="selected_ids"]');
-    checkboxes.forEach(cb => cb.checked = source.checked);
-  }
+function toggleAllCalibrationRows(source) {
+  const checkboxes = document.querySelectorAll('input[name="selected_ids"]');
+  checkboxes.forEach(cb => cb.checked = source.checked);
+}
 </script>
 {% endblock %}
