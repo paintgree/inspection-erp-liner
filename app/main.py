@@ -4316,42 +4316,34 @@ def _draw_header_footer(c, title="Short-Time Hydrostatic Burst Pressure Test Rep
     # ----------------------------
     # report meta row
     # ----------------------------
-    mid_x = w / 2
-    c.rect(left_x, info_top - info_h, right_x - left_x, info_h, stroke=1, fill=0)
-    c.line(mid_x, info_top, mid_x, info_top - info_h)
-
-    report_id_val = "-"
     if report is not None:
+        mid_x = w / 2
+        c.roundRect(left_x, info_top - info_h, right_x - left_x, info_h, 2 * mm, stroke=1, fill=0)
+        c.line(mid_x, info_top, mid_x, info_top - info_h)
+
+        report_id_val = "-"
         try:
             report_id_val = str(getattr(report, "id", None) or "-")
         except Exception:
             report_id_val = "-"
 
-    result_val = "NO RESULT"
-    if report is not None:
+        result_val = "NO RESULT"
         try:
             result_val = (_txt(getattr(report, "overall_result", "")) or "").strip() or "NO RESULT"
         except Exception:
             result_val = "NO RESULT"
 
-    c.setFont("Helvetica-Bold", 8)
-    c.drawString(left_x + 3 * mm, info_top - 5 * mm, "REPORT ID")
-    c.drawString(mid_x + 3 * mm, info_top - 5 * mm, "RESULT")
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(left_x + 3 * mm, info_top - 5 * mm, "REPORT ID")
+        c.drawString(mid_x + 3 * mm, info_top - 5 * mm, "RESULT")
 
-    c.setFont("Helvetica", 10)
-    c.drawString(left_x + 3 * mm, info_top - 10 * mm, report_id_val)
-    c.drawString(mid_x + 3 * mm, info_top - 10 * mm, result_val)
+        c.setFont("Helvetica", 10)
+        c.drawString(left_x + 3 * mm, info_top - 10 * mm, report_id_val)
+        c.drawString(mid_x + 3 * mm, info_top - 10 * mm, result_val)
 
-    # ----------------------------
-    # footer line
-    # ----------------------------
-    c.setFont("Helvetica", 9)
-    c.setFillColor(colors.grey)
-    c.drawString(20 * mm, 12 * mm, doc_control_no)
-    c.drawRightString(w - 20 * mm, 12 * mm, f"Page {page_num}/{page_total}")
-    c.setFillColor(colors.black)
+        return info_top - info_h - 8 * mm
 
-    return info_top - info_h - 8 * mm
+    return subtitle_y - 6 * mm
 
 def _draw_report_info_table(c, report, x, y):
     w, h = A4
@@ -4949,85 +4941,71 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         return y_top - total_h - 7 * mm
 
     def draw_specimen_table(y_top):
-        col_widths = [12 * mm, 28 * mm, 22 * mm, 22 * mm, 22 * mm, 32 * mm, 32 * mm]
+        col_widths = [12 * mm, 26 * mm, 28 * mm, 28 * mm, 28 * mm, 30 * mm, 30 * mm]
         headers = ["#", "SERIAL NO", "LINER", "REINF.", "COVER", "TOTAL LEN", "EFFECTIVE LEN"]
-        row_h = 8 * mm
+        row_h = 7 * mm
+        table_w = sum(col_widths)
 
-        total_h = (len(samples) + 1) * row_h
-        c.rect(left_x, y_top - total_h, sum(col_widths), total_h, stroke=1, fill=0)
+        # 2 rows per specimen + 1 header row
+        total_rows = 1 + (len(samples) * 2)
+        total_h = total_rows * row_h
 
+        c.roundRect(left_x, y_top - total_h, table_w, total_h, 2 * mm, stroke=1, fill=0)
+
+        # vertical lines
         x = left_x
         for cw in col_widths[:-1]:
             x += cw
             c.line(x, y_top, x, y_top - total_h)
 
-        for i in range(len(samples) + 1):
+        # horizontal lines
+        for i in range(total_rows + 1):
             yy = y_top - (i * row_h)
-            c.line(left_x, yy, left_x + sum(col_widths), yy)
+            c.line(left_x, yy, left_x + table_w, yy)
 
-        x = left_x
+        # header
         c.setFont("Helvetica-Bold", 8)
+        x = left_x
         for header, cw in zip(headers, col_widths):
-            c.drawCentredString(x + cw / 2, y_top - 5.5 * mm, header)
+            c.drawCentredString(x + cw / 2, y_top - 4.8 * mm, header)
             x += cw
 
         c.setFont("Helvetica", 8)
+
         for idx, s in enumerate(samples, start=1):
-        
-            # -------------------------
-            # VALUES
-            # -------------------------
             serial = _txt(getattr(s, "sample_serial_number", "")) or "-"
-        
+
             liner_thk = f"{_txt(getattr(s, 'liner_thickness_mm', '')) or '0.0'} mm"
             reinf_thk = f"{_txt(getattr(s, 'reinforcement_thickness_mm', '')) or '0.0'} mm"
             cover_thk = f"{_txt(getattr(s, 'cover_thickness_mm', '')) or '0.0'} mm"
-        
+
             liner_mat = _txt(getattr(s, "liner_material_grade", "")) or "-"
             reinf_mat = _txt(getattr(s, "reinforcement_material_grade", "")) or "-"
             cover_mat = _txt(getattr(s, "cover_material_grade", "")) or "-"
-        
+
             total_len = f"{_txt(getattr(s, 'sample_total_length_mm', '')) or '-'} mm"
             eff_len = f"{_txt(getattr(s, 'sample_effective_length_mm', '')) or '-'} mm"
-        
-            # -------------------------
-            # ROW 1 → THICKNESS
-            # -------------------------
-            row_y1 = y_top - ((idx * 2) * row_h) + 2.5 * mm
-        
-            vals1 = [
-                str(idx),
-                serial,
-                liner_thk,
-                reinf_thk,
-                cover_thk,
-                total_len,
-                eff_len,
-            ]
-        
+
+            # row 1 = thickness
+            row1_index = 1 + ((idx - 1) * 2)
+            row1_y = y_top - (row1_index * row_h) - 4.8 * mm
+
+            vals1 = [str(idx), serial, liner_thk, reinf_thk, cover_thk, total_len, eff_len]
+
             x = left_x
             for val, cw in zip(vals1, col_widths):
-                c.drawCentredString(x + cw / 2, row_y1, val)
+                c.drawCentredString(x + cw / 2, row1_y, val)
                 x += cw
-        
-            # -------------------------
-            # ROW 2 → MATERIAL
-            # -------------------------
-            row_y2 = y_top - ((idx * 2 + 1) * row_h) + 2.5 * mm
-        
-            vals2 = [
-                "",          # empty for #
-                "",          # empty serial
-                liner_mat,
-                reinf_mat,
-                cover_mat,
-                "",
-                "",
-            ]
-        
+
+            # row 2 = material
+            row2_index = row1_index + 1
+            row2_y = y_top - (row2_index * row_h) - 4.8 * mm
+
+            vals2 = ["", "", liner_mat, reinf_mat, cover_mat, "", ""]
+
             x = left_x
             for val, cw in zip(vals2, col_widths):
-                c.drawCentredString(x + cw / 2, row_y2, val)
+                c.drawCentredString(x + cw / 2, row2_y, val)
                 x += cw
 
         return y_top - total_h - 7 * mm
@@ -5077,7 +5055,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         box_h = 18 * mm
         col_w = content_w / 2
 
-        c.rect(left_x, y_top - box_h, content_w, box_h, stroke=1, fill=0)
+        c.roundRect(left_x, y_top - box_h, content_w, box_h, 2 * mm, stroke=1, fill=0)
         c.line(left_x + col_w, y_top, left_x + col_w, y_top - box_h)
 
         c.setFont("Helvetica-Bold", 8)
@@ -5092,7 +5070,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         c.drawRightString(right_x - 3 * mm, y_top - 5 * mm, pdf_qaqc_name or "-")
         c.drawRightString(right_x - 3 * mm, y_top - 11 * mm, _fmt_dt(pdf_qaqc_date))
 
-        return y_top - box_h - 5 * mm
+        return y_top - box_h - 6 * mm
 
     y = draw_section_title("REPORT INFORMATION", y)
     y = draw_info_grid(y)
@@ -5103,7 +5081,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
     y = draw_section_title("TEST RESULTS", y)
     y = draw_results_table(y)
 
-    draw_signature_block(y)
+    y = draw_signature_block(y)
 
     c.showPage()
     c.save()
@@ -5128,7 +5106,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
             doc_control_no=doc_no,
             page_num=1,
             page_total=1,
-            report=report,
+            report=None,
         )
 
         serial = _txt(getattr(s, "sample_serial_number", "")) or f"Specimen #{idx}"
@@ -5205,9 +5183,9 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         y = draw_section_title(f"SPECIMEN #{idx}", y)
         y = draw_info_box(y)
 
-        chart_h = 78 * mm
-        full_h = 48 * mm
-        bottom_h = 38 * mm
+        chart_h = 68 * mm
+        full_h = 40 * mm
+        bottom_h = 32 * mm
         gap = 5 * mm
         half_w = (usable_w - gap) / 2
 
