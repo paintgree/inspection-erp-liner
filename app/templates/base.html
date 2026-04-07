@@ -388,7 +388,7 @@ document.addEventListener("DOMContentLoaded", () => {
   function getInitialModule() {
     const path = window.location.pathname || "";
     if (path.startsWith('/rnd')) return 'rnd';
-    if (path.startsWith('/docs')) return 'docs';
+    if (path.startsWith('/documentation')) return 'docs';
     return 'orders';
   }
 
