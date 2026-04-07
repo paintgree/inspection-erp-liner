@@ -2684,20 +2684,6 @@ def docs_procedures_page(request: Request, session: Session = Depends(get_sessio
         },
     )
 
-
-@app.get("/docs/calibration-list")
-def docs_calibration_list_page(request: Request, session: Session = Depends(get_session)):
-    user = get_current_user(request, session)
-    return TEMPLATES.TemplateResponse(
-        "docs_calibration_list.html",
-        {
-            "request": request,
-            "user": user,
-        },
-    )
-
-
-
 @app.get("/documentation/calibration-list")
 def docs_calibration_list_page(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
@@ -2729,7 +2715,6 @@ def docs_calibration_list_page(request: Request, session: Session = Depends(get_
             "q": q,
         },
     )
-
 
 @app.get("/documentation/calibration-list/template")
 def docs_calibration_list_template_download(
