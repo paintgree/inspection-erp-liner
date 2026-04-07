@@ -2547,6 +2547,8 @@ def _build_calibration_template_file():
 
 
 app = FastAPI()
+
+TEMPLATES = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 app.include_router(rnd_router)
 # Session middleware (required for request.session in require_user)
 #app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)#
