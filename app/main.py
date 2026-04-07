@@ -69,7 +69,6 @@ from .rnd_module import router as rnd_router
 from .models import (
     User,
     ProductionRun,
-    ProductionReport,
     RunMachine,
     RunParameter,
     InspectionEntry,
@@ -10036,16 +10035,15 @@ def global_search(
     q: str = "",
     session: Session = Depends(get_session),
 ):
-    query = (q or "").strip()
+    query = (q or "").strip().lower()
     if not query:
         return {"results": []}
 
-    q_lower = query.lower()
     results = []
     seen = set()
 
     def add_result(kind: str, title: str, subtitle: str, url: str):
-        key = (kind, title, url)
+        key = (kind, title, subtitle, url)
         if key in seen:
             return
         seen.add(key)
@@ -10061,30 +10059,24 @@ def global_search(
         batch_no = str(getattr(run, "dhtp_batch_no", "") or "").strip()
         process = str(getattr(run, "process", "") or "").strip()
         status = str(getattr(run, "status", "") or "").strip()
+        order_ref = str(getattr(run, "order_ref", "") or "").strip()
+        item_code = str(getattr(run, "item_code", "") or "").strip()
+        remarks = str(getattr(run, "remarks", "") or "").strip()
 
-        rep = None
-        if batch_no:
-            rep = session.exec(
-                select(ProductionReport).where(ProductionReport.dhtp_batch_no == batch_no)
-            ).first()
-
-        values = [
+        text = " | ".join([
             batch_no,
             process,
             status,
-            str(getattr(rep, "client_name", "") or "") if rep else "",
-            str(getattr(rep, "po_no", "") or "") if rep else "",
-            str(getattr(rep, "itp_number", "") or "") if rep else "",
-            str(getattr(rep, "oxy_batch_no", "") or "") if rep else "",
-            str(getattr(rep, "batch_no", "") or "") if rep else "",
-        ]
+            order_ref,
+            item_code,
+            remarks,
+        ]).lower()
 
-        text = " | ".join(values).lower()
-        if query in text or q_lower in text:
+        if query in text:
             add_result(
                 "Batch",
-                batch_no,
-                f"{getattr(rep, 'client_name', '') if rep else ''} · PO: {getattr(rep, 'po_no', '') if rep else ''}",
+                batch_no or "Production Run",
+                f"{process} · {status}",
                 f"/batches/{batch_no}" if batch_no else "/dashboard",
             )
 
@@ -10093,17 +10085,24 @@ def global_search(
         rfi_no = str(getattr(rfi, "rfi_no", "") or "").strip()
         batch_no = str(getattr(rfi, "batch_no", "") or "").strip()
         status = str(getattr(rfi, "status", "") or "").strip()
-        client_name = str(getattr(rfi, "client_name", "") or "").strip()
-        po_no = str(getattr(rfi, "po_no", "") or "").strip()
-        itp_no = str(getattr(rfi, "itp_no", "") or "").strip()
         activity = str(getattr(rfi, "activity", "") or "").strip()
+        po_no = str(getattr(rfi, "po_no", "") or "").strip()
+        client_name = str(getattr(rfi, "client_name", "") or "").strip()
 
-        text = " | ".join([rfi_no, batch_no, status, client_name, po_no, itp_no, activity]).lower()
-        if query in text or q_lower in text:
+        text = " | ".join([
+            rfi_no,
+            batch_no,
+            status,
+            activity,
+            po_no,
+            client_name,
+        ]).lower()
+
+        if query in text:
             add_result(
                 "RFI",
                 rfi_no or f"RFI for {batch_no}",
-                batch_no,
+                f"{batch_no} · {activity}",
                 f"/rfi/dashboard?batch_no={batch_no}" if batch_no else "/rfi/dashboard",
             )
 
@@ -10114,12 +10113,18 @@ def global_search(
         approval_status = str(getattr(hydro, "approval_status", "") or "").strip()
         notes = str(getattr(hydro, "notes", "") or "").strip()
 
-        text = " | ".join([batch_no, report_no, approval_status, notes]).lower()
-        if query in text or q_lower in text:
+        text = " | ".join([
+            batch_no,
+            report_no,
+            approval_status,
+            notes,
+        ]).lower()
+
+        if query in text:
             add_result(
                 "Hydro",
                 report_no or f"Hydro {batch_no}",
-                batch_no,
+                f"{batch_no} · {approval_status}",
                 "/hydrotesting",
             )
 
@@ -10127,15 +10132,21 @@ def global_search(
     for burst in bursts:
         batch_no = str(getattr(burst, "batch_no", "") or "").strip()
         report_no = str(getattr(burst, "report_no", "") or "").strip()
-        current_revision_status = str(getattr(burst, "current_revision_status", "") or "").strip()
+        revision_status = str(getattr(burst, "current_revision_status", "") or "").strip()
         remarks = str(getattr(burst, "remarks", "") or "").strip()
 
-        text = " | ".join([batch_no, report_no, current_revision_status, remarks]).lower()
-        if query in text or q_lower in text:
+        text = " | ".join([
+            batch_no,
+            report_no,
+            revision_status,
+            remarks,
+        ]).lower()
+
+        if query in text:
             add_result(
                 "Burst",
                 report_no or f"Burst {batch_no}",
-                batch_no,
+                f"{batch_no} · {revision_status}",
                 "/burst",
             )
 
