@@ -4938,7 +4938,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         headers = ["#", "SERIAL NO", "LINER", "REINF.", "COVER", "TOTAL LEN", "EFFECTIVE LEN"]
         row_h = 6.5 * mm
         table_w = sum(col_widths)
-        table_x = (w - target_w) / 2
+        table_x = (w - table_w) / 2
 
         # 1 header row + 2 rows per specimen
         total_rows = 1 + (len(samples) * 2)
