@@ -46,6 +46,7 @@ class ProductionRun(SQLModel, table=True):
 
     process: str = Field(default="LINER")   # LINER / REINFORCEMENT / COVER
     dhtp_batch_no: str = Field(default="", index=True)
+    is_high_priority: bool = Field(default=False, index=True)
 
     client_name: str = Field(default="")
     po_number: str = Field(default="")
