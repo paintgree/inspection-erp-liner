@@ -7550,23 +7550,15 @@ def _join_rfi_activities(values: list[str]) -> str:
 
 
 def _get_batch_completed_rfi_activities(session: Session, batch_no: str) -> set[str]:
-    rows = session.exec(
-        select(RfiRecord)
-        .where(RfiRecord.batch_no == batch_no)
-        .where(RfiRecord.status.in_(["VISIT_COMPLETED", "CLOSED"]))
-        .order_by(RfiRecord.created_at.asc())
-    ).all()
-
-    covered = set()
-    for row in rows:
-        for item in _split_rfi_activities(row.inspection_stage):
-            covered.add(item)
-    return covered
+    # Repeatable RFI logic:
+    # activities should remain selectable on future RFIs even if they were
+    # already used in previous VISIT_COMPLETED / CLOSED records.
+    return set()
 
 
 def _get_batch_remaining_rfi_activities(session: Session, batch_no: str) -> list[str]:
-    covered = _get_batch_completed_rfi_activities(session, batch_no)
-    return [x for x in RFI_ACTIVITY_OPTIONS if x not in covered]
+    # All activities stay selectable for every new RFI visit.
+    return list(RFI_ACTIVITY_OPTIONS)
 
 
 def _format_rfi_activity_text(value: str) -> str:
@@ -7927,7 +7919,7 @@ def rfi_dashboard(
                 "batch_no": batch_no,
                 "remaining": remaining,
                 "covered": covered,
-                "is_complete": len(remaining) == 0,
+                "is_complete": False,
             }
         )
 
