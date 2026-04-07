@@ -4935,7 +4935,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
 
     def draw_specimen_table(y_top):
         col_widths = [10 * mm, 22 * mm, 24 * mm, 24 * mm, 24 * mm, 28 * mm, 28 * mm]
-        headers = ["#", "SERIAL NO", "LINER", "REINF.", "COVER", "TOTAL LEN", "EFFECTIVE LEN"]
+        headers = ["#", "SERIAL NO", "LINER THICKNESS", "REINF.THICKNESS", "COVER THICKNESS", "TOTAL LEN", "EFFECTIVE LEN"]
         row_h = 6.5 * mm
         table_w = sum(col_widths)
         table_x = (w - table_w) / 2
