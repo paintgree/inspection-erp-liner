@@ -9976,78 +9976,117 @@ def global_search(
     session: Session = Depends(get_session),
 ):
     query = (q or "").strip()
+    if not query:
+        return {"results": []}
+
     results = []
-    if len(query) < 1:
-        return {"results": results}
+    seen = set()
 
-    batch_cards, _, _ = _build_batch_dashboard_cards(session, "")
-    seen_urls = set()
+    runs = session.exec(select(ProductionRun)).all()
+    for run in runs:
+        batch_no = str(getattr(run, "dhtp_batch_no", "") or "").strip()
+        if not batch_no:
+            continue
 
-    for card in batch_cards:
-        if _search_match(query, card.get("search_blob", ""), card.get("status_label", ""), card.get("next_action", "")):
-            url = f"/batches/{card['batch_no']}"
-            if url not in seen_urls:
+        rep = session.exec(
+            select(ProductionReport).where(ProductionReport.dhtp_batch_no == batch_no)
+        ).first()
+
+        search_values = [
+            batch_no,
+            getattr(run, "process", ""),
+            getattr(run, "status", ""),
+            getattr(rep, "client_name", "") if rep else "",
+            getattr(rep, "po_no", "") if rep else "",
+            getattr(rep, "itp_number", "") if rep else "",
+            getattr(rep, "oxy_batch_no", "") if rep else "",
+            getattr(rep, "batch_no", "") if rep else "",
+        ]
+
+        if _search_match(query, *search_values):
+            key = ("batch", batch_no)
+            if key not in seen:
+                seen.add(key)
                 results.append({
-                    "type": "batch",
-                    "title": f"Batch {card['batch_no']}",
-                    "subtitle": f"{card.get('client_name') or '-'} · PO: {card.get('po_number') or '-'} · {card.get('status_label') or '-'}",
-                    "url": url,
+                    "type": "Batch",
+                    "title": batch_no,
+                    "subtitle": f"{getattr(rep, 'client_name', '') if rep else ''} · PO: {getattr(rep, 'po_no', '') if rep else ''}",
+                    "url": f"/batches/{batch_no}",
                 })
-                seen_urls.add(url)
 
-    hydro_records = session.exec(select(HydroTestRecord).order_by(HydroTestRecord.created_at.desc())).all()
-    for rec in hydro_records:
-        if _search_match(query, rec.batch_no or "", rec.report_no or "", getattr(rec, "assigned_qaqc_display_name", "") or "") and rec.batch_no:
-            url = f"/hydro/batch/{rec.batch_no}"
-            if url not in seen_urls:
+    rfis = session.exec(select(RfiRecord)).all()
+    for rfi in rfis:
+        rfi_no = str(getattr(rfi, "rfi_no", "") or "").strip()
+        batch_no = str(getattr(rfi, "batch_no", "") or "").strip()
+        search_values = [
+            rfi_no,
+            batch_no,
+            getattr(rfi, "status", ""),
+            getattr(rfi, "client_name", ""),
+            getattr(rfi, "po_no", ""),
+            getattr(rfi, "itp_no", ""),
+            getattr(rfi, "activity", ""),
+        ]
+
+        if _search_match(query, *search_values):
+            key = ("rfi", rfi_no or batch_no)
+            if key not in seen:
+                seen.add(key)
                 results.append({
-                    "type": "hydro",
-                    "title": f"Hydro {rec.batch_no}",
-                    "subtitle": f"Report: {rec.report_no or '-'}",
-                    "url": url,
+                    "type": "RFI",
+                    "title": rfi_no or f"RFI for {batch_no}",
+                    "subtitle": batch_no,
+                    "url": f"/rfi/dashboard?batch_no={batch_no}" if batch_no else "/rfi/dashboard",
                 })
-                seen_urls.add(url)
 
-    burst_reports = session.exec(select(BurstTestReport).order_by(BurstTestReport.created_at.desc())).all()
-    for rec in burst_reports:
-        if _search_match(query, rec.batch_no or "", rec.report_no or "", rec.purpose or ""):
-            url = f"/burst/{rec.id}"
-            if url not in seen_urls:
+    hydros = session.exec(select(HydroTestRecord)).all()
+    for hydro in hydros:
+        record_id = getattr(hydro, "id", None)
+        batch_no = str(getattr(hydro, "batch_no", "") or "").strip()
+        report_no = str(getattr(hydro, "report_no", "") or "").strip()
+        search_values = [
+            batch_no,
+            report_no,
+            getattr(hydro, "approval_status", ""),
+            getattr(hydro, "notes", ""),
+        ]
+
+        if _search_match(query, *search_values):
+            key = ("hydro", str(record_id or batch_no))
+            if key not in seen:
+                seen.add(key)
                 results.append({
-                    "type": "burst",
-                    "title": f"Burst {rec.batch_no or '-'}",
-                    "subtitle": f"Report: {rec.report_no or '-'}",
-                    "url": url,
+                    "type": "Hydro",
+                    "title": report_no or f"Hydro {batch_no}",
+                    "subtitle": batch_no,
+                    "url": "/hydrotesting",
                 })
-                seen_urls.add(url)
 
-    final_phases = session.exec(select(FinalInspectionPhase).order_by(FinalInspectionPhase.created_at.desc())).all()
-    for phase in final_phases:
-        if _search_match(query, phase.batch_no or "", phase.title or "", phase.status or "", phase.notes or "") and phase.batch_no:
-            url = f"/final/batch/{phase.batch_no}"
-            if url not in seen_urls:
+    bursts = session.exec(select(BurstTestReport)).all()
+    for burst in bursts:
+        burst_id = getattr(burst, "id", None)
+        batch_no = str(getattr(burst, "batch_no", "") or "").strip()
+        report_no = str(getattr(burst, "report_no", "") or "").strip()
+        search_values = [
+            batch_no,
+            report_no,
+            getattr(burst, "current_revision_status", ""),
+            getattr(burst, "remarks", ""),
+        ]
+
+        if _search_match(query, *search_values):
+            key = ("burst", str(burst_id or batch_no))
+            if key not in seen:
+                seen.add(key)
                 results.append({
-                    "type": "final",
-                    "title": f"Final Inspection {phase.batch_no}",
-                    "subtitle": f"{phase.title or '-'} · {phase.status or '-'}",
-                    "url": url,
+                    "type": "Burst",
+                    "title": report_no or f"Burst {batch_no}",
+                    "subtitle": batch_no,
+                    "url": "/burst",
                 })
-                seen_urls.add(url)
 
-    rfi_records = session.exec(select(RfiRecord).order_by(RfiRecord.created_at.desc())).all()
-    for rfi in rfi_records:
-        if _search_match(query, rfi.batch_no or "", rfi.rfi_no or "", rfi.client_name or "", rfi.inspection_stage or "", rfi.status or ""):
-            url = f"/rfi/{rfi.id}"
-            if url not in seen_urls:
-                results.append({
-                    "type": "rfi",
-                    "title": f"RFI {rfi.rfi_no or '-'}",
-                    "subtitle": f"Batch: {rfi.batch_no or '-'} · {_format_rfi_activity_text(rfi.inspection_stage or '')}",
-                    "url": url,
-                })
-                seen_urls.add(url)
-
-    return {"results": results[:25]}
+    results = results[:12]
+    return {"results": results}
 
 @app.get("/me", response_class=HTMLResponse)
 def my_profile(
