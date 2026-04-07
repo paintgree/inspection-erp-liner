@@ -1340,6 +1340,7 @@ body{
   padding:16px;
   text-decoration:none;
   position:relative;
+  overflow:hidden;
 }
 
 .workorder-card:hover{
@@ -1348,15 +1349,22 @@ body{
 }
 
 .workorder-priority{
-  position:absolute;
-  top:12px;
-  right:12px;
+  position:static;
+  top:auto;
+  right:auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  white-space:nowrap;
   background:#ef4444;
   color:#fff;
   font-size:11px;
   font-weight:900;
-  padding:4px 10px;
+  line-height:1;
+  padding:6px 10px;
   border-radius:999px;
+  flex:0 0 auto;
+  margin:0;
 }
 
 .workorder-title{font-size:16px;font-weight:900;margin-bottom:4px}
@@ -5085,4 +5093,39 @@ Burst search + filters
   margin-top:8px;
   border-radius:16px;
   overflow:hidden;
+}
+
+.workorder-card-topline{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:10px;
+  align-items:start;
+  margin-bottom:10px;
+}
+
+.workorder-card-topline-left{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  min-width:0;
+}
+
+.priority-toggle-form{
+  margin:0;
+  align-self:start;
+}
+
+.priority-toggle-form .btn{
+  white-space:nowrap;
+}
+
+@media (max-width: 640px){
+  .workorder-card-topline{
+    grid-template-columns:1fr;
+  }
+
+  .priority-toggle-form{
+    justify-self:start;
+  }
 }
