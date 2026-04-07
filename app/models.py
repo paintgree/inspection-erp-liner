@@ -845,3 +845,28 @@ class RndAttachmentRegister(SQLModel, table=True):
     is_signed_copy: bool = Field(default=False)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     updated_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+
+from typing import Optional
+from datetime import datetime, date
+from sqlmodel import SQLModel, Field
+
+
+class CalibrationInstrument(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    til_no: str = Field(default="", index=True)
+    item_name: str = Field(default="", index=True)
+    asset_no: str = Field(default="", index=True)
+    serial_no: str = Field(default="", index=True)
+    capacity_range: str = Field(default="")
+    maker: str = Field(default="")
+    location: str = Field(default="", index=True)
+    date_issued: Optional[date] = Field(default=None)
+    ref_std_master_gauge_no: str = Field(default="")
+    calibration_date: Optional[date] = Field(default=None)
+    status: str = Field(default="", index=True)
+    calibrated_by: str = Field(default="")
+
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
