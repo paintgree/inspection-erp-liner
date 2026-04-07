@@ -5129,3 +5129,56 @@ Burst search + filters
     justify-self:start;
   }
 }
+
+
+.topbar-search{
+  position:relative;
+}
+
+.search-results{
+  position:absolute;
+  top:calc(100% + 8px);
+  left:0;
+  right:0;
+  z-index:50;
+  background:#fff;
+  border:1px solid #dbe1ea;
+  border-radius:16px;
+  box-shadow:0 12px 28px rgba(15,23,42,.10);
+  overflow:hidden;
+  display:none;
+}
+
+.search-result-item{
+  display:block;
+  padding:12px 14px;
+  text-decoration:none;
+  border-bottom:1px solid #eef2f7;
+  background:#fff;
+}
+
+.search-result-item:last-child{
+  border-bottom:none;
+}
+
+.search-result-item:hover{
+  background:#f8fafc;
+}
+
+.search-result-title{
+  font-size:13px;
+  font-weight:800;
+  color:#0f172a;
+}
+
+.search-result-sub{
+  margin-top:2px;
+  font-size:12px;
+  color:#64748b;
+}
+
+.search-empty{
+  padding:14px;
+  font-size:12px;
+  color:#64748b;
+}
