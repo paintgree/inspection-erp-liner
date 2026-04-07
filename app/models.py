@@ -855,18 +855,18 @@ from sqlmodel import SQLModel, Field
 class CalibrationInstrument(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
-    til_no: str = Field(default="", index=True)
     item_name: str = Field(default="", index=True)
     asset_no: str = Field(default="", index=True)
     serial_no: str = Field(default="", index=True)
     capacity_range: str = Field(default="")
     maker: str = Field(default="")
-    location: str = Field(default="", index=True)
     date_issued: Optional[date] = Field(default=None)
     calibration_date: Optional[date] = Field(default=None)
-    certificate_number: str = Field(default="", index=True)
-    status: str = Field(default="", index=True)
+    calibration_frequency: str = Field(default="")
+    calibration_due_date: Optional[date] = Field(default=None, index=True)
     calibrated_by: str = Field(default="")
+    acceptance_criteria: str = Field(default="")
+    certificate_no: str = Field(default="", index=True)
 
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -876,15 +876,15 @@ class CalibrationChangeRequest(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
 
     instrument_id: Optional[int] = Field(default=None, index=True)
-    action_type: str = Field(default="edit", index=True)  # edit, delete, bulk_delete
+    action_type: str = Field(default="edit", index=True)
     old_data_json: str = Field(default="")
     new_data_json: str = Field(default="")
     requested_by_user_id: Optional[int] = Field(default=None, index=True)
     requested_by_user_name: str = Field(default="")
     requested_at: datetime = Field(default_factory=datetime.utcnow)
 
-    status: str = Field(default="pending", index=True)  # pending, approved, rejected
+    status: str = Field(default="pending", index=True)
     reviewed_by_user_id: Optional[int] = Field(default=None, index=True)
     reviewed_by_user_name: str = Field(default="")
-    reviewed_at: Optional[datetime] = Field(default=None)
+    reviewed_at: Optional[datetime] = None
     rejection_reason: str = Field(default="")
