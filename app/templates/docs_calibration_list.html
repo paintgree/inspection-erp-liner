@@ -1,8 +1,337 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="card">
-  <h1>Calibration List</h1>
-  <p>This page is ready for calibration records and equipment listing.</p>
+<style>
+  .cal-page-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+  }
+
+  .cal-page-head h1 {
+    margin: 0 0 6px 0;
+  }
+
+  .cal-card {
+    background: #fff;
+    border: 1px solid #d9e2ec;
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.05);
+    margin-bottom: 16px;
+  }
+
+  .cal-actions-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 16px;
+  }
+
+  .cal-form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(140px, 1fr));
+    gap: 10px;
+  }
+
+  .cal-form-grid .full {
+    grid-column: span 2;
+  }
+
+  .cal-form-grid input,
+  .cal-form-grid select {
+    width: 100%;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+  }
+
+  .cal-toolbar {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+
+  .cal-toolbar form {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  .cal-table-wrap {
+    overflow: auto;
+    border: 1px solid #d9e2ec;
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .cal-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1600px;
+    font-size: 13px;
+  }
+
+  .cal-table thead th {
+    position: sticky;
+    top: 0;
+    background: #eef4fb;
+    z-index: 1;
+    border-bottom: 1px solid #cbd5e1;
+    white-space: nowrap;
+  }
+
+  .cal-table th,
+  .cal-table td {
+    border-right: 1px solid #e5e7eb;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 8px 10px;
+    text-align: left;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  .cal-table tr:nth-child(even) td {
+    background: #fafcff;
+  }
+
+  .cal-table th:last-child,
+  .cal-table td:last-child {
+    border-right: 0;
+  }
+
+  .cal-status {
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    display: inline-block;
+    text-transform: uppercase;
+  }
+
+  .cal-status.pass,
+  .cal-status.active,
+  .cal-status.calibrated {
+    background: #dcfce7;
+    color: #166534;
+  }
+
+  .cal-status.fail,
+  .cal-status.rejected,
+  .cal-status.overdue {
+    background: #fee2e2;
+    color: #991b1b;
+  }
+
+  .cal-status.due,
+  .cal-status.pending {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .btn {
+    border: 0;
+    padding: 9px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 700;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-primary {
+    background: #0f766e;
+    color: #fff;
+  }
+
+  .btn-secondary {
+    background: #e2e8f0;
+    color: #0f172a;
+  }
+
+  .btn-danger {
+    background: #b91c1c;
+    color: #fff;
+  }
+
+  .btn-outline {
+    background: #fff;
+    color: #0f172a;
+    border: 1px solid #cbd5e1;
+  }
+
+  .cal-small-note {
+    color: #475569;
+    font-size: 12px;
+    margin-top: 8px;
+  }
+
+  @media (max-width: 1100px) {
+    .cal-actions-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .cal-form-grid {
+      grid-template-columns: repeat(2, minmax(140px, 1fr));
+    }
+  }
+</style>
+
+<div class="cal-page-head">
+  <div>
+    <h1>Calibration List</h1>
+    <div class="app-muted">Manage instruments with manual entry or bulk Excel upload.</div>
+  </div>
 </div>
+
+<div class="cal-actions-grid">
+  <div class="cal-card">
+    <h3 style="margin-top:0;">Manual Single Add</h3>
+    <form method="post" action="/documentation/calibration-list/add">
+      <div class="cal-form-grid">
+        <input name="til_no" placeholder="TIL NO">
+        <input name="item_name" placeholder="ITEM NAME" required>
+        <input name="asset_no" placeholder="Asset NO">
+        <input name="serial_no" placeholder="Serial No">
+
+        <input name="capacity_range" placeholder="Capacity (Range)">
+        <input name="maker" placeholder="Maker">
+        <input name="location" placeholder="Location">
+        <input name="date_issued" type="date" placeholder="Date Issued">
+
+        <input class="full" name="ref_std_master_gauge_no" placeholder="Ref Std/Master Gauge No">
+        <input name="calibration_date" type="date" placeholder="Calibration Date">
+        <input name="status" placeholder="Status">
+        <input name="calibrated_by" placeholder="Calibrated by">
+      </div>
+
+      <div style="margin-top:12px;">
+        <button class="btn btn-primary" type="submit">Add Instrument</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="cal-card">
+    <h3 style="margin-top:0;">Bulk Upload</h3>
+    <form method="post" action="/documentation/calibration-list/upload" enctype="multipart/form-data">
+      <div style="margin-bottom:10px;">
+        <input type="file" name="file" accept=".xlsx" required>
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <label style="display:block; margin-bottom:6px; font-weight:700;">Upload Mode</label>
+        <select name="upload_mode">
+          <option value="append">Append to existing records</option>
+          <option value="replace">Replace all existing records</option>
+        </select>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" type="submit">Upload Excel</button>
+        <a class="btn btn-secondary" href="/documentation/calibration-list/template">Download Template</a>
+      </div>
+
+      <div class="cal-small-note">
+        Use the approved calibration template. Column names must match the upload format.
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="cal-card">
+  <div class="cal-toolbar">
+    <form method="get" action="/documentation/calibration-list">
+      <input type="text" name="q" value="{{ q or '' }}" placeholder="Search by item, serial, asset, location, status"
+             style="min-width:320px; padding:9px 10px; border-radius:8px; border:1px solid #cbd5e1;">
+      <button class="btn btn-outline" type="submit">Search</button>
+      <a class="btn btn-secondary" href="/documentation/calibration-list">Reset</a>
+    </form>
+  </div>
+
+  <form method="post" action="/documentation/calibration-list/bulk-delete" onsubmit="return confirm('Delete selected rows?');">
+    <div style="margin-bottom:10px;">
+      <button class="btn btn-danger" type="submit">Bulk Delete Selected</button>
+    </div>
+
+    <div class="cal-table-wrap">
+      <table class="cal-table">
+        <thead>
+          <tr>
+            <th><input type="checkbox" onclick="toggleAllCalibrationRows(this)"></th>
+            <th>ID</th>
+            <th>TIL NO</th>
+            <th>ITEM NAME</th>
+            <th>Asset NO</th>
+            <th>Serial No</th>
+            <th>Capacity (Range)</th>
+            <th>Maker</th>
+            <th>Location</th>
+            <th>Date Issued</th>
+            <th>Ref Std/Master Gauge No</th>
+            <th>Calibration Date</th>
+            <th>Status</th>
+            <th>Calibrated by</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+          {% set status_class = (row.status or '').strip().lower() %}
+          <tr>
+            <td><input type="checkbox" name="selected_ids" value="{{ row.id }}"></td>
+            <td>{{ row.id }}</td>
+            <td>{{ row.til_no }}</td>
+            <td>{{ row.item_name }}</td>
+            <td>{{ row.asset_no }}</td>
+            <td>{{ row.serial_no }}</td>
+            <td>{{ row.capacity_range }}</td>
+            <td>{{ row.maker }}</td>
+            <td>{{ row.location }}</td>
+            <td>{{ row.date_issued or '' }}</td>
+            <td>{{ row.ref_std_master_gauge_no }}</td>
+            <td>{{ row.calibration_date or '' }}</td>
+            <td>
+              <span class="cal-status {{ status_class }}">
+                {{ row.status }}
+              </span>
+            </td>
+            <td>{{ row.calibrated_by }}</td>
+            <td>
+              <form method="post" action="/documentation/calibration-list/delete/{{ row.id }}" onsubmit="return confirm('Delete this row?');">
+                <button class="btn btn-danger" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="15" style="text-align:center; padding:20px;">No calibration records found.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </form>
+</div>
+
+<script>
+  function toggleAllCalibrationRows(source) {
+    const checkboxes = document.querySelectorAll('input[name="selected_ids"]');
+    checkboxes.forEach(cb => cb.checked = source.checked);
+  }
+</script>
 {% endblock %}
