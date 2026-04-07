@@ -6020,6 +6020,9 @@ def forbid_boss(user: User):
         raise HTTPException(403, "Read-only user")
 
 
+def _can_manage_batch_priority(user: User) -> bool:
+    return (getattr(user, "role", "") or "").strip().upper() in ["MANAGER", "BOSS"]
+
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
@@ -7573,12 +7576,65 @@ def _format_rfi_activity_text(value: str) -> str:
     return ", ".join(RFI_ACTIVITY_LABELS.get(x, x.replace("_", " ").title()) for x in items)
 
 
+def _normalize_search_text(value: str) -> str:
+    raw = str(value or "").lower()
+    out = []
+    for ch in raw:
+        if ch.isalnum():
+            out.append(ch)
+        else:
+            out.append(" ")
+    return " ".join("".join(out).split())
+
+
 def _search_match(query: str, *values: str) -> bool:
-    q = (query or "").strip().lower()
+    q = _normalize_search_text(query)
     if not q:
         return False
-    hay = " ".join(str(v or "") for v in values).lower()
-    return q in hay
+
+    hay_parts = [str(v or "") for v in values]
+    hay = _normalize_search_text(" ".join(hay_parts))
+    hay_compact = hay.replace(" ", "")
+
+    tokens = [t for t in q.split() if t]
+    if not tokens:
+        return False
+
+    if q in hay or q.replace(" ", "") in hay_compact:
+        return True
+
+    matched = 0
+    for token in tokens:
+        if token in hay or token in hay_compact:
+            matched += 1
+
+    if len(tokens) == 1:
+        return matched == 1
+
+    return matched >= max(2, len(tokens) - 1)
+
+
+def _batch_has_approved_hydro(session: Session, batch_no: str) -> bool:
+    row = session.exec(
+        select(HydroTestRecord)
+        .where(HydroTestRecord.batch_no == batch_no)
+        .where(HydroTestRecord.approval_status == "APPROVED")
+        .order_by(HydroTestRecord.created_at.desc())
+    ).first()
+    return row is not None
+
+
+def _batch_has_approved_burst(session: Session, batch_no: str) -> bool:
+    row = session.exec(
+        select(BurstTestReport)
+        .where(BurstTestReport.batch_no == batch_no)
+        .where(
+            (BurstTestReport.current_revision_status == "APPROVED") |
+            (BurstTestReport.is_locked == True)
+        )
+        .order_by(BurstTestReport.created_at.desc())
+    ).first()
+    return row is not None
 
 
 def _build_dashboard_calendar(session: Session) -> dict:
@@ -7611,15 +7667,38 @@ def _compute_batch_status(session: Session, batch_no: str, runs: list[Production
 
     remaining = _get_batch_remaining_rfi_activities(session, batch_no)
     pending_runs = [r for r in runs if (getattr(r, "status", "") or "").upper() != "APPROVED"]
+    hydro_done = _batch_has_approved_hydro(session, batch_no)
+    burst_done = _batch_has_approved_burst(session, batch_no)
 
     if pending_runs:
         current_stage = "Production Ongoing"
-        remaining_steps = ["Complete production", "Raise RFI"]
+        remaining_steps = ["Complete production"]
+        if not hydro_done:
+            remaining_steps.append("Hydro Testing")
+        if not burst_done:
+            remaining_steps.append("Burst Testing")
+        remaining_steps.append("Raise RFI")
         status_label = "In Production"
         status_class = "status-in-production"
-        next_action = "Continue production and complete all required runs."
-    elif latest_rfi is None:
+        next_action = "Continue production. After production, complete hydro and burst testing before raising RFI."
+    elif not hydro_done or not burst_done:
         current_stage = "Production Complete"
+        remaining_steps = []
+        if not hydro_done:
+            remaining_steps.append("Hydro Testing")
+        if not burst_done:
+            remaining_steps.append("Burst Testing")
+        remaining_steps.append("Raise RFI")
+        status_label = "Testing Pending"
+        status_class = "status-awaiting-rfi"
+        if not hydro_done and not burst_done:
+            next_action = "Complete hydro and burst testing before raising RFI."
+        elif not hydro_done:
+            next_action = "Complete hydro testing before raising RFI."
+        else:
+            next_action = "Complete burst testing before raising RFI."
+    elif latest_rfi is None:
+        current_stage = "Testing Complete"
         remaining_steps = ["Raise RFI"]
         status_label = "Awaiting RFI"
         status_class = "status-awaiting-rfi"
@@ -7651,10 +7730,27 @@ def _compute_batch_status(session: Session, batch_no: str, runs: list[Production
             status_class = "status-closed"
             next_action = "No action pending."
 
+    production_state = "done" if not pending_runs else "current"
+    hydro_state = "done" if hydro_done else ("pending" if pending_runs else "current")
+    burst_state = "done" if burst_done else ("pending" if pending_runs else "current")
+    rfi_state = "pending"
+    rfi_note = "Not raised"
+
+    if latest_rfi is not None:
+        rfi_note = latest_rfi.rfi_no or "Raised"
+        rfi_state = "done" if (latest_rfi.status or "").upper() in ["VISIT_COMPLETED", "CLOSED"] else "current"
+    elif hydro_done and burst_done and not pending_runs:
+        rfi_state = "current"
+        rfi_note = "Ready to raise"
+
+    dispatch_state = "done" if status_label == "Closed" else ("current" if status_label == "Ready for Dispatch" else "pending")
+
     timeline_items = [
-        {"label": "Production", "state": "done" if not pending_runs else "current", "note": current_stage},
-        {"label": "RFI", "state": "pending" if latest_rfi is None else ("done" if (latest_rfi.status or "").upper() in ["VISIT_COMPLETED", "CLOSED"] else "current"), "note": latest_rfi.rfi_no if latest_rfi else "Not raised"},
-        {"label": "Dispatch", "state": "done" if status_label == "Closed" else ("current" if status_label == "Ready for Dispatch" else "pending"), "note": next_action},
+        {"label": "Production", "state": production_state, "note": current_stage if pending_runs else "Completed"},
+        {"label": "Hydro", "state": hydro_state, "note": "Approved" if hydro_done else "Pending"},
+        {"label": "Burst", "state": burst_state, "note": "Approved" if burst_done else "Pending"},
+        {"label": "RFI", "state": rfi_state, "note": rfi_note},
+        {"label": "Dispatch", "state": dispatch_state, "note": next_action},
     ]
 
     return {
@@ -7666,6 +7762,8 @@ def _compute_batch_status(session: Session, batch_no: str, runs: list[Production
         "remaining_text": ", ".join(remaining_steps) if remaining_steps else "None",
         "next_action": next_action,
         "timeline_items": timeline_items,
+        "hydro_done": hydro_done,
+        "burst_done": burst_done,
     }
 
 
@@ -7770,7 +7868,8 @@ def _build_batch_dashboard_cards(session: Session, q_process: str = ""):
             "processes": processes,
             "run_count": len(batch_runs),
             "avg_progress": avg_progress,
-            "priority": "HIGH PRIORITY" if status_info["status_label"] in ["In Production", "RFI Raised - Awaiting TPI"] else "",
+            "priority": "HIGH PRIORITY" if any(bool(getattr(r, "is_high_priority", False)) for r in batch_runs) else "",
+            "is_high_priority": any(bool(getattr(r, "is_high_priority", False)) for r in batch_runs),
             "status_label": status_info["status_label"],
             "status_class": status_info["status_class"],
             "current_stage": status_info["current_stage"],
@@ -7790,7 +7889,7 @@ def _build_batch_dashboard_cards(session: Session, q_process: str = ""):
         batch_cards.append(card)
         filtered_grouped[batch_no] = batch_runs
 
-    batch_cards.sort(key=lambda x: ((0 if x["status_label"] != "Ready for Dispatch" else 1), x["batch_no"]), reverse=False)
+    batch_cards.sort(key=lambda x: (0 if x.get("is_high_priority") else 1, 0 if x["status_label"] == "Ready for Dispatch" else 1, x["batch_no"]))
     filtered_progress_map = {r.id: progress_map.get(r.id, 0) for rows in filtered_grouped.values() for r in rows if getattr(r, "id", None) is not None}
     return batch_cards, filtered_progress_map, filtered_grouped
     
@@ -9829,8 +9928,38 @@ def dashboard(
             "selected_process": q_process,
             "batch_cards": batch_cards,
             "calendar_items": calendar,
+            "can_manage_priority": _can_manage_batch_priority(user),
         },
     )
+
+@app.post("/batches/{batch_no}/priority")
+def set_batch_priority(
+    batch_no: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    value: str = Form("0"),
+    next_url: str = Form("/dashboard"),
+):
+    user = get_current_user(request, session)
+    if not _can_manage_batch_priority(user):
+        raise HTTPException(403, "Manager or Boss only")
+
+    clean_batch = (batch_no or "").strip()
+    runs = session.exec(select(ProductionRun).where(ProductionRun.dhtp_batch_no == clean_batch)).all()
+    if not runs:
+        raise HTTPException(404, "Batch not found")
+
+    flag = str(value or "0").strip() in ["1", "true", "TRUE", "on", "yes"]
+    for run in runs:
+        run.is_high_priority = flag
+        session.add(run)
+    session.commit()
+
+    safe_next = (next_url or "/dashboard").strip() or "/dashboard"
+    if not safe_next.startswith("/"):
+        safe_next = "/dashboard"
+    return RedirectResponse(url=safe_next, status_code=303)
+
 
 @app.get("/search")
 def global_search(
@@ -10018,6 +10147,8 @@ def batch_detail(batch_no: str, request: Request, session: Session = Depends(get
             "client_name": rep.client_name or "",
             "po_number": rep.po_number or "",
             "itp_number": rep.itp_number or "",
+            "is_high_priority": any(bool(getattr(r, "is_high_priority", False)) for r in runs),
+            "can_manage_priority": _can_manage_batch_priority(user),
         },
     )
 
