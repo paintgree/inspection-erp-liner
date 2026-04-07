@@ -22,6 +22,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.platypus import Table, TableStyle
 from passlib.context import CryptContext
+from fastapi.responses import HTMLResponse
 
 
 # ======================
@@ -2486,7 +2487,17 @@ os.makedirs(MRR_PHOTO_DIR, exist_ok=True)
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
-
+@app.get("/docs", response_class=HTMLResponse)
+def docs_home(request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    return TEMPLATES.TemplateResponse(
+        "dashboard.html",
+        {
+            "request": request,
+            "user": user,
+        },
+    )
+    
 @app.exception_handler(HTTPException)
 async def app_http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 401:
