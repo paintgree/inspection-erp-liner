@@ -10,13 +10,27 @@
         {% if po_number %} • PO: {{ po_number }}{% endif %}
         {% if itp_number %} • ITP: {{ itp_number }}{% endif %}
       </div>
-      <div class="mt">
+      <div class="mt batch-detail-pills">
         <span class="pill">Avg progress: {{ avg_progress }}%</span>
+        {% if is_high_priority %}
+          <span class="workorder-priority">HIGH PRIORITY</span>
+        {% endif %}
       </div>
     </div>
 
-    <div class="actions">
+    <div class="actions batch-detail-actions">
       <a class="btn" href="/dashboard">← Back to Dashboard</a>
+
+      {% if can_manage_priority %}
+        <form method="post" action="/batches/{{ batch_no }}/priority" class="priority-toggle-form inline-form">
+          <input type="hidden" name="next_url" value="/batches/{{ batch_no }}">
+          <input type="hidden" name="value" value="{% if is_high_priority %}0{% else %}1{% endif %}">
+          <button class="btn {% if is_high_priority %}btn-ghost{% else %}btn-primary{% endif %}" type="submit">
+            {% if is_high_priority %}Remove High Priority{% else %}Mark High Priority{% endif %}
+          </button>
+        </form>
+      {% endif %}
+
       {% if user.role and (user.role|upper == "MANAGER" or user.role|upper == "RUN_CREATOR") %}
         <a class="btn btn-primary" href="/runs/new">+ New Production Run</a>
       {% endif %}
