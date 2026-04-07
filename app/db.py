@@ -120,6 +120,12 @@ def _ensure_schema_patches() -> None:
             "ALTER TABLE materiallot ADD COLUMN IF NOT EXISTS received_total DOUBLE PRECISION DEFAULT 0",
             "ALTER TABLE materiallot ADD COLUMN received_total REAL DEFAULT 0",
         ),
+        (
+            "productionrun",
+            "is_high_priority",
+            "ALTER TABLE productionrun ADD COLUMN IF NOT EXISTS is_high_priority BOOLEAN DEFAULT FALSE",
+            "ALTER TABLE productionrun ADD COLUMN is_high_priority INTEGER DEFAULT 0",
+        ),
 
         # mrrreceivinginspection
         (
