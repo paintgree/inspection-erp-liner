@@ -69,6 +69,7 @@ from .rnd_module import router as rnd_router
 from .models import (
     User,
     ProductionRun,
+    ProductionReport,
     RunMachine,
     RunParameter,
     InspectionEntry,
@@ -2790,6 +2791,28 @@ def get_finished_cover_runs(session: Session) -> list[ProductionRun]:
 
     return finished
 
+
+def _get_batch_total_length_m(session: Session, batch_no: str) -> float:
+    batch = (batch_no or "").strip()
+    if not batch:
+        return 0.0
+
+    _liner, _reinf, cover = _find_related_runs_by_batch(session, batch)
+    if cover and float(getattr(cover, "total_length_m", 0.0) or 0.0) > 0:
+        return float(getattr(cover, "total_length_m", 0.0) or 0.0)
+
+    row = session.exec(
+        select(ProductionRun)
+        .where(ProductionRun.dhtp_batch_no == batch)
+        .where(ProductionRun.process == "COVER")
+        .order_by(ProductionRun.id.desc())
+    ).first()
+
+    if not row:
+        return 0.0
+
+    return float(getattr(row, "total_length_m", 0.0) or 0.0)
+    
 
 def _draw_signatures(c, report, y, qaqc_name=None, qaqc_date=None):
 
@@ -7538,6 +7561,19 @@ def _split_rfi_activities(value: str) -> list[str]:
     return [x.strip() for x in raw.split("|") if x.strip()]
 
 
+def _get_batch_covered_rfi_length_m(session: Session, batch_no: str) -> float:
+    rows = session.exec(
+        select(RfiRecord)
+        .where(RfiRecord.batch_no == batch_no)
+        .where(RfiRecord.status.in_(["DRAFT", "SUBMITTED", "SCHEDULED", "VISIT_COMPLETED", "CLOSED"]))
+        .order_by(RfiRecord.created_at.asc())
+    ).all()
+
+    total = 0.0
+    for row in rows:
+        total += float(getattr(row, "covered_length_m", 0.0) or 0.0)
+    return total
+
 def _join_rfi_activities(values: list[str]) -> str:
     clean = []
     seen = set()
@@ -7550,14 +7586,20 @@ def _join_rfi_activities(values: list[str]) -> str:
 
 
 def _get_batch_completed_rfi_activities(session: Session, batch_no: str) -> set[str]:
-    # Repeatable RFI logic:
-    # activities should remain selectable on future RFIs even if they were
-    # already used in previous VISIT_COMPLETED / CLOSED records.
+    # Activities are repeatable across multiple RFI visits.
+    # Coverage blocking is handled by covered_length_m instead.
     return set()
 
 
 def _get_batch_remaining_rfi_activities(session: Session, batch_no: str) -> list[str]:
-    # All activities stay selectable for every new RFI visit.
+    batch_total = _get_batch_total_length_m(session, batch_no)
+    covered_total = _get_batch_covered_rfi_length_m(session, batch_no)
+
+    # If full batch quantity is already covered, no more RFI activities should be available.
+    if batch_total > 0 and covered_total >= batch_total:
+        return []
+
+    # Otherwise all activities remain selectable for repeat visits.
     return list(RFI_ACTIVITY_OPTIONS)
 
 
@@ -7913,13 +7955,20 @@ def rfi_dashboard(
         remaining = _get_batch_remaining_rfi_activities(session, batch_no)
         covered = [x for x in RFI_ACTIVITY_OPTIONS if x not in remaining]
 
+        batch_total_m = _get_batch_total_length_m(session, batch_no)
+        covered_total_m = _get_batch_covered_rfi_length_m(session, batch_no)
+        is_complete = batch_total_m > 0 and covered_total_m >= batch_total_m
+
         batch_cards.append(
             {
                 "run": run,
                 "batch_no": batch_no,
                 "remaining": remaining,
                 "covered": covered,
-                "is_complete": False,
+                "is_complete": is_complete,
+                "batch_total_m": batch_total_m,
+                "covered_total_m": covered_total_m,
+                "remaining_total_m": max(0.0, batch_total_m - covered_total_m),
             }
         )
 
@@ -7943,6 +7992,7 @@ def rfi_create(
     linked_run_id: int = Form(...),
     inspection_stage: list[str] = Form([]),
     requested_date: str = Form(""),
+    covered_length_m: float = Form(0.0),
     tpi_company: str = Form(""),
     tpi_contact_name: str = Form(""),
     notes: str = Form(""),
@@ -7961,6 +8011,13 @@ def rfi_create(
     liner_run, reinf_run, cover_run = _find_related_runs_by_batch(session, batch_no)
     main_run = cover_run or selected_run
 
+    batch_total_m = _get_batch_total_length_m(session, batch_no)
+    already_covered_m = _get_batch_covered_rfi_length_m(session, batch_no)
+    remaining_length_m = max(0.0, batch_total_m - already_covered_m)
+
+    if batch_total_m > 0 and remaining_length_m <= 0:
+        raise HTTPException(400, "This batch is already fully covered by previous RFIs.")
+
     remaining = _get_batch_remaining_rfi_activities(session, batch_no)
 
     selected_activities = []
@@ -7974,7 +8031,7 @@ def rfi_create(
         selected_activities = remaining
 
     if not selected_activities:
-        raise HTTPException(400, "All RFI activities for this batch are already covered.")
+        raise HTTPException(400, "This batch is already fully covered or no activities are available.")
 
     existing_count = session.exec(select(RfiRecord)).all()
     next_no = len(existing_count) + 1
@@ -7987,6 +8044,17 @@ def rfi_create(
         except Exception:
             requested_dt = None
 
+    requested_cover_m = float(covered_length_m or 0.0)
+
+    if requested_cover_m <= 0:
+        raise HTTPException(400, "Covered length must be greater than 0.")
+
+    if batch_total_m > 0 and requested_cover_m > remaining_length_m:
+        raise HTTPException(
+            400,
+            f"Covered length exceeds remaining batch quantity. Remaining: {remaining_length_m:.2f} m"
+        )
+
     rec = RfiRecord(
         linked_run_id=main_run.id,
         batch_no=batch_no,
@@ -7995,6 +8063,7 @@ def rfi_create(
         inspection_stage=_join_rfi_activities(selected_activities),
         status="DRAFT",
         requested_date=requested_dt,
+        covered_length_m=requested_cover_m,
         raised_by_user_id=user.id,
         raised_by_name=user.display_name or user.username,
         tpi_company=(tpi_company or "").strip(),
