@@ -4883,10 +4883,10 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         return y_pos - 6 * mm
 
     def draw_info_grid(y_top):
-        col_widths = [26 * mm, 38 * mm, 26 * mm, 38 * mm]
+        col_widths = [30 * mm, 45 * mm, 30 * mm, 45 * mm]
         row_h = 7 * mm
         table_w = sum(col_widths)
-        table_x = (w - table_w) / 2
+        table_x = page_left + 15 * mm
 
         rows = [
             ("BATCH NO", _txt(getattr(report, "batch_no", "")) or "-", "CLIENT", _txt(getattr(report, "client_name", "")) or "-"),
@@ -4924,11 +4924,11 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         return y_top - total_h - 6 * mm
 
     def draw_specimen_table(y_top):
-        col_widths = [10 * mm, 24 * mm, 26 * mm, 26 * mm, 26 * mm, 28 * mm, 28 * mm]
+        col_widths = [12 * mm, 28 * mm, 30 * mm, 30 * mm, 30 * mm, 36 * mm, 36 * mm]
         headers = ["#", "SERIAL NO", "LINER", "REINF.", "COVER", "TOTAL LEN", "EFFECTIVE LEN"]
         row_h = 6.5 * mm
         table_w = sum(col_widths)
-        table_x = (w - table_w) / 2
+        table_x = page_left + 15 * mm
 
         # 1 header row + 2 rows per specimen
         total_rows = 1 + (len(samples) * 2)
@@ -5027,11 +5027,11 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         return y_top - total_h - 6 * mm
 
     def draw_results_table(y_top):
-        col_widths = [10 * mm, 20 * mm, 30 * mm, 20 * mm, 38 * mm, 18 * mm]
+        col_widths = [12 * mm, 24 * mm, 36 * mm, 22 * mm, 42 * mm, 26 * mm]
         headers = ["#", "SERIAL NO", "ACTUAL BURST", "TIME", "FAILURE MODE", "RESULT"]
         row_h = 7 * mm
         table_w = sum(col_widths)
-        table_x = (w - table_w) / 2
+        table_x = page_left + 15 * mm
 
         total_h = (len(samples) + 1) * row_h
         c.roundRect(table_x, y_top - total_h, table_w, total_h, 2 * mm, stroke=1, fill=0)
@@ -5071,7 +5071,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         return y_top - total_h - 8 * mm
 
     def draw_signature_block(y_top):
-        box_h = 18 * mm
+        box_h = 20 * mm
         box_w = 78 * mm
         gap = 18 * mm
         total_w = box_w * 2 + gap
@@ -5082,7 +5082,7 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         qaqc_name = pdf_qaqc_name or "-"
         qaqc_date = _fmt_dt(pdf_qaqc_date)
 
-        # left box
+        # left box - technician
         c.roundRect(box_x, y_top - box_h, box_w, box_h, 2 * mm, stroke=1, fill=0)
         c.setFont("Helvetica-Bold", 8)
         c.drawCentredString(box_x + box_w / 2, y_top - 5 * mm, "TECHNICIAN")
@@ -5090,14 +5090,16 @@ def burst_pdf_download(report_id: int, session: Session = Depends(get_session)):
         c.drawCentredString(box_x + box_w / 2, y_top - 10 * mm, tech_name)
         c.drawCentredString(box_x + box_w / 2, y_top - 14 * mm, tech_date)
 
-        # right box
+        # right box - QAQC
         rx = box_x + box_w + gap
         c.roundRect(rx, y_top - box_h, box_w, box_h, 2 * mm, stroke=1, fill=0)
         c.setFont("Helvetica-Bold", 8)
-        c.drawCentredString(rx + box_w / 2, y_top - 5 * mm, "QAQC REVIEW")
+        c.drawCentredString(rx + box_w / 2, y_top - 4.5 * mm, "QAQC REVIEW")
         c.setFont("Helvetica", 7.5)
-        c.drawCentredString(rx + box_w / 2, y_top - 10 * mm, qaqc_name)
-        c.drawCentredString(rx + box_w / 2, y_top - 14 * mm, qaqc_date)
+        c.drawCentredString(rx + box_w / 2, y_top - 8.8 * mm, qaqc_name)
+        c.drawCentredString(rx + box_w / 2, y_top - 12.8 * mm, qaqc_date)
+        c.setFont("Helvetica-Oblique", 6.8)
+        c.drawCentredString(rx + box_w / 2, y_top - 17.2 * mm, "Digitally signed by QA/QC reviewer")
 
         return y_top - box_h - 4 * mm
 
