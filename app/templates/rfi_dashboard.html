@@ -546,12 +546,12 @@
               </option>
             {% endfor %}
           </select>
-          <div class="muted mt">Activities can be selected again on future RFIs for repeat visits.</div>
+          <div class="muted mt">Activities can be repeated across visits, but new RFIs are blocked once the full batch quantity is fully covered.</div>
         </div>
 
         <div>
-          <label>Requested Date</label>
-          <input type="date" name="requested_date">
+          <label>Covered Length (m)</label>
+          <input type="number" name="covered_length_m" step="0.01" min="0.01" required>
         </div>
 
         <div>
