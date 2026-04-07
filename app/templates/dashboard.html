@@ -131,15 +131,20 @@
                 </div>
               {% endif %}
 
-              <div class="order-stage-boxes">
-                <div class="order-stage-box">
-                  <div class="order-stage-label">Current Stage</div>
-                  <div class="order-stage-value">{{ b.current_stage }}</div>
+              <div class="workorder-grid-two">
+                <div class="workorder-info-box">
+                  <div class="info-label">Current Stage</div>
+                  <div class="info-value">{{ b.current_stage }}</div>
                 </div>
-                <div class="order-stage-box">
-                  <div class="order-stage-label">Remaining</div>
-                  <div class="order-stage-value">{{ b.remaining_text }}</div>
+                <div class="workorder-info-box">
+                  <div class="info-label">Next Action</div>
+                  <div class="info-value">{{ b.next_action }}</div>
                 </div>
+              </div>
+
+              <div class="workorder-info-box">
+                <div class="info-label">Remaining Actions</div>
+                <div class="info-value">{{ b.remaining_text }}</div>
               </div>
 
               <div class="order-next-action">
