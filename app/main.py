@@ -2511,6 +2511,30 @@ def rnd_lab_tests_page(request: Request, session: Session = Depends(get_session)
     )
 
 
+@app.get("/rnd/lab-tests/tensile-pipe")
+def rnd_tensile_pipe_page(request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    return TEMPLATES.TemplateResponse(
+        "rnd_tensile_pipe.html",
+        {"request": request, "user": user},
+    )
+
+@app.get("/rnd/lab-tests/tensile-fiber")
+def rnd_tensile_fiber_page(request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    return TEMPLATES.TemplateResponse(
+        "rnd_tensile_fiber.html",
+        {"request": request, "user": user},
+    )
+
+@app.get("/rnd/lab-tests/permeation-test")
+def rnd_permeation_test_page(request: Request, session: Session = Depends(get_session)):
+    user = get_current_user(request, session)
+    return TEMPLATES.TemplateResponse(
+        "rnd_permeation_test.html",
+        {"request": request, "user": user},
+    )
+
 @app.get("/docs/procedures")
 def docs_procedures_page(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
