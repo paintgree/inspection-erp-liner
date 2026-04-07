@@ -2709,7 +2709,7 @@ def docs_calibration_list_page(request: Request, session: Session = Depends(get_
     from starlette.requests import Request as StarletteRequest
 
     return TEMPLATES.TemplateResponse(
-        request=cast(StarletteRequest, request),
+        request=request,
         name="docs_calibration_list.html",
         context={
             "request": request,
