@@ -64,9 +64,21 @@
           {% for b in batch_cards %}
             <div class="workorder-card status-card {{ b.status_class }}">
               <div class="workorder-card-topline">
-                <div class="workorder-status-chip {{ b.status_class }}">{{ b.status_label }}</div>
-                {% if b.priority %}
-                  <div class="workorder-priority">{{ b.priority }}</div>
+                <div class="workorder-card-topline-left">
+                  <div class="workorder-status-chip {{ b.status_class }}">{{ b.status_label }}</div>
+                  {% if b.priority %}
+                    <div class="workorder-priority">{{ b.priority }}</div>
+                  {% endif %}
+                </div>
+
+                {% if can_manage_priority %}
+                  <form method="post" action="/batches/{{ b.batch_no }}/priority" class="priority-toggle-form">
+                    <input type="hidden" name="next_url" value="/dashboard">
+                    <input type="hidden" name="value" value="{% if b.is_high_priority %}0{% else %}1{% endif %}">
+                    <button class="btn btn-ghost btn-sm" type="submit">
+                      {% if b.is_high_priority %}Remove Priority{% else %}Mark High Priority{% endif %}
+                    </button>
+                  </form>
                 {% endif %}
               </div>
 
@@ -180,54 +192,89 @@
     </section>
 
     <aside class="overview-side-panel">
-      <section class="section">
+      <section class="section calendar-panel-modern">
         <div class="section-head compact-head">
           <div>
             <h2>RFI / TPI Calendar</h2>
-            <div class="muted">Keep pending visits visible all the time.</div>
+            <div class="muted">A clearer live view of urgent visits, today's workload, and upcoming inspections.</div>
           </div>
         </div>
 
-        <div class="calendar-group">
-          <div class="calendar-group-title">Overdue</div>
-          {% if calendar_items.overdue %}
-            {% for item in calendar_items.overdue %}
-              <a class="calendar-item is-overdue" href="{{ item.url }}">
-                <div class="calendar-item-title">{{ item.title }}</div>
-                <div class="calendar-item-sub">{{ item.message }}</div>
-              </a>
-            {% endfor %}
-          {% else %}
-            <div class="calendar-empty">No overdue RFIs.</div>
-          {% endif %}
+        <div class="calendar-summary-strip">
+          <div class="calendar-summary-card is-overdue">
+            <div class="calendar-summary-value">{{ calendar_items.overdue|length }}</div>
+            <div class="calendar-summary-label">Overdue</div>
+          </div>
+          <div class="calendar-summary-card is-today">
+            <div class="calendar-summary-value">{{ calendar_items.today|length }}</div>
+            <div class="calendar-summary-label">Today</div>
+          </div>
+          <div class="calendar-summary-card">
+            <div class="calendar-summary-value">{{ calendar_items.upcoming|length }}</div>
+            <div class="calendar-summary-label">Upcoming</div>
+          </div>
         </div>
 
-        <div class="calendar-group">
-          <div class="calendar-group-title">Today</div>
-          {% if calendar_items.today %}
-            {% for item in calendar_items.today %}
-              <a class="calendar-item is-today" href="{{ item.url }}">
-                <div class="calendar-item-title">{{ item.title }}</div>
-                <div class="calendar-item-sub">{{ item.message }}</div>
-              </a>
-            {% endfor %}
-          {% else %}
-            <div class="calendar-empty">Nothing scheduled for today.</div>
-          {% endif %}
-        </div>
+        <div class="calendar-board">
+          <div class="calendar-column">
+            <div class="calendar-column-head">
+              <div class="calendar-group-title">Overdue</div>
+              <div class="calendar-column-count">{{ calendar_items.overdue|length }}</div>
+            </div>
+            <div class="calendar-column-body">
+              {% if calendar_items.overdue %}
+                {% for item in calendar_items.overdue %}
+                  <a class="calendar-item is-overdue" href="{{ item.url }}">
+                    <div class="calendar-item-badge">Urgent</div>
+                    <div class="calendar-item-title">{{ item.title }}</div>
+                    <div class="calendar-item-sub">{{ item.message }}</div>
+                  </a>
+                {% endfor %}
+              {% else %}
+                <div class="calendar-empty">No overdue RFIs.</div>
+              {% endif %}
+            </div>
+          </div>
 
-        <div class="calendar-group">
-          <div class="calendar-group-title">Upcoming</div>
-          {% if calendar_items.upcoming %}
-            {% for item in calendar_items.upcoming %}
-              <a class="calendar-item" href="{{ item.url }}">
-                <div class="calendar-item-title">{{ item.title }}</div>
-                <div class="calendar-item-sub">{{ item.message }}</div>
-              </a>
-            {% endfor %}
-          {% else %}
-            <div class="calendar-empty">No upcoming RFIs.</div>
-          {% endif %}
+          <div class="calendar-column">
+            <div class="calendar-column-head">
+              <div class="calendar-group-title">Today</div>
+              <div class="calendar-column-count">{{ calendar_items.today|length }}</div>
+            </div>
+            <div class="calendar-column-body">
+              {% if calendar_items.today %}
+                {% for item in calendar_items.today %}
+                  <a class="calendar-item is-today" href="{{ item.url }}">
+                    <div class="calendar-item-badge">Today</div>
+                    <div class="calendar-item-title">{{ item.title }}</div>
+                    <div class="calendar-item-sub">{{ item.message }}</div>
+                  </a>
+                {% endfor %}
+              {% else %}
+                <div class="calendar-empty">Nothing scheduled for today.</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="calendar-column">
+            <div class="calendar-column-head">
+              <div class="calendar-group-title">Upcoming</div>
+              <div class="calendar-column-count">{{ calendar_items.upcoming|length }}</div>
+            </div>
+            <div class="calendar-column-body">
+              {% if calendar_items.upcoming %}
+                {% for item in calendar_items.upcoming %}
+                  <a class="calendar-item" href="{{ item.url }}">
+                    <div class="calendar-item-badge">Planned</div>
+                    <div class="calendar-item-title">{{ item.title }}</div>
+                    <div class="calendar-item-sub">{{ item.message }}</div>
+                  </a>
+                {% endfor %}
+              {% else %}
+                <div class="calendar-empty">No upcoming RFIs.</div>
+              {% endif %}
+            </div>
+          </div>
         </div>
       </section>
     </aside>
