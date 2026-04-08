@@ -97,16 +97,21 @@
   .std-search{
     flex:1 1 420px;
     min-width:280px;
-    position:relative;
+  }
+
+  .std-search form{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
   }
 
   .std-search input{
-    width:100%;
+    flex:1 1 320px;
     height:52px;
     border-radius:16px;
     border:1px solid #d9e4f1;
     background:#fff;
-    padding:0 16px 0 46px;
+    padding:0 16px;
     font-size:15px;
     font-weight:600;
     color:#0f172a;
@@ -117,16 +122,6 @@
   .std-search input:focus{
     border-color:#93c5fd;
     box-shadow:0 0 0 4px rgba(59,130,246,.10);
-  }
-
-  .std-search-icon{
-    position:absolute;
-    left:16px;
-    top:50%;
-    transform:translateY(-50%);
-    color:#94a3b8;
-    font-size:16px;
-    pointer-events:none;
   }
 
   .std-filter-row{
@@ -147,6 +142,9 @@
     border:1px solid #e2e8f0;
     cursor:pointer;
     transition:.18s ease;
+    text-decoration:none;
+    display:inline-flex;
+    align-items:center;
   }
 
   .std-chip:hover{
@@ -218,6 +216,16 @@
     font-size:11px;
     font-weight:900;
     text-transform:uppercase;
+  }
+
+  .std-status.obsolete{
+    background:#fef2f2;
+    color:#dc2626;
+  }
+
+  .std-status.draft{
+    background:#fff7ed;
+    color:#ea580c;
   }
 
   .std-card-body{
@@ -295,16 +303,11 @@
   }
 
   .std-list-panel{
-    display:none;
     margin-top:18px;
     background:#fff;
     border:1px solid #dbe4f0;
     border-radius:20px;
     overflow:hidden;
-  }
-
-  .std-list-panel.show{
-    display:block;
   }
 
   .std-list-head{
@@ -353,7 +356,10 @@
     text-align:center;
     color:#64748b;
     font-weight:700;
-    display:none;
+    background:#fff;
+    border:1px dashed #dbe4f0;
+    border-radius:20px;
+    margin-top:18px;
   }
 
   @media (max-width: 900px){
@@ -380,13 +386,12 @@
   <div class="std-hero">
     <div>
       <h1>Standards Library</h1>
-      <p>Central repository for industry standards and internal technical specifications.</p>
+      <p>Central repository for standards, specifications, and technical reference documents.</p>
     </div>
 
     <div class="std-hero-actions">
-      <button class="std-btn std-btn-soft" type="button" onclick="toggleStandardsList()">☰ Full List</button>
       <button class="std-btn std-btn-soft" type="button" onclick="window.print()">🖨 Print List</button>
-      <a class="std-btn std-btn-primary" href="#">＋ Add New Standard</a>
+      <a class="std-btn std-btn-primary" href="/documentation/standards/upload">＋ Add New Standard</a>
     </div>
   </div>
 
@@ -394,218 +399,91 @@
     <div class="std-toolbar">
       <div class="std-toolbar-top">
         <div class="std-search">
-          <span class="std-search-icon">⌕</span>
-          <input id="standardsSearch" type="text" placeholder="Search by code, title, material, testing, piping, or keyword..." oninput="filterStandardCards()">
+          <form method="get" action="/documentation/standards">
+            <input type="text" name="search" value="{{ search or '' }}" placeholder="Search by code, title, category, material, testing, or keyword...">
+            <input type="hidden" name="category" value="{{ active_category or 'all' }}">
+            <button class="std-btn std-btn-primary" type="submit">Search</button>
+          </form>
         </div>
       </div>
 
       <div class="std-filter-row">
-        <button class="std-chip active" type="button" data-filter="all" onclick="setStandardsFilter('all', this)">All</button>
-        <button class="std-chip" type="button" data-filter="piping" onclick="setStandardsFilter('piping', this)">Piping</button>
-        <button class="std-chip" type="button" data-filter="materials" onclick="setStandardsFilter('materials', this)">Materials</button>
-        <button class="std-chip" type="button" data-filter="testing" onclick="setStandardsFilter('testing', this)">Testing</button>
-        <button class="std-chip" type="button" data-filter="general" onclick="setStandardsFilter('general', this)">General</button>
+        <a class="std-chip {% if (active_category or 'all') == 'all' %}active{% endif %}" href="/documentation/standards?search={{ search or '' }}&category=all">All</a>
+        {% for cat in categories %}
+          <a class="std-chip {% if active_category == cat %}active{% endif %}" href="/documentation/standards?search={{ search or '' }}&category={{ cat }}">{{ cat }}</a>
+        {% endfor %}
       </div>
     </div>
 
-    <div id="standardsGrid" class="std-grid">
-      <article class="std-card" data-category="piping" data-search="api 15s spoolable reinforced plastic line pipe piping standard line pipe">
-        <div class="std-card-head">
-          <span class="std-tag">Piping</span>
-          <span class="std-status">Active</span>
-        </div>
-        <div class="std-card-body">
-          <div class="std-code">API 15S</div>
-          <div class="std-title">Spoolable Reinforced Plastic Line Pipe</div>
-          <div class="std-desc">Requirements for the manufacture and qualification of spoolable reinforced plastic line pipe.</div>
-        </div>
-        <div class="std-card-foot">
-          <span class="std-rev">Rev: 3rd Edition</span>
-          <a class="std-open" href="#" title="Open">↗</a>
-        </div>
-      </article>
+    {% if documents %}
+      <div class="std-grid">
+        {% for doc in documents %}
+          <article class="std-card">
+            <div class="std-card-head">
+              <span class="std-tag">{{ doc.category or 'General' }}</span>
 
-      <article class="std-card" data-category="testing" data-search="astm d2992 hydrostatic pressure design basis fiberglass pipe fittings testing">
-        <div class="std-card-head">
-          <span class="std-tag">Testing</span>
-          <span class="std-status">Active</span>
-        </div>
-        <div class="std-card-body">
-          <div class="std-code">ASTM D2992</div>
-          <div class="std-title">Obtaining Hydrostatic or Pressure Design Basis</div>
-          <div class="std-desc">Standard practice for obtaining hydrostatic or pressure design basis for fiberglass pipe and fittings.</div>
-        </div>
-        <div class="std-card-foot">
-          <span class="std-rev">Rev: 2022</span>
-          <a class="std-open" href="#" title="Open">↗</a>
-        </div>
-      </article>
+              <span class="std-status {% if (doc.status or '')|lower == 'obsolete' %}obsolete{% elif (doc.status or '')|lower == 'draft' %}draft{% endif %}">
+                {{ doc.status or 'Active' }}
+              </span>
+            </div>
 
-      <article class="std-card" data-category="materials" data-search="iso 23936-1 non-metallic materials contact media petroleum petrochemical natural gas">
-        <div class="std-card-head">
-          <span class="std-tag">Materials</span>
-          <span class="std-status">Active</span>
-        </div>
-        <div class="std-card-body">
-          <div class="std-code">ISO 23936-1</div>
-          <div class="std-title">Non-metallic Materials in Contact with Media</div>
-          <div class="std-desc">Petroleum, petrochemical and natural gas industries — non-metallic materials in contact with media related to oil and gas production.</div>
-        </div>
-        <div class="std-card-foot">
-          <span class="std-rev">Rev: 2009</span>
-          <a class="std-open" href="#" title="Open">↗</a>
-        </div>
-      </article>
+            <div class="std-card-body">
+              <div class="std-code">{{ doc.code or '—' }}</div>
+              <div class="std-title">{{ doc.title or 'Untitled Standard' }}</div>
 
-      <article class="std-card" data-category="piping" data-search="api 17j specification unbonded flexible pipe piping offshore flexible pipe">
-        <div class="std-card-head">
-          <span class="std-tag">Piping</span>
-          <span class="std-status">Active</span>
-        </div>
-        <div class="std-card-body">
-          <div class="std-code">API 17J</div>
-          <div class="std-title">Specification for Unbonded Flexible Pipe</div>
-          <div class="std-desc">Technical requirements for safe, dimensionally and functionally interchangeable unbonded flexible pipes.</div>
-        </div>
-        <div class="std-card-foot">
-          <span class="std-rev">Rev: 5th Edition</span>
-          <a class="std-open" href="#" title="Open">↗</a>
-        </div>
-      </article>
+              {% if doc.subtitle %}
+                <div class="std-subtitle">{{ doc.subtitle }}</div>
+              {% endif %}
 
-      <article class="std-card" data-category="testing" data-search="astm d570 water absorption plastics testing material properties">
-        <div class="std-card-head">
-          <span class="std-tag">Testing</span>
-          <span class="std-status">Active</span>
-        </div>
-        <div class="std-card-body">
-          <div class="std-code">ASTM D570</div>
-          <div class="std-title">Water Absorption of Plastics</div>
-          <div class="std-desc">Standard test method for water absorption of plastics.</div>
-        </div>
-        <div class="std-card-foot">
-          <span class="std-rev">Rev: 2018</span>
-          <a class="std-open" href="#" title="Open">↗</a>
-        </div>
-      </article>
+              <div class="std-desc">
+                {{ doc.description or 'No description provided yet.' }}
+              </div>
+            </div>
 
-      <article class="std-card" data-category="general" data-search="iso 9001 quality management systems general standard qms">
-        <div class="std-card-head">
-          <span class="std-tag">General</span>
-          <span class="std-status">Active</span>
-        </div>
-        <div class="std-card-body">
-          <div class="std-code">ISO 9001</div>
-          <div class="std-title">Quality Management Systems</div>
-          <div class="std-desc">Requirements for establishing, implementing, maintaining, and continually improving a quality management system.</div>
-        </div>
-        <div class="std-card-foot">
-          <span class="std-rev">Rev: 2015</span>
-          <a class="std-open" href="#" title="Open">↗</a>
-        </div>
-      </article>
-    </div>
-
-    <div id="standardsEmpty" class="std-empty">
-      No standards matched your search or category filter.
-    </div>
-
-    <div id="standardsListPanel" class="std-list-panel">
-      <div class="std-list-head">
-        <h3>Standards Full List</h3>
-        <button class="std-btn std-btn-soft" type="button" onclick="downloadStandardsList()">⬇ Download CSV</button>
+            <div class="std-card-foot">
+              <span class="std-rev">Rev: {{ doc.revision or '00' }}</span>
+              <a class="std-open" href="/documentation/view/{{ doc.id }}" title="Open">↗</a>
+            </div>
+          </article>
+        {% endfor %}
       </div>
 
-      <div class="std-table-wrap">
-        <table class="std-table">
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Title</th>
-              <th>Category</th>
-              <th>Revision</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>API 15S</td><td>Spoolable Reinforced Plastic Line Pipe</td><td>Piping</td><td>3rd Edition</td><td>Active</td></tr>
-            <tr><td>ASTM D2992</td><td>Obtaining Hydrostatic or Pressure Design Basis</td><td>Testing</td><td>2022</td><td>Active</td></tr>
-            <tr><td>ISO 23936-1</td><td>Non-metallic Materials in Contact with Media</td><td>Materials</td><td>2009</td><td>Active</td></tr>
-            <tr><td>API 17J</td><td>Specification for Unbonded Flexible Pipe</td><td>Piping</td><td>5th Edition</td><td>Active</td></tr>
-            <tr><td>ASTM D570</td><td>Water Absorption of Plastics</td><td>Testing</td><td>2018</td><td>Active</td></tr>
-            <tr><td>ISO 9001</td><td>Quality Management Systems</td><td>General</td><td>2015</td><td>Active</td></tr>
-          </tbody>
-        </table>
+      <div class="std-list-panel">
+        <div class="std-list-head">
+          <h3>Standards Full List</h3>
+          <a class="std-btn std-btn-soft" href="/documentation/standards/export?search={{ search or '' }}&category={{ active_category or 'all' }}">⬇ Download CSV</a>
+        </div>
+
+        <div class="std-table-wrap">
+          <table class="std-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Revision</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for doc in documents %}
+                <tr>
+                  <td>{{ doc.code or '—' }}</td>
+                  <td>{{ doc.title or 'Untitled Standard' }}</td>
+                  <td>{{ doc.category or 'General' }}</td>
+                  <td>{{ doc.revision or '00' }}</td>
+                  <td>{{ doc.status or 'Active' }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    {% else %}
+      <div class="std-empty">
+        No standards found yet. After upload, they will appear here as managed system documents.
+      </div>
+    {% endif %}
   </div>
 </div>
-
-<script>
-  let activeStandardsFilter = "all";
-
-  function setStandardsFilter(filter, btn) {
-    activeStandardsFilter = filter;
-    document.querySelectorAll(".std-chip").forEach(chip => chip.classList.remove("active"));
-    if (btn) btn.classList.add("active");
-    filterStandardCards();
-  }
-
-  function filterStandardCards() {
-    const searchValue = (document.getElementById("standardsSearch")?.value || "").trim().toLowerCase();
-    const cards = document.querySelectorAll("#standardsGrid .std-card");
-    const emptyBox = document.getElementById("standardsEmpty");
-
-    let visibleCount = 0;
-
-    cards.forEach(card => {
-      const category = (card.dataset.category || "").toLowerCase();
-      const haystack = (card.dataset.search || "").toLowerCase();
-
-      const matchesFilter = activeStandardsFilter === "all" || category === activeStandardsFilter;
-      const matchesSearch = !searchValue || haystack.includes(searchValue);
-
-      if (matchesFilter && matchesSearch) {
-        card.style.display = "";
-        visibleCount += 1;
-      } else {
-        card.style.display = "none";
-      }
-    });
-
-    if (emptyBox) {
-      emptyBox.style.display = visibleCount ? "none" : "block";
-    }
-  }
-
-  function toggleStandardsList() {
-    const panel = document.getElementById("standardsListPanel");
-    if (!panel) return;
-    panel.classList.toggle("show");
-  }
-
-  function downloadStandardsList() {
-    const rows = [
-      ["Code","Title","Category","Revision","Status"],
-      ["API 15S","Spoolable Reinforced Plastic Line Pipe","Piping","3rd Edition","Active"],
-      ["ASTM D2992","Obtaining Hydrostatic or Pressure Design Basis","Testing","2022","Active"],
-      ["ISO 23936-1","Non-metallic Materials in Contact with Media","Materials","2009","Active"],
-      ["API 17J","Specification for Unbonded Flexible Pipe","Piping","5th Edition","Active"],
-      ["ASTM D570","Water Absorption of Plastics","Testing","2018","Active"],
-      ["ISO 9001","Quality Management Systems","General","2015","Active"]
-    ];
-
-    const csv = rows.map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "standards_library_list.csv";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
-</script>
 {% endblock %}
