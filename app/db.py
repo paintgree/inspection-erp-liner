@@ -620,6 +620,33 @@ def create_db_and_tables() -> None:
         return
 
     SQLModel.metadata.create_all(engine)
+    from sqlalchemy import text
+    from sqlmodel import Session, SQLModel, create_engine
+    
+    # keep your existing code above
+    
+    
+    def init_db():
+        SQLModel.metadata.create_all(engine)
+    
+        with Session(engine) as session:
+            session.exec(
+                text("""
+                    ALTER TABLE manageddocument
+                    ADD COLUMN IF NOT EXISTS classification VARCHAR DEFAULT ''
+                """)
+            )
+            session.commit()
+    
+        # Add missing column for older databases
+        with Session(engine) as session:
+            session.exec(
+                text("""
+                    ALTER TABLE manageddocument
+                    ADD COLUMN IF NOT EXISTS classification VARCHAR DEFAULT ''
+                """)
+            )
+            session.commit()
     apply_rnd_schema_patches()
     _ensure_schema_patches()
     _ensure_rnd_specimen_defaults()
