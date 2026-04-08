@@ -3283,12 +3283,12 @@ Burst search + filters
   gap: 16px;
   padding: 14px 18px;
   background: #ffffff;
-  border-bottom: 1px solid #0e0f0f;
+  border-bottom: 1px solid #d9e0ea;
   font-size: 12px;
   font-weight: 900;
   letter-spacing: .04em;
   text-transform: uppercase;
-  color: #374151;
+  color: #4b5563;
 }
 #userRowsWrap{
   background: #f4f6fa;
