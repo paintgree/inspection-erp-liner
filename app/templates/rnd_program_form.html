@@ -703,10 +703,15 @@ function renderLibrary() {
           <div class="qp-library-title">${escapeHtml(test.title)}</div>
           <div class="qp-library-desc">${escapeHtml(test.description || '')}</div>
         </div>
-        <button type="button" class="qp-btn-icon" onclick='addLibraryTest(${JSON.stringify(test).replace(/'/g, "&apos;")})'>+</button>
+        <button type="button" class="qp-btn-icon">+</button>
       </div>
       <div class="qp-mini-chip-row">${chips.join('')}</div>
     `;
+    
+    const addBtn = card.querySelector('.qp-btn-icon');
+    addBtn.addEventListener('click', function () {
+      addLibraryTest(test);
+    });
     wrap.appendChild(card);
   });
 }
