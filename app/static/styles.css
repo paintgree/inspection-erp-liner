@@ -5364,19 +5364,23 @@ Burst search + filters
   color:#64748b;
 }
 
-/* --- User management final override --- */
-.user-mgmt-head-row{
-  background:#ffffff !important;
-  color:#4b5563 !important;
-}
+/* ===== FINAL USER MANAGEMENT OVERRIDE ===== */
 
+.user-mgmt-head-row,
 .user-mgmt-head-row > div{
-  color:#4b5563 !important;
+  background: #ffffff !important;
+  color: #4b5563 !important;
 }
 
 .user-avatar-tile{
-  background:#ffffff !important;
-  color:#111827 !important;
-  border:1px solid #d1d5db !important;
-  box-shadow:none !important;
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #d1d5db !important;
+  box-shadow: none !important;
 }
