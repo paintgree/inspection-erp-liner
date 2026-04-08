@@ -3296,6 +3296,7 @@ def rnd_edit_program(
     qualification_standard: str = Form('API 15S R3'),
 
     nominal_size_in: float = Form(4.0),
+    pipe_od_mm: Optional[float] = Form(None),
     npr_mpa: float = Form(10.0),
     maot_c: float = Form(65.0),
     laot_c: float = Form(0.0),
@@ -3343,6 +3344,7 @@ def rnd_edit_program(
     program.service_factor = service_factor
 
     program.nominal_size_in = nominal_size_in
+    program.pipe_od_mm = pipe_od_mm
     program.npr_mpa = npr_mpa
     program.maot_c = maot_c
     program.laot_c = laot_c
