@@ -138,6 +138,123 @@
       display:grid;
       gap:16px;
     }
+
+    .qp-layout{
+      display:grid;
+      grid-template-columns:minmax(0, 1.35fr) minmax(360px, .95fr);
+      gap:18px;
+      align-items:start;
+    }
+    
+    .qp-stack{
+      display:grid;
+      gap:18px;
+    }
+    
+    .qp-library-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-bottom:16px;
+    }
+    
+    .qp-badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:28px;
+      height:28px;
+      padding:0 10px;
+      border-radius:999px;
+      background:#eef2ff;
+      color:#4338ca;
+      font-size:12px;
+      font-weight:800;
+      border:1px solid #d9ddff;
+    }
+    
+    .qp-search{
+      margin-bottom:14px;
+    }
+    
+    .qp-library-list{
+      display:grid;
+      gap:12px;
+      max-height:720px;
+      overflow:auto;
+      padding-right:4px;
+    }
+    
+    .qp-library-card{
+      border:1px solid #e5e7eb;
+      border-radius:18px;
+      background:#fff;
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+    
+    .qp-library-top{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+    }
+    
+    .qp-library-title{
+      margin:0;
+      font-size:15px;
+      font-weight:800;
+      color:#0f172a;
+    }
+    
+    .qp-library-desc{
+      color:#64748b;
+      font-size:13px;
+      line-height:1.55;
+      margin-top:4px;
+    }
+    
+    .qp-mini-chip-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    
+    .qp-mini-chip{
+      display:inline-flex;
+      align-items:center;
+      border:1px solid #e2e8f0;
+      background:#f8fafc;
+      color:#475569;
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:11px;
+      font-weight:700;
+    }
+    
+    .qp-btn-icon{
+      width:38px;
+      height:38px;
+      border:none;
+      border-radius:12px;
+      background:#eef2ff;
+      color:#4338ca;
+      font-size:22px;
+      font-weight:700;
+      cursor:pointer;
+      flex:0 0 auto;
+    }
+    
+    @media (max-width: 1120px){
+      .qp-layout{
+        grid-template-columns:1fr;
+      }
+      .qp-library-list{
+        max-height:none;
+      }
+    }
     .qp-builder-top{
       display:grid;
       grid-template-columns:1.4fr .9fr auto;
@@ -420,23 +537,52 @@
           </div>
         </div>
 
-      <div class="qp-section">
-        <div class="qp-section-title">3) Test Builder</div>
-        <div class="qp-section-note">
-          Select the tests you want in this qualification. Each selected test can have its own specimen count, clause/reference, scope, and description.
-        </div>
-
-        <div class="qp-builder">
-          <div class="qp-builder-top">
-            <div>
-              <label class="qp-label">Common Test Library</label>
-              <select id="test_library" class="qp-select">
-                <option value="">Select a test to add...</option>
-              </select>
+      <div class="qp-layout" style="margin-bottom:18px;">
+        <div class="qp-stack">
+          <div class="qp-section">
+            <div class="qp-section-title">3) Test Scope Builder</div>
+            <div class="qp-section-note">
+              Build the qualification scope from reusable tests. For API 15S, standard tests are seeded automatically and this area is mainly for extra internal/client tests. For Other Qualification, this becomes the main scope builder.
             </div>
-
-            <div>
-              <label class="qp-label">Source Standard</label>
+      
+            <div class="qp-chip-row">
+              <div class="qp-chip">No duplicate clutter</div>
+              <div class="qp-chip">Common tests can be reused with different specimen counts</div>
+              <div class="qp-chip">Engineer controls the test scope</div>
+            </div>
+      
+            <div id="selected_tests" class="qp-test-list" style="margin-top:14px;"></div>
+      
+            <div id="empty_tests_state" class="qp-empty" style="margin-top:14px;">
+              No extra test has been added yet.
+              For API 15S programs, the standard route is created automatically and this library is mainly for extra client/internal tests.
+              For Other Qualification programs, this library becomes the main way to build the test scope.
+            </div>
+          </div>
+      
+          <div class="qp-section qp-section-gray">
+            <div class="qp-section-title">4) Notes</div>
+            <div class="qp-section-note">
+              Optional only. Use this for planning notes, special remarks, or engineering comments.
+            </div>
+            <textarea name="notes" rows="4" class="qp-textarea" placeholder="Optional notes..."></textarea>
+          </div>
+        </div>
+      
+        <div class="qp-stack">
+          <div class="qp-section">
+            <div class="qp-library-head">
+              <div>
+                <div class="qp-section-title">Test Library</div>
+                <div class="qp-section-note" style="margin-bottom:0;">
+                  Search reusable tests and add them into this qualification scope.
+                </div>
+              </div>
+              <div class="qp-badge" id="library_count_badge">0 Available</div>
+            </div>
+      
+            <div style="margin-bottom:12px;">
+              <label class="qp-label">Default Source Standard for Added Tests</label>
               <select id="library_source_standard" class="qp-select">
                 <option value="CUSTOM">Custom</option>
                 <option value="CLIENT">Client</option>
@@ -444,28 +590,15 @@
                 <option value="API_15S">API 15S</option>
               </select>
             </div>
-
-            <div>
-              <button type="button" class="qp-btn" onclick="addSelectedLibraryTest()">Add Test</button>
+      
+            <div class="qp-search">
+              <input type="text" id="test_library_search" class="qp-input" placeholder="Search tests..." oninput="renderLibrary()">
             </div>
-          </div>
-
-          <div class="qp-chip-row">
-            <div class="qp-chip">No duplicate clutter</div>
-            <div class="qp-chip">Common tests can be reused with different specimen counts</div>
-            <div class="qp-chip">Engineer controls the test scope</div>
-          </div>
-
-          <div id="selected_tests" class="qp-test-list"></div>
-
-          <div id="empty_tests_state" class="qp-empty">
-            No extra test has been added yet.
-            For API 15S programs, the standard qualification route is created automatically and this library is mainly for extra client/internal tests.
-            For Other Qualification programs, this library becomes the main way to build the test scope.
+      
+            <div id="test_library_cards" class="qp-library-list"></div>
           </div>
         </div>
       </div>
-
       <div class="qp-section qp-section-gray">
         <div class="qp-section-title">4) Notes</div>
         <div class="qp-section-note">
@@ -535,35 +668,61 @@ function toggleProgramTypeFields() {
   }
 }
 
-function populateLibrary() {
-  const library = document.getElementById('test_library');
-  library.innerHTML = '<option value="">Select a test to add...</option>';
+function renderLibrary() {
+  const wrap = document.getElementById('test_library_cards');
+  const q = (document.getElementById('test_library_search').value || '').trim().toLowerCase();
+  const sourceStandard = document.getElementById('library_source_standard').value || 'CUSTOM';
 
-  COMMON_TEST_LIBRARY.forEach((test, idx) => {
-    const option = document.createElement('option');
-    option.value = idx;
-    option.textContent = `${test.title} (${test.specimen_count || '-'} specimens)`;
-    library.appendChild(option);
+  const filtered = COMMON_TEST_LIBRARY.filter(test => {
+    const blob = [
+      test.title,
+      test.code,
+      test.description,
+      test.clause_ref,
+      test.scope_tag
+    ].join(' ').toLowerCase();
+    return !q || blob.includes(q);
+  });
+
+  document.getElementById('library_count_badge').textContent = `${filtered.length} Available`;
+  wrap.innerHTML = '';
+
+  filtered.forEach((test) => {
+    const card = document.createElement('div');
+    card.className = 'qp-library-card';
+
+    const chips = [];
+    chips.push(`<span class="qp-mini-chip">${escapeHtml(String(test.specimen_count || '-'))}</span>`);
+    if (test.scope_tag) chips.push(`<span class="qp-mini-chip">${escapeHtml(test.scope_tag)}</span>`);
+    if (test.clause_ref) chips.push(`<span class="qp-mini-chip">${escapeHtml(test.clause_ref)}</span>`);
+    chips.push(`<span class="qp-mini-chip">${escapeHtml(sourceStandard)}</span>`);
+
+    card.innerHTML = `
+      <div class="qp-library-top">
+        <div>
+          <div class="qp-library-title">${escapeHtml(test.title)}</div>
+          <div class="qp-library-desc">${escapeHtml(test.description || '')}</div>
+        </div>
+        <button type="button" class="qp-btn-icon" onclick='addLibraryTest(${JSON.stringify(test).replace(/'/g, "&apos;")})'>+</button>
+      </div>
+      <div class="qp-mini-chip-row">${chips.join('')}</div>
+    `;
+    wrap.appendChild(card);
   });
 }
 
-function addSelectedLibraryTest() {
-  const library = document.getElementById('test_library');
-  const sourceStandard = document.getElementById('library_source_standard').value;
-  if (library.value === '') return;
+function addLibraryTest(test) {
+  const sourceStandard = document.getElementById('library_source_standard').value || 'CUSTOM';
 
-  const selected = COMMON_TEST_LIBRARY[parseInt(library.value, 10)];
   addTestCard({
-    code: selected.code,
-    title: selected.title,
-    clause_ref: selected.clause_ref,
-    specimen_count: selected.specimen_count,
-    scope_tag: selected.scope_tag,
+    title: test.title || '',
+    code: test.code || '',
+    clause_ref: test.clause_ref || '',
+    specimen_count: parseSpecimenCount(test.specimen_count),
+    scope_tag: test.scope_tag || 'CUSTOM',
     source_standard: sourceStandard,
-    description: selected.description
+    description: test.description || ''
   });
-
-  library.value = '';
 }
 
 function addTestCard(data) {
@@ -693,7 +852,7 @@ function escapeHtml(value) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-  populateLibrary();
+  renderLibrary();
   toggleProgramTypeFields();
 });
 
