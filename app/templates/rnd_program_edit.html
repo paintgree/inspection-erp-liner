@@ -39,26 +39,35 @@
         </div>
       </div>
 
-      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;">
+      <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;">
         <div>
           <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Nominal Size (in)</label>
           <input type="number" step="0.01" name="nominal_size_in" value="{{ program.nominal_size_in or 0 }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
         </div>
-
+      
+        <div>
+          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Pipe Outside Diameter (OD) (mm)</label>
+          <input type="number" step="0.01" name="pipe_od_mm" value="{{ program.pipe_od_mm or '' }}" placeholder="Example: 114.30" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
+        </div>
+      
         <div>
           <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">NPR (MPa)</label>
           <input type="number" step="0.001" name="npr_mpa" value="{{ program.npr_mpa or 0 }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
         </div>
-
+      
         <div>
           <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">MAOT (°C)</label>
           <input type="number" step="0.1" name="maot_c" value="{{ program.maot_c or 0 }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
         </div>
-
+      
         <div>
           <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">LAOT (°C)</label>
           <input type="number" step="0.1" name="laot_c" value="{{ program.laot_c or 0 }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
         </div>
+      </div>
+      
+      <div style="margin-top:-6px;font-size:12px;color:#64748b;line-height:1.5;">
+        Use the real qualified pipe outside diameter in mm. This value will be used for specimen preparation guidance and OD-based sample length calculations.
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
@@ -148,9 +157,60 @@
         <textarea name="notes" rows="4" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">{{ program.notes or '' }}</textarea>
       </div>
 
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-        <button type="submit" class="qc-workbench-btn" style="min-width:160px;">Save Changes</button>
-        <a href="/rnd/qualifications/{{ program.id }}" class="qc-workbench-btn" style="min-width:120px;">Back</a>
+      <style>
+      .rnd-primary-btn{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:44px;
+        padding:0 18px;
+        border:none;
+        border-radius:14px;
+        background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);
+        color:#ffffff;
+        text-decoration:none;
+        font-size:14px;
+        font-weight:700;
+        line-height:1;
+        letter-spacing:.01em;
+        box-shadow:0 10px 24px rgba(37,99,235,.20);
+        transition:all .18s ease;
+        cursor:pointer;
+        min-width:170px;
+      }
+      
+      .rnd-primary-btn:hover{
+        transform:translateY(-1px);
+        box-shadow:0 14px 28px rgba(37,99,235,.24);
+      }
+      
+      .rnd-secondary-btn{
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        min-height:44px;
+        padding:0 18px;
+        border-radius:14px;
+        border:1px solid #d7deea;
+        background:#ffffff;
+        color:#0f172a;
+        text-decoration:none;
+        font-size:14px;
+        font-weight:700;
+        line-height:1;
+        transition:all .18s ease;
+        min-width:120px;
+      }
+      
+      .rnd-secondary-btn:hover{
+        background:#f8fafc;
+        border-color:#cbd5e1;
+      }
+      </style>
+      
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding-top:4px;">
+        <button type="submit" class="rnd-primary-btn">Save Changes</button>
+        <a href="/rnd/qualifications/{{ program.id }}" class="rnd-secondary-btn">Back</a>
       </div>
     </form>
   </div>
