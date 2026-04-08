@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import os
-from sqlmodel import SQLModel, create_engine, Session
-from sqlalchemy import inspect, text
+from sqlmodel import SQLModel, Session, create_engine
+from sqlalchemy import text
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
