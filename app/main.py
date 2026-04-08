@@ -27,7 +27,7 @@ from fastapi.responses import HTMLResponse,RedirectResponse, FileResponse
 from openpyxl import load_workbook, Workbook
 from sqlmodel import select
 from .models import CalibrationInstrument, CalibrationChangeRequest, User
-
+from .documentation_module import router as documentation_router
 
 
 # ======================
@@ -2574,6 +2574,7 @@ app = FastAPI()
 
 TEMPLATES = Jinja2Templates(directory=os.path.join(os.path.dirname(__file__), "templates"))
 app.include_router(rnd_router)
+app.include_router(documentation_router)
 # Session middleware (required for request.session in require_user)
 #app.add_middleware(SessionMiddleware, secret_key=SESSION_SECRET)#
 
@@ -2697,27 +2698,6 @@ def rnd_permeation_test_page(request: Request, session: Session = Depends(get_se
         {"request": request, "user": user},
     )
 
-
-@app.get("/documentation/standards")
-def documentation_standards(request: Request):
-    return TEMPLATES.TemplateResponse(
-        request,
-        "docs_standards.html",
-        {
-            "request": request,
-        },
-    )
-
-
-@app.get("/documentation/procedures")
-def documentation_procedures(request: Request):
-    return TEMPLATES.TemplateResponse(
-        request,
-        "docs_procedures.html",
-        {
-            "request": request,
-        },
-    )
 
 @app.get("/documentation/calibration-list")
 def docs_calibration_list_page(request: Request, session: Session = Depends(get_session)):
