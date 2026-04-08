@@ -3325,6 +3325,14 @@ def rnd_edit_program(
     custom_requirements: str = Form(''),
     custom_acceptance_criteria: str = Form(''),
     notes: str = Form(''),
+
+    selected_test_title: List[str] = Form(default=[], alias='selected_test_title[]'),
+    selected_test_code: List[str] = Form(default=[], alias='selected_test_code[]'),
+    selected_test_clause_ref: List[str] = Form(default=[], alias='selected_test_clause_ref[]'),
+    selected_test_specimen_count: List[str] = Form(default=[], alias='selected_test_specimen_count[]'),
+    selected_test_scope_tag: List[str] = Form(default=[], alias='selected_test_scope_tag[]'),
+    selected_test_source_standard: List[str] = Form(default=[], alias='selected_test_source_standard[]'),
+    selected_test_description: List[str] = Form(default=[], alias='selected_test_description[]'),
 ):
     program = session.get(RndQualificationProgram, program_id)
     if not program:
@@ -3391,10 +3399,145 @@ def rnd_edit_program(
     session.add(program)
     session.commit()
 
-    # If switching into API_15S, ensure the default API matrix exists
     if old_program_type != 'API_15S' and program.program_type == 'API_15S':
         _seed_test_matrix(session, program)
         _ensure_complete_test_matrix(session, program)
+
+    def _safe_list_value(values: List[str], idx: int, default: str = '') -> str:
+        if idx < len(values):
+            return (values[idx] or '').strip()
+        return default
+
+    selected_rows = []
+    selected_max = max(
+        len(selected_test_title),
+        len(selected_test_code),
+        len(selected_test_clause_ref),
+        len(selected_test_specimen_count),
+        len(selected_test_scope_tag),
+        len(selected_test_source_standard),
+        len(selected_test_description),
+        0,
+    )
+
+    for idx in range(selected_max):
+        title_part = _safe_list_value(selected_test_title, idx)
+        if not title_part:
+            continue
+
+        code_part = _safe_list_value(selected_test_code, idx, f'CUSTOM_{idx + 1}')
+        code_part = code_part.upper().replace(' ', '_').replace('-', '_')
+        if not code_part:
+            code_part = f'CUSTOM_{idx + 1}'
+
+        clause_part = _safe_list_value(selected_test_clause_ref, idx, 'CUSTOM')
+        specimen_count_raw = _safe_list_value(selected_test_specimen_count, idx, '')
+        specimen_count_value = None
+        if specimen_count_raw:
+            try:
+                specimen_count_value = int(float(specimen_count_raw))
+            except Exception:
+                specimen_count_value = None
+
+        if specimen_count_value is not None and specimen_count_value > 0:
+            unit = 'specimen' if specimen_count_value == 1 else 'specimens'
+            specimens_part = f'{specimen_count_value} {unit}'
+        else:
+            specimens_part = 'As required'
+
+        scope_part = _safe_list_value(selected_test_scope_tag, idx, 'CUSTOM').upper()
+        source_part = _safe_list_value(selected_test_source_standard, idx, 'CUSTOM').upper()
+        desc_part = _safe_list_value(selected_test_description, idx, 'Custom qualification requirement.')
+
+        if scope_part not in {'BOTH', 'PFR', 'PV', 'CUSTOM'}:
+            scope_part = 'CUSTOM'
+
+        if source_part not in {'API_15S', 'CUSTOM', 'CLIENT', 'INTERNAL'}:
+            source_part = 'CUSTOM'
+
+        selected_rows.append({
+            'title': title_part,
+            'code': code_part,
+            'clause_ref': clause_part,
+            'specimen_requirement': specimens_part,
+            'specimen_count': specimen_count_value,
+            'scope_tag': scope_part,
+            'source_standard': source_part,
+            'description': desc_part,
+        })
+
+    existing_tests = session.exec(
+        select(RndQualificationTest)
+        .where(RndQualificationTest.program_id == program.id)
+        .order_by(RndQualificationTest.sort_order.asc(), RndQualificationTest.id.asc())
+    ).all()
+
+    existing_by_code = {}
+    custom_test_ids_to_keep = set()
+
+    for test in existing_tests:
+        code_key = ((test.code or '').strip().upper())
+        if code_key:
+            existing_by_code[code_key] = test
+
+    next_order = max([t.sort_order for t in existing_tests], default=0)
+
+    for offset, item in enumerate(selected_rows, start=1):
+        incoming_code = (item.get('code') or f'CUSTOM_{offset}').strip().upper()
+
+        matched_test = existing_by_code.get(incoming_code)
+
+        if matched_test:
+            matched_test.title = (item.get('title') or matched_test.title or '').strip()
+            matched_test.clause_ref = (item.get('clause_ref') or matched_test.clause_ref or '').strip()
+            matched_test.description = (item.get('description') or matched_test.description or '').strip()
+            matched_test.specimen_requirement = (item.get('specimen_requirement') or matched_test.specimen_requirement or 'As required').strip()
+            matched_test.specimen_count = item.get('specimen_count')
+            matched_test.scope_tag = (item.get('scope_tag') or matched_test.scope_tag or 'CUSTOM').strip().upper()
+            matched_test.source_standard = (item.get('source_standard') or matched_test.source_standard or 'CUSTOM').strip().upper()
+            matched_test.applicability = 'CUSTOM'
+            matched_test.updated_at = datetime.utcnow()
+            session.add(matched_test)
+            custom_test_ids_to_keep.add(matched_test.id)
+        else:
+            final_code = incoming_code
+            suffix = 2
+            while final_code in existing_by_code:
+                final_code = f'{incoming_code}_{suffix}'
+                suffix += 1
+
+            new_test = RndQualificationTest(
+                program_id=program.id,
+                sort_order=next_order + offset,
+                clause_ref=(item.get('clause_ref') or 'CUSTOM').strip(),
+                code=final_code,
+                title=(item.get('title') or 'Custom Test').strip(),
+                description=(item.get('description') or '').strip(),
+                specimen_requirement=(item.get('specimen_requirement') or 'As required').strip(),
+                specimen_count=item.get('specimen_count'),
+                applicability='CUSTOM',
+                scope_tag=(item.get('scope_tag') or 'CUSTOM').strip().upper(),
+                source_standard=(item.get('source_standard') or 'CUSTOM').strip().upper(),
+                status='PLANNED',
+            )
+            session.add(new_test)
+            session.flush()
+            existing_by_code[final_code] = new_test
+            custom_test_ids_to_keep.add(new_test.id)
+
+    for test in existing_tests:
+        source_standard = (getattr(test, 'source_standard', '') or '').strip().upper()
+        applicability = (getattr(test, 'applicability', '') or '').strip().upper()
+
+        is_custom_like = (
+            source_standard in {'CUSTOM', 'CLIENT', 'INTERNAL'}
+            or applicability == 'CUSTOM'
+        )
+
+        if is_custom_like and test.id not in custom_test_ids_to_keep:
+            session.delete(test)
+
+    session.commit()
 
     return RedirectResponse(url=f'/rnd/qualifications/{program.id}', status_code=303)
     
