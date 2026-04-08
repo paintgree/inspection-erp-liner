@@ -3282,13 +3282,13 @@ Burst search + filters
   grid-template-columns: 2.3fr 1.1fr 1fr 1fr 1fr;
   gap: 16px;
   padding: 14px 18px;
-  background: #282829;
-  border-bottom: 1px solid #c7cfdb;
+  background: #ffffff;
+  border-bottom: 1px solid #d9e0ea;
   font-size: 12px;
   font-weight: 900;
   letter-spacing: .04em;
   text-transform: uppercase;
-  color: #5f6f86;
+  color: #374151;
 }
 #userRowsWrap{
   background: #f4f6fa;
