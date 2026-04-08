@@ -407,51 +407,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
     rnd: {
       badge: "⌬",
-      title: "",
+      title: "R&D",
       links: `
-        <style>
-          .erp-sidebar-panel-head{
-            display:none;
-          }
-        </style>
-
         <a class="erp-sidebar-link ${window.location.pathname === '/rnd' || window.location.pathname === '/rnd/' || window.location.pathname.startsWith('/rnd/qualifications') ? 'active' : ''}" href="/rnd">
           <span class="erp-sidebar-link-icon">⌂</span>
           <span>Qualification</span>
         </a>
 
-        <div class="erp-sidebar-link-group">
-          <button
-            type="button"
-            class="erp-sidebar-expand-btn ${(window.location.pathname.startsWith('/rnd/lab-tests')) ? 'active' : ''}"
-            onclick="toggleSidebarGroup('rnd-lab-tests')"
-          >
-            <span class="erp-sidebar-link-icon">🧪</span>
-            <span>Lab Tests</span>
-            <span class="erp-sidebar-link-arrow" id="arrow-rnd-lab-tests">${window.location.pathname.startsWith('/rnd/lab-tests') ? '▾' : '▸'}</span>
-          </button>
-
-          <div
-            id="group-rnd-lab-tests"
-            class="erp-sidebar-sub-links"
-            style="display:${window.location.pathname.startsWith('/rnd/lab-tests') ? 'flex' : 'none'};"
-          >
-            <a class="erp-sidebar-link erp-sidebar-sublink ${window.location.pathname.startsWith('/rnd/lab-tests/tensile-pipe') ? 'active' : ''}" href="/rnd/lab-tests/tensile-pipe">
-              <span class="erp-sidebar-link-icon">•</span>
-              <span>Tensile Test Pipe</span>
-            </a>
-
-            <a class="erp-sidebar-link erp-sidebar-sublink ${window.location.pathname.startsWith('/rnd/lab-tests/tensile-fiber') ? 'active' : ''}" href="/rnd/lab-tests/tensile-fiber">
-              <span class="erp-sidebar-link-icon">•</span>
-              <span>Tensile Test Fiber</span>
-            </a>
-
-            <a class="erp-sidebar-link erp-sidebar-sublink ${window.location.pathname.startsWith('/rnd/lab-tests/permeation-test') ? 'active' : ''}" href="/rnd/lab-tests/permeation-test">
-              <span class="erp-sidebar-link-icon">•</span>
-              <span>Permeation Test</span>
-            </a>
-          </div>
-        </div>
+        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rnd/lab-tests') ? 'active' : ''}" href="/rnd/lab-tests/tensile-pipe">
+          <span class="erp-sidebar-link-icon">🧪</span>
+          <span>Lab Tests</span>
+        </a>
       `
     },
     docs: {
