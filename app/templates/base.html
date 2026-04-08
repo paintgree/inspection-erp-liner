@@ -18,9 +18,12 @@
     width: 300px;
     min-width: 300px;
     max-width: 300px;
-    transition: width 0.28s ease, min-width 0.28s ease, max-width 0.28s ease;
-    overflow: hidden;
     flex-shrink: 0;
+    overflow: hidden;
+    transition:
+      width 0.28s ease,
+      min-width 0.28s ease,
+      max-width 0.28s ease;
   }
 
   .erp-single-sidebar.collapsed {
@@ -34,7 +37,21 @@
     min-width: 0;
     width: auto;
     max-width: none;
-    transition: width 0.28s ease, margin 0.28s ease, padding 0.28s ease;
+    transition:
+      width 0.28s ease,
+      max-width 0.28s ease,
+      padding 0.28s ease,
+      margin 0.28s ease;
+  }
+
+  .page {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+    transition:
+      width 0.28s ease,
+      max-width 0.28s ease,
+      padding 0.28s ease;
   }
 
   .erp-single-sidebar.collapsed .erp-sidebar-brand-text,
@@ -52,23 +69,13 @@
     padding-right: 0;
   }
 
-  .erp-single-sidebar.collapsed .erp-sidebar-topbar {
-    justify-content: center;
-  }
-
+  .erp-single-sidebar.collapsed .erp-sidebar-topbar,
   .erp-single-sidebar.collapsed .erp-sidebar-brand {
     justify-content: center;
   }
 
   .erp-single-sidebar.collapsed .erp-sidebar-toggle {
     transform: rotate(180deg);
-  }
-
-  .page {
-    width: 100%;
-    max-width: none;
-    box-sizing: border-box;
-    transition: width 0.28s ease, max-width 0.28s ease, padding 0.28s ease;
   }
 </style>
 <body>
@@ -535,11 +542,9 @@ document.addEventListener("DOMContentLoaded", () => {
 function toggleSidebar() {
   const sidebar = document.getElementById("erpSidebar");
   const toggleBtn = document.getElementById("erpSidebarToggle");
-
   if (!sidebar) return;
 
   const isCollapsed = sidebar.classList.toggle("collapsed");
-
   if (toggleBtn) {
     toggleBtn.textContent = isCollapsed ? "›" : "‹";
   }
@@ -552,7 +557,6 @@ function toggleSidebar() {
 document.addEventListener("DOMContentLoaded", function () {
   const sidebar = document.getElementById("erpSidebar");
   const toggleBtn = document.getElementById("erpSidebarToggle");
-
   if (!sidebar) return;
 
   let collapsed = false;
