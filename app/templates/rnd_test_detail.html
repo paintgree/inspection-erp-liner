@@ -1457,10 +1457,44 @@
     <aside class="rnd-side">
       <article class="rnd-card">
         <h2 class="rnd-panel-title">Preparation basis</h2>
+      
         <div class="rnd-box" style="background:#0f766e;color:#fff;border-color:#0f766e;">
           <b style="color:#ccfbf1;">Total cut length rule</b>
           {{ prep.total_length_formula }}
         </div>
+      
+        <div class="rnd-box" style="margin-top:14px;background:#f8fbff;border-color:#cfe3ff;">
+          <b>Specimen length requirement</b>
+      
+          {% set pipe_size_in = program.nominal_size_in or 0 %}
+      
+          {% if pipe_size_in and pipe_size_in <= 6 %}
+            <div style="line-height:1.7;color:#0f172a;">
+              Pipe size is <strong>{{ pipe_size_in }}</strong> in, so the specimen length between end closures shall be
+              <strong>not less than 5 × the nominal outside diameter</strong>, and in all cases
+              <strong>not less than 300 mm (12 in.)</strong>.
+            </div>
+          {% elif pipe_size_in and pipe_size_in > 6 %}
+            <div style="line-height:1.7;color:#0f172a;">
+              Pipe size is <strong>{{ pipe_size_in }}</strong> in, so the specimen length between end closures shall be
+              <strong>not less than 3 × the nominal outside diameter</strong>, and in all cases
+              <strong>not less than 760 mm (30 in.)</strong>.
+            </div>
+          {% else %}
+            <div style="line-height:1.7;color:#0f172a;">
+              Specimen length between end closures shall be:
+              <ul class="rnd-list" style="margin-top:8px;">
+                <li>For pipe sizes ≤ 6 in. (150 mm): <strong>minimum 5 × nominal outside diameter</strong>, but not less than <strong>300 mm (12 in.)</strong></li>
+                <li>For pipe sizes &gt; 6 in. (150 mm): <strong>minimum 3 × nominal outside diameter</strong>, but not less than <strong>760 mm (30 in.)</strong></li>
+              </ul>
+            </div>
+          {% endif %}
+      
+          <div style="margin-top:10px;font-size:12px;color:#475569;line-height:1.6;">
+            Basis: ASTM D1598 specimen length requirement between end closures.
+          </div>
+        </div>
+      
         <div class="rnd-summary-grid" style="grid-template-columns:1fr;margin-top:14px;">
           <div class="rnd-box">
             <b>Minimum requirements</b>
@@ -1470,6 +1504,7 @@
               <li>{{ prep.end_allowance_each_side }}</li>
             </ul>
           </div>
+      
           <div class="rnd-box">
             <b>Required records</b>
             <ul class="rnd-list">
@@ -1478,6 +1513,7 @@
               {% endfor %}
             </ul>
           </div>
+      
           <div class="rnd-box">
             <b>Conditioning required</b>
             {{ guidance.conditioning_required }}
