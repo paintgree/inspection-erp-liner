@@ -2697,6 +2697,17 @@ def rnd_permeation_test_page(request: Request, session: Session = Depends(get_se
         {"request": request, "user": user},
     )
 
+
+@app.get("/documentation/standards")
+def documentation_standards(request: Request):
+    return templates.TemplateResponse(
+        "docs_standards.html",
+        {
+            "request": request,
+        },
+    )
+
+
 @app.get("/docs/procedures")
 def docs_procedures_page(request: Request, session: Session = Depends(get_session)):
     user = get_current_user(request, session)
