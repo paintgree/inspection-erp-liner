@@ -889,3 +889,28 @@ class CalibrationChangeRequest(SQLModel, table=True):
     reviewed_by_user_name: str = Field(default="")
     reviewed_at: Optional[datetime] = None
     rejection_reason: str = Field(default="")
+
+class ManagedDocument(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    library_type: str = Field(default="PROCEDURE", index=True)  # PROCEDURE / STANDARD
+    code: str = Field(default="", index=True)
+    title: str = Field(default="", index=True)
+    subtitle: str = Field(default="")
+    category: str = Field(default="", index=True)
+    description: str = Field(default="")
+    revision: str = Field(default="")
+
+    status: str = Field(default="ACTIVE", index=True)  # ACTIVE / OBSOLETE / DRAFT
+    issue_date: Optional[date] = Field(default=None)
+    review_date: Optional[date] = Field(default=None)
+
+    source_filename: str = Field(default="")
+    stored_pdf_path: str = Field(default="")
+    extracted_text: str = Field(default="")
+
+    uploaded_by_user_id: Optional[int] = Field(default=None, index=True)
+    uploaded_by_user_name: str = Field(default="")
+
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, index=True)
