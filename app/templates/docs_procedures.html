@@ -28,6 +28,26 @@
   .doc-card:hover{transform:translateY(-3px);box-shadow:0 14px 34px rgba(15,23,42,.08);border-color:#c8d8ea}
   .doc-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:18px 18px 8px 18px;background:linear-gradient(180deg,#f6fbff 0%,#ffffff 100%)}
   .doc-tag{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;background:#eff6ff;color:#0b67c2;font-size:11px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;border:1px solid #dbeafe}
+  .doc-class{
+    display:inline-flex;
+    align-items:center;
+    padding:5px 10px;
+    border-radius:999px;
+    font-size:11px;
+    font-weight:900;
+    letter-spacing:.03em;
+    border:1px solid transparent;
+    white-space:nowrap;
+  }
+  .doc-class.general{background:#f1f5f9;color:#334155;border-color:#e2e8f0}
+  .doc-class.sop{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+  .doc-class.work-instruction{background:#ecfeff;color:#0f766e;border-color:#a5f3fc}
+  .doc-class.inspection-procedure{background:#fef3c7;color:#92400e;border-color:#fde68a}
+  .doc-class.test-method{background:#ede9fe;color:#6d28d9;border-color:#ddd6fe}
+  .doc-class.method-statement{background:#fce7f3;color:#be185d;border-color:#fbcfe8}
+  .doc-class.acceptance-criteria{background:#dcfce7;color:#166534;border-color:#bbf7d0}
+  .doc-class.hse{background:#fee2e2;color:#b91c1c;border-color:#fecaca}
+  .doc-class.maintenance{background:#fff7ed;color:#c2410c;border-color:#fed7aa}
   .doc-status{display:inline-flex;align-items:center;padding:5px 10px;border-radius:999px;background:#ecfdf3;color:#16a34a;font-size:11px;font-weight:900;text-transform:uppercase}
   .doc-status.obsolete{background:#fef2f2;color:#dc2626}
   .doc-status.draft{background:#fff7ed;color:#ea580c}
@@ -89,7 +109,13 @@
         {% for doc in documents %}
           <article class="doc-card">
             <div class="doc-card-head">
-              <span class="doc-tag">{{ doc.category or 'General' }}</span>
+              <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <span class="doc-tag">{{ doc.category or 'General' }}</span>
+                <span class="doc-class {{ (doc.classification or 'general')|lower|replace(' ', '-') }}">
+                  {{ doc.classification or 'General' }}
+                </span>
+              </div>
+            
               <span class="doc-status {% if (doc.status or '')|lower == 'obsolete' %}obsolete{% elif (doc.status or '')|lower == 'draft' %}draft{% endif %}">
                 {{ doc.status or 'Active' }}
               </span>
@@ -122,6 +148,7 @@
                 <th>Code</th>
                 <th>Title</th>
                 <th>Category</th>
+                <th>Classification</th>
                 <th>Revision</th>
                 <th>Status</th>
               </tr>
@@ -132,6 +159,7 @@
                   <td>{{ doc.code or '—' }}</td>
                   <td>{{ doc.title or 'Untitled Procedure' }}</td>
                   <td>{{ doc.category or 'General' }}</td>
+                  <td>{{ doc.classification or 'General' }}</td>
                   <td>{{ doc.revision or '00' }}</td>
                   <td>{{ doc.status or 'Active' }}</td>
                 </tr>
