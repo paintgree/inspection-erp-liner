@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  .upload-page{
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+
+  .upload-hero h1{
+    margin:0;
+    font-size:40px;
+    line-height:1.05;
+    color:#0f172a;
+    letter-spacing:-0.03em;
+  }
+
+  .upload-hero p{
+    margin:10px 0 0 0;
+    color:#64748b;
+    font-size:17px;
+  }
+
+  .upload-shell{
+    background:#f8fbff;
+    border:1px solid #dbe7f3;
+    border-radius:28px;
+    padding:24px;
+    box-shadow:0 10px 34px rgba(15,23,42,.04);
+    max-width:980px;
+  }
+
+  .upload-form{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:18px 18px;
+  }
+
+  .upload-field{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+
+  .upload-field.full{
+    grid-column:1 / -1;
+  }
+
+  .upload-label{
+    font-size:13px;
+    font-weight:900;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:#475569;
+  }
+
+  .upload-input,
+  .upload-select,
+  .upload-textarea{
+    width:100%;
+    border:1px solid #d9e4f1;
+    background:#fff;
+    color:#0f172a;
+    border-radius:16px;
+    font-size:15px;
+    font-weight:600;
+    outline:none;
+    box-sizing:border-box;
+  }
+
+  .upload-input,
+  .upload-select{
+    height:50px;
+    padding:0 14px;
+  }
+
+  .upload-textarea{
+    min-height:120px;
+    padding:14px;
+    resize:vertical;
+    line-height:1.5;
+  }
+
+  .upload-input:focus,
+  .upload-select:focus,
+  .upload-textarea:focus{
+    border-color:#93c5fd;
+    box-shadow:0 0 0 4px rgba(59,130,246,.10);
+  }
+
+  .upload-file{
+    border:1px dashed #bfd3e6;
+    background:#fff;
+    border-radius:20px;
+    padding:18px;
+  }
+
+  .upload-file input[type="file"]{
+    width:100%;
+    font-size:14px;
+    font-weight:700;
+    color:#334155;
+  }
+
+  .upload-actions{
+    grid-column:1 / -1;
+    display:flex;
+    gap:12px;
+    flex-wrap:wrap;
+    margin-top:6px;
+  }
+
+  .upload-btn{
+    appearance:none;
+    border:none;
+    border-radius:14px;
+    padding:12px 16px;
+    font-size:14px;
+    font-weight:800;
+    text-decoration:none;
+    cursor:pointer;
+    transition:.18s ease;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    box-shadow:0 6px 20px rgba(15,23,42,.06);
+  }
+
+  .upload-btn-primary{
+    background:#0b7adf;
+    color:#fff;
+  }
+
+  .upload-btn-primary:hover{
+    transform:translateY(-1px);
+    background:#0869c0;
+  }
+
+  .upload-btn-soft{
+    background:#fff;
+    color:#0f172a;
+    border:1px solid #dbe4f0;
+  }
+
+  .upload-btn-soft:hover{
+    background:#f8fafc;
+  }
+
+  .upload-note{
+    grid-column:1 / -1;
+    background:#eef6ff;
+    border:1px solid #dbeafe;
+    color:#1e3a8a;
+    border-radius:18px;
+    padding:14px 16px;
+    font-size:14px;
+    font-weight:700;
+    line-height:1.5;
+  }
+
+  @media (max-width: 900px){
+    .upload-form{
+      grid-template-columns:1fr;
+    }
+
+    .upload-hero h1{
+      font-size:32px;
+    }
+  }
+</style>
+
+<div class="upload-page">
+  <div class="upload-hero">
+    <h1>{{ page_title }}</h1>
+    <p>Upload a controlled {{ library_type|lower }} document and register it as a managed PDF-based library record.</p>
+  </div>
+
+  <div class="upload-shell">
+    <form class="upload-form" method="post" action="{{ submit_url }}" enctype="multipart/form-data">
+      <div class="upload-note">
+        After upload, the system will treat this as a managed library document record, not just a loose file. This supports search, controlled listing, and audit exports.
+      </div>
+
+      <div class="upload-field">
+        <label class="upload-label">Document Code</label>
+        <input class="upload-input" type="text" name="code" required placeholder="Example: QAW-1401 or API 15S">
+      </div>
+
+      <div class="upload-field">
+        <label class="upload-label">Title</label>
+        <input class="upload-input" type="text" name="title" required placeholder="Document title">
+      </div>
+
+      <div class="upload-field full">
+        <label class="upload-label">Subtitle</label>
+        <input class="upload-input" type="text" name="subtitle" placeholder="Optional subtitle or technical scope">
+      </div>
+
+      <div class="upload-field">
+        <label class="upload-label">Category</label>
+        <input class="upload-input" type="text" name="category" value="General" placeholder="Quality, Testing, Piping, Materials...">
+      </div>
+
+      <div class="upload-field">
+        <label class="upload-label">Revision</label>
+        <input class="upload-input" type="text" name="revision" value="00" placeholder="00">
+      </div>
+
+      <div class="upload-field">
+        <label class="upload-label">Status</label>
+        <select class="upload-select" name="status">
+          <option value="ACTIVE">ACTIVE</option>
+          <option value="DRAFT">DRAFT</option>
+          <option value="OBSOLETE">OBSOLETE</option>
+        </select>
+      </div>
+
+      <div class="upload-field">
+        <label class="upload-label">Issue Date</label>
+        <input class="upload-input" type="date" name="issue_date">
+      </div>
+
+      <div class="upload-field">
+        <label class="upload-label">Review Date</label>
+        <input class="upload-input" type="date" name="review_date">
+      </div>
+
+      <div class="upload-field full">
+        <label class="upload-label">Description</label>
+        <textarea class="upload-textarea" name="description" placeholder="Short professional description for the library card and list view"></textarea>
+      </div>
+
+      <div class="upload-field full">
+        <label class="upload-label">Document File</label>
+        <div class="upload-file">
+          <input type="file" name="uploaded_file" accept=".pdf,.doc,.docx" required>
+        </div>
+      </div>
+
+      <div class="upload-actions">
+        <button class="upload-btn upload-btn-primary" type="submit">⬆ Save Document</button>
+
+        {% if library_type == "PROCEDURE" %}
+          <a class="upload-btn upload-btn-soft" href="/documentation/procedures">← Back to Procedures</a>
+        {% else %}
+          <a class="upload-btn upload-btn-soft" href="/documentation/standards">← Back to Standards</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
