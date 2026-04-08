@@ -695,6 +695,7 @@ def get_specimen_prep(test_code: str):
 
 def get_test_guidance(test_code: str, test_row: Optional["RndQualificationTest"] = None) -> dict:
     code = (test_code or "").strip().upper()
+    prep = get_specimen_prep(test_code)
 
     TEST_GUIDANCE = {
         "MPR_REG": {
@@ -1019,10 +1020,17 @@ def get_test_guidance(test_code: str, test_row: Optional["RndQualificationTest"]
     })
 
     enriched = dict(base)
-    if test_row:
-        if not enriched.get("api_clause"):
-            enriched["api_clause"] = test_row.clause_ref or ""
+    if test_row and not enriched.get("api_clause"):
+        enriched["api_clause"] = test_row.clause_ref or ""
+
+    # add compatibility keys expected by rnd_test_detail.html
+    enriched["test_procedure"] = list(enriched.get("core_process", [])) or list(prep.get("preconditioning", {}).get("minimum_process", []))
+    enriched["operator_checks"] = list(prep.get("release_checks", []))
+    enriched["records_to_capture"] = list(prep.get("preconditioning", {}).get("records_required", []))
+
     return enriched
+
+
 def _fmt_date(value) -> str:
     if not value:
         return "-"
