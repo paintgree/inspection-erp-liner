@@ -898,6 +898,7 @@ class ManagedDocument(SQLModel, table=True):
     title: str = Field(default="", index=True)
     subtitle: str = Field(default="")
     category: str = Field(default="", index=True)
+    classification: str = Field(default="", index=True)
     description: str = Field(default="")
     revision: str = Field(default="")
 
