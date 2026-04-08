@@ -97,16 +97,21 @@
   .docs-search{
     flex:1 1 420px;
     min-width:280px;
-    position:relative;
+  }
+
+  .docs-search form{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
   }
 
   .docs-search input{
-    width:100%;
+    flex:1 1 320px;
     height:52px;
     border-radius:16px;
     border:1px solid #d9e4f1;
     background:#fff;
-    padding:0 16px 0 46px;
+    padding:0 16px;
     font-size:15px;
     font-weight:600;
     color:#0f172a;
@@ -117,16 +122,6 @@
   .docs-search input:focus{
     border-color:#93c5fd;
     box-shadow:0 0 0 4px rgba(59,130,246,.10);
-  }
-
-  .docs-search-icon{
-    position:absolute;
-    left:16px;
-    top:50%;
-    transform:translateY(-50%);
-    color:#94a3b8;
-    font-size:16px;
-    pointer-events:none;
   }
 
   .docs-filter-row{
@@ -147,6 +142,9 @@
     border:1px solid #e2e8f0;
     cursor:pointer;
     transition:.18s ease;
+    text-decoration:none;
+    display:inline-flex;
+    align-items:center;
   }
 
   .docs-chip:hover{
@@ -220,6 +218,16 @@
     text-transform:uppercase;
   }
 
+  .doc-status.obsolete{
+    background:#fef2f2;
+    color:#dc2626;
+  }
+
+  .doc-status.draft{
+    background:#fff7ed;
+    color:#ea580c;
+  }
+
   .doc-card-body{
     padding:8px 18px 16px 18px;
     display:flex;
@@ -288,16 +296,11 @@
   }
 
   .docs-list-panel{
-    display:none;
     margin-top:18px;
     background:#fff;
     border:1px solid #dbe4f0;
     border-radius:20px;
     overflow:hidden;
-  }
-
-  .docs-list-panel.show{
-    display:block;
   }
 
   .docs-list-head{
@@ -346,7 +349,10 @@
     text-align:center;
     color:#64748b;
     font-weight:700;
-    display:none;
+    background:#fff;
+    border:1px dashed #dbe4f0;
+    border-radius:20px;
+    margin-top:18px;
   }
 
   @media (max-width: 900px){
@@ -369,13 +375,12 @@
   <div class="docs-hero">
     <div>
       <h1>Procedures Library</h1>
-      <p>Controlled internal procedures with compact professional cards for easier browsing and auditing.</p>
+      <p>Controlled internal procedures with compact cards, searchable records, and audit-friendly listing.</p>
     </div>
 
     <div class="docs-hero-actions">
-      <button class="docs-btn docs-btn-soft" type="button" onclick="toggleProcedureList()">☰ Full List</button>
       <button class="docs-btn docs-btn-soft" type="button" onclick="window.print()">🖨 Print List</button>
-      <a class="docs-btn docs-btn-primary" href="#">＋ Add New Procedure</a>
+      <a class="docs-btn docs-btn-primary" href="/documentation/procedures/upload">＋ Add New Procedure</a>
     </div>
   </div>
 
@@ -383,219 +388,86 @@
     <div class="docs-toolbar">
       <div class="docs-toolbar-top">
         <div class="docs-search">
-          <span class="docs-search-icon">⌕</span>
-          <input id="procedureSearch" type="text" placeholder="Search by procedure code, title, category, or keyword..." oninput="filterProcedureCards()">
+          <form method="get" action="/documentation/procedures">
+            <input type="text" name="search" value="{{ search or '' }}" placeholder="Search by procedure code, title, category, or keyword...">
+            <input type="hidden" name="category" value="{{ active_category or 'all' }}">
+            <button class="docs-btn docs-btn-primary" type="submit">Search</button>
+          </form>
         </div>
       </div>
 
       <div class="docs-filter-row">
-        <button class="docs-chip active" type="button" data-filter="all" onclick="setProcedureFilter('all', this)">All</button>
-        <button class="docs-chip" type="button" data-filter="quality" onclick="setProcedureFilter('quality', this)">Quality</button>
-        <button class="docs-chip" type="button" data-filter="inspection" onclick="setProcedureFilter('inspection', this)">Inspection</button>
-        <button class="docs-chip" type="button" data-filter="testing" onclick="setProcedureFilter('testing', this)">Testing</button>
-        <button class="docs-chip" type="button" data-filter="production" onclick="setProcedureFilter('production', this)">Production</button>
-        <button class="docs-chip" type="button" data-filter="general" onclick="setProcedureFilter('general', this)">General</button>
+        <a class="docs-chip {% if (active_category or 'all') == 'all' %}active{% endif %}" href="/documentation/procedures?search={{ search or '' }}&category=all">All</a>
+        {% for cat in categories %}
+          <a class="docs-chip {% if active_category == cat %}active{% endif %}" href="/documentation/procedures?search={{ search or '' }}&category={{ cat }}">{{ cat }}</a>
+        {% endfor %}
       </div>
     </div>
 
-    <div id="procedureGrid" class="docs-grid">
-      <article class="doc-card" data-category="quality" data-search="qaw-1401 pressure burst qualification quality procedure hydrostatic burst test">
-        <div class="doc-card-head">
-          <span class="doc-tag">Quality</span>
-          <span class="doc-status">Active</span>
-        </div>
-        <div class="doc-card-body">
-          <div class="doc-code">QAW-1401</div>
-          <div class="doc-title">Burst Test Procedure</div>
-          <div class="doc-desc">Internal method for specimen preparation, pressurization sequence, recording, acceptance criteria, and reporting.</div>
-        </div>
-        <div class="doc-card-foot">
-          <span class="doc-rev">Rev: 03</span>
-          <a class="doc-open" href="#" title="Open">↗</a>
-        </div>
-      </article>
+    {% if documents %}
+      <div id="procedureGrid" class="docs-grid">
+        {% for doc in documents %}
+          <article class="doc-card">
+            <div class="doc-card-head">
+              <span class="doc-tag">{{ doc.category or 'General' }}</span>
 
-      <article class="doc-card" data-category="testing" data-search="qaw-2000 hydro testing pressure hold procedure testing water pressure">
-        <div class="doc-card-head">
-          <span class="doc-tag">Testing</span>
-          <span class="doc-status">Active</span>
-        </div>
-        <div class="doc-card-body">
-          <div class="doc-code">QAW-2000</div>
-          <div class="doc-title">Hydro Test Procedure</div>
-          <div class="doc-desc">Procedure for hydrostatic testing setup, holding time, recording of readings, operator responsibilities, and final release.</div>
-        </div>
-        <div class="doc-card-foot">
-          <span class="doc-rev">Rev: 05</span>
-          <a class="doc-open" href="#" title="Open">↗</a>
-        </div>
-      </article>
+              <span class="doc-status {% if (doc.status or '')|lower == 'obsolete' %}obsolete{% elif (doc.status or '')|lower == 'draft' %}draft{% endif %}">
+                {{ doc.status or 'Active' }}
+              </span>
+            </div>
 
-      <article class="doc-card" data-category="inspection" data-search="qaw-1102 in process inspection slot routine checks operator remarks raw material">
-        <div class="doc-card-head">
-          <span class="doc-tag">Inspection</span>
-          <span class="doc-status">Active</span>
-        </div>
-        <div class="doc-card-body">
-          <div class="doc-code">QAW-1102</div>
-          <div class="doc-title">In-Process Inspection Procedure</div>
-          <div class="doc-desc">Routine production verification procedure covering machine parameters, raw material batch traceability, operators, and remarks.</div>
-        </div>
-        <div class="doc-card-foot">
-          <span class="doc-rev">Rev: 04</span>
-          <a class="doc-open" href="#" title="Open">↗</a>
-        </div>
-      </article>
+            <div class="doc-card-body">
+              <div class="doc-code">{{ doc.code or '—' }}</div>
+              <div class="doc-title">{{ doc.title or 'Untitled Procedure' }}</div>
+              <div class="doc-desc">
+                {{ doc.description or doc.subtitle or 'No description provided yet.' }}
+              </div>
+            </div>
 
-      <article class="doc-card" data-category="production" data-search="prd-3001 reel handling packing storage production handling procedure">
-        <div class="doc-card-head">
-          <span class="doc-tag">Production</span>
-          <span class="doc-status">Active</span>
-        </div>
-        <div class="doc-card-body">
-          <div class="doc-code">PRD-3001</div>
-          <div class="doc-title">Reel Handling & Storage</div>
-          <div class="doc-desc">Procedure for movement, stacking, preservation, handling precautions, and release condition before dispatch or testing.</div>
-        </div>
-        <div class="doc-card-foot">
-          <span class="doc-rev">Rev: 02</span>
-          <a class="doc-open" href="#" title="Open">↗</a>
-        </div>
-      </article>
-
-      <article class="doc-card" data-category="quality" data-search="qaw-1505 document control issue revision archive controlled copies quality">
-        <div class="doc-card-head">
-          <span class="doc-tag">Quality</span>
-          <span class="doc-status">Active</span>
-        </div>
-        <div class="doc-card-body">
-          <div class="doc-code">QAW-1505</div>
-          <div class="doc-title">Document Control Procedure</div>
-          <div class="doc-desc">Defines numbering, issue control, revision workflow, superseded copies handling, approval records, and distribution rules.</div>
-        </div>
-        <div class="doc-card-foot">
-          <span class="doc-rev">Rev: 06</span>
-          <a class="doc-open" href="#" title="Open">↗</a>
-        </div>
-      </article>
-
-      <article class="doc-card" data-category="general" data-search="gen-1001 training competency induction general procedure employees inspectors">
-        <div class="doc-card-head">
-          <span class="doc-tag">General</span>
-          <span class="doc-status">Active</span>
-        </div>
-        <div class="doc-card-body">
-          <div class="doc-code">GEN-1001</div>
-          <div class="doc-title">Training & Competency</div>
-          <div class="doc-desc">Covers onboarding, role competency verification, refresher requirements, and internal qualification records for staff.</div>
-        </div>
-        <div class="doc-card-foot">
-          <span class="doc-rev">Rev: 01</span>
-          <a class="doc-open" href="#" title="Open">↗</a>
-        </div>
-      </article>
-    </div>
-
-    <div id="procedureEmpty" class="docs-empty">
-      No procedures matched your search or category filter.
-    </div>
-
-    <div id="procedureListPanel" class="docs-list-panel">
-      <div class="docs-list-head">
-        <h3>Procedures Full List</h3>
-        <button class="docs-btn docs-btn-soft" type="button" onclick="downloadProcedureList()">⬇ Download CSV</button>
+            <div class="doc-card-foot">
+              <span class="doc-rev">Rev: {{ doc.revision or '00' }}</span>
+              <a class="doc-open" href="/documentation/view/{{ doc.id }}" title="Open">↗</a>
+            </div>
+          </article>
+        {% endfor %}
       </div>
 
-      <div class="docs-table-wrap">
-        <table class="docs-table" id="procedureTable">
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Title</th>
-              <th>Category</th>
-              <th>Revision</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr><td>QAW-1401</td><td>Burst Test Procedure</td><td>Quality</td><td>03</td><td>Active</td></tr>
-            <tr><td>QAW-2000</td><td>Hydro Test Procedure</td><td>Testing</td><td>05</td><td>Active</td></tr>
-            <tr><td>QAW-1102</td><td>In-Process Inspection Procedure</td><td>Inspection</td><td>04</td><td>Active</td></tr>
-            <tr><td>PRD-3001</td><td>Reel Handling & Storage</td><td>Production</td><td>02</td><td>Active</td></tr>
-            <tr><td>QAW-1505</td><td>Document Control Procedure</td><td>Quality</td><td>06</td><td>Active</td></tr>
-            <tr><td>GEN-1001</td><td>Training & Competency</td><td>General</td><td>01</td><td>Active</td></tr>
-          </tbody>
-        </table>
+      <div class="docs-list-panel">
+        <div class="docs-list-head">
+          <h3>Procedures Full List</h3>
+          <a class="docs-btn docs-btn-soft" href="/documentation/procedures/export?search={{ search or '' }}&category={{ active_category or 'all' }}">⬇ Download CSV</a>
+        </div>
+
+        <div class="docs-table-wrap">
+          <table class="docs-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Revision</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for doc in documents %}
+                <tr>
+                  <td>{{ doc.code or '—' }}</td>
+                  <td>{{ doc.title or 'Untitled Procedure' }}</td>
+                  <td>{{ doc.category or 'General' }}</td>
+                  <td>{{ doc.revision or '00' }}</td>
+                  <td>{{ doc.status or 'Active' }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    {% else %}
+      <div class="docs-empty">
+        No procedures found yet. After upload, they will appear here as managed system documents.
+      </div>
+    {% endif %}
   </div>
 </div>
-
-<script>
-  let activeProcedureFilter = "all";
-
-  function setProcedureFilter(filter, btn) {
-    activeProcedureFilter = filter;
-    document.querySelectorAll(".docs-chip").forEach(chip => chip.classList.remove("active"));
-    if (btn) btn.classList.add("active");
-    filterProcedureCards();
-  }
-
-  function filterProcedureCards() {
-    const searchValue = (document.getElementById("procedureSearch")?.value || "").trim().toLowerCase();
-    const cards = document.querySelectorAll("#procedureGrid .doc-card");
-    const emptyBox = document.getElementById("procedureEmpty");
-
-    let visibleCount = 0;
-
-    cards.forEach(card => {
-      const category = (card.dataset.category || "").toLowerCase();
-      const haystack = (card.dataset.search || "").toLowerCase();
-
-      const matchesFilter = activeProcedureFilter === "all" || category === activeProcedureFilter;
-      const matchesSearch = !searchValue || haystack.includes(searchValue);
-
-      if (matchesFilter && matchesSearch) {
-        card.style.display = "";
-        visibleCount += 1;
-      } else {
-        card.style.display = "none";
-      }
-    });
-
-    if (emptyBox) {
-      emptyBox.style.display = visibleCount ? "none" : "block";
-    }
-  }
-
-  function toggleProcedureList() {
-    const panel = document.getElementById("procedureListPanel");
-    if (!panel) return;
-    panel.classList.toggle("show");
-  }
-
-  function downloadProcedureList() {
-    const rows = [
-      ["Code","Title","Category","Revision","Status"],
-      ["QAW-1401","Burst Test Procedure","Quality","03","Active"],
-      ["QAW-2000","Hydro Test Procedure","Testing","05","Active"],
-      ["QAW-1102","In-Process Inspection Procedure","Inspection","04","Active"],
-      ["PRD-3001","Reel Handling & Storage","Production","02","Active"],
-      ["QAW-1505","Document Control Procedure","Quality","06","Active"],
-      ["GEN-1001","Training & Competency","General","01","Active"]
-    ];
-
-    const csv = rows.map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "procedures_library_list.csv";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }
-</script>
 {% endblock %}
