@@ -1,8 +1,601 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="card">
-  <h1>Procedures</h1>
-  <p>This page is ready for documentation procedures.</p>
+<style>
+  .docs-page{
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+
+  .docs-hero{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    padding:8px 2px 2px 2px;
+  }
+
+  .docs-hero h1{
+    margin:0;
+    font-size:42px;
+    line-height:1.05;
+    color:#0f172a;
+    letter-spacing:-0.03em;
+  }
+
+  .docs-hero p{
+    margin:8px 0 0 0;
+    color:#64748b;
+    font-size:18px;
+  }
+
+  .docs-hero-actions{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+
+  .docs-btn{
+    appearance:none;
+    border:none;
+    border-radius:14px;
+    padding:12px 16px;
+    font-size:14px;
+    font-weight:800;
+    text-decoration:none;
+    cursor:pointer;
+    transition:.18s ease;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    box-shadow:0 6px 20px rgba(15,23,42,.06);
+  }
+
+  .docs-btn-primary{
+    background:#0b7adf;
+    color:#fff;
+  }
+
+  .docs-btn-primary:hover{
+    transform:translateY(-1px);
+    background:#0869c0;
+  }
+
+  .docs-btn-soft{
+    background:#fff;
+    color:#0f172a;
+    border:1px solid #dbe4f0;
+  }
+
+  .docs-btn-soft:hover{
+    background:#f8fafc;
+  }
+
+  .docs-shell{
+    background:#f8fbff;
+    border:1px solid #dbe7f3;
+    border-radius:28px;
+    padding:22px;
+    box-shadow:0 10px 34px rgba(15,23,42,.04);
+  }
+
+  .docs-toolbar{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  .docs-toolbar-top{
+    display:flex;
+    gap:12px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+
+  .docs-search{
+    flex:1 1 420px;
+    min-width:280px;
+    position:relative;
+  }
+
+  .docs-search input{
+    width:100%;
+    height:52px;
+    border-radius:16px;
+    border:1px solid #d9e4f1;
+    background:#fff;
+    padding:0 16px 0 46px;
+    font-size:15px;
+    font-weight:600;
+    color:#0f172a;
+    outline:none;
+    box-sizing:border-box;
+  }
+
+  .docs-search input:focus{
+    border-color:#93c5fd;
+    box-shadow:0 0 0 4px rgba(59,130,246,.10);
+  }
+
+  .docs-search-icon{
+    position:absolute;
+    left:16px;
+    top:50%;
+    transform:translateY(-50%);
+    color:#94a3b8;
+    font-size:16px;
+    pointer-events:none;
+  }
+
+  .docs-filter-row{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+
+  .docs-chip{
+    border:none;
+    background:#fff;
+    color:#475569;
+    padding:10px 16px;
+    border-radius:14px;
+    font-size:13px;
+    font-weight:800;
+    letter-spacing:.01em;
+    border:1px solid #e2e8f0;
+    cursor:pointer;
+    transition:.18s ease;
+  }
+
+  .docs-chip:hover{
+    background:#f8fafc;
+  }
+
+  .docs-chip.active{
+    background:#0b7adf;
+    color:#fff;
+    border-color:#0b7adf;
+    box-shadow:0 8px 20px rgba(11,122,223,.18);
+  }
+
+  .docs-grid{
+    margin-top:18px;
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(250px, 1fr));
+    gap:18px;
+  }
+
+  .doc-card{
+    background:#fff;
+    border:1px solid #dbe4f0;
+    border-radius:22px;
+    overflow:hidden;
+    min-height:210px;
+    display:flex;
+    flex-direction:column;
+    transition:.18s ease;
+    box-shadow:0 8px 24px rgba(15,23,42,.04);
+  }
+
+  .doc-card:hover{
+    transform:translateY(-3px);
+    box-shadow:0 14px 34px rgba(15,23,42,.08);
+    border-color:#c8d8ea;
+  }
+
+  .doc-card-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    padding:18px 18px 8px 18px;
+    background:linear-gradient(180deg, #f6fbff 0%, #ffffff 100%);
+  }
+
+  .doc-tag{
+    display:inline-flex;
+    align-items:center;
+    padding:5px 10px;
+    border-radius:999px;
+    background:#eff6ff;
+    color:#0b67c2;
+    font-size:11px;
+    font-weight:900;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    border:1px solid #dbeafe;
+  }
+
+  .doc-status{
+    display:inline-flex;
+    align-items:center;
+    padding:5px 10px;
+    border-radius:999px;
+    background:#ecfdf3;
+    color:#16a34a;
+    font-size:11px;
+    font-weight:900;
+    text-transform:uppercase;
+  }
+
+  .doc-card-body{
+    padding:8px 18px 16px 18px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    flex:1;
+  }
+
+  .doc-code{
+    font-size:32px;
+    font-weight:900;
+    line-height:1;
+    color:#0f172a;
+    letter-spacing:-0.03em;
+    margin-top:2px;
+  }
+
+  .doc-title{
+    font-size:20px;
+    font-weight:800;
+    color:#0f172a;
+    line-height:1.25;
+  }
+
+  .doc-desc{
+    color:#64748b;
+    font-size:14px;
+    line-height:1.55;
+    min-height:44px;
+  }
+
+  .doc-card-foot{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:14px 18px 16px 18px;
+    border-top:1px solid #edf2f7;
+  }
+
+  .doc-rev{
+    color:#94a3b8;
+    font-size:12px;
+    font-weight:900;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+  }
+
+  .doc-open{
+    width:34px;
+    height:34px;
+    border-radius:10px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    background:#eff6ff;
+    color:#0b67c2;
+    text-decoration:none;
+    font-size:18px;
+    font-weight:900;
+    transition:.18s ease;
+  }
+
+  .doc-open:hover{
+    background:#dbeafe;
+  }
+
+  .docs-list-panel{
+    display:none;
+    margin-top:18px;
+    background:#fff;
+    border:1px solid #dbe4f0;
+    border-radius:20px;
+    overflow:hidden;
+  }
+
+  .docs-list-panel.show{
+    display:block;
+  }
+
+  .docs-list-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:16px 18px;
+    border-bottom:1px solid #eaf0f6;
+    background:#f8fbff;
+  }
+
+  .docs-list-head h3{
+    margin:0;
+    font-size:18px;
+    color:#0f172a;
+  }
+
+  .docs-table-wrap{
+    overflow:auto;
+  }
+
+  .docs-table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:720px;
+  }
+
+  .docs-table th,
+  .docs-table td{
+    padding:14px 16px;
+    text-align:left;
+    border-bottom:1px solid #edf2f7;
+    font-size:14px;
+  }
+
+  .docs-table th{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:#64748b;
+    background:#fcfdff;
+  }
+
+  .docs-empty{
+    padding:28px;
+    text-align:center;
+    color:#64748b;
+    font-weight:700;
+    display:none;
+  }
+
+  @media (max-width: 900px){
+    .docs-hero{
+      flex-direction:column;
+      align-items:stretch;
+    }
+
+    .docs-hero-actions{
+      justify-content:flex-start;
+    }
+
+    .docs-hero h1{
+      font-size:34px;
+    }
+  }
+</style>
+
+<div class="docs-page">
+  <div class="docs-hero">
+    <div>
+      <h1>Procedures Library</h1>
+      <p>Controlled internal procedures with compact professional cards for easier browsing and auditing.</p>
+    </div>
+
+    <div class="docs-hero-actions">
+      <button class="docs-btn docs-btn-soft" type="button" onclick="toggleProcedureList()">☰ Full List</button>
+      <button class="docs-btn docs-btn-soft" type="button" onclick="window.print()">🖨 Print List</button>
+      <a class="docs-btn docs-btn-primary" href="#">＋ Add New Procedure</a>
+    </div>
+  </div>
+
+  <div class="docs-shell">
+    <div class="docs-toolbar">
+      <div class="docs-toolbar-top">
+        <div class="docs-search">
+          <span class="docs-search-icon">⌕</span>
+          <input id="procedureSearch" type="text" placeholder="Search by procedure code, title, category, or keyword..." oninput="filterProcedureCards()">
+        </div>
+      </div>
+
+      <div class="docs-filter-row">
+        <button class="docs-chip active" type="button" data-filter="all" onclick="setProcedureFilter('all', this)">All</button>
+        <button class="docs-chip" type="button" data-filter="quality" onclick="setProcedureFilter('quality', this)">Quality</button>
+        <button class="docs-chip" type="button" data-filter="inspection" onclick="setProcedureFilter('inspection', this)">Inspection</button>
+        <button class="docs-chip" type="button" data-filter="testing" onclick="setProcedureFilter('testing', this)">Testing</button>
+        <button class="docs-chip" type="button" data-filter="production" onclick="setProcedureFilter('production', this)">Production</button>
+        <button class="docs-chip" type="button" data-filter="general" onclick="setProcedureFilter('general', this)">General</button>
+      </div>
+    </div>
+
+    <div id="procedureGrid" class="docs-grid">
+      <article class="doc-card" data-category="quality" data-search="qaw-1401 pressure burst qualification quality procedure hydrostatic burst test">
+        <div class="doc-card-head">
+          <span class="doc-tag">Quality</span>
+          <span class="doc-status">Active</span>
+        </div>
+        <div class="doc-card-body">
+          <div class="doc-code">QAW-1401</div>
+          <div class="doc-title">Burst Test Procedure</div>
+          <div class="doc-desc">Internal method for specimen preparation, pressurization sequence, recording, acceptance criteria, and reporting.</div>
+        </div>
+        <div class="doc-card-foot">
+          <span class="doc-rev">Rev: 03</span>
+          <a class="doc-open" href="#" title="Open">↗</a>
+        </div>
+      </article>
+
+      <article class="doc-card" data-category="testing" data-search="qaw-2000 hydro testing pressure hold procedure testing water pressure">
+        <div class="doc-card-head">
+          <span class="doc-tag">Testing</span>
+          <span class="doc-status">Active</span>
+        </div>
+        <div class="doc-card-body">
+          <div class="doc-code">QAW-2000</div>
+          <div class="doc-title">Hydro Test Procedure</div>
+          <div class="doc-desc">Procedure for hydrostatic testing setup, holding time, recording of readings, operator responsibilities, and final release.</div>
+        </div>
+        <div class="doc-card-foot">
+          <span class="doc-rev">Rev: 05</span>
+          <a class="doc-open" href="#" title="Open">↗</a>
+        </div>
+      </article>
+
+      <article class="doc-card" data-category="inspection" data-search="qaw-1102 in process inspection slot routine checks operator remarks raw material">
+        <div class="doc-card-head">
+          <span class="doc-tag">Inspection</span>
+          <span class="doc-status">Active</span>
+        </div>
+        <div class="doc-card-body">
+          <div class="doc-code">QAW-1102</div>
+          <div class="doc-title">In-Process Inspection Procedure</div>
+          <div class="doc-desc">Routine production verification procedure covering machine parameters, raw material batch traceability, operators, and remarks.</div>
+        </div>
+        <div class="doc-card-foot">
+          <span class="doc-rev">Rev: 04</span>
+          <a class="doc-open" href="#" title="Open">↗</a>
+        </div>
+      </article>
+
+      <article class="doc-card" data-category="production" data-search="prd-3001 reel handling packing storage production handling procedure">
+        <div class="doc-card-head">
+          <span class="doc-tag">Production</span>
+          <span class="doc-status">Active</span>
+        </div>
+        <div class="doc-card-body">
+          <div class="doc-code">PRD-3001</div>
+          <div class="doc-title">Reel Handling & Storage</div>
+          <div class="doc-desc">Procedure for movement, stacking, preservation, handling precautions, and release condition before dispatch or testing.</div>
+        </div>
+        <div class="doc-card-foot">
+          <span class="doc-rev">Rev: 02</span>
+          <a class="doc-open" href="#" title="Open">↗</a>
+        </div>
+      </article>
+
+      <article class="doc-card" data-category="quality" data-search="qaw-1505 document control issue revision archive controlled copies quality">
+        <div class="doc-card-head">
+          <span class="doc-tag">Quality</span>
+          <span class="doc-status">Active</span>
+        </div>
+        <div class="doc-card-body">
+          <div class="doc-code">QAW-1505</div>
+          <div class="doc-title">Document Control Procedure</div>
+          <div class="doc-desc">Defines numbering, issue control, revision workflow, superseded copies handling, approval records, and distribution rules.</div>
+        </div>
+        <div class="doc-card-foot">
+          <span class="doc-rev">Rev: 06</span>
+          <a class="doc-open" href="#" title="Open">↗</a>
+        </div>
+      </article>
+
+      <article class="doc-card" data-category="general" data-search="gen-1001 training competency induction general procedure employees inspectors">
+        <div class="doc-card-head">
+          <span class="doc-tag">General</span>
+          <span class="doc-status">Active</span>
+        </div>
+        <div class="doc-card-body">
+          <div class="doc-code">GEN-1001</div>
+          <div class="doc-title">Training & Competency</div>
+          <div class="doc-desc">Covers onboarding, role competency verification, refresher requirements, and internal qualification records for staff.</div>
+        </div>
+        <div class="doc-card-foot">
+          <span class="doc-rev">Rev: 01</span>
+          <a class="doc-open" href="#" title="Open">↗</a>
+        </div>
+      </article>
+    </div>
+
+    <div id="procedureEmpty" class="docs-empty">
+      No procedures matched your search or category filter.
+    </div>
+
+    <div id="procedureListPanel" class="docs-list-panel">
+      <div class="docs-list-head">
+        <h3>Procedures Full List</h3>
+        <button class="docs-btn docs-btn-soft" type="button" onclick="downloadProcedureList()">⬇ Download CSV</button>
+      </div>
+
+      <div class="docs-table-wrap">
+        <table class="docs-table" id="procedureTable">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Revision</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>QAW-1401</td><td>Burst Test Procedure</td><td>Quality</td><td>03</td><td>Active</td></tr>
+            <tr><td>QAW-2000</td><td>Hydro Test Procedure</td><td>Testing</td><td>05</td><td>Active</td></tr>
+            <tr><td>QAW-1102</td><td>In-Process Inspection Procedure</td><td>Inspection</td><td>04</td><td>Active</td></tr>
+            <tr><td>PRD-3001</td><td>Reel Handling & Storage</td><td>Production</td><td>02</td><td>Active</td></tr>
+            <tr><td>QAW-1505</td><td>Document Control Procedure</td><td>Quality</td><td>06</td><td>Active</td></tr>
+            <tr><td>GEN-1001</td><td>Training & Competency</td><td>General</td><td>01</td><td>Active</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 </div>
+
+<script>
+  let activeProcedureFilter = "all";
+
+  function setProcedureFilter(filter, btn) {
+    activeProcedureFilter = filter;
+    document.querySelectorAll(".docs-chip").forEach(chip => chip.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+    filterProcedureCards();
+  }
+
+  function filterProcedureCards() {
+    const searchValue = (document.getElementById("procedureSearch")?.value || "").trim().toLowerCase();
+    const cards = document.querySelectorAll("#procedureGrid .doc-card");
+    const emptyBox = document.getElementById("procedureEmpty");
+
+    let visibleCount = 0;
+
+    cards.forEach(card => {
+      const category = (card.dataset.category || "").toLowerCase();
+      const haystack = (card.dataset.search || "").toLowerCase();
+
+      const matchesFilter = activeProcedureFilter === "all" || category === activeProcedureFilter;
+      const matchesSearch = !searchValue || haystack.includes(searchValue);
+
+      if (matchesFilter && matchesSearch) {
+        card.style.display = "";
+        visibleCount += 1;
+      } else {
+        card.style.display = "none";
+      }
+    });
+
+    if (emptyBox) {
+      emptyBox.style.display = visibleCount ? "none" : "block";
+    }
+  }
+
+  function toggleProcedureList() {
+    const panel = document.getElementById("procedureListPanel");
+    if (!panel) return;
+    panel.classList.toggle("show");
+  }
+
+  function downloadProcedureList() {
+    const rows = [
+      ["Code","Title","Category","Revision","Status"],
+      ["QAW-1401","Burst Test Procedure","Quality","03","Active"],
+      ["QAW-2000","Hydro Test Procedure","Testing","05","Active"],
+      ["QAW-1102","In-Process Inspection Procedure","Inspection","04","Active"],
+      ["PRD-3001","Reel Handling & Storage","Production","02","Active"],
+      ["QAW-1505","Document Control Procedure","Quality","06","Active"],
+      ["GEN-1001","Training & Competency","General","01","Active"]
+    ];
+
+    const csv = rows.map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "procedures_library_list.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+</script>
 {% endblock %}
