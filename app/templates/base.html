@@ -7,24 +7,40 @@
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <style>
+  .erp-shell.single-sidebar-shell {
+    display: flex;
+    width: 100%;
+    min-height: 100vh;
+    align-items: stretch;
+  }
+
   .erp-single-sidebar {
     width: 300px;
     min-width: 300px;
-    transition: width 0.22s ease, min-width 0.22s ease;
+    max-width: 300px;
+    transition: width 0.28s ease, min-width 0.28s ease, max-width 0.28s ease;
     overflow: hidden;
+    flex-shrink: 0;
   }
 
   .erp-single-sidebar.collapsed {
-    width: 78px;
-    min-width: 78px;
+    width: 74px;
+    min-width: 74px;
+    max-width: 74px;
+  }
+
+  .erp-content-shell {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: auto;
+    max-width: none;
+    transition: width 0.28s ease, margin 0.28s ease, padding 0.28s ease;
   }
 
   .erp-single-sidebar.collapsed .erp-sidebar-brand-text,
   .erp-single-sidebar.collapsed .erp-sidebar-section-label,
-  .erp-single-sidebar.collapsed .erp-sidebar-panel-wrap {
-    display: none;
-  }
-
+  .erp-single-sidebar.collapsed .erp-sidebar-divider,
+  .erp-single-sidebar.collapsed .erp-sidebar-panel-wrap,
   .erp-single-sidebar.collapsed .erp-module-row-text,
   .erp-single-sidebar.collapsed .erp-module-row-arrow {
     display: none;
@@ -32,64 +48,27 @@
 
   .erp-single-sidebar.collapsed .erp-module-row {
     justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .erp-single-sidebar.collapsed .erp-sidebar-topbar {
     justify-content: center;
   }
 
-  .erp-content-shell {
-    transition: margin-left 0.22s ease, width 0.22s ease;
+  .erp-single-sidebar.collapsed .erp-sidebar-brand {
+    justify-content: center;
   }
-</style>
-<style>
-  .erp-sidebar-link-group {
-    display: block;
+
+  .erp-single-sidebar.collapsed .erp-sidebar-toggle {
+    transform: rotate(180deg);
+  }
+
+  .page {
     width: 100%;
-  }
-
-  .erp-sidebar-expand-btn {
-    width: 100%;
-    text-align: left;
-    background: none;
-    border: 0;
-    cursor: pointer;
-  }
-
-  .erp-sidebar-link-arrow {
-    margin-left: auto;
-    font-size: 12px;
-    opacity: 0.8;
-  }
-
-  .erp-sidebar-sub-links {
-    margin-left: 18px;
-    margin-top: 4px;
-  }
-
-  .erp-sidebar-sublink {
-    padding-left: 10px;
-    font-size: 0.95em;
-  }
-</style>
-  
-  
-<style>
-  .erp-sidebar-content {
-    transition: opacity 0.22s ease, transform 0.22s ease, filter 0.22s ease;
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
-  }
-
-  .erp-sidebar-content.is-switching {
-    opacity: 0.35;
-    transform: translateY(4px) scale(0.985);
-    filter: blur(2px);
-  }
-
-  .erp-sidebar-links {
-    transition: opacity 0.22s ease, transform 0.22s ease;
+    max-width: none;
+    box-sizing: border-box;
+    transition: width 0.28s ease, max-width 0.28s ease, padding 0.28s ease;
   }
 </style>
 <body>
@@ -198,7 +177,7 @@
     </aside>
     {% endif %}
 
-    <div class="erp-content-shell" style="width:100%;max-width:none;flex:1;min-width:0;">
+    <div class="erp-content-shell">
       <header class="app-header">
         <div class="app-header-inner">
           <div class="app-header-left">
@@ -261,7 +240,7 @@
         </div>
       </header>
 
-      <div class="page" style="max-width:none;width:100%;padding:20px 24px 28px 24px;margin:0;">
+      <div class="page" style="padding:20px 24px 28px 24px;margin:0;">
         {% if user and user.must_change_password %}
           <div class="alert" style="margin-bottom:14px; border-color:#f59e0b; background:#fff7ed; color:#9a3412;">
             Your password is still set to the default or was reset by admin. Please update it from <a href="/me" style="font-weight:800; text-decoration:underline;">My Profile</a>.
@@ -552,19 +531,14 @@ document.addEventListener("DOMContentLoaded", () => {
 })();
 </script>
 
-  <script>
+<script>
 function toggleSidebar() {
   const sidebar = document.getElementById("erpSidebar");
-  const contentShell = document.querySelector(".erp-content-shell");
   const toggleBtn = document.getElementById("erpSidebarToggle");
 
   if (!sidebar) return;
 
   const isCollapsed = sidebar.classList.toggle("collapsed");
-
-  if (contentShell) {
-    contentShell.classList.toggle("sidebar-collapsed", isCollapsed);
-  }
 
   if (toggleBtn) {
     toggleBtn.textContent = isCollapsed ? "›" : "‹";
@@ -577,7 +551,6 @@ function toggleSidebar() {
 
 document.addEventListener("DOMContentLoaded", function () {
   const sidebar = document.getElementById("erpSidebar");
-  const contentShell = document.querySelector(".erp-content-shell");
   const toggleBtn = document.getElementById("erpSidebarToggle");
 
   if (!sidebar) return;
@@ -589,11 +562,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (collapsed) {
     sidebar.classList.add("collapsed");
-    if (contentShell) contentShell.classList.add("sidebar-collapsed");
     if (toggleBtn) toggleBtn.textContent = "›";
   } else {
     sidebar.classList.remove("collapsed");
-    if (contentShell) contentShell.classList.remove("sidebar-collapsed");
     if (toggleBtn) toggleBtn.textContent = "‹";
   }
 });
