@@ -1282,76 +1282,7 @@
         </article>
       </div>
   
-      <article class="rnd-card" style="margin-top:18px;">
-        <div class="rnd-card-head evidence-card-head">
-          <div>
-            <h3 class="rnd-panel-title" style="margin-bottom:4px;">Required evidence checklist</h3>
-            <div class="rnd-panel-sub">Shows which required evidence items are covered by uploaded files</div>
-          </div>
-        </div>
-  
-        <div style="overflow:auto;">
-          <table class="rnd-table">
-            <thead>
-              <tr>
-                <th>Document title</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th>Requirement</th>
-                <th>File</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for row in evidence.rows %}
-              {% set row_type = (row.document_type or '').upper() %}
-              {% set matched_items = attachments | selectattr('document_type', 'equalto', row_type) | list %}
-              {% set match = matched_items[-1] if matched_items else none %}
-              <tr>
-                <td>
-                  <strong>{{ match.title if match else row.document_type.replace('_',' ').title() }}</strong>
-                  <div class="rnd-sub">
-                    Ref: {{ match.reference_no if match and match.reference_no else 'PENDING_ENTRY' }}
-                  </div>
-                </td>
-                <td>
-                  <span class="rnd-badge muted">{{ row.document_type }}</span>
-                </td>
-                <td>
-                  {% if match %}
-                    {% if (match.approval_status or 'PENDING') in ['APPROVED','ACCEPTED'] %}
-                    <span class="rnd-badge ok">{{ match.approval_status }}</span>
-                    {% else %}
-                    <span class="rnd-badge warn">{{ match.approval_status or 'PENDING' }}</span>
-                    {% endif %}
-                  {% else %}
-                    <span class="rnd-badge warn">PENDING</span>
-                  {% endif %}
-                </td>
-                <td>
-                  {% if row.document_type in evidence.required %}
-                  <span class="rnd-badge warn">Mandatory</span>
-                  {% else %}
-                  <span class="rnd-badge muted">Optional</span>
-                  {% endif %}
-                </td>
-                <td>
-                  {% if match and match.file_path %}
-                  <div class="evidence-action-stack">
-                    <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/attachments/{{ match.id }}/download">Download</a>
-                    {% if (match.content_type or '').lower().startswith('application/pdf') %}
-                    <a class="btn btn-ghost" href="/rnd/qualifications/{{ program.id }}/attachments/{{ match.id }}/view" target="_blank">View</a>
-                    {% endif %}
-                  </div>
-                  {% else %}
-                  <span class="rnd-empty">No file</span>
-                  {% endif %}
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </article>
+      
   
       <article class="rnd-card" style="margin-top:18px;">
         <div class="rnd-card-head">
