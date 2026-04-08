@@ -407,42 +407,50 @@ document.addEventListener("DOMContentLoaded", () => {
 
     rnd: {
       badge: "⌬",
-      title: "R&D",
+      title: "",
       links: `
         <style>
+          .erp-sidebar-panel-head{
+            display:none;
+          }
+
           .erp-sidebar-links{
             display:flex;
             flex-direction:column;
-            gap:6px;
+            gap:10px;
           }
 
-          .erp-sidebar-link{
+          .erp-sidebar-link,
+          .erp-sidebar-expand-btn{
             display:flex;
             align-items:center;
-            gap:10px;
+            gap:12px;
             width:100%;
-            min-height:44px;
-            padding:10px 12px;
+            min-height:46px;
+            padding:12px 14px;
             border-radius:14px;
             text-decoration:none;
-            color:#334155;
+            color:#64748b;
             background:transparent;
             border:0;
-            font-weight:600;
-            font-size:14px;
-            transition:all .18s ease;
+            font-weight:700;
+            font-size:15px;
+            line-height:1.2;
+            cursor:pointer;
             box-sizing:border-box;
+            transition:all .18s ease;
           }
 
-          .erp-sidebar-link:hover{
+          .erp-sidebar-link:hover,
+          .erp-sidebar-expand-btn:hover{
             background:#f8fafc;
-            color:#0f172a;
+            color:#334155;
           }
 
-          .erp-sidebar-link.active{
+          .erp-sidebar-link.active,
+          .erp-sidebar-expand-btn.active{
             background:#eef4ff;
             color:#0b67c2;
-            font-weight:700;
           }
 
           .erp-sidebar-link-icon{
@@ -451,66 +459,40 @@ document.addEventListener("DOMContentLoaded", () => {
             display:inline-flex;
             align-items:center;
             justify-content:center;
-            opacity:.85;
+            font-size:14px;
+            opacity:.9;
           }
 
           .erp-sidebar-link-group{
             display:flex;
             flex-direction:column;
-            gap:6px;
-          }
-
-          .erp-sidebar-expand-btn{
-            display:flex;
-            align-items:center;
-            gap:10px;
-            width:100%;
-            min-height:44px;
-            padding:10px 12px;
-            border:none;
-            border-radius:14px;
-            background:transparent;
-            color:#334155;
-            font-weight:600;
-            font-size:14px;
-            cursor:pointer;
-            transition:all .18s ease;
-          }
-
-          .erp-sidebar-expand-btn:hover{
-            background:#f8fafc;
-            color:#0f172a;
-          }
-
-          .erp-sidebar-expand-btn.active{
-            background:#eef4ff;
-            color:#0b67c2;
-            font-weight:700;
+            gap:8px;
           }
 
           .erp-sidebar-link-arrow{
             margin-left:auto;
-            font-size:12px;
-            opacity:.7;
+            font-size:11px;
+            opacity:.65;
           }
 
           .erp-sidebar-sub-links{
             display:flex;
             flex-direction:column;
-            gap:4px;
-            margin:2px 0 0 28px;
-            padding-left:14px;
+            gap:6px;
+            margin:0 0 0 30px;
+            padding-left:12px;
             border-left:1px solid #e2e8f0;
           }
 
           .erp-sidebar-sublink{
-            min-height:36px;
-            padding:8px 10px;
-            border-radius:10px;
-            font-size:13px;
-            font-weight:600;
+            min-height:38px;
+            padding:9px 12px;
+            border-radius:12px;
+            font-size:14px;
+            font-weight:700;
             color:#64748b;
             background:transparent;
+            position:relative;
           }
 
           .erp-sidebar-sublink:hover{
@@ -522,7 +504,6 @@ document.addEventListener("DOMContentLoaded", () => {
             background:#ffffff;
             color:#0b67c2;
             box-shadow:0 1px 2px rgba(15,23,42,.06);
-            position:relative;
           }
 
           .erp-sidebar-sublink.active::after{
