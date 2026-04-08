@@ -1,243 +1,818 @@
 {% extends "base.html" %}
+{% block title %}Edit Qualification Program{% endblock %}
 {% block content %}
-<div class="page" style="max-width:1100px;margin:0 auto;padding:24px;">
-  <div class="qc-card" style="display:grid;gap:18px;">
-    <div>
-      <h1 style="margin:0 0 6px 0;font-size:30px;line-height:1.1;letter-spacing:-.02em;font-weight:800;color:#0f172a;">
-        Edit Program
-      </h1>
-      <div style="color:#64748b;font-size:14px;line-height:1.5;">
-        Update the qualification basis, service factor, service medium, and program scope.
+<div class="card" style="max-width:1380px;margin:0 auto;padding:0;border:none;background:transparent;box-shadow:none;">
+
+  <style>
+    .qp-page{
+      display:grid;
+      gap:18px;
+    }
+    .qp-shell{
+      background:#ffffff;
+      border:1px solid #e5e7eb;
+      border-radius:24px;
+      padding:24px;
+      box-shadow:0 12px 36px rgba(15,23,42,.05);
+    }
+    .qp-topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:14px;
+      margin-bottom:20px;
+    }
+    .qp-title{
+      margin:0;
+      font-size:32px;
+      line-height:1.05;
+      letter-spacing:-0.02em;
+      font-weight:800;
+      color:#0f172a;
+    }
+    .qp-subtitle{
+      margin-top:8px;
+      color:#64748b;
+      font-size:14px;
+      line-height:1.6;
+      max-width:920px;
+    }
+    .qp-back{
+      text-decoration:none;
+      border:1px solid #d7deea;
+      background:#fff;
+      color:#0f172a;
+      padding:10px 16px;
+      border-radius:12px;
+      font-size:13px;
+      font-weight:700;
+      white-space:nowrap;
+    }
+
+    .qp-layout{
+      display:grid;
+      grid-template-columns:minmax(0, 1.35fr) minmax(360px, .95fr);
+      gap:18px;
+      align-items:start;
+    }
+
+    .qp-stack{
+      display:grid;
+      gap:18px;
+    }
+
+    .qp-section{
+      border:1px solid #e5e7eb;
+      border-radius:22px;
+      padding:18px;
+      background:#ffffff;
+    }
+    .qp-section-blue{
+      border:1px solid #dbeafe;
+      background:linear-gradient(180deg,#f8fbff 0%,#ffffff 100%);
+    }
+    .qp-section-gray{
+      border:1px solid #e5e7eb;
+      background:#fafafa;
+    }
+    .qp-section-title{
+      font-size:16px;
+      font-weight:800;
+      color:#0f172a;
+      margin:0 0 4px 0;
+    }
+    .qp-section-note{
+      color:#64748b;
+      font-size:12px;
+      line-height:1.55;
+      margin-bottom:16px;
+    }
+
+    .qp-grid-2{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:14px;
+    }
+    .qp-grid-3{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:14px;
+    }
+    .qp-grid-4{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:14px;
+    }
+    .qp-grid-5{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:14px;
+    }
+
+    .qp-label{
+      display:block;
+      font-size:12px;
+      font-weight:700;
+      color:#334155;
+      margin-bottom:6px;
+    }
+    .qp-input, .qp-select, .qp-textarea{
+      width:100%;
+      padding:12px;
+      border:1px solid #d7deea;
+      border-radius:12px;
+      background:#fff;
+      font-size:14px;
+      color:#0f172a;
+      box-sizing:border-box;
+    }
+    .qp-textarea{
+      resize:vertical;
+      min-height:110px;
+    }
+    .qp-muted{
+      color:#64748b;
+      font-size:12px;
+      margin-top:6px;
+      line-height:1.45;
+    }
+
+    .qp-chip-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:10px;
+    }
+    .qp-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border:1px solid #dbeafe;
+      background:#eff6ff;
+      color:#1d4ed8;
+      border-radius:999px;
+      padding:8px 12px;
+      font-size:12px;
+      font-weight:700;
+    }
+
+    .qp-library-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-bottom:16px;
+    }
+    .qp-badge{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-width:28px;
+      height:28px;
+      padding:0 10px;
+      border-radius:999px;
+      background:#eef2ff;
+      color:#4338ca;
+      font-size:12px;
+      font-weight:800;
+      border:1px solid #d9ddff;
+    }
+    .qp-search{
+      margin-bottom:14px;
+    }
+    .qp-library-list{
+      display:grid;
+      gap:12px;
+      max-height:720px;
+      overflow:auto;
+      padding-right:4px;
+    }
+    .qp-library-card{
+      border:1px solid #e5e7eb;
+      border-radius:18px;
+      background:#fff;
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+    .qp-library-top{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+    }
+    .qp-library-title{
+      margin:0;
+      font-size:15px;
+      font-weight:800;
+      color:#0f172a;
+    }
+    .qp-library-desc{
+      color:#64748b;
+      font-size:13px;
+      line-height:1.55;
+      margin-top:4px;
+    }
+    .qp-mini-chip-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
+    .qp-mini-chip{
+      display:inline-flex;
+      align-items:center;
+      border:1px solid #e2e8f0;
+      background:#f8fafc;
+      color:#475569;
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:11px;
+      font-weight:700;
+    }
+
+    .qp-btn{
+      border:none;
+      background:#2563eb;
+      color:#fff;
+      padding:12px 18px;
+      border-radius:12px;
+      font-size:13px;
+      font-weight:700;
+      cursor:pointer;
+      transition:all .18s ease;
+    }
+    .qp-btn:hover{
+      transform:translateY(-1px);
+      box-shadow:0 12px 24px rgba(37,99,235,.18);
+    }
+    .qp-btn-secondary{
+      border:1px solid #d7deea;
+      background:#fff;
+      color:#0f172a;
+      padding:12px 18px;
+      border-radius:12px;
+      font-size:13px;
+      font-weight:700;
+      cursor:pointer;
+      text-decoration:none;
+      transition:all .18s ease;
+    }
+    .qp-btn-secondary:hover{
+      background:#f8fafc;
+    }
+    .qp-btn-danger{
+      border:1px solid #fecaca;
+      background:#fff5f5;
+      color:#b91c1c;
+      padding:10px 14px;
+      border-radius:10px;
+      font-size:12px;
+      font-weight:700;
+      cursor:pointer;
+    }
+    .qp-btn-icon{
+      width:38px;
+      height:38px;
+      border:none;
+      border-radius:12px;
+      background:#eef2ff;
+      color:#4338ca;
+      font-size:22px;
+      font-weight:700;
+      cursor:pointer;
+      flex:0 0 auto;
+    }
+
+    .qp-test-list{
+      display:grid;
+      gap:14px;
+    }
+    .qp-test-card{
+      border:1px solid #e5e7eb;
+      border-radius:18px;
+      background:#fff;
+      padding:16px;
+    }
+    .qp-test-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:12px;
+      margin-bottom:14px;
+    }
+    .qp-test-name{
+      font-size:14px;
+      font-weight:800;
+      color:#0f172a;
+      margin:0;
+    }
+    .qp-test-sub{
+      color:#64748b;
+      font-size:12px;
+      margin-top:4px;
+    }
+    .qp-test-grid{
+      display:grid;
+      grid-template-columns:1.3fr .9fr .8fr .8fr;
+      gap:12px;
+      margin-bottom:12px;
+    }
+    .qp-test-grid-2{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:12px;
+    }
+
+    .qp-empty{
+      border:1px dashed #cbd5e1;
+      background:#f8fafc;
+      padding:18px;
+      border-radius:16px;
+      color:#64748b;
+      font-size:13px;
+      line-height:1.6;
+    }
+
+    .qp-actions{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+      padding-top:8px;
+      margin-top:6px;
+    }
+
+    .qp-hidden{
+      display:none !important;
+    }
+
+    @media (max-width: 1120px){
+      .qp-layout{
+        grid-template-columns:1fr;
+      }
+      .qp-library-list{
+        max-height:none;
+      }
+    }
+
+    @media (max-width: 980px){
+      .qp-grid-2,.qp-grid-3,.qp-grid-4,.qp-grid-5,.qp-test-grid,.qp-test-grid-2{
+        grid-template-columns:1fr;
+      }
+      .qp-topbar,.qp-library-head{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+    }
+  </style>
+
+  <form method="post" action="/rnd/qualifications/{{ program.id }}/edit" class="qp-page">
+    <div class="qp-shell">
+      <div class="qp-topbar">
+        <div>
+          <h1 class="qp-title">Edit Qualification Program</h1>
+          <div class="qp-subtitle">
+            Update the qualification basis, product envelope, and planning setup. For non-standard qualifications, use the test library to build the test scope the way an engineer actually plans it.
+          </div>
+        </div>
+        <a class="qp-back" href="/rnd/qualifications/{{ program.id }}">Back to Program</a>
+      </div>
+
+      <div class="qp-layout">
+        <div class="qp-stack">
+          <div class="qp-section qp-section-blue">
+            <div class="qp-section-title">Program Configuration</div>
+            <div class="qp-section-note">
+              Core qualification information used across the program and test guidance pages.
+            </div>
+
+            <div class="qp-grid-2">
+              <div>
+                <label class="qp-label">Program Type</label>
+                <select name="program_type" id="program_type" class="qp-select" onchange="toggleProgramTypeFields()">
+                  <option value="API_15S" {% if (program.program_type or 'API_15S') == 'API_15S' %}selected{% endif %}>API 15S Monogram</option>
+                  <option value="OTHER" {% if (program.program_type or '') == 'OTHER' %}selected{% endif %}>Other Qualification</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="qp-label">Qualification Standard / Basis</label>
+                <input type="text" name="qualification_standard" id="qualification_standard" value="{{ program.qualification_standard or '' }}" class="qp-input">
+              </div>
+            </div>
+
+            <div class="qp-grid-2" style="margin-top:14px;">
+              <div>
+                <label class="qp-label">Program Code</label>
+                <input type="text" name="program_code" required class="qp-input" value="{{ program.program_code or '' }}">
+              </div>
+
+              <div>
+                <label class="qp-label">Program Name</label>
+                <input type="text" name="title" required class="qp-input" value="{{ program.title or '' }}">
+              </div>
+            </div>
+
+            <div class="qp-grid-5" style="margin-top:14px;">
+              <div>
+                <label class="qp-label">Nominal Size (in)</label>
+                <input type="number" step="0.01" name="nominal_size_in" value="{{ program.nominal_size_in or 0 }}" class="qp-input">
+              </div>
+
+              <div>
+                <label class="qp-label">Pipe Outside Diameter (OD) (mm)</label>
+                <input type="number" step="0.01" name="pipe_od_mm" value="{{ program.pipe_od_mm or '' }}" class="qp-input" placeholder="Example: 114.30">
+              </div>
+
+              <div>
+                <label class="qp-label">NPR (MPa)</label>
+                <input type="number" step="0.001" name="npr_mpa" value="{{ program.npr_mpa or 0 }}" class="qp-input">
+              </div>
+
+              <div>
+                <label class="qp-label">MAOT (°C)</label>
+                <input type="number" step="0.1" name="maot_c" value="{{ program.maot_c or 0 }}" class="qp-input">
+              </div>
+
+              <div>
+                <label class="qp-label">LAOT (°C)</label>
+                <input type="number" step="0.1" name="laot_c" value="{{ program.laot_c or 0 }}" class="qp-input">
+              </div>
+            </div>
+
+            <div class="qp-muted">
+              Use the real confirmed OD in mm. This will support clearer specimen preparation and OD-based sample length rules later.
+            </div>
+
+            <div class="qp-grid-3" style="margin-top:14px;">
+              <div>
+                <label class="qp-label">Service Medium</label>
+                <select name="service_medium" class="qp-select">
+                  <option value="WATER" {% if (program.service_medium or '') == 'WATER' %}selected{% endif %}>Water</option>
+                  <option value="GAS" {% if (program.service_medium or '') == 'GAS' %}selected{% endif %}>Gas</option>
+                  <option value="HYDROCARBON" {% if (program.service_medium or '') == 'HYDROCARBON' %}selected{% endif %}>Hydrocarbon</option>
+                  <option value="LIQUIDS" {% if (program.service_medium or '') == 'LIQUIDS' %}selected{% endif %}>Liquids</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="qp-label">Service Factor</label>
+                <input type="number" step="0.001" name="service_factor" value="{{ program.service_factor or 1.0 }}" class="qp-input">
+              </div>
+
+              <div>
+                <label class="qp-label">Intended Service</label>
+                <input type="text" name="intended_service" value="{{ program.intended_service or '' }}" class="qp-input" placeholder="Example: hydrocarbon liquid">
+              </div>
+            </div>
+          </div>
+
+          <div id="api15s_fields" class="qp-section qp-section-blue">
+            <div class="qp-section-title">API 15S Program Settings</div>
+            <div class="qp-section-note">
+              API route details. Standard tests are already seeded for API 15S programs. The library on the right is best used for extra client/internal tests.
+            </div>
+
+            <div class="qp-grid-2">
+              <div>
+                <label class="qp-label">PFR or PV</label>
+                <select name="pfr_or_pv" class="qp-select">
+                  <option value="PFR" {% if (program.pfr_or_pv or 'PFR') == 'PFR' %}selected{% endif %}>PFR</option>
+                  <option value="PV" {% if (program.pfr_or_pv or '') == 'PV' %}selected{% endif %}>PV</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="qp-label">Parent Program ID</label>
+                <input type="number" name="parent_program_id" value="{{ program.parent_program_id or '' }}" class="qp-input">
+              </div>
+            </div>
+
+            <div class="qp-grid-4" style="margin-top:14px;">
+              <div>
+                <label class="qp-label">Product Family</label>
+                <input type="text" name="product_family" value="{{ program.product_family or '' }}" class="qp-input">
+              </div>
+
+              <div>
+                <label class="qp-label">Reinforcement Type</label>
+                <input type="text" name="reinforcement_type" value="{{ program.reinforcement_type or '' }}" class="qp-input">
+              </div>
+
+              <div>
+                <label class="qp-label">Liner Material</label>
+                <input type="text" name="liner_material" value="{{ program.liner_material or '' }}" class="qp-input">
+              </div>
+
+              <div>
+                <label class="qp-label">Reinforcement Material</label>
+                <input type="text" name="reinforcement_material" value="{{ program.reinforcement_material or '' }}" class="qp-input">
+              </div>
+            </div>
+
+            <div style="margin-top:14px;">
+              <label class="qp-label">Cover Material</label>
+              <input type="text" name="cover_material" value="{{ program.cover_material or '' }}" class="qp-input">
+            </div>
+
+            <div class="qp-chip-row">
+              <div class="qp-chip">Standard API 15S tests stay managed by the seeded route</div>
+              <div class="qp-chip">Use library additions for client/internal extras</div>
+            </div>
+          </div>
+
+          <div id="other_fields" class="qp-section qp-section-gray qp-hidden">
+            <div class="qp-section-title">Other Qualification Basis</div>
+            <div class="qp-section-note">
+              For non-API qualifications, let the selected tests define the actual program scope instead of relying only on free text.
+            </div>
+
+            <div style="margin-bottom:14px;">
+              <label class="qp-label">Client / Internal Standard Name</label>
+              <input type="text" name="qualification_standard_other" id="qualification_standard_other" class="qp-input" value="{% if (program.program_type or '') == 'OTHER' %}{{ program.qualification_standard or '' }}{% endif %}" placeholder="Example: Client Spec 4.2 / Internal Validation Protocol">
+            </div>
+
+            <div class="qp-grid-2">
+              <div>
+                <label class="qp-label">Qualification Requirements</label>
+                <textarea name="custom_requirements" class="qp-textarea" placeholder="Describe the qualification objective, service envelope, or client expectation.">{{ program.custom_requirements or '' }}</textarea>
+              </div>
+
+              <div>
+                <label class="qp-label">Acceptance Criteria</label>
+                <textarea name="custom_acceptance_criteria" class="qp-textarea" placeholder="Describe the overall acceptance basis or release condition.">{{ program.custom_acceptance_criteria or '' }}</textarea>
+              </div>
+            </div>
+          </div>
+
+          <div class="qp-section qp-section-gray">
+            <div class="qp-section-title">Notes</div>
+            <div class="qp-section-note">
+              Optional planning notes, engineering remarks, or internal coordination comments.
+            </div>
+            <textarea name="notes" rows="4" class="qp-textarea" placeholder="Optional notes...">{{ program.notes or '' }}</textarea>
+          </div>
+
+          <div class="qp-actions">
+            <button type="submit" class="qp-btn">Save Program Changes</button>
+            <a href="/rnd/qualifications/{{ program.id }}" class="qp-btn-secondary">Cancel</a>
+          </div>
+        </div>
+
+        <div class="qp-stack">
+          <div class="qp-section">
+            <div class="qp-library-head">
+              <div>
+                <div class="qp-section-title">Test Library</div>
+                <div class="qp-section-note" style="margin-bottom:0;">
+                  Choose reusable tests and add them into this program scope. In the next step we will wire these cards to save from edit mode too.
+                </div>
+              </div>
+              <div class="qp-badge" id="library_count_badge">0</div>
+            </div>
+
+            <div class="qp-search">
+              <input type="text" id="test_library_search" class="qp-input" placeholder="Search tests..." oninput="renderLibrary()">
+            </div>
+
+            <div class="qp-library-list" id="test_library_cards"></div>
+          </div>
+
+          <div class="qp-section qp-section-gray">
+            <div class="qp-section-title">Selected Tests for This Program</div>
+            <div class="qp-section-note">
+              These cards are for the new selection workflow. They already let the user rename the test and adjust specimen count, scope, and description. Backend save wiring comes next.
+            </div>
+
+            <div id="selected_tests" class="qp-test-list"></div>
+
+            <div id="empty_tests_state" class="qp-empty">
+              No extra test has been added yet. Start from the library above and add only the tests that are really needed for this qualification.
+            </div>
+          </div>
+        </div>
       </div>
     </div>
-
-    <form method="post" action="/rnd/qualifications/{{ program.id }}/edit" style="display:grid;gap:16px;">
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
-        <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Program Type</label>
-          <select name="program_type" id="edit_program_type" onchange="toggleEditProgramTypeFields()" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-            <option value="API_15S" {% if (program.program_type or 'API_15S') == 'API_15S' %}selected{% endif %}>API 15S Monogram</option>
-            <option value="OTHER" {% if (program.program_type or '') == 'OTHER' %}selected{% endif %}>Other Qualification</option>
-          </select>
-        </div>
-
-        <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Qualification Standard / Basis</label>
-          <input type="text" name="qualification_standard" id="edit_qualification_standard" value="{{ program.qualification_standard or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
-        <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Program Code</label>
-          <input type="text" name="program_code" value="{{ program.program_code or '' }}" required style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-        </div>
-
-        <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Program Name</label>
-          <input type="text" name="title" value="{{ program.title or '' }}" required style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;">
-        <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Nominal Size (in)</label>
-          <input type="number" step="0.01" name="nominal_size_in" value="{{ program.nominal_size_in or 0 }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-        </div>
-      
-        <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Pipe Outside Diameter (OD) (mm)</label>
-          <input type="number" step="0.01" name="pipe_od_mm" value="{{ program.pipe_od_mm or '' }}" placeholder="Example: 114.30" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-        </div>
-      
-        <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">NPR (MPa)</label>
-          <input type="number" step="0.001" name="npr_mpa" value="{{ program.npr_mpa or 0 }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-        </div>
-      
-        <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">MAOT (°C)</label>
-          <input type="number" step="0.1" name="maot_c" value="{{ program.maot_c or 0 }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-        </div>
-      
-        <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">LAOT (°C)</label>
-          <input type="number" step="0.1" name="laot_c" value="{{ program.laot_c or 0 }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-        </div>
-      </div>
-      
-      <div style="margin-top:-6px;font-size:12px;color:#64748b;line-height:1.5;">
-        Use the real qualified pipe outside diameter in mm. This value will be used for specimen preparation guidance and OD-based sample length calculations.
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
-        <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Service Medium</label>
-          <select name="service_medium" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-            <option value="WATER" {% if (program.service_medium or 'WATER') == 'WATER' %}selected{% endif %}>Water</option>
-            <option value="GAS" {% if (program.service_medium or '') == 'GAS' %}selected{% endif %}>Gas</option>
-            <option value="HYDROCARBON" {% if (program.service_medium or '') == 'HYDROCARBON' %}selected{% endif %}>Hydrocarbon</option>
-            <option value="LIQUIDS" {% if (program.service_medium or '') == 'LIQUIDS' %}selected{% endif %}>Liquids</option>
-          </select>
-        </div>
-
-        <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Service Factor</label>
-          <input type="number" step="0.001" name="service_factor" value="{{ program.service_factor or 1.0 }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-        </div>
-      </div>
-
-      <div>
-        <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Intended Service</label>
-        <input type="text" name="intended_service" value="{{ program.intended_service or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-      </div>
-
-      <div id="edit_api15s_fields" style="display:grid;gap:14px;padding:16px;border:1px solid #e5e7eb;border-radius:18px;background:#f8fafc;">
-        <div style="font-size:13px;font-weight:700;color:#0f172a;">API 15S Program Settings</div>
-
-        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;">
-          <div>
-            <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">PFR or PV</label>
-            <select name="pfr_or_pv" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-              <option value="PFR" {% if (program.pfr_or_pv or 'PFR') == 'PFR' %}selected{% endif %}>PFR</option>
-              <option value="PV" {% if (program.pfr_or_pv or '') == 'PV' %}selected{% endif %}>PV</option>
-            </select>
-          </div>
-
-          <div>
-            <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Parent Program ID</label>
-            <input type="number" name="parent_program_id" value="{{ program.parent_program_id or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;">
-          <div>
-            <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Product Family</label>
-            <input type="text" name="product_family" value="{{ program.product_family or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-          </div>
-
-          <div>
-            <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Reinforcement Type</label>
-            <input type="text" name="reinforcement_type" value="{{ program.reinforcement_type or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-          </div>
-
-          <div>
-            <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Liner Material</label>
-            <input type="text" name="liner_material" value="{{ program.liner_material or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-          </div>
-
-          <div>
-            <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Reinforcement Material</label>
-            <input type="text" name="reinforcement_material" value="{{ program.reinforcement_material or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-          </div>
-        </div>
-
-        <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Cover Material</label>
-          <input type="text" name="cover_material" value="{{ program.cover_material or '' }}" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">
-        </div>
-      </div>
-
-      <div id="edit_other_fields" style="display:grid;gap:14px;padding:16px;border:1px solid #e5e7eb;border-radius:18px;background:#fcfcfd;">
-        <div style="font-size:13px;font-weight:700;color:#0f172a;">Custom Qualification Settings</div>
-
-        <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Qualification Requirements</label>
-          <textarea name="custom_requirements" rows="4" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">{{ program.custom_requirements or '' }}</textarea>
-        </div>
-
-        <div>
-          <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Acceptance Criteria</label>
-          <textarea name="custom_acceptance_criteria" rows="4" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">{{ program.custom_acceptance_criteria or '' }}</textarea>
-        </div>
-      </div>
-
-      <div>
-        <label style="display:block;font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">Notes</label>
-        <textarea name="notes" rows="4" style="width:100%;padding:12px;border:1px solid #d7deea;border-radius:12px;background:#fff;">{{ program.notes or '' }}</textarea>
-      </div>
-
-      <style>
-      .rnd-primary-btn{
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        min-height:44px;
-        padding:0 18px;
-        border:none;
-        border-radius:14px;
-        background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%);
-        color:#ffffff;
-        text-decoration:none;
-        font-size:14px;
-        font-weight:700;
-        line-height:1;
-        letter-spacing:.01em;
-        box-shadow:0 10px 24px rgba(37,99,235,.20);
-        transition:all .18s ease;
-        cursor:pointer;
-        min-width:170px;
-      }
-      
-      .rnd-primary-btn:hover{
-        transform:translateY(-1px);
-        box-shadow:0 14px 28px rgba(37,99,235,.24);
-      }
-      
-      .rnd-secondary-btn{
-        display:inline-flex;
-        align-items:center;
-        justify-content:center;
-        min-height:44px;
-        padding:0 18px;
-        border-radius:14px;
-        border:1px solid #d7deea;
-        background:#ffffff;
-        color:#0f172a;
-        text-decoration:none;
-        font-size:14px;
-        font-weight:700;
-        line-height:1;
-        transition:all .18s ease;
-        min-width:120px;
-      }
-      
-      .rnd-secondary-btn:hover{
-        background:#f8fafc;
-        border-color:#cbd5e1;
-      }
-      </style>
-      
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding-top:4px;">
-        <button type="submit" class="rnd-primary-btn">Save Changes</button>
-        <a href="/rnd/qualifications/{{ program.id }}" class="rnd-secondary-btn">Back</a>
-      </div>
-    </form>
-  </div>
+  </form>
 </div>
 
 <script>
-function toggleEditProgramTypeFields() {
-  const type = document.getElementById('edit_program_type').value;
-  const apiBox = document.getElementById('edit_api15s_fields');
-  const otherBox = document.getElementById('edit_other_fields');
-  const standard = document.getElementById('edit_qualification_standard');
+const COMMON_TEST_LIBRARY = [
+  { code: "HYD_PROOF", title: "Hydrostatic Proof", clause_ref: "", specimen_count: 2, scope_tag: "BOTH", source_standard: "CUSTOM", description: "Short-term proof or hold test under defined pressure and temperature condition.", has_pressure: true, has_temperature: true, has_duration: true },
+  { code: "BURST", title: "Burst Test", clause_ref: "", specimen_count: 2, scope_tag: "BOTH", source_standard: "CUSTOM", description: "Burst performance verification at defined condition.", has_pressure: true, has_temperature: true, has_duration: false },
+  { code: "TEMP_CYCLE", title: "Thermal Cycling", clause_ref: "", specimen_count: 2, scope_tag: "BOTH", source_standard: "CUSTOM", description: "Thermal cycling resistance under repeated temperature transitions.", has_pressure: false, has_temperature: true, has_duration: true },
+  { code: "PRESSURE_CYCLE", title: "Pressure Cycling", clause_ref: "", specimen_count: 2, scope_tag: "BOTH", source_standard: "CUSTOM", description: "Cyclic pressure resistance under repeated internal pressure variation.", has_pressure: true, has_temperature: true, has_duration: true },
+  { code: "MPR_REG", title: "Long-Term Hydrostatic Regression", clause_ref: "API 15S 5.3.2", specimen_count: 18, scope_tag: "PFR", source_standard: "API_15S", description: "Long-term hydrostatic regression basis for pressure rating confirmation.", has_pressure: true, has_temperature: true, has_duration: true },
+  { code: "PV_1000H", title: "1000-Hour Pressure Verification", clause_ref: "API 15S 5.3.4", specimen_count: 2, scope_tag: "PV", source_standard: "API_15S", description: "1000-hour pressure confirmation for PV membership.", has_pressure: true, has_temperature: true, has_duration: true },
+  { code: "TEMP_ELEV", title: "Elevated Temperature Verification", clause_ref: "API 15S 5.3.5", specimen_count: 1, scope_tag: "BOTH", source_standard: "API_15S", description: "Performance confirmation above MAOT under defined pressure.", has_pressure: true, has_temperature: true, has_duration: true },
+  { code: "OPERATING_MBR", title: "Operating MBR", clause_ref: "API 15S 5.3.8.1", specimen_count: 2, scope_tag: "BOTH", source_standard: "API_15S", description: "Verification of installed/pressurized bend capability.", has_pressure: true, has_temperature: false, has_duration: false },
+  { code: "HANDLING_MBR", title: "Handling MBR", clause_ref: "API 15S 5.3.8.2", specimen_count: 2, scope_tag: "PFR", source_standard: "API_15S", description: "Pre-bend or handling bend qualification before service loading.", has_pressure: false, has_temperature: false, has_duration: false },
+  { code: "IMPACT", title: "Impact Testing", clause_ref: "", specimen_count: 3, scope_tag: "CUSTOM", source_standard: "CUSTOM", description: "Determines the impact resistance at defined conditioning and impact location.", has_pressure: false, has_temperature: true, has_duration: false },
+  { code: "TENSILE", title: "Tensile Testing", clause_ref: "", specimen_count: 3, scope_tag: "CUSTOM", source_standard: "CUSTOM", description: "Measures resistance to static tensile loading and material response.", has_pressure: false, has_temperature: false, has_duration: false }
+];
+
+let testIndex = 0;
+
+function toggleProgramTypeFields() {
+  const type = document.getElementById('program_type').value;
+  const apiBox = document.getElementById('api15s_fields');
+  const otherBox = document.getElementById('other_fields');
+  const standard = document.getElementById('qualification_standard');
+  const standardOther = document.getElementById('qualification_standard_other');
 
   if (type === 'OTHER') {
-    apiBox.style.display = 'none';
-    otherBox.style.display = 'grid';
+    apiBox.classList.add('qp-hidden');
+    otherBox.classList.remove('qp-hidden');
     if (!standard.value || standard.value === 'API 15S R3') {
-      standard.value = 'OTHER QUALIFICATION';
+      standard.value = standardOther && standardOther.value ? standardOther.value : 'OTHER QUALIFICATION';
     }
   } else {
-    apiBox.style.display = 'grid';
-    otherBox.style.display = 'none';
+    apiBox.classList.remove('qp-hidden');
+    otherBox.classList.add('qp-hidden');
     if (!standard.value || standard.value === 'OTHER QUALIFICATION') {
       standard.value = 'API 15S R3';
     }
   }
 }
 
-document.addEventListener('DOMContentLoaded', toggleEditProgramTypeFields);
+function renderLibrary() {
+  const wrap = document.getElementById('test_library_cards');
+  const q = (document.getElementById('test_library_search').value || '').trim().toLowerCase();
+
+  const filtered = COMMON_TEST_LIBRARY.filter(test => {
+    const blob = [
+      test.title,
+      test.code,
+      test.description,
+      test.clause_ref,
+      test.scope_tag
+    ].join(' ').toLowerCase();
+    return !q || blob.includes(q);
+  });
+
+  document.getElementById('library_count_badge').textContent = `${filtered.length} Available`;
+  wrap.innerHTML = '';
+
+  filtered.forEach((test) => {
+    const card = document.createElement('div');
+    card.className = 'qp-library-card';
+
+    const chips = [];
+    chips.push(`<span class="qp-mini-chip">${escapeHtml(String(test.specimen_count || '-'))} samples</span>`);
+    if (test.has_pressure) chips.push(`<span class="qp-mini-chip">Pressure</span>`);
+    if (test.has_temperature) chips.push(`<span class="qp-mini-chip">Temperature</span>`);
+    if (test.has_duration) chips.push(`<span class="qp-mini-chip">Duration / Period</span>`);
+    if (test.scope_tag) chips.push(`<span class="qp-mini-chip">${escapeHtml(test.scope_tag)}</span>`);
+
+    card.innerHTML = `
+      <div class="qp-library-top">
+        <div>
+          <div class="qp-library-title">${escapeHtml(test.title)}</div>
+          <div class="qp-library-desc">${escapeHtml(test.description || '')}</div>
+        </div>
+        <button type="button" class="qp-btn-icon" onclick='addLibraryTest(${JSON.stringify(test).replace(/'/g, "&apos;")})'>+</button>
+      </div>
+      <div class="qp-mini-chip-row">${chips.join('')}</div>
+    `;
+    wrap.appendChild(card);
+  });
+}
+
+function addLibraryTest(test) {
+  addTestCard({
+    code: test.code || '',
+    title: test.title || '',
+    clause_ref: test.clause_ref || '',
+    specimen_count: test.specimen_count || '',
+    scope_tag: test.scope_tag || 'CUSTOM',
+    source_standard: test.source_standard || 'CUSTOM',
+    description: test.description || '',
+    has_pressure: !!test.has_pressure,
+    has_temperature: !!test.has_temperature,
+    has_duration: !!test.has_duration
+  });
+}
+
+function addTestCard(data) {
+  const container = document.getElementById('selected_tests');
+  const emptyState = document.getElementById('empty_tests_state');
+  emptyState.style.display = 'none';
+
+  const idx = testIndex++;
+  const div = document.createElement('div');
+  div.className = 'qp-test-card';
+  div.setAttribute('data-test-idx', idx);
+
+  div.innerHTML = `
+    <div class="qp-test-head">
+      <div>
+        <div class="qp-test-name">Selected Test #${idx + 1}</div>
+        <div class="qp-test-sub">Adjust the test title, specimen count, scope, and planning notes. In the next step we will also save these from edit mode.</div>
+      </div>
+      <button type="button" class="qp-btn-danger" onclick="removeTestCard(${idx})">Remove</button>
+    </div>
+
+    <div class="qp-test-grid">
+      <div>
+        <label class="qp-label">Test Title</label>
+        <input type="text" name="selected_test_title[]" class="qp-input" value="${escapeHtml(data.title || '')}">
+      </div>
+
+      <div>
+        <label class="qp-label">Test Code</label>
+        <input type="text" name="selected_test_code[]" class="qp-input" value="${escapeHtml(data.code || '')}">
+      </div>
+
+      <div>
+        <label class="qp-label">Clause / Ref</label>
+        <input type="text" name="selected_test_clause_ref[]" class="qp-input" value="${escapeHtml(data.clause_ref || '')}">
+      </div>
+
+      <div>
+        <label class="qp-label">Specimen Count</label>
+        <input type="number" min="1" step="1" name="selected_test_specimen_count[]" class="qp-input" value="${escapeHtml(data.specimen_count || '')}">
+      </div>
+    </div>
+
+    <div class="qp-test-grid-2">
+      <div>
+        <label class="qp-label">Scope</label>
+        <select name="selected_test_scope_tag[]" class="qp-select">
+          <option value="BOTH" ${data.scope_tag === 'BOTH' ? 'selected' : ''}>Both</option>
+          <option value="PFR" ${data.scope_tag === 'PFR' ? 'selected' : ''}>PFR</option>
+          <option value="PV" ${data.scope_tag === 'PV' ? 'selected' : ''}>PV</option>
+          <option value="CUSTOM" ${data.scope_tag === 'CUSTOM' ? 'selected' : ''}>Custom</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="qp-label">Source Standard</label>
+        <select name="selected_test_source_standard[]" class="qp-select">
+          <option value="CUSTOM" ${data.source_standard === 'CUSTOM' ? 'selected' : ''}>Custom</option>
+          <option value="CLIENT" ${data.source_standard === 'CLIENT' ? 'selected' : ''}>Client</option>
+          <option value="INTERNAL" ${data.source_standard === 'INTERNAL' ? 'selected' : ''}>Internal</option>
+          <option value="API_15S" ${data.source_standard === 'API_15S' ? 'selected' : ''}>API 15S</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="qp-grid-3" style="margin-top:12px;">
+      <div>
+        <label class="qp-label">Target Pressure (optional)</label>
+        <input type="text" class="qp-input" placeholder="${data.has_pressure ? 'Can be adjusted for this program' : 'Not usually needed for this test'}">
+      </div>
+      <div>
+        <label class="qp-label">Target Temperature (optional)</label>
+        <input type="text" class="qp-input" placeholder="${data.has_temperature ? 'Can be adjusted for this program' : 'Not usually needed for this test'}">
+      </div>
+      <div>
+        <label class="qp-label">Period / Hold Duration (optional)</label>
+        <input type="text" class="qp-input" placeholder="${data.has_duration ? 'Example: 1000 h / 24 h / 30 cycles' : 'Not usually needed for this test'}">
+      </div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <label class="qp-label">Description / Test Intent</label>
+      <textarea name="selected_test_description[]" class="qp-textarea" rows="3">${escapeHtml(data.description || '')}</textarea>
+    </div>
+  `;
+
+  container.appendChild(div);
+}
+
+function removeTestCard(idx) {
+  const card = document.querySelector('[data-test-idx="' + idx + '"]');
+  if (card) card.remove();
+
+  const container = document.getElementById('selected_tests');
+  const emptyState = document.getElementById('empty_tests_state');
+  if (!container.children.length) {
+    emptyState.style.display = 'block';
+  }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  renderLibrary();
+  toggleProgramTypeFields();
+
+  const otherBasisInput = document.getElementById('qualification_standard_other');
+  if (otherBasisInput) {
+    otherBasisInput.addEventListener('input', function () {
+      const mainBasis = document.getElementById('qualification_standard');
+      if (document.getElementById('program_type').value === 'OTHER') {
+        mainBasis.value = this.value.trim() || 'OTHER QUALIFICATION';
+      }
+    });
+  }
+});
 </script>
 {% endblock %}
