@@ -133,13 +133,14 @@ def _csv_escape(value) -> str:
 
 def _build_csv_bytes(documents) -> bytes:
     lines = []
-    lines.append("Code,Title,Category,Revision,Status,Issue Date,Review Date")
+    lines.append("Code,Title,Category,Classification,Revision,Status,Issue Date,Review Date")
 
     for row in documents:
         parts = [
             _csv_escape(row.code or ""),
             _csv_escape(row.title or ""),
             _csv_escape(row.category or ""),
+            _csv_escape(row.classification or ""),
             _csv_escape(row.revision or ""),
             _csv_escape(row.status or ""),
             _csv_escape(row.issue_date or ""),
