@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import csv
+import io
 import os
 import mimetypes
-import shutil
 import uuid
 from datetime import datetime, date
 from pathlib import Path
@@ -33,10 +32,6 @@ def _require_user(session: Session = Depends(get_session)) -> User:
     if not user:
         raise HTTPException(status_code=401, detail="No users found.")
     return user
-
-
-def _touch_document(row: ManagedDocument) -> None:
-    row.updated_at = datetime.utcnow()
 
 
 def _safe_filename(filename: str) -> str:
@@ -90,7 +85,9 @@ def _base_document_query(session: Session, library_type: str, search: str = "", 
     if category and category.lower() != "all":
         statement = statement.where(ManagedDocument.category == category)
 
-    rows = session.exec(statement.order_by(ManagedDocument.updated_at.desc(), ManagedDocument.id.desc())).all()
+    rows = session.exec(
+        statement.order_by(ManagedDocument.updated_at.desc(), ManagedDocument.id.desc())
+    ).all()
 
     if search:
         needle = search.strip().lower()
@@ -115,15 +112,42 @@ def _base_document_query(session: Session, library_type: str, search: str = "", 
 
 
 def _category_list(session: Session, library_type: str):
+    rows = session.exec(
+        select(ManagedDocument).where(ManagedDocument.library_type == library_type)
+    ).all()
+
     return sorted(
         {
             (row.category or "").strip()
-            for row in session.exec(
-                select(ManagedDocument).where(ManagedDocument.library_type == library_type)
-            ).all()
+            for row in rows
             if (row.category or "").strip()
         }
     )
+
+
+def _csv_escape(value) -> str:
+    text = "" if value is None else str(value)
+    text = text.replace('"', '""')
+    return f'"{text}"'
+
+
+def _build_csv_bytes(documents) -> bytes:
+    lines = []
+    lines.append("Code,Title,Category,Revision,Status,Issue Date,Review Date")
+
+    for row in documents:
+        parts = [
+            _csv_escape(row.code or ""),
+            _csv_escape(row.title or ""),
+            _csv_escape(row.category or ""),
+            _csv_escape(row.revision or ""),
+            _csv_escape(row.status or ""),
+            _csv_escape(row.issue_date or ""),
+            _csv_escape(row.review_date or ""),
+        ]
+        lines.append(",".join(parts))
+
+    return ("\n".join(lines) + "\n").encode("utf-8")
 
 
 @router.get("")
@@ -343,21 +367,10 @@ def export_procedures(
         category=category,
     )
 
-    def generate():
-        yield "Code,Title,Category,Revision,Status,Issue Date,Review Date\n"
-        for row in documents:
-            yield (
-                f"\"{(row.code or '').replace('\"', '\"\"')}\","
-                f"\"{(row.title or '').replace('\"', '\"\"')}\","
-                f"\"{(row.category or '').replace('\"', '\"\"')}\","
-                f"\"{(row.revision or '').replace('\"', '\"\"')}\","
-                f"\"{(row.status or '').replace('\"', '\"\"')}\","
-                f"\"{row.issue_date or ''}\","
-                f"\"{row.review_date or ''}\"\n"
-            )
+    csv_bytes = _build_csv_bytes(documents)
 
     return StreamingResponse(
-        generate(),
+        io.BytesIO(csv_bytes),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=procedures_library_list.csv"},
     )
@@ -377,21 +390,10 @@ def export_standards(
         category=category,
     )
 
-    def generate():
-        yield "Code,Title,Category,Revision,Status,Issue Date,Review Date\n"
-        for row in documents:
-            yield (
-                f"\"{(row.code or '').replace('\"', '\"\"')}\","
-                f"\"{(row.title or '').replace('\"', '\"\"')}\","
-                f"\"{(row.category or '').replace('\"', '\"\"')}\","
-                f"\"{(row.revision or '').replace('\"', '\"\"')}\","
-                f"\"{(row.status or '').replace('\"', '\"\"')}\","
-                f"\"{row.issue_date or ''}\","
-                f"\"{row.review_date or ''}\"\n"
-            )
+    csv_bytes = _build_csv_bytes(documents)
 
     return StreamingResponse(
-        generate(),
+        io.BytesIO(csv_bytes),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=standards_library_list.csv"},
     )
