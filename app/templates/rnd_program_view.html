@@ -448,7 +448,14 @@
     </div>
   
     <div class="qc-mini">
-      <div class="qc-box"><b>Qualified Product</b>{{ program.nominal_size_in }} in / {{ program.npr_mpa }} MPa / {{ program.maot_c }} °C</div>
+      <div class="qc-box">
+        <b>Qualified Product</b>
+        {{ program.nominal_size_in }} in
+        {% if program.pipe_od_mm %}
+          / OD {{ program.pipe_od_mm }} mm
+        {% endif %}
+        / {{ program.npr_mpa }} MPa / {{ program.maot_c }} °C
+      </div>
       <div class="qc-box"><b>Qualification Route</b>{{ program.pfr_or_pv }}{% if program.pfr_reference_code %} · Ref {{ program.pfr_reference_code }}{% endif %}</div>
       <div class="qc-box"><b>Service Medium</b>{{ program.service_medium or '-' }}</div>
       <div class="qc-box"><b>Report Goal</b>Monitor tests, finalize report, then support monogram submission.</div>
