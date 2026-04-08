@@ -3338,11 +3338,7 @@ def rnd_edit_program(
     if not program:
         raise HTTPException(404, 'Program not found')
 
-    old_program_type = (program.program_type or 'API_15S').strip().upper()
-
-    safe_program_type = (program_type or 'API_15S').strip().upper()
-    if safe_program_type not in {'API_15S', 'OTHER'}:
-        safe_program_type = 'API_15S'
+    fixed_program_type = (program.program_type or 'API_15S').strip().upper()
 
     safe_service_medium = (service_medium or 'WATER').strip().upper()
     if safe_service_medium not in {'WATER', 'GAS', 'HYDROCARBON', 'LIQUIDS'}:
@@ -3355,7 +3351,6 @@ def rnd_edit_program(
     program.title = (title or '').strip()
     program.program_code = (program_code or '').strip().upper()
 
-    program.program_type = safe_program_type
     program.service_medium = safe_service_medium
     program.service_factor = service_factor
 
@@ -3376,7 +3371,7 @@ def rnd_edit_program(
     program.custom_acceptance_criteria = (custom_acceptance_criteria or '').strip()
     program.notes = (notes or '').strip()
 
-    if safe_program_type == 'OTHER':
+    if fixed_program_type == 'OTHER':
         program.qualification_standard = (qualification_standard or 'OTHER QUALIFICATION').strip()
         program.pfr_or_pv = 'PFR'
         program.parent_program_id = None
@@ -3385,7 +3380,7 @@ def rnd_edit_program(
         program.qualification_standard = (qualification_standard or 'API 15S R3').strip()
         program.pfr_or_pv = safe_pfr_or_pv
         program.parent_program_id = parent_program_id
-
+    
         if parent_program_id:
             parent = session.get(RndQualificationProgram, parent_program_id)
             if parent:
@@ -3399,9 +3394,7 @@ def rnd_edit_program(
     session.add(program)
     session.commit()
 
-    if old_program_type != 'API_15S' and program.program_type == 'API_15S':
-        _seed_test_matrix(session, program)
-        _ensure_complete_test_matrix(session, program)
+
 
     def _safe_list_value(values: List[str], idx: int, default: str = '') -> str:
         if idx < len(values):
