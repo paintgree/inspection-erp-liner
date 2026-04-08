@@ -632,5 +632,54 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 </script>
+<script>
+function toggleUserMenu() {
+  const menu = document.getElementById("appUserMenu");
+  const notif = document.getElementById("headerNotifications");
+
+  if (!menu) return;
+
+  const isOpen = menu.style.display === "block";
+  menu.style.display = isOpen ? "none" : "block";
+
+  if (notif) {
+    notif.style.display = "none";
+  }
+}
+
+function toggleHeaderNotifications() {
+  const notif = document.getElementById("headerNotifications");
+  const menu = document.getElementById("appUserMenu");
+
+  if (!notif) return;
+
+  const isOpen = notif.style.display === "block";
+  notif.style.display = isOpen ? "none" : "block";
+
+  if (menu) {
+    menu.style.display = "none";
+  }
+}
+
+document.addEventListener("click", function (e) {
+  const userWrap = document.querySelector(".app-user-menu-wrap");
+  const notifWrap = document.querySelector(".app-bell-btn");
+  const notifBox = document.getElementById("headerNotifications");
+  const userMenu = document.getElementById("appUserMenu");
+
+  if (userWrap && !userWrap.contains(e.target) && userMenu) {
+    userMenu.style.display = "none";
+  }
+
+  if (
+    notifBox &&
+    !notifBox.contains(e.target) &&
+    notifWrap &&
+    !notifWrap.contains(e.target)
+  ) {
+    notifBox.style.display = "none";
+  }
+});
+</script>
 </body>
 </html>
