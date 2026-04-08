@@ -1,0 +1,611 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  .std-page{
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+  }
+
+  .std-hero{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    padding:8px 2px 4px 2px;
+  }
+
+  .std-hero h1{
+    margin:0;
+    font-size:42px;
+    line-height:1.05;
+    color:#0f172a;
+    letter-spacing:-0.03em;
+  }
+
+  .std-hero p{
+    margin:8px 0 0 0;
+    color:#64748b;
+    font-size:18px;
+  }
+
+  .std-hero-actions{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+
+  .std-btn{
+    appearance:none;
+    border:none;
+    border-radius:14px;
+    padding:12px 16px;
+    font-size:14px;
+    font-weight:800;
+    text-decoration:none;
+    cursor:pointer;
+    transition:.18s ease;
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    box-shadow:0 6px 20px rgba(15,23,42,.06);
+  }
+
+  .std-btn-primary{
+    background:#0b7adf;
+    color:#fff;
+  }
+
+  .std-btn-primary:hover{
+    transform:translateY(-1px);
+    background:#0869c0;
+  }
+
+  .std-btn-soft{
+    background:#fff;
+    color:#0f172a;
+    border:1px solid #dbe4f0;
+  }
+
+  .std-btn-soft:hover{
+    background:#f8fafc;
+  }
+
+  .std-shell{
+    background:#f8fbff;
+    border:1px solid #dbe7f3;
+    border-radius:28px;
+    padding:22px;
+    box-shadow:0 10px 34px rgba(15,23,42,.04);
+  }
+
+  .std-toolbar{
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  .std-toolbar-top{
+    display:flex;
+    gap:12px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+
+  .std-search{
+    flex:1 1 420px;
+    min-width:280px;
+    position:relative;
+  }
+
+  .std-search input{
+    width:100%;
+    height:52px;
+    border-radius:16px;
+    border:1px solid #d9e4f1;
+    background:#fff;
+    padding:0 16px 0 46px;
+    font-size:15px;
+    font-weight:600;
+    color:#0f172a;
+    outline:none;
+    box-sizing:border-box;
+  }
+
+  .std-search input:focus{
+    border-color:#93c5fd;
+    box-shadow:0 0 0 4px rgba(59,130,246,.10);
+  }
+
+  .std-search-icon{
+    position:absolute;
+    left:16px;
+    top:50%;
+    transform:translateY(-50%);
+    color:#94a3b8;
+    font-size:16px;
+    pointer-events:none;
+  }
+
+  .std-filter-row{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+
+  .std-chip{
+    border:none;
+    background:#fff;
+    color:#475569;
+    padding:10px 16px;
+    border-radius:14px;
+    font-size:13px;
+    font-weight:800;
+    letter-spacing:.01em;
+    border:1px solid #e2e8f0;
+    cursor:pointer;
+    transition:.18s ease;
+  }
+
+  .std-chip:hover{
+    background:#f8fafc;
+  }
+
+  .std-chip.active{
+    background:#0b7adf;
+    color:#fff;
+    border-color:#0b7adf;
+    box-shadow:0 8px 20px rgba(11,122,223,.18);
+  }
+
+  .std-grid{
+    margin-top:18px;
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(320px, 1fr));
+    gap:20px;
+  }
+
+  .std-card{
+    background:#fff;
+    border:1px solid #dbe4f0;
+    border-radius:24px;
+    overflow:hidden;
+    min-height:250px;
+    display:flex;
+    flex-direction:column;
+    transition:.18s ease;
+    box-shadow:0 8px 24px rgba(15,23,42,.04);
+  }
+
+  .std-card:hover{
+    transform:translateY(-3px);
+    box-shadow:0 14px 34px rgba(15,23,42,.08);
+    border-color:#c8d8ea;
+  }
+
+  .std-card-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    padding:22px 20px 10px 20px;
+    background:linear-gradient(180deg, #f6fbff 0%, #ffffff 100%);
+  }
+
+  .std-tag{
+    display:inline-flex;
+    align-items:center;
+    padding:6px 12px;
+    border-radius:999px;
+    background:#eff6ff;
+    color:#0b67c2;
+    font-size:11px;
+    font-weight:900;
+    letter-spacing:.09em;
+    text-transform:uppercase;
+    border:1px solid #dbeafe;
+  }
+
+  .std-status{
+    display:inline-flex;
+    align-items:center;
+    padding:6px 12px;
+    border-radius:999px;
+    background:#ecfdf3;
+    color:#16a34a;
+    font-size:11px;
+    font-weight:900;
+    text-transform:uppercase;
+  }
+
+  .std-card-body{
+    padding:8px 20px 18px 20px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    flex:1;
+  }
+
+  .std-code{
+    font-size:40px;
+    font-weight:900;
+    line-height:1;
+    color:#0f172a;
+    letter-spacing:-0.03em;
+    margin-top:2px;
+  }
+
+  .std-title{
+    font-size:28px;
+    font-weight:900;
+    color:#0f172a;
+    line-height:1.1;
+  }
+
+  .std-subtitle{
+    font-size:15px;
+    font-weight:800;
+    color:#1e293b;
+    line-height:1.4;
+  }
+
+  .std-desc{
+    color:#64748b;
+    font-size:14px;
+    line-height:1.6;
+    min-height:52px;
+  }
+
+  .std-card-foot{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:14px 20px 18px 20px;
+    border-top:1px solid #edf2f7;
+  }
+
+  .std-rev{
+    color:#94a3b8;
+    font-size:12px;
+    font-weight:900;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+  }
+
+  .std-open{
+    width:36px;
+    height:36px;
+    border-radius:10px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    background:#eff6ff;
+    color:#0b67c2;
+    text-decoration:none;
+    font-size:18px;
+    font-weight:900;
+    transition:.18s ease;
+  }
+
+  .std-open:hover{
+    background:#dbeafe;
+  }
+
+  .std-list-panel{
+    display:none;
+    margin-top:18px;
+    background:#fff;
+    border:1px solid #dbe4f0;
+    border-radius:20px;
+    overflow:hidden;
+  }
+
+  .std-list-panel.show{
+    display:block;
+  }
+
+  .std-list-head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:16px 18px;
+    border-bottom:1px solid #eaf0f6;
+    background:#f8fbff;
+  }
+
+  .std-list-head h3{
+    margin:0;
+    font-size:18px;
+    color:#0f172a;
+  }
+
+  .std-table-wrap{
+    overflow:auto;
+  }
+
+  .std-table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:760px;
+  }
+
+  .std-table th,
+  .std-table td{
+    padding:14px 16px;
+    text-align:left;
+    border-bottom:1px solid #edf2f7;
+    font-size:14px;
+  }
+
+  .std-table th{
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:#64748b;
+    background:#fcfdff;
+  }
+
+  .std-empty{
+    padding:28px;
+    text-align:center;
+    color:#64748b;
+    font-weight:700;
+    display:none;
+  }
+
+  @media (max-width: 900px){
+    .std-hero{
+      flex-direction:column;
+      align-items:stretch;
+    }
+
+    .std-hero-actions{
+      justify-content:flex-start;
+    }
+
+    .std-hero h1{
+      font-size:34px;
+    }
+
+    .std-grid{
+      grid-template-columns:1fr;
+    }
+  }
+</style>
+
+<div class="std-page">
+  <div class="std-hero">
+    <div>
+      <h1>Standards Library</h1>
+      <p>Central repository for industry standards and internal technical specifications.</p>
+    </div>
+
+    <div class="std-hero-actions">
+      <button class="std-btn std-btn-soft" type="button" onclick="toggleStandardsList()">☰ Full List</button>
+      <button class="std-btn std-btn-soft" type="button" onclick="window.print()">🖨 Print List</button>
+      <a class="std-btn std-btn-primary" href="#">＋ Add New Standard</a>
+    </div>
+  </div>
+
+  <div class="std-shell">
+    <div class="std-toolbar">
+      <div class="std-toolbar-top">
+        <div class="std-search">
+          <span class="std-search-icon">⌕</span>
+          <input id="standardsSearch" type="text" placeholder="Search by code, title, material, testing, piping, or keyword..." oninput="filterStandardCards()">
+        </div>
+      </div>
+
+      <div class="std-filter-row">
+        <button class="std-chip active" type="button" data-filter="all" onclick="setStandardsFilter('all', this)">All</button>
+        <button class="std-chip" type="button" data-filter="piping" onclick="setStandardsFilter('piping', this)">Piping</button>
+        <button class="std-chip" type="button" data-filter="materials" onclick="setStandardsFilter('materials', this)">Materials</button>
+        <button class="std-chip" type="button" data-filter="testing" onclick="setStandardsFilter('testing', this)">Testing</button>
+        <button class="std-chip" type="button" data-filter="general" onclick="setStandardsFilter('general', this)">General</button>
+      </div>
+    </div>
+
+    <div id="standardsGrid" class="std-grid">
+      <article class="std-card" data-category="piping" data-search="api 15s spoolable reinforced plastic line pipe piping standard line pipe">
+        <div class="std-card-head">
+          <span class="std-tag">Piping</span>
+          <span class="std-status">Active</span>
+        </div>
+        <div class="std-card-body">
+          <div class="std-code">API 15S</div>
+          <div class="std-title">Spoolable Reinforced Plastic Line Pipe</div>
+          <div class="std-desc">Requirements for the manufacture and qualification of spoolable reinforced plastic line pipe.</div>
+        </div>
+        <div class="std-card-foot">
+          <span class="std-rev">Rev: 3rd Edition</span>
+          <a class="std-open" href="#" title="Open">↗</a>
+        </div>
+      </article>
+
+      <article class="std-card" data-category="testing" data-search="astm d2992 hydrostatic pressure design basis fiberglass pipe fittings testing">
+        <div class="std-card-head">
+          <span class="std-tag">Testing</span>
+          <span class="std-status">Active</span>
+        </div>
+        <div class="std-card-body">
+          <div class="std-code">ASTM D2992</div>
+          <div class="std-title">Obtaining Hydrostatic or Pressure Design Basis</div>
+          <div class="std-desc">Standard practice for obtaining hydrostatic or pressure design basis for fiberglass pipe and fittings.</div>
+        </div>
+        <div class="std-card-foot">
+          <span class="std-rev">Rev: 2022</span>
+          <a class="std-open" href="#" title="Open">↗</a>
+        </div>
+      </article>
+
+      <article class="std-card" data-category="materials" data-search="iso 23936-1 non-metallic materials contact media petroleum petrochemical natural gas">
+        <div class="std-card-head">
+          <span class="std-tag">Materials</span>
+          <span class="std-status">Active</span>
+        </div>
+        <div class="std-card-body">
+          <div class="std-code">ISO 23936-1</div>
+          <div class="std-title">Non-metallic Materials in Contact with Media</div>
+          <div class="std-desc">Petroleum, petrochemical and natural gas industries — non-metallic materials in contact with media related to oil and gas production.</div>
+        </div>
+        <div class="std-card-foot">
+          <span class="std-rev">Rev: 2009</span>
+          <a class="std-open" href="#" title="Open">↗</a>
+        </div>
+      </article>
+
+      <article class="std-card" data-category="piping" data-search="api 17j specification unbonded flexible pipe piping offshore flexible pipe">
+        <div class="std-card-head">
+          <span class="std-tag">Piping</span>
+          <span class="std-status">Active</span>
+        </div>
+        <div class="std-card-body">
+          <div class="std-code">API 17J</div>
+          <div class="std-title">Specification for Unbonded Flexible Pipe</div>
+          <div class="std-desc">Technical requirements for safe, dimensionally and functionally interchangeable unbonded flexible pipes.</div>
+        </div>
+        <div class="std-card-foot">
+          <span class="std-rev">Rev: 5th Edition</span>
+          <a class="std-open" href="#" title="Open">↗</a>
+        </div>
+      </article>
+
+      <article class="std-card" data-category="testing" data-search="astm d570 water absorption plastics testing material properties">
+        <div class="std-card-head">
+          <span class="std-tag">Testing</span>
+          <span class="std-status">Active</span>
+        </div>
+        <div class="std-card-body">
+          <div class="std-code">ASTM D570</div>
+          <div class="std-title">Water Absorption of Plastics</div>
+          <div class="std-desc">Standard test method for water absorption of plastics.</div>
+        </div>
+        <div class="std-card-foot">
+          <span class="std-rev">Rev: 2018</span>
+          <a class="std-open" href="#" title="Open">↗</a>
+        </div>
+      </article>
+
+      <article class="std-card" data-category="general" data-search="iso 9001 quality management systems general standard qms">
+        <div class="std-card-head">
+          <span class="std-tag">General</span>
+          <span class="std-status">Active</span>
+        </div>
+        <div class="std-card-body">
+          <div class="std-code">ISO 9001</div>
+          <div class="std-title">Quality Management Systems</div>
+          <div class="std-desc">Requirements for establishing, implementing, maintaining, and continually improving a quality management system.</div>
+        </div>
+        <div class="std-card-foot">
+          <span class="std-rev">Rev: 2015</span>
+          <a class="std-open" href="#" title="Open">↗</a>
+        </div>
+      </article>
+    </div>
+
+    <div id="standardsEmpty" class="std-empty">
+      No standards matched your search or category filter.
+    </div>
+
+    <div id="standardsListPanel" class="std-list-panel">
+      <div class="std-list-head">
+        <h3>Standards Full List</h3>
+        <button class="std-btn std-btn-soft" type="button" onclick="downloadStandardsList()">⬇ Download CSV</button>
+      </div>
+
+      <div class="std-table-wrap">
+        <table class="std-table">
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Revision</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>API 15S</td><td>Spoolable Reinforced Plastic Line Pipe</td><td>Piping</td><td>3rd Edition</td><td>Active</td></tr>
+            <tr><td>ASTM D2992</td><td>Obtaining Hydrostatic or Pressure Design Basis</td><td>Testing</td><td>2022</td><td>Active</td></tr>
+            <tr><td>ISO 23936-1</td><td>Non-metallic Materials in Contact with Media</td><td>Materials</td><td>2009</td><td>Active</td></tr>
+            <tr><td>API 17J</td><td>Specification for Unbonded Flexible Pipe</td><td>Piping</td><td>5th Edition</td><td>Active</td></tr>
+            <tr><td>ASTM D570</td><td>Water Absorption of Plastics</td><td>Testing</td><td>2018</td><td>Active</td></tr>
+            <tr><td>ISO 9001</td><td>Quality Management Systems</td><td>General</td><td>2015</td><td>Active</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let activeStandardsFilter = "all";
+
+  function setStandardsFilter(filter, btn) {
+    activeStandardsFilter = filter;
+    document.querySelectorAll(".std-chip").forEach(chip => chip.classList.remove("active"));
+    if (btn) btn.classList.add("active");
+    filterStandardCards();
+  }
+
+  function filterStandardCards() {
+    const searchValue = (document.getElementById("standardsSearch")?.value || "").trim().toLowerCase();
+    const cards = document.querySelectorAll("#standardsGrid .std-card");
+    const emptyBox = document.getElementById("standardsEmpty");
+
+    let visibleCount = 0;
+
+    cards.forEach(card => {
+      const category = (card.dataset.category || "").toLowerCase();
+      const haystack = (card.dataset.search || "").toLowerCase();
+
+      const matchesFilter = activeStandardsFilter === "all" || category === activeStandardsFilter;
+      const matchesSearch = !searchValue || haystack.includes(searchValue);
+
+      if (matchesFilter && matchesSearch) {
+        card.style.display = "";
+        visibleCount += 1;
+      } else {
+        card.style.display = "none";
+      }
+    });
+
+    if (emptyBox) {
+      emptyBox.style.display = visibleCount ? "none" : "block";
+    }
+  }
+
+  function toggleStandardsList() {
+    const panel = document.getElementById("standardsListPanel");
+    if (!panel) return;
+    panel.classList.toggle("show");
+  }
+
+  function downloadStandardsList() {
+    const rows = [
+      ["Code","Title","Category","Revision","Status"],
+      ["API 15S","Spoolable Reinforced Plastic Line Pipe","Piping","3rd Edition","Active"],
+      ["ASTM D2992","Obtaining Hydrostatic or Pressure Design Basis","Testing","2022","Active"],
+      ["ISO 23936-1","Non-metallic Materials in Contact with Media","Materials","2009","Active"],
+      ["API 17J","Specification for Unbonded Flexible Pipe","Piping","5th Edition","Active"],
+      ["ASTM D570","Water Absorption of Plastics","Testing","2018","Active"],
+      ["ISO 9001","Quality Management Systems","General","2015","Active"]
+    ];
+
+    const csv = rows.map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "standards_library_list.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+</script>
+{% endblock %}
