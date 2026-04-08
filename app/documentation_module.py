@@ -173,8 +173,9 @@ def documentation_procedures(
     categories = _category_list(session, "PROCEDURE")
 
     return templates.TemplateResponse(
-        "docs_procedures.html",
-        {
+        request=request,
+        name="docs_procedures.html",
+        context={
             "request": request,
             "user": user,
             "documents": documents,
@@ -204,8 +205,9 @@ def documentation_standards(
     categories = _category_list(session, "STANDARD")
 
     return templates.TemplateResponse(
-        "docs_standards.html",
-        {
+        request=request,
+        name="docs_standards.html",
+        context={
             "request": request,
             "user": user,
             "documents": documents,
@@ -223,8 +225,9 @@ def procedure_upload_form(
     user: User = Depends(_require_user),
 ):
     return templates.TemplateResponse(
-        "docs_upload_form.html",
-        {
+        request=request,
+        name="docs_upload_form.html",
+        context={
             "request": request,
             "user": user,
             "library_type": "PROCEDURE",
@@ -240,8 +243,9 @@ def standard_upload_form(
     user: User = Depends(_require_user),
 ):
     return templates.TemplateResponse(
-        "docs_upload_form.html",
-        {
+        request=request,
+        name="docs_upload_form.html",
+        context={
             "request": request,
             "user": user,
             "library_type": "STANDARD",
