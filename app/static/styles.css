@@ -3263,87 +3263,189 @@ Burst search + filters
 /* =========================
    User management
 ========================= */
-.user-admin-card{
-  border:1px solid #e5e7eb;
-  border-radius:18px;
-  padding:18px;
-  background:#fff;
-  box-shadow:0 2px 8px rgba(15,23,42,.04);
+.user-mgmt-shell{
+  max-width: 1180px;
+  margin: 0 auto;
 }
 
-.user-admin-head{
-  display:flex;
-  align-items:flex-start;
-  justify-content:space-between;
-  gap:12px;
-  flex-wrap:wrap;
+.user-mgmt-panel{
+  background: #ffffff;
+  border: 1px solid #e7eaf3;
+  border-radius: 24px;
+  box-shadow: 0 12px 28px rgba(15,23,42,.06);
+  overflow: hidden;
 }
 
-.user-admin-title{
-  font-size:18px;
-  font-weight:900;
-  color:#0f172a;
+.user-mgmt-toolbar{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #eef2f7;
+  flex-wrap: wrap;
 }
 
-.user-admin-sub{
-  margin-top:6px;
-  color:#64748b;
-  font-size:13px;
+.user-search-wrap{
+  width: 100%;
+  max-width: 370px;
 }
 
-.user-access-grid{
-  display:grid;
-  grid-template-columns:repeat(3, minmax(0, 1fr));
-  gap:10px;
+.user-search-input{
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #dbe3f0;
+  background: #f8fafc;
+  color: #0f172a;
+  outline: none;
 }
 
-.access-chip{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  border:1px solid #e5e7eb;
-  border-radius:14px;
-  background:#fafafa;
-  padding:12px 14px;
-  cursor:pointer;
-  min-height:48px;
+.user-search-input:focus{
+  border-color: #c4b5fd;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(124,58,237,.10);
 }
 
-.access-chip input{
-  width:auto;
-  margin:0;
-  flex:0 0 auto;
+.user-mgmt-head-row{
+  display: grid;
+  grid-template-columns: 2.2fr 1.2fr 1fr 1fr 1fr;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #fafbff;
+  border-bottom: 1px solid #eef2f7;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: #64748b;
 }
 
-.access-chip span{
-  font-size:13px;
-  font-weight:700;
-  color:#0f172a;
+.user-list-row{
+  display: grid;
+  grid-template-columns: 2.2fr 1.2fr 1fr 1fr 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #f1f5f9;
+  background: #ffffff;
 }
 
-.effective-access-box{
-  display:flex;
-  flex-wrap:wrap;
-  gap:8px;
+.user-list-row:hover{
+  background: #fafbff;
 }
 
-.effective-badge{
-  display:inline-flex;
-  align-items:center;
-  padding:7px 10px;
-  border-radius:999px;
-  background:#eef2ff;
-  color:#4338ca;
-  font-size:12px;
-  font-weight:800;
+.user-col{
+  min-width: 0;
+  color: #0f172a;
+}
+
+.user-main-col{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-avatar-tile{
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  color: #ffffff;
+  background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+  box-shadow: 0 8px 18px rgba(124,58,237,.18);
+  flex: 0 0 auto;
+}
+
+.user-name-line{
+  font-weight: 900;
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.user-sub-line{
+  margin-top: 3px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.role-pill{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  color: #4338ca;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+}
+
+.status-pill{
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 11px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  border: 1px solid transparent;
+}
+
+.status-pill-active{
+  color: #065f46;
+  background: #ecfdf5;
+  border-color: #bbf7d0;
+}
+
+.status-pill-locked{
+  color: #991b1b;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+.user-actions-col{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.icon-action-btn{
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #4f46e5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15,23,42,.04);
+}
+
+.icon-action-btn:hover{
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.icon-action-btn.icon-action-danger{
+  color: #b91c1c;
 }
 
 @media (max-width: 900px){
-  .user-access-grid{
-    grid-template-columns:1fr;
+  .user-mgmt-head-row,
+  .user-list-row{
+    grid-template-columns: 1.8fr 1fr 1fr .9fr 1fr;
   }
 }
-
 /* =========================
    Login redesign
 ========================= */
