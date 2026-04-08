@@ -1469,43 +1469,58 @@
         </div>
 
         <div class="rnd-procedure">
-          {% for item in guidance.test_procedure %}
-          <div class="rnd-procedure-step">
-            <div class="rnd-procedure-num">{{ loop.index }}</div>
-            <div>
-              <h3>Step {{ loop.index }}</h3>
-              <p>{{ item }}</p>
+          {% if guidance.test_procedure and guidance.test_procedure|length > 0 %}
+            {% for item in guidance.test_procedure %}
+            <div class="rnd-procedure-step">
+              <div class="rnd-procedure-num">{{ loop.index }}</div>
+              <div>
+                <h3>Step {{ loop.index }}</h3>
+                <p>{{ item }}</p>
+              </div>
             </div>
-          </div>
-          {% endfor %}
+            {% endfor %}
+          {% else %}
+            <div class="rnd-note">No procedure steps are currently loaded for this test type.</div>
+          {% endif %}
         </div>
       </article>
 
       <article class="rnd-card">
         <h2 class="rnd-panel-title">Operator checks</h2>
+        {% if guidance.operator_checks and guidance.operator_checks|length > 0 %}
         <ul class="rnd-list">
           {% for item in guidance.operator_checks %}
           <li>{{ item }}</li>
           {% endfor %}
         </ul>
+        {% else %}
+        <div class="rnd-note">No operator checks are currently loaded for this test type.</div>
+        {% endif %}
       </article>
 
       <article class="rnd-card">
         <h2 class="rnd-panel-title">Records to capture</h2>
+        {% if guidance.records_to_capture and guidance.records_to_capture|length > 0 %}
         <ul class="rnd-list">
           {% for item in guidance.records_to_capture %}
           <li>{{ item }}</li>
           {% endfor %}
         </ul>
+        {% else %}
+        <div class="rnd-note">No required records are currently loaded for this test type.</div>
+        {% endif %}
       </article>
 
       <article class="rnd-card">
         <h2 class="rnd-panel-title">Retest / review logic</h2>
+        {% if guidance.retest_logic %}
         <div class="rnd-sub" style="color:#374151;font-size:14px;line-height:1.7;">
           {{ guidance.retest_logic }}
         </div>
+        {% else %}
+        <div class="rnd-note">No retest / review logic is currently loaded for this test type.</div>
+        {% endif %}
       </article>
-
     </div>
 
     <aside class="rnd-side">
@@ -1540,6 +1555,6 @@
       </article>
     </aside>
   </section>
-  {% endif %}
+{% endif %}
 </div>
 {% endblock %}
