@@ -2731,6 +2731,8 @@ def rnd_home() -> RedirectResponse:
 def rnd_dashboard(request: Request, session: Session = Depends(get_session), user: User = Depends(_require_user)):
     from sqlmodel import text
 
+    view = (request.query_params.get('view') or 'active').strip().lower()
+
     rows = session.exec(
         text("""
             SELECT
@@ -2781,6 +2783,12 @@ def rnd_dashboard(request: Request, session: Session = Depends(get_session), use
         else:
             active_count += 1
 
+        # This is the missing filter logic
+        if view == 'active' and program.is_archived:
+            continue
+        if view == 'archived' and not program.is_archived:
+            continue
+
         flow_name = 'review'
         status_key = (program.status or 'DRAFT').strip().upper()
         if status_key in {'DRAFT', 'PLANNED'}:
@@ -2808,7 +2816,7 @@ def rnd_dashboard(request: Request, session: Session = Depends(get_session), use
             'guide': _qualification_guide(),
             'design_factor_nonmetallic': DESIGN_FACTOR_NONMETALLIC,
             'rcrt_hours': RCRT_HOURS,
-            'view': 'all',
+            'view': view,
             'active_count': active_count,
             'archived_count': archived_count,
         },
