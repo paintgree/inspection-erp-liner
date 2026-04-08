@@ -659,6 +659,7 @@ class RndQualificationProgram(SQLModel, table=True):
     program_type: str = Field(default="API_15S", index=True)
     qualification_standard: str = Field(default="API 15S R3")
     nominal_size_in: float = Field(default=0.0)
+    pipe_od_mm: Optional[float] = Field(default=None)
     npr_mpa: float = Field(default=0.0)
     maot_c: float = Field(default=0.0)
     laot_c: float = Field(default=0.0)
