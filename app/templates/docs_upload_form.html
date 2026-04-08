@@ -199,9 +199,24 @@
 
       <div class="upload-field">
         <label class="upload-label">Category</label>
-        <input class="upload-input" type="text" name="category" value="General" placeholder="Quality, Testing, Piping, Materials...">
+        <input class="upload-input" type="text" name="category" value="General" placeholder="Quality, Testing, Production, General...">
       </div>
-
+      
+      <div class="upload-field">
+        <label class="upload-label">Classification</label>
+        <select class="upload-select" name="classification">
+          <option value="General">General</option>
+          <option value="SOP">SOP</option>
+          <option value="Work Instruction">Work Instruction</option>
+          <option value="Inspection Procedure">Inspection Procedure</option>
+          <option value="Test Method">Test Method</option>
+          <option value="Method Statement">Method Statement</option>
+          <option value="Acceptance Criteria">Acceptance Criteria</option>
+          <option value="HSE">HSE</option>
+          <option value="Maintenance">Maintenance</option>
+        </select>
+      </div>
+      
       <div class="upload-field">
         <label class="upload-label">Revision</label>
         <input class="upload-input" type="text" name="revision" value="00" placeholder="00">
