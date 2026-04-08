@@ -3261,7 +3261,7 @@ Burst search + filters
 }
 
 /* =========================
-   User Management - blue grey theme
+   User Management - matched to screenshot tones
 ========================= */
 
 .user-mgmt-shell{
@@ -3270,50 +3270,51 @@ Burst search + filters
 }
 
 .user-mgmt-panel{
-  background: linear-gradient(180deg, #c7ccd5 0%, #bcc3ce 100%);
-  border: 1px solid #5f6b7d;
+  background: transparent;
+  border: 1px solid #5b6880;
   border-radius: 24px;
   box-shadow: 0 14px 34px rgba(15,23,42,.10);
   overflow: hidden;
 }
 
+/* this is color 2 from your screenshot */
 .user-mgmt-toolbar{
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 14px;
   padding: 18px 18px 20px;
-  background: transparent;
-  border-bottom: none;
+  background: linear-gradient(135deg, #24385f 0%, #4f46e5 100%);
+  border-bottom: 1px solid rgba(255,255,255,.08);
   flex-wrap: wrap;
 }
 
 .user-search-wrap{
   width: 100%;
-  max-width: 345px;
+  max-width: 370px;
 }
 
 .user-search-input{
   width: 100%;
-  height: 36px;
+  height: 38px;
   padding: 0 14px;
   border-radius: 12px;
-  border: 1px solid #8c97a8;
-  background: #97a2b2;
-  color: #eaf0f7;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.10);
+  color: #eef4ff;
   outline: none;
   font-size: 13px;
   font-weight: 600;
 }
 
 .user-search-input::placeholder{
-  color: #cfd8e3;
+  color: rgba(235,241,255,.68);
 }
 
 .user-search-input:focus{
-  border-color: #7c3aed;
-  background: #8f9bad;
-  box-shadow: 0 0 0 4px rgba(124,58,237,.10);
+  border-color: rgba(255,255,255,.24);
+  background: rgba(255,255,255,.14);
+  box-shadow: 0 0 0 4px rgba(255,255,255,.08);
 }
 
 .user-mgmt-toolbar .btn.btn-primary{
@@ -3323,33 +3324,33 @@ Burst search + filters
   font-weight: 800;
   background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
   color: #ffffff;
-  border: 1px solid rgba(255,255,255,.28);
-  box-shadow: 0 8px 18px rgba(109,40,217,.24);
+  border: 1px solid rgba(255,255,255,.22);
+  box-shadow: 0 10px 18px rgba(91,33,182,.28);
   -webkit-text-fill-color: #ffffff;
 }
 
 .user-mgmt-toolbar .btn.btn-primary:hover{
   background: linear-gradient(135deg, #6d28d9 0%, #5b21b6 100%);
-  border-color: rgba(255,255,255,.34);
 }
 
+/* soft header between top bar and rows */
 .user-mgmt-head-row{
   display: grid;
   grid-template-columns: 2.3fr 1.1fr 1fr 1fr 1fr;
   gap: 16px;
   padding: 14px 18px;
-  background: rgba(255,255,255,.55);
-  border-top: 1px solid rgba(255,255,255,.22);
-  border-bottom: 1px solid rgba(110,124,145,.18);
+  background: #9aa3b3;
+  border-bottom: 1px solid rgba(255,255,255,.08);
   font-size: 12px;
   font-weight: 900;
   letter-spacing: .04em;
   text-transform: uppercase;
-  color: #e7edf6;
+  color: #eaf0f8;
 }
 
+/* this is color 1 from your screenshot */
 #userRowsWrap{
-  background: linear-gradient(180deg, #162847 0%, #1a2d4d 100%);
+  background: linear-gradient(180deg, #142c52 0%, #19345f 100%);
 }
 
 .user-list-row{
@@ -3358,7 +3359,7 @@ Burst search + filters
   gap: 16px;
   align-items: center;
   padding: 20px 18px;
-  border-bottom: 1px solid rgba(255,255,255,.06);
+  border-bottom: 1px solid rgba(255,255,255,.05);
   background: transparent;
 }
 
@@ -3367,12 +3368,12 @@ Burst search + filters
 }
 
 .user-list-row:hover{
-  background: rgba(255,255,255,.03);
+  background: rgba(255,255,255,.025);
 }
 
 .user-col{
   min-width: 0;
-  color: #dbe6f5;
+  color: #dce7f6;
 }
 
 .user-main-col{
@@ -3398,13 +3399,13 @@ Burst search + filters
 .user-name-line{
   font-weight: 900;
   font-size: 15px;
-  color: #f8fbff;
+  color: #ffffff;
 }
 
 .user-sub-line{
   margin-top: 3px;
   font-size: 12px;
-  color: #a8b7cc;
+  color: #b7c6db;
 }
 
 .role-pill{
@@ -3417,7 +3418,7 @@ Burst search + filters
   font-size: 11px;
   font-weight: 900;
   color: #eef2ff;
-  background: rgba(99,102,241,.18);
+  background: rgba(99,102,241,.22);
   border: 1px solid rgba(165,180,252,.35);
 }
 
@@ -3436,7 +3437,7 @@ Burst search + filters
 .status-pill-active{
   color: #5eead4;
   background: rgba(20,184,166,.14);
-  border-color: rgba(45,212,191,.30);
+  border-color: rgba(45,212,191,.28);
 }
 
 .status-pill-locked{
