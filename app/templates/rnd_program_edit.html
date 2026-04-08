@@ -389,10 +389,17 @@
             <div class="qp-grid-2">
               <div>
                 <label class="qp-label">Program Type</label>
-                <select name="program_type" id="program_type" class="qp-select" onchange="toggleProgramTypeFields()">
-                  <option value="API_15S" {% if (program.program_type or 'API_15S') == 'API_15S' %}selected{% endif %}>API 15S Monogram</option>
-                  <option value="OTHER" {% if (program.program_type or '') == 'OTHER' %}selected{% endif %}>Other Qualification</option>
-                </select>
+                <input
+                  type="text"
+                  class="qp-input"
+                  value="{% if (program.program_type or 'API_15S') == 'OTHER' %}Other Qualification{% else %}API 15S Monogram{% endif %}"
+                  readonly
+                  style="background:#f8fafc;color:#475569;font-weight:700;"
+                >
+                <input type="hidden" name="program_type" value="{{ program.program_type or 'API_15S' }}">
+                <div class="qp-muted">
+                  Program type is fixed after creation to preserve the qualification route and seeded logic.
+                </div>
               </div>
 
               <div>
