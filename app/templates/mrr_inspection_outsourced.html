@@ -92,7 +92,7 @@
     <table class="table" id="visualTable">
       <thead>
         <tr>
-          <th>Heat No</th>
+          <th>Heat / Batch Number</th>
           <th>Flange ID / S.N</th>
           <th>Surface Condition</th>
           <th>Physical Damage</th>
@@ -119,7 +119,7 @@
     
         {% for i in range(vmax) %}
         <tr data-template="1">
-          <td><input name="vis_batch[]" value="{{ vis_batch[i] if i < vis_batch|length else '' }}"></td>
+          <td><input name="vis_batch[]" placeholder="Enter Heat / Batch Number" value="{{ vis_batch[i] if i < vis_batch|length else '' }}"></td>
           <td><input name="vis_flange[]" value="{{ vis_flange[i] if i < vis_flange|length else '' }}"></td>
     
           {% set cur_surface = (vis_surface[i] if i < vis_surface|length else '') %}
@@ -269,7 +269,7 @@ function addVisualRow() {
 
   tbody.insertAdjacentHTML('beforeend', `
     <tr data-template="1">
-      <td><input name="vis_batch[]"></td>
+      <td><input name="vis_batch[]" placeholder="Enter Heat / Batch Number"></td>
       <td><input name="vis_flange[]"></td>
 
       <td>
