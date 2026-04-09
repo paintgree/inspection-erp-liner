@@ -14596,46 +14596,65 @@ async def mrr_photo_upload(
     os.makedirs(base, exist_ok=True)
 
     saved_any = False
+    written_files = []
 
-    for f in photos:
-        if not f or not getattr(f, "filename", ""):
-            continue
+    try:
+        for f in photos:
+            if not f or not getattr(f, "filename", ""):
+                continue
 
-        ct = (f.content_type or "").lower()
-        if not ct.startswith("image/"):
-            continue
+            ct = (f.content_type or "").lower()
+            if not ct.startswith("image/"):
+                continue
 
-        ext = _safe_ext(f.filename)
-        ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
-        filename = f"{ts}{ext}"
-        abs_path = os.path.join(base, filename)
+            ext = _safe_ext(f.filename)
+            ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
+            filename = f"{ts}{ext}"
+            abs_path = os.path.join(base, filename)
 
-        content = await f.read()
-        if not content:
-            continue
+            content = await f.read()
+            if not content:
+                continue
 
-        with open(abs_path, "wb") as w:
-            w.write(content)
+            with open(abs_path, "wb") as w:
+                w.write(content)
 
-        rel_path = os.path.relpath(abs_path, MRR_PHOTO_DIR)
+            written_files.append(abs_path)
 
-        photo = MrrInspectionPhoto(
-            ticket_id=lot.id,
-            inspection_id=insp.id,
-            group_name=g,
-            caption=cap,
-            file_path=rel_path,
-            uploaded_by_user_id=user.id,
-            uploaded_by_user_name=user.display_name,
-        )
-        session.add(photo)
-        saved_any = True
+            rel_path = os.path.relpath(abs_path, MRR_PHOTO_DIR)
 
-    session.commit()
+            photo = MrrInspectionPhoto(
+                ticket_id=lot.id,
+                inspection_id=insp.id,
+                group_name=g,
+                caption=cap,
+                file_path=rel_path,
+                uploaded_by_user_id=user.id,
+                uploaded_by_user_name=user.display_name,
+            )
+            session.add(photo)
+            saved_any = True
 
-    if not saved_any:
+        if not saved_any:
+            return RedirectResponse(
+                f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=No%20valid%20image%20files%20were%20uploaded",
+                status_code=303,
+            )
+
+        session.commit()
+
+    except Exception as e:
+        session.rollback()
+
+        for path in written_files:
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+            except Exception:
+                pass
+
         return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=No%20valid%20image%20files%20were%20uploaded",
+            f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=Photo%20upload%20failed%20while%20saving.%20Please%20try%20again.",
             status_code=303,
         )
 
@@ -14643,7 +14662,6 @@ async def mrr_photo_upload(
         f"/mrr/{lot_id}/inspection/id/{inspection_id}?success=Photos%20uploaded",
         status_code=303,
     )
-
 
 @app.post("/mrr/{lot_id}/inspection/id/{inspection_id}/photos/{photo_id}/delete")
 def mrr_photo_delete(
@@ -14674,8 +14692,12 @@ def mrr_photo_delete(
 
     # Delete file if exists
     try:
-        if p.file_path and os.path.exists(p.file_path):
-            os.remove(p.file_path)
+        if p.file_path:
+            abs_path = os.path.normpath(os.path.join(MRR_PHOTO_DIR, p.file_path))
+            base_norm = os.path.normpath(MRR_PHOTO_DIR)
+
+            if abs_path.startswith(base_norm) and os.path.exists(abs_path):
+                os.remove(abs_path)
     except Exception:
         pass
 
