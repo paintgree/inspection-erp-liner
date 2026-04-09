@@ -10994,13 +10994,12 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
 
     material_name = str(form.get("material_name", "")).strip()
     supplier_name = str(form.get("supplier_name", "")).strip()
-    layer_use: str = Form(""),
+    po_number = str(form.get("po_number", "")).strip()
+    layer_use = str(form.get("layer_use", "")).strip()
 
     lot_type = str(form.get("lot_type", "RAW")).strip().upper()
     if lot_type not in ["RAW", "OUTSOURCED"]:
         lot_type = "RAW"
-
-    po_number = str(form.get("po_number", "")).strip()
 
     qty_raw = str(form.get("quantity", "")).strip()
     if qty_raw == "":
@@ -11014,16 +11013,14 @@ async def mrr_new(request: Request, session: Session = Depends(get_session)):
     if quantity_unit not in ["KG", "T", "PCS"]:
         quantity_unit = "KG"
 
-
-    lot_type = (lot_type or "RAW").strip().upper()
     layer_use = _normalize_layer_use(layer_use)
 
     if lot_type != "RAW":
         layer_use = ""
-    
+
     lot = MaterialLot(
         lot_type=lot_type,
-        batch_no="",  # ✅ DO NOT auto-generate batch here
+        batch_no="",
         material_name=material_name,
         supplier_name=supplier_name,
         po_number=po_number,
