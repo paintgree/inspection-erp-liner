@@ -12507,7 +12507,6 @@ def shipment_inspection_form(
         {
             "request": request,
             "user": user,
-            "ticket": lot,
             "inspection": inspection,
             "photo_groups": photo_groups,
             "photo_error": photo_error,
