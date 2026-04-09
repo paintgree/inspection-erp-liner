@@ -12192,6 +12192,7 @@ async def create_shipment_inspection(
         qty_unit=qty_unit,
         report_no=report_no,
         template_type=tpl,
+        template_type=lot.lot_type,
         inspection_json="{}",
         inspector_confirmed=False,
         manager_approved=False,
