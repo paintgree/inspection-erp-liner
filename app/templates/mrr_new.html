@@ -1,81 +1,433 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="card">
-  <h1>Create MRR Ticket</h1>
+<style>
+  .mrr-shell{
+    display:grid;
+    grid-template-columns: minmax(0, 1.6fr) 320px;
+    gap:24px;
+    align-items:start;
+  }
+  .mrr-hero{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    margin-bottom:20px;
+  }
+  .mrr-title-wrap{
+    display:flex;
+    align-items:flex-start;
+    gap:14px;
+  }
+  .mrr-icon{
+    width:42px;
+    height:42px;
+    border-radius:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:rgba(108, 72, 255, 0.12);
+    color:#6c48ff;
+    font-size:20px;
+    font-weight:700;
+  }
+  .mrr-subtitle{
+    color:#64748b;
+    margin-top:4px;
+    font-size:14px;
+  }
+  .mrr-actions{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+  }
+  .mrr-panel{
+    background:#fff;
+    border:1px solid rgba(15, 23, 42, 0.08);
+    border-radius:20px;
+    overflow:hidden;
+    box-shadow:0 10px 30px rgba(15, 23, 42, 0.05);
+  }
+  .mrr-panel-head{
+    padding:18px 22px;
+    border-bottom:1px solid rgba(15, 23, 42, 0.06);
+    font-weight:700;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .mrr-panel-body{
+    padding:22px;
+  }
+  .mrr-grid-2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+  }
+  .mrr-grid-3{
+    display:grid;
+    grid-template-columns:1.2fr 0.8fr 0.6fr;
+    gap:16px;
+  }
+  .mrr-field label{
+    display:block;
+    font-size:12px;
+    font-weight:700;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:#64748b;
+    margin-bottom:8px;
+  }
+  .mrr-field input,
+  .mrr-field select{
+    width:100%;
+    border:1px solid rgba(15, 23, 42, 0.10);
+    border-radius:14px;
+    padding:12px 14px;
+    background:#f8fafc;
+  }
+  .mrr-stack{
+    display:flex;
+    flex-direction:column;
+    gap:22px;
+  }
+  .type-cards{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+    margin-top:10px;
+  }
+  .type-card{
+    border:1.5px solid rgba(15, 23, 42, 0.08);
+    border-radius:18px;
+    padding:18px;
+    background:#f8fafc;
+    cursor:pointer;
+    transition:.2s ease;
+    text-align:center;
+  }
+  .type-card:hover{
+    border-color:#6c48ff;
+    transform:translateY(-1px);
+  }
+  .type-card.active{
+    border-color:#6c48ff;
+    background:rgba(108, 72, 255, 0.08);
+    box-shadow:0 8px 20px rgba(108, 72, 255, 0.12);
+  }
+  .type-card .type-icon{
+    width:48px;
+    height:48px;
+    border-radius:14px;
+    margin:0 auto 12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#fff;
+    border:1px solid rgba(15, 23, 42, 0.08);
+    font-weight:700;
+    color:#6c48ff;
+  }
+  .type-card .type-name{
+    font-weight:800;
+    margin-bottom:6px;
+  }
+  .type-card .type-note{
+    color:#64748b;
+    font-size:12px;
+    line-height:1.4;
+  }
+  .layer-box{
+    margin-top:20px;
+    border:1px solid rgba(59, 130, 246, 0.18);
+    background:rgba(59, 130, 246, 0.04);
+    border-radius:18px;
+    padding:18px;
+  }
+  .layer-title{
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.05em;
+    text-transform:uppercase;
+    color:#2563eb;
+    margin-bottom:12px;
+  }
+  .layer-note{
+    color:#64748b;
+    font-size:12px;
+    margin-top:10px;
+  }
+  .summary-card{
+    background:linear-gradient(180deg, #102a56 0%, #091a39 100%);
+    color:#fff;
+    border-radius:20px;
+    padding:22px;
+    box-shadow:0 14px 30px rgba(2, 6, 23, 0.18);
+  }
+  .summary-card h3{
+    margin-bottom:18px;
+    color:#fff;
+  }
+  .summary-row{
+    display:flex;
+    justify-content:space-between;
+    gap:16px;
+    padding:12px 0;
+    border-bottom:1px solid rgba(255,255,255,0.10);
+    font-size:13px;
+  }
+  .summary-row:last-of-type{
+    border-bottom:none;
+  }
+  .summary-label{
+    color:rgba(255,255,255,0.72);
+    text-transform:uppercase;
+    font-size:11px;
+  }
+  .summary-value{
+    font-weight:700;
+    text-align:right;
+  }
+  .summary-quote{
+    margin-top:18px;
+    border:1px solid rgba(255,255,255,0.12);
+    border-radius:16px;
+    padding:14px;
+    color:rgba(255,255,255,0.76);
+    font-size:12px;
+    line-height:1.5;
+    font-style:italic;
+  }
+  .recent-card{
+    margin-top:18px;
+    background:#fff;
+    border:1px solid rgba(15, 23, 42, 0.08);
+    border-radius:20px;
+    padding:22px;
+  }
+  .recent-card h3{
+    margin-bottom:16px;
+  }
+  .recent-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:12px 0;
+    border-bottom:1px solid rgba(15, 23, 42, 0.06);
+  }
+  .recent-item:last-child{
+    border-bottom:none;
+  }
+  .recent-meta{
+    color:#64748b;
+    font-size:12px;
+    margin-top:2px;
+  }
 
-  {% if error %}
-    <div class="alert alert-error">{{ error }}</div>
-  {% endif %}
+  @media (max-width: 1100px){
+    .mrr-shell{
+      grid-template-columns:1fr;
+    }
+  }
+  @media (max-width: 720px){
+    .mrr-grid-2,
+    .mrr-grid-3,
+    .type-cards{
+      grid-template-columns:1fr;
+    }
+    .mrr-hero{
+      flex-direction:column;
+      align-items:stretch;
+    }
+  }
+</style>
 
-  <form method="post" action="/mrr/new" class="form mt">
+<div class="mrr-hero">
+  <div class="mrr-title-wrap">
+    <div class="mrr-icon">✓</div>
+    <div>
+      <h1 style="margin:0;">Create MRR Ticket</h1>
+      <div class="mrr-subtitle">Material Receiving Report Inspection Ticket</div>
+    </div>
+  </div>
 
-    <label>Material Name</label>
-    <input name="material_name" required>
+  <div class="mrr-actions">
+    <a href="/mrr/tickets" class="btn btn-muted">Cancel</a>
+    <button type="submit" form="mrrCreateForm" class="btn btn-primary">Create Ticket</button>
+  </div>
+</div>
 
-    <label>Supplier Name</label>
-    <input name="supplier_name" required>
+{% if error %}
+  <div class="alert alert-error" style="margin-bottom:16px;">{{ error }}</div>
+{% endif %}
 
-    <label>PO Number</label>
-    <input name="po_number" required>
+<div class="mrr-shell">
+  <div class="mrr-stack">
+    <form id="mrrCreateForm" method="post" action="/mrr/new">
+      <div class="mrr-panel">
+        <div class="mrr-panel-head">Material Information</div>
+        <div class="mrr-panel-body">
+          <div class="mrr-grid-2">
+            <div class="mrr-field">
+              <label>Material Name</label>
+              <input name="material_name" placeholder="e.g. Reinforced Thermoplastic Pipe" required>
+            </div>
+            <div class="mrr-field">
+              <label>Supplier Name</label>
+              <input name="supplier_name" placeholder="e.g. Global Materials Corp" required>
+            </div>
+          </div>
 
-    <label>Quantity</label>
-    <input name="quantity" type="number" step="0.01" required>
+          <div class="mrr-grid-3" style="margin-top:16px;">
+            <div class="mrr-field">
+              <label>PO Number</label>
+              <input name="po_number" placeholder="e.g. PO-2024-001" required>
+            </div>
+            <div class="mrr-field">
+              <label>Quantity</label>
+              <input name="quantity" type="number" step="0.01" placeholder="0.00" required>
+            </div>
+            <div class="mrr-field">
+              <label>Unit</label>
+              <select name="quantity_unit">
+                <option value="KG">KG</option>
+                <option value="T">Ton</option>
+                <option value="PCS">PCS</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
 
-    <label>Unit</label>
-    <select name="quantity_unit">
-      <option value="KG">KG</option>
-      <option value="T">Ton</option>
-      <option value="PCS">PCS</option>
-    </select>
+      <div class="mrr-panel" style="margin-top:22px;">
+        <div class="mrr-panel-head">Classification & Logic</div>
+        <div class="mrr-panel-body">
+          <div class="mrr-field">
+            <label>Receiving Material Type</label>
+          </div>
 
-    <label>Lot Type</label>
-    <select name="lot_type" id="lot_type">
-      <option value="RAW">RAW</option>
-      <option value="OUTSOURCED">OUTSOURCED</option>
-    </select>
+          <input type="hidden" name="lot_type" id="lot_type" value="RAW">
 
-    <div id="layerUseWrap">
-      <label>Layer Use</label>
-      <select name="layer_use" id="layer_use">
-        <option value="">-- select layer --</option>
-        <option value="LINER">LINER</option>
-        <option value="REINFORCEMENT">REINFORCEMENT</option>
-        <option value="COVER">COVER</option>
-      </select>
-      <div class="muted tiny mt">
-        Only RAW material with a layer assignment can be used in production runs.
+          <div class="type-cards">
+            <div class="type-card active" data-value="RAW" id="cardRaw">
+              <div class="type-icon">R</div>
+              <div class="type-name">Raw Material</div>
+              <div class="type-note">Base components used in production</div>
+            </div>
+
+            <div class="type-card" data-value="OUTSOURCED" id="cardOutsourced">
+              <div class="type-icon">O</div>
+              <div class="type-name">Outsourced Material</div>
+              <div class="type-note">Finished or semi-finished goods</div>
+            </div>
+          </div>
+
+          <div class="layer-box" id="layerUseWrap">
+            <div class="layer-title">Layer Assignment Required</div>
+            <div class="mrr-field">
+              <label>Layer Use</label>
+              <select name="layer_use" id="layer_use">
+                <option value="">-- select layer --</option>
+                <option value="LINER">LINER</option>
+                <option value="REINFORCEMENT">REINFORCEMENT</option>
+                <option value="COVER">COVER</option>
+              </select>
+            </div>
+            <div class="layer-note">
+              Only RAW material with a layer assignment can be used in production runs. This ensures traceability across the manufacturing process.
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div>
+    <div class="summary-card">
+      <h3>Inspection Summary</h3>
+
+      <div class="summary-row">
+        <div class="summary-label">Workflow</div>
+        <div class="summary-value">MRR-2026</div>
+      </div>
+      <div class="summary-row">
+        <div class="summary-label">Type</div>
+        <div class="summary-value" id="summaryType">Raw Material</div>
+      </div>
+      <div class="summary-row">
+        <div class="summary-label">Layer Rule</div>
+        <div class="summary-value" id="summaryLayer">Required</div>
+      </div>
+
+      <div class="summary-quote">
+        “The MRR ticket is the entry point for all incoming materials. Accurate setup here supports traceability and inspection flow.”
       </div>
     </div>
 
-    <div class="mt">
-      <button class="btn btn-primary" type="submit">
-        Create Ticket
-      </button>
-      <a href="/mrr/tickets" class="btn btn-muted">Cancel</a>
+    <div class="recent-card">
+      <h3>Ticket Notes</h3>
+      <div class="recent-item">
+        <div>
+          <div><strong>RAW</strong></div>
+          <div class="recent-meta">Requires layer assignment</div>
+        </div>
+      </div>
+      <div class="recent-item">
+        <div>
+          <div><strong>OUTSOURCED</strong></div>
+          <div class="recent-meta">Will use outsourced inspection form</div>
+        </div>
+      </div>
+      <div class="recent-item">
+        <div>
+          <div><strong>Next Step</strong></div>
+          <div class="recent-meta">After creation, open the ticket and continue inspection</div>
+        </div>
+      </div>
     </div>
-
-  </form>
+  </div>
 </div>
 
 <script>
   (function () {
-    const lotType = document.getElementById("lot_type");
+    const input = document.getElementById("lot_type");
+    const rawCard = document.getElementById("cardRaw");
+    const outsourcedCard = document.getElementById("cardOutsourced");
     const wrap = document.getElementById("layerUseWrap");
     const layer = document.getElementById("layer_use");
-    if (!lotType || !wrap || !layer) return;
+    const summaryType = document.getElementById("summaryType");
+    const summaryLayer = document.getElementById("summaryLayer");
 
-    function syncLayerUse() {
-      const isRaw = lotType.value === "RAW";
+    function setType(value) {
+      input.value = value;
+
+      const isRaw = value === "RAW";
+
+      rawCard.classList.toggle("active", isRaw);
+      outsourcedCard.classList.toggle("active", !isRaw);
+
       wrap.style.display = isRaw ? "" : "none";
       layer.required = isRaw;
-      if (!isRaw) layer.value = "";
+      if (!isRaw) {
+        layer.value = "";
+      }
+
+      summaryType.textContent = isRaw ? "Raw Material" : "Outsourced Material";
+      summaryLayer.textContent = isRaw ? "Required" : "Not Required";
     }
 
-    lotType.addEventListener("change", syncLayerUse);
-    syncLayerUse();
+    rawCard.addEventListener("click", function () {
+      setType("RAW");
+    });
+
+    outsourcedCard.addEventListener("click", function () {
+      setType("OUTSOURCED");
+    });
+
+    setType(input.value || "RAW");
   })();
 </script>
 
 {% endblock %}
-
