@@ -619,16 +619,21 @@ def create_db_and_tables() -> None:
     if _SCHEMA_READY:
         return
 
+    def create_db_and_tables() -> None:
+    global _SCHEMA_READY
+
+    if _SCHEMA_READY:
+        return
+
+    # Create all missing tables from SQLModel metadata
     SQLModel.metadata.create_all(engine)
-    from sqlalchemy import text
-    from sqlmodel import Session, SQLModel, create_engine
-    
-    # keep your existing code above
-    
-    
+
+    from sqlalchemy import inspect, text
+    from sqlmodel import Session, SQLModel
+
     def init_db():
         SQLModel.metadata.create_all(engine)
-    
+
         with Session(engine) as session:
             session.exec(
                 text("""
@@ -637,8 +642,7 @@ def create_db_and_tables() -> None:
                 """)
             )
             session.commit()
-    
-        # Add missing column for older databases
+
         with Session(engine) as session:
             session.exec(
                 text("""
@@ -647,9 +651,14 @@ def create_db_and_tables() -> None:
                 """)
             )
             session.commit()
+
     apply_rnd_schema_patches()
     _ensure_schema_patches()
     _ensure_rnd_specimen_defaults()
+
+    # Final pass to ensure all model tables exist, including newer ones
+    SQLModel.metadata.create_all(engine)
+
     _SCHEMA_READY = True
 
 
