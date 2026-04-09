@@ -15,21 +15,24 @@
   }
 
   .erp-single-sidebar {
-    width: 300px;
-    min-width: 300px;
-    max-width: 300px;
+    width: 308px;
+    min-width: 308px;
+    max-width: 308px;
     flex-shrink: 0;
     overflow: hidden;
     transition:
-      width 0.28s ease,
-      min-width 0.28s ease,
-      max-width 0.28s ease;
+      width 0.24s ease,
+      min-width 0.24s ease,
+      max-width 0.24s ease;
+    background: #ffffff;
+    border-right: 1px solid #e6e9ef;
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.02), 10px 0 24px rgba(15, 23, 42, 0.04);
   }
 
   .erp-single-sidebar.collapsed {
-    width: 74px;
-    min-width: 74px;
-    max-width: 74px;
+    width: 78px;
+    min-width: 78px;
+    max-width: 78px;
   }
 
   .erp-content-shell {
@@ -37,30 +40,342 @@
     min-width: 0;
     width: auto;
     max-width: none;
-    transition:
-      width 0.28s ease,
-      max-width 0.28s ease,
-      padding 0.28s ease,
-      margin 0.28s ease;
   }
 
   .page {
     width: 100%;
     max-width: none;
     box-sizing: border-box;
-    transition:
-      width 0.28s ease,
-      max-width 0.28s ease,
-      padding 0.28s ease;
+  }
+
+  .erp-sidebar-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 16px 14px 12px;
+    border-bottom: 1px solid #edf0f5;
+  }
+
+  .erp-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    text-decoration: none;
+  }
+
+  .erp-sidebar-brand-mark {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #0f6cbd;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    flex: 0 0 auto;
+  }
+
+  .erp-sidebar-brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.08;
+  }
+
+  .erp-sidebar-brand-text strong {
+    color: #0f172a;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+    font-weight: 800;
+  }
+
+  .erp-sidebar-brand-text small {
+    color: #8090a3;
+    font-size: 10px;
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .erp-sidebar-toggle {
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: 1px solid #e3e8ef;
+    background: #ffffff;
+    color: #425466;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .erp-sidebar-toggle:hover {
+    background: #f8fafc;
+  }
+
+  .erp-sidebar-inner {
+    padding: 10px 10px 16px;
+    overflow: auto;
+    height: calc(100vh - 65px);
+  }
+
+  .erp-sidebar-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .erp-sidebar-section-label {
+    margin: 8px 8px 6px;
+    color: #8a97a6;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .erp-sub-section-label {
+    margin: 6px 4px 8px;
+  }
+
+  .erp-coming-soon-label {
+    margin-top: 12px;
+  }
+
+  .erp-side-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .erp-tree-node {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .erp-module-row {
+    width: 100%;
+    border: 1px solid transparent;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-align: left;
+    padding: 10px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #334155;
+    font-weight: 700;
+    font-size: 13px;
+    transition: all 0.18s ease;
+  }
+
+  .erp-module-row:hover {
+    background: #f7f9fc;
+    border-color: #e7edf5;
+  }
+
+  .erp-module-row.active {
+    background: #edf5ff;
+    border-color: #cfe3ff;
+    color: #0f3d73;
+  }
+
+  .erp-module-row-icon {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7a8c;
+  }
+
+  .erp-module-row.active .erp-module-row-icon {
+    color: #0f6cbd;
+  }
+
+  .erp-module-row-icon svg,
+  .erp-sidebar-link-icon svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+  }
+
+  .erp-module-row-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 13px;
+  }
+
+  .erp-module-row-arrow {
+    flex: 0 0 auto;
+    color: #7b8794;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .erp-module-children {
+    margin-left: 10px;
+    padding-left: 12px;
+    border-left: 1px solid #e6ebf2;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .erp-sidebar-link {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: #425466;
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    border: 1px solid transparent;
+    transition: all 0.16s ease;
+  }
+
+  .erp-sidebar-link:hover {
+    background: #f8fafc;
+    border-color: #edf2f7;
+    color: #0f172a;
+  }
+
+  .erp-sidebar-link.active {
+    background: #eef4fb;
+    border-color: #d8e5f2;
+    color: #0f3d73;
+    font-weight: 700;
+  }
+
+  .erp-sidebar-link-icon {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #7c8b9a;
+  }
+
+  .erp-sidebar-link.active .erp-sidebar-link-icon {
+    color: #0f6cbd;
+  }
+
+  .erp-sidebar-sublink {
+    padding-left: 12px;
+    font-size: 12px;
+  }
+
+  .erp-sidebar-subsublink {
+    padding-left: 18px;
+    font-size: 11.75px;
+    color: #5b6b7d;
+  }
+
+  .erp-subtree {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .erp-subtree-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .erp-subtree-main {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .erp-subtree-toggle {
+    width: 26px;
+    height: 26px;
+    flex: 0 0 26px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #7b8794;
+    border-radius: 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  .erp-subtree-toggle:hover {
+    background: #f8fafc;
+    border-color: #edf2f7;
+    color: #334155;
+  }
+
+  .erp-subtree-children {
+    margin-left: 12px;
+    padding-left: 12px;
+    border-left: 1px solid #e9eef5;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .erp-subtree-children-deep {
+    margin-left: 8px;
+  }
+
+  .erp-coming-soon-card {
+    border: 1px dashed #d5dce5;
+    background: #fafbfd;
+    color: #7b8794;
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .erp-chevron-left,
+  .erp-chevron-right,
+  .erp-chevron-down {
+    width: 8px;
+    height: 8px;
+    border-right: 1.8px solid currentColor;
+    border-bottom: 1.8px solid currentColor;
+    display: inline-block;
+  }
+
+  .erp-chevron-left {
+    transform: rotate(135deg);
+  }
+
+  .erp-chevron-right {
+    transform: rotate(-45deg);
+  }
+
+  .erp-chevron-down {
+    transform: rotate(45deg);
+  }
+
+  .erp-chevron-down.is-right {
+    transform: rotate(-45deg);
   }
 
   .erp-single-sidebar.collapsed .erp-sidebar-brand-text,
   .erp-single-sidebar.collapsed .erp-sidebar-section-label,
-  .erp-single-sidebar.collapsed .erp-sidebar-divider,
-  .erp-single-sidebar.collapsed .erp-sidebar-panel-wrap,
   .erp-single-sidebar.collapsed .erp-module-row-text,
-  .erp-single-sidebar.collapsed .erp-module-row-arrow {
-    display: none;
+  .erp-single-sidebar.collapsed .erp-module-row-arrow,
+  .erp-single-sidebar.collapsed .erp-module-children {
+    display: none !important;
   }
 
   .erp-single-sidebar.collapsed .erp-module-row {
@@ -78,125 +393,37 @@
     transform: rotate(180deg);
   }
 
-    .erp-accordion {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
+  @media (max-width: 980px) {
+    .erp-single-sidebar {
+      width: 100%;
+      min-width: 100%;
+      max-width: 100%;
+      height: auto;
+      position: static;
+    }
 
-  .erp-accordion-item {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
+    .erp-single-sidebar.collapsed {
+      width: 100%;
+      min-width: 100%;
+      max-width: 100%;
+    }
 
-  .erp-module-row {
-    width: 100%;
-    border: 1px solid transparent;
-    background: #ffffff;
-    color: #334155;
-    border-radius: 12px;
-    min-height: 42px;
-    padding: 10px 12px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
+    .erp-sidebar-inner {
+      height: auto;
+    }
 
-  .erp-module-row:hover {
-    background: #f8fbff;
-    border-color: #dbeafe;
-  }
+    .erp-single-sidebar.collapsed .erp-sidebar-brand-text,
+    .erp-single-sidebar.collapsed .erp-sidebar-section-label,
+    .erp-single-sidebar.collapsed .erp-module-row-text,
+    .erp-single-sidebar.collapsed .erp-module-row-arrow,
+    .erp-single-sidebar.collapsed .erp-module-children {
+      display: block !important;
+    }
 
-  .erp-module-row.active {
-    background: #eff6ff;
-    border-color: #bfdbfe;
-    color: #0f172a;
-    font-weight: 700;
-  }
-
-  .erp-module-row-icon {
-    width: 18px;
-    text-align: center;
-    flex: 0 0 18px;
-  }
-
-  .erp-module-row-text {
-    flex: 1 1 auto;
-    text-align: left;
-  }
-
-  .erp-module-row-arrow {
-    flex: 0 0 auto;
-    color: #64748b;
-    font-size: 12px;
-  }
-
-  .erp-module-children {
-    margin-left: 18px;
-    padding-left: 14px;
-    border-left: 1px solid #e2e8f0;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .erp-module-group-title {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    color: #94a3b8;
-    padding: 4px 8px 2px 8px;
-  }
-
-  .erp-coming-soon-label {
-    margin-top: 10px;
-  }
-
-  .erp-coming-soon-card {
-    border: 1px dashed #cbd5e1;
-    background: #f8fafc;
-    color: #64748b;
-    border-radius: 10px;
-    padding: 10px 12px;
-    font-size: 13px;
-  }
-
-  .erp-sidebar-link {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-height: 36px;
-    padding: 8px 10px;
-    border-radius: 10px;
-    text-decoration: none;
-    color: #475569;
-    transition: all 0.18s ease;
-  }
-
-  .erp-sidebar-link:hover {
-    background: #f8fafc;
-    color: #0f172a;
-  }
-
-  .erp-sidebar-link.active {
-    background: #eff6ff;
-    color: #0f172a;
-    font-weight: 700;
-    border: 1px solid #bfdbfe;
-  }
-
-  .erp-sidebar-link-icon {
-    width: 16px;
-    text-align: center;
-    flex: 0 0 16px;
-  }
-
-  .erp-single-sidebar.collapsed .erp-module-children {
-    display: none !important;
+    .erp-single-sidebar.collapsed .erp-module-row {
+      justify-content: flex-start;
+      padding: 10px 10px;
+    }
   }
 </style>
 <body>
@@ -650,80 +877,74 @@
   </div>
 
 <script>
-document.addEventListener("DOMContentLoaded", () => {
-  const form = document.querySelector(".topbar-search");
-  if (!form) return;
+function setArrowState(arrowWrap, isOpen) {
+  if (!arrowWrap) return;
+  const chevron = arrowWrap.querySelector(".erp-chevron-down, .erp-chevron-right");
+  if (!chevron) return;
 
-  const input = form.querySelector('input[name="q"]');
-  const box = form.querySelector(".search-results");
+  chevron.className = isOpen ? "erp-chevron-down" : "erp-chevron-down is-right";
+}
 
-  if (!input || !box) return;
+function toggleModuleNode(moduleKey) {
+  const container = document.getElementById("module-" + moduleKey);
+  const arrow = document.getElementById("arrow-" + moduleKey);
+  const button = document.querySelector('.erp-module-row[data-target="' + moduleKey + '"]');
 
-  let timer = null;
+  if (!container || !arrow || !button) return;
 
-  function renderResults(items) {
-    if (!items || !items.length) {
-      box.innerHTML = `<div class="search-empty">No matching results.</div>`;
-      box.style.display = "block";
-      return;
-    }
+  const isOpen = container.style.display === "block";
 
-    box.innerHTML = items.map(item => `
-      <a class="search-result-item" href="${item.url || '#'}">
-        <div class="search-result-title">${item.title || ''}</div>
-        <div class="search-result-sub">${item.subtitle || ''}</div>
-      </a>
-    `).join("");
-    box.style.display = "block";
+  document.querySelectorAll(".erp-module-children").forEach(function (el) {
+    el.style.display = "none";
+  });
+
+  document.querySelectorAll(".erp-module-row[data-target]").forEach(function (el) {
+    el.classList.remove("active");
+  });
+
+  document.querySelectorAll(".erp-module-row-arrow").forEach(function (el) {
+    el.innerHTML = '<span class="erp-chevron-right"></span>';
+  });
+
+  if (!isOpen) {
+    container.style.display = "block";
+    button.classList.add("active");
+    arrow.innerHTML = '<span class="erp-chevron-down"></span>';
   }
+}
 
-  async function runSearch() {
-    const query = (input.value || "").trim();
+function toggleTreeGroup(groupId) {
+  const group = document.getElementById("group-" + groupId);
+  const arrow = document.getElementById("arrow-" + groupId);
+  if (!group) return;
 
-    if (!query) {
-      box.innerHTML = "";
-      box.style.display = "none";
-      return;
-    }
+  const isOpen = group.style.display === "block";
+  group.style.display = isOpen ? "none" : "block";
+  setArrowState(arrow, !isOpen);
+}
 
-    try {
-      const res = await fetch(`/search?q=${encodeURIComponent(query)}`, {
-        headers: { "Accept": "application/json" }
-      });
+document.addEventListener("DOMContentLoaded", function () {
+  const path = window.location.pathname || "";
 
-      const data = await res.json();
-      const items = Array.isArray(data) ? data : (data.results || []);
-      renderResults(items);
-    } catch (err) {
-      box.innerHTML = `<div class="search-empty">Search failed.</div>`;
-      box.style.display = "block";
-    }
+  if (
+    path.startsWith("/dashboard") ||
+    path.startsWith("/rfi") ||
+    path.startsWith("/burst") ||
+    path.startsWith("/hydro") ||
+    path.startsWith("/final") ||
+    path.startsWith("/mrr") ||
+    path.startsWith("/runs") ||
+    path.startsWith("/rnd") ||
+    path.startsWith("/documentation")
+  ) {
+    const qualityContainer = document.getElementById("module-quality");
+    const qualityArrow = document.getElementById("arrow-quality");
+    const qualityButton = document.querySelector('.erp-module-row[data-target="quality"]');
+
+    if (qualityContainer) qualityContainer.style.display = "block";
+    if (qualityButton) qualityButton.classList.add("active");
+    if (qualityArrow) qualityArrow.innerHTML = '<span class="erp-chevron-down"></span>';
   }
-
-  input.addEventListener("input", () => {
-    clearTimeout(timer);
-    timer = setTimeout(runSearch, 180);
-  });
-
-  input.addEventListener("focus", () => {
-    if ((input.value || "").trim()) runSearch();
-  });
-
-  document.addEventListener("click", (e) => {
-    if (!form.contains(e.target)) {
-      box.style.display = "none";
-    }
-  });
-
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    await runSearch();
-
-    const firstLink = box.querySelector(".search-result-item");
-    if (firstLink) {
-      window.location.href = firstLink.href;
-    }
-  });
 });
 </script>
 <script>
