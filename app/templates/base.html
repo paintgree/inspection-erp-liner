@@ -77,17 +77,130 @@
   .erp-single-sidebar.collapsed .erp-sidebar-toggle {
     transform: rotate(180deg);
   }
+
+    .erp-accordion {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .erp-accordion-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .erp-module-row {
+    width: 100%;
+    border: 1px solid transparent;
+    background: #ffffff;
+    color: #334155;
+    border-radius: 12px;
+    min-height: 42px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .erp-module-row:hover {
+    background: #f8fbff;
+    border-color: #dbeafe;
+  }
+
+  .erp-module-row.active {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #0f172a;
+    font-weight: 700;
+  }
+
+  .erp-module-row-icon {
+    width: 18px;
+    text-align: center;
+    flex: 0 0 18px;
+  }
+
+  .erp-module-row-text {
+    flex: 1 1 auto;
+    text-align: left;
+  }
+
+  .erp-module-row-arrow {
+    flex: 0 0 auto;
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  .erp-module-children {
+    margin-left: 18px;
+    padding-left: 14px;
+    border-left: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .erp-module-group-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #94a3b8;
+    padding: 4px 8px 2px 8px;
+  }
+
+  .erp-coming-soon-label {
+    margin-top: 10px;
+  }
+
+  .erp-coming-soon-card {
+    border: 1px dashed #cbd5e1;
+    background: #f8fafc;
+    color: #64748b;
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+
+  .erp-sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 36px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: #475569;
+    transition: all 0.18s ease;
+  }
+
+  .erp-sidebar-link:hover {
+    background: #f8fafc;
+    color: #0f172a;
+  }
+
+  .erp-sidebar-link.active {
+    background: #eff6ff;
+    color: #0f172a;
+    font-weight: 700;
+    border: 1px solid #bfdbfe;
+  }
+
+  .erp-sidebar-link-icon {
+    width: 16px;
+    text-align: center;
+    flex: 0 0 16px;
+  }
+
+  .erp-single-sidebar.collapsed .erp-module-children {
+    display: none !important;
+  }
 </style>
 <body>
   {% set current_path = request.url.path if request and request.url else '' %}
-  {% set selected_module = 'orders' %}
-  {% if current_path.startswith('/rnd') %}
-    {% set selected_module = 'rnd' %}
-  {% elif current_path.startswith('/documentation') %}
-    {% set selected_module = 'docs' %}
-  {% else %}
-    {% set selected_module = 'orders' %}
-  {% endif %}
 
   <div class="erp-shell single-sidebar-shell">
     {% if user %}
@@ -100,84 +213,185 @@
             <small>All in one &amp; System</small>
           </span>
         </a>
-
+    
         <button id="erpSidebarToggle" class="erp-sidebar-toggle" type="button" onclick="toggleSidebar()" aria-label="Toggle sidebar">
           ‹
         </button>
       </div>
-
+    
       <div class="erp-sidebar-inner">
-        <div id="erpSidebarContent" class="erp-sidebar-content morphing">
+        <div class="erp-sidebar-content">
           <div class="erp-sidebar-section-label">Main Modules</div>
-
-          <button type="button"
-                  class="erp-module-row {% if selected_module == 'orders' %}active{% endif %}"
-                  onclick="selectModule('orders')">
-            <span class="erp-module-row-icon">◈</span>
-            <span class="erp-module-row-text">Orders Production</span>
-            <span class="erp-module-row-arrow">›</span>
-          </button>
-          
-          <button type="button"
-                  class="erp-module-row {% if selected_module == 'rnd' %}active{% endif %}"
-                  onclick="selectModule('rnd')">
-            <span class="erp-module-row-icon">⌬</span>
-            <span class="erp-module-row-text">R&amp;D</span>
-            <span class="erp-module-row-arrow">›</span>
-          </button>
-          
-          <button type="button"
-                  class="erp-module-row {% if selected_module == 'docs' %}active{% endif %}"
-                  onclick="selectModule('docs')">
-            <span class="erp-module-row-icon">▤</span>
-            <span class="erp-module-row-text">Documentations</span>
-            <span class="erp-module-row-arrow">›</span>
-          </button>
-
-          <div class="erp-sidebar-divider"></div>
-
-          <div class="erp-sidebar-panel-wrap">
-            <div class="erp-sidebar-panel-head">
-              <div class="erp-sidebar-panel-badge" id="erpPanelBadge">◈</div>
-              <div class="erp-sidebar-panel-title" id="erpPanelTitle">Orders Production</div>
+    
+          <div class="erp-accordion">
+    
+            <!-- QUALITY -->
+            <div class="erp-accordion-item open">
+              <button
+                type="button"
+                class="erp-module-row active"
+                onclick="toggleSidebarModule('quality')"
+                data-module="quality"
+              >
+                <span class="erp-module-row-icon">🛡</span>
+                <span class="erp-module-row-text">Quality</span>
+                <span class="erp-module-row-arrow" id="arrow-quality">▾</span>
+              </button>
+    
+              <div class="erp-module-children" id="module-quality" style="display:block;">
+                <div class="erp-module-group-title">Orders Production</div>
+    
+                <a class="erp-sidebar-link {% if current_path == '/dashboard' %}active{% endif %}" href="/dashboard">
+                  <span class="erp-sidebar-link-icon">⌂</span>
+                  <span>Overview</span>
+                </a>
+    
+                <a class="erp-sidebar-link {% if current_path.startswith('/rfi') %}active{% endif %}" href="/rfi">
+                  <span class="erp-sidebar-link-icon">☑</span>
+                  <span>RFI Dashboard</span>
+                </a>
+    
+                <a class="erp-sidebar-link {% if current_path.startswith('/burst') %}active{% endif %}" href="/burst">
+                  <span class="erp-sidebar-link-icon">◫</span>
+                  <span>Burst Report</span>
+                </a>
+    
+                <a class="erp-sidebar-link {% if current_path.startswith('/hydro') %}active{% endif %}" href="/hydro">
+                  <span class="erp-sidebar-link-icon">◔</span>
+                  <span>Hydro Testing</span>
+                </a>
+    
+                <a class="erp-sidebar-link {% if current_path.startswith('/final') %}active{% endif %}" href="/final">
+                  <span class="erp-sidebar-link-icon">◌</span>
+                  <span>Final Inspection</span>
+                </a>
+    
+                <a class="erp-sidebar-link {% if current_path.startswith('/mrr') %}active{% endif %}" href="/mrr">
+                  <span class="erp-sidebar-link-icon">▣</span>
+                  <span>MRR Inspection</span>
+                </a>
+    
+                <a class="erp-sidebar-link {% if current_path.startswith('/runs') %}active{% endif %}" href="/runs">
+                  <span class="erp-sidebar-link-icon">△</span>
+                  <span>In-Process Inspection</span>
+                </a>
+    
+                <a class="erp-sidebar-link {% if current_path.startswith('/rnd') %}active{% endif %}" href="/rnd">
+                  <span class="erp-sidebar-link-icon">⌬</span>
+                  <span>R&amp;D</span>
+                </a>
+    
+                <a class="erp-sidebar-link {% if current_path.startswith('/documentation') %}active{% endif %}" href="/documentation/procedures">
+                  <span class="erp-sidebar-link-icon">▤</span>
+                  <span>Documentations</span>
+                </a>
+              </div>
             </div>
-
-            <nav id="erpPanelLinks" class="erp-sidebar-links">
-              <a class="erp-sidebar-link {% if current_path == '/dashboard' %}active{% endif %}" href="/dashboard">
-                <span class="erp-sidebar-link-icon">⌂</span>
-                <span>Overview</span>
-              </a>
-
-              <a class="erp-sidebar-link {% if current_path.startswith('/rfi') %}active{% endif %}" href="/rfi">
-                <span class="erp-sidebar-link-icon">☑</span>
-                <span>RFI Dashboard</span>
-              </a>
-
-              <a class="erp-sidebar-link {% if current_path.startswith('/burst') %}active{% endif %}" href="/burst">
-                <span class="erp-sidebar-link-icon">◫</span>
-                <span>Burst Report</span>
-              </a>
-
-              <a class="erp-sidebar-link {% if current_path.startswith('/hydro') %}active{% endif %}" href="/hydro">
-                <span class="erp-sidebar-link-icon">◔</span>
-                <span>Hydro Testing</span>
-              </a>
-
-              <a class="erp-sidebar-link {% if current_path.startswith('/final') %}active{% endif %}" href="/final">
-                <span class="erp-sidebar-link-icon">◌</span>
-                <span>Final Inspection</span>
-              </a>
-
-              <a class="erp-sidebar-link {% if current_path.startswith('/mrr') %}active{% endif %}" href="/mrr">
-                <span class="erp-sidebar-link-icon">▣</span>
-                <span>MRR Inspection</span>
-              </a>
-
-              <a class="erp-sidebar-link {% if current_path.startswith('/runs') %}active{% endif %}" href="/runs">
-                <span class="erp-sidebar-link-icon">△</span>
-                <span>In-Process Inspection</span>
-              </a>
-            </nav>
+    
+            <div class="erp-sidebar-section-label erp-coming-soon-label">Coming Soon</div>
+    
+            <!-- PRODUCTION -->
+            <div class="erp-accordion-item">
+              <button
+                type="button"
+                class="erp-module-row"
+                onclick="toggleSidebarModule('production')"
+                data-module="production"
+              >
+                <span class="erp-module-row-icon">🏭</span>
+                <span class="erp-module-row-text">Production</span>
+                <span class="erp-module-row-arrow" id="arrow-production">▸</span>
+              </button>
+              <div class="erp-module-children" id="module-production" style="display:none;">
+                <div class="erp-coming-soon-card">Coming soon</div>
+              </div>
+            </div>
+    
+            <!-- WAREHOUSE -->
+            <div class="erp-accordion-item">
+              <button
+                type="button"
+                class="erp-module-row"
+                onclick="toggleSidebarModule('warehouse')"
+                data-module="warehouse"
+              >
+                <span class="erp-module-row-icon">🏬</span>
+                <span class="erp-module-row-text">Warehouse</span>
+                <span class="erp-module-row-arrow" id="arrow-warehouse">▸</span>
+              </button>
+              <div class="erp-module-children" id="module-warehouse" style="display:none;">
+                <div class="erp-coming-soon-card">Coming soon</div>
+              </div>
+            </div>
+    
+            <!-- PROCUREMENT -->
+            <div class="erp-accordion-item">
+              <button
+                type="button"
+                class="erp-module-row"
+                onclick="toggleSidebarModule('procurement')"
+                data-module="procurement"
+              >
+                <span class="erp-module-row-icon">🛒</span>
+                <span class="erp-module-row-text">Procurement</span>
+                <span class="erp-module-row-arrow" id="arrow-procurement">▸</span>
+              </button>
+              <div class="erp-module-children" id="module-procurement" style="display:none;">
+                <div class="erp-coming-soon-card">Coming soon</div>
+              </div>
+            </div>
+    
+            <!-- LOGISTICS -->
+            <div class="erp-accordion-item">
+              <button
+                type="button"
+                class="erp-module-row"
+                onclick="toggleSidebarModule('logistics')"
+                data-module="logistics"
+              >
+                <span class="erp-module-row-icon">🚚</span>
+                <span class="erp-module-row-text">Logistics</span>
+                <span class="erp-module-row-arrow" id="arrow-logistics">▸</span>
+              </button>
+              <div class="erp-module-children" id="module-logistics" style="display:none;">
+                <div class="erp-coming-soon-card">Coming soon</div>
+              </div>
+            </div>
+    
+            <!-- HR -->
+            <div class="erp-accordion-item">
+              <button
+                type="button"
+                class="erp-module-row"
+                onclick="toggleSidebarModule('hr')"
+                data-module="hr"
+              >
+                <span class="erp-module-row-icon">👥</span>
+                <span class="erp-module-row-text">HR</span>
+                <span class="erp-module-row-arrow" id="arrow-hr">▸</span>
+              </button>
+              <div class="erp-module-children" id="module-hr" style="display:none;">
+                <div class="erp-coming-soon-card">Coming soon</div>
+              </div>
+            </div>
+    
+            <!-- FINANCE -->
+            <div class="erp-accordion-item">
+              <button
+                type="button"
+                class="erp-module-row"
+                onclick="toggleSidebarModule('finance')"
+                data-module="finance"
+              >
+                <span class="erp-module-row-icon">💳</span>
+                <span class="erp-module-row-text">Finance</span>
+                <span class="erp-module-row-arrow" id="arrow-finance">▸</span>
+              </button>
+              <div class="erp-module-children" id="module-finance" style="display:none;">
+                <div class="erp-coming-soon-card">Coming soon</div>
+              </div>
+            </div>
+    
           </div>
         </div>
       </div>
@@ -362,239 +576,57 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 </script>
 <script>
-(function () {
-  const moduleConfigs = {
-    orders: {
-      badge: "◈",
-      title: "Orders Production",
-      links: `
-        <a class="erp-sidebar-link ${window.location.pathname === '/dashboard' ? 'active' : ''}" href="/dashboard">
-          <span class="erp-sidebar-link-icon">⌂</span>
-          <span>Overview</span>
-        </a>
+function toggleSidebarModule(moduleKey) {
+  const container = document.getElementById(`module-${moduleKey}`);
+  const arrow = document.getElementById(`arrow-${moduleKey}`);
+  const button = document.querySelector(`.erp-module-row[data-module="${moduleKey}"]`);
 
-        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/rfi') ? 'active' : ''}" href="/rfi">
-          <span class="erp-sidebar-link-icon">☑</span>
-          <span>RFI Dashboard</span>
-        </a>
+  if (!container || !arrow || !button) return;
 
-        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/burst') ? 'active' : ''}" href="/burst">
-          <span class="erp-sidebar-link-icon">◫</span>
-          <span>Burst Report</span>
-        </a>
+  const isOpen = container.style.display === "block";
 
-        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/hydro') ? 'active' : ''}" href="/hydro">
-          <span class="erp-sidebar-link-icon">◔</span>
-          <span>Hydro Testing</span>
-        </a>
-
-        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/final') ? 'active' : ''}" href="/final">
-          <span class="erp-sidebar-link-icon">◌</span>
-          <span>Final Inspection</span>
-        </a>
-
-        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/mrr') ? 'active' : ''}" href="/mrr">
-          <span class="erp-sidebar-link-icon">▣</span>
-          <span>MRR Inspection</span>
-        </a>
-
-        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/runs') ? 'active' : ''}" href="/runs">
-          <span class="erp-sidebar-link-icon">△</span>
-          <span>In-Process Inspection</span>
-        </a>
-      `
-    },
-
-    rnd: {
-      badge: "⌬",
-      title: "R&D",
-      links: `
-        <style>
-          .rnd-side-group{
-            display:flex;
-            flex-direction:column;
-            gap:6px;
-          }
-
-          .rnd-side-row{
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            gap:8px;
-            width:100%;
-          }
-
-          .rnd-side-main{
-            flex:1 1 auto;
-            min-width:0;
-          }
-
-          .rnd-side-toggle{
-            flex:0 0 auto;
-            width:26px;
-            height:26px;
-            border:none;
-            background:transparent;
-            color:#94a3b8;
-            border-radius:8px;
-            cursor:pointer;
-            display:inline-flex;
-            align-items:center;
-            justify-content:center;
-            font-size:12px;
-            line-height:1;
-            transition:all .18s ease;
-          }
-
-          .rnd-side-toggle:hover{
-            background:#f1f5f9;
-            color:#475569;
-          }
-
-          .rnd-side-children{
-            display:flex;
-            flex-direction:column;
-            gap:6px;
-            margin-left:30px;
-            padding-left:12px;
-            border-left:1px solid #e2e8f0;
-          }
-        </style>
-
-        <a class="erp-sidebar-link ${window.location.pathname === '/rnd' || window.location.pathname === '/rnd/' || window.location.pathname.startsWith('/rnd/qualifications') ? 'active' : ''}" href="/rnd">
-          <span class="erp-sidebar-link-icon">⌂</span>
-          <span>Qualification</span>
-        </a>
-
-        <div class="rnd-side-group">
-          <div class="rnd-side-row">
-            <a class="erp-sidebar-link rnd-side-main ${window.location.pathname.startsWith('/rnd/lab-tests') ? 'active' : ''}" href="/rnd/lab-tests/tensile-pipe">
-              <span class="erp-sidebar-link-icon">🧪</span>
-              <span>Lab Tests</span>
-            </a>
-
-            <button
-              type="button"
-              class="rnd-side-toggle"
-              onclick="toggleSidebarGroup('rnd-lab-tests')"
-              aria-label="Toggle Lab Tests submenu"
-            >
-              <span id="arrow-rnd-lab-tests">${window.location.pathname.startsWith('/rnd/lab-tests') ? '▾' : '▸'}</span>
-            </button>
-          </div>
-
-          <div
-            id="group-rnd-lab-tests"
-            class="rnd-side-children"
-            style="display:${window.location.pathname.startsWith('/rnd/lab-tests') ? 'flex' : 'none'};"
-          >
-            <a class="erp-sidebar-link erp-sidebar-sublink ${window.location.pathname.startsWith('/rnd/lab-tests/tensile-pipe') ? 'active' : ''}" href="/rnd/lab-tests/tensile-pipe">
-              <span>Tensile Test Pipe</span>
-            </a>
-
-            <a class="erp-sidebar-link erp-sidebar-sublink ${window.location.pathname.startsWith('/rnd/lab-tests/tensile-fiber') ? 'active' : ''}" href="/rnd/lab-tests/tensile-fiber">
-              <span>Tensile Test Fiber</span>
-            </a>
-
-            <a class="erp-sidebar-link erp-sidebar-sublink ${window.location.pathname.startsWith('/rnd/lab-tests/permeation-test') ? 'active' : ''}" href="/rnd/lab-tests/permeation-test">
-              <span>Permeation Test</span>
-            </a>
-          </div>
-        </div>
-      `
-    },
-    docs: {
-      badge: "▤",
-      title: "Documentations",
-      links: `
-        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/documentation/procedures') ? 'active' : ''}" href="/documentation/procedures">
-          <span class="erp-sidebar-link-icon">≣</span>
-          <span>Procedures</span>
-        </a>
-
-        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/documentation/standards') ? 'active' : ''}" href="/documentation/standards">
-          <span class="erp-sidebar-link-icon">⎘</span>
-          <span>Standards Library</span>
-        </a>
-
-        <a class="erp-sidebar-link ${window.location.pathname.startsWith('/documentation/calibration-list') ? 'active' : ''}" href="/documentation/calibration-list">
-          <span class="erp-sidebar-link-icon">☷</span>
-          <span>Calibration List</span>
-        </a>
-      `
-    }
-  };
-
-  function getInitialModule() {
-    const path = window.location.pathname || "";
-    if (path.startsWith('/rnd')) return 'rnd';
-    if (path.startsWith('/documentation')) return 'docs';
-    return 'orders';
-  }
-
-  function updateActiveModuleButton(moduleKey) {
-    document.querySelectorAll('.erp-module-row').forEach((btn) => {
-      btn.classList.remove('active');
-      const onclickValue = btn.getAttribute('onclick') || '';
-      if (onclickValue.includes(`'${moduleKey}'`) || onclickValue.includes(`"${moduleKey}"`)) {
-        btn.classList.add('active');
-      }
-    });
-  }
-
-  function toggleSidebarGroup(groupId) {
-    const group = document.getElementById(`group-${groupId}`);
-    const arrow = document.getElementById(`arrow-${groupId}`);
-    if (!group) return;
-
-    const isOpen = group.style.display === 'flex';
-    group.style.display = isOpen ? 'none' : 'flex';
-
-    if (arrow) {
-      arrow.textContent = isOpen ? '▸' : '▾';
-    }
-  }
-
-  function setModuleContent(moduleKey, animate = false) {
-    const config = moduleConfigs[moduleKey];
-    if (!config) return;
-
-    const content = document.getElementById('erpSidebarContent');
-    const badge = document.getElementById('erpPanelBadge');
-    const title = document.getElementById('erpPanelTitle');
-    const links = document.getElementById('erpPanelLinks');
-
-    if (!content) return;
-
-    if (animate) {
-      content.classList.add('is-switching');
-      setTimeout(() => {
-        if (badge) badge.textContent = config.badge;
-        if (title) title.textContent = config.title;
-        if (links) links.innerHTML = config.links;
-        updateActiveModuleButton(moduleKey);
-        requestAnimationFrame(() => {
-          content.classList.remove('is-switching');
-        });
-      }, 120);
-    } else {
-      if (badge) badge.textContent = config.badge;
-      if (title) title.textContent = config.title;
-      if (links) links.innerHTML = config.links;
-      updateActiveModuleButton(moduleKey);
-    }
-  }
-
-  window.selectModule = function (moduleKey) {
-    setModuleContent(moduleKey, true);
-  };
-
-  window.toggleSidebarGroup = toggleSidebarGroup;
-
-  document.addEventListener('DOMContentLoaded', function () {
-    setModuleContent(getInitialModule(), false);
+  document.querySelectorAll(".erp-module-children").forEach((item) => {
+    item.style.display = "none";
   });
-})();
+
+  document.querySelectorAll(".erp-module-row[data-module]").forEach((item) => {
+    item.classList.remove("active");
+  });
+
+  document.querySelectorAll(".erp-module-row-arrow[id^='arrow-']").forEach((item) => {
+    item.textContent = "▸";
+  });
+
+  if (!isOpen) {
+    container.style.display = "block";
+    arrow.textContent = "▾";
+    button.classList.add("active");
+  }
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  const path = window.location.pathname || "";
+
+  if (
+    path.startsWith("/dashboard") ||
+    path.startsWith("/rfi") ||
+    path.startsWith("/burst") ||
+    path.startsWith("/hydro") ||
+    path.startsWith("/final") ||
+    path.startsWith("/mrr") ||
+    path.startsWith("/runs") ||
+    path.startsWith("/rnd") ||
+    path.startsWith("/documentation")
+  ) {
+    const qualityContainer = document.getElementById("module-quality");
+    const qualityArrow = document.getElementById("arrow-quality");
+    const qualityButton = document.querySelector('.erp-module-row[data-module="quality"]');
+
+    if (qualityContainer) qualityContainer.style.display = "block";
+    if (qualityArrow) qualityArrow.textContent = "▾";
+    if (qualityButton) qualityButton.classList.add("active");
+  }
+});
 </script>
 
 <script>
