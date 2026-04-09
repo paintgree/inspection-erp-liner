@@ -12495,10 +12495,14 @@ def shipment_inspection_form(
     success = request.query_params.get("success", "")
 
     # Template selection (same as your current logic)
-    template_name = "mrr_inspection_outsourced.html" if (
-        (getattr(lot, "inspection_type", "") or "").upper() == "OUTSOURCED"
-    ) else "mrr_inspection.html"
-
+    template_type = _resolve_template_type(lot, inspection)
+    
+    template_name = (
+        "mrr_inspection_outsourced.html"
+        if template_type == "OUTSOURCED"
+        else "mrr_inspection.html"
+    )
+    
     return templates.TemplateResponse(
         request=request,
         name=template_name,
