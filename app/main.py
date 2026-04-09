@@ -12503,26 +12503,19 @@ def shipment_inspection_form(
     ) else "mrr_inspection.html"
 
     return templates.TemplateResponse(
-        template_name,
-        {
+        request=request,
+        name=template_name,
+        context={
             "request": request,
             "user": user,
+            "ticket": lot,
             "inspection": inspection,
             "photo_groups": photo_groups,
             "photo_error": photo_error,
-
-            # ✅ IMPORTANT: give template the name it actually uses
             "inspection_data": data,
-
-            # Keep compatibility with any older fields in template(s)
             "data": data,
             "form_data": data,
-            
-            # ✅ provide both names (templates in your repo use both)
             "lot": lot,
-            "ticket": lot,
-
-            # ✅ show messages instead of “refresh only”
             "error": error,
             "success": success,
         },
