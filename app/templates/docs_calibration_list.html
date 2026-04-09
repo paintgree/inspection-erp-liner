@@ -214,8 +214,8 @@
 
 <div class="cal-card">
   <div class="cal-toolbar">
-    <form method="get" action="/documentation/calibration-list">
-      <input type="text" name="q" value="{{ q or '' }}" placeholder="Search by item, serial, asset, maker, certificate"
+    <form id="calibrationSearchForm" method="get" action="/documentation/calibration-list">
+      <input id="calibrationSearchInput" type="text" name="q" value="{{ q or '' }}" placeholder="Search by item, serial, asset, maker, certificate"
              style="min-width:320px; padding:9px 10px; border-radius:8px; border:1px solid #cbd5e1;">
       {% if edit_mode %}
         <input type="hidden" name="edit" value="1">
@@ -256,7 +256,23 @@
         <tbody>
           {% for row in rows %}
           {% set row_state = row_states.get(row.id, 'normal') %}
-          <tr class="{% if row_state == 'due_soon' %}cal-row-due-soon{% elif row_state == 'overdue' %}cal-row-overdue{% endif %}">
+          <tr
+            class="{% if row_state == 'due_soon' %}cal-row-due-soon{% elif row_state == 'overdue' %}cal-row-overdue{% endif %}"
+            data-search="{{ (
+              (row.item_name or '') ~ ' ' ~
+              (row.asset_no or '') ~ ' ' ~
+              (row.serial_no or '') ~ ' ' ~
+              (row.capacity_range or '') ~ ' ' ~
+              (row.maker or '') ~ ' ' ~
+              (row.date_issued or '') ~ ' ' ~
+              (row.calibration_date or '') ~ ' ' ~
+              (row.calibration_frequency or '') ~ ' ' ~
+              (row.calibration_due_date or '') ~ ' ' ~
+              (row.calibrated_by or '') ~ ' ' ~
+              (row.acceptance_criteria or '') ~ ' ' ~
+              (row.certificate_no or '')
+            )|lower }}"
+          >
             {% if edit_mode %}<td><input type="checkbox" name="selected_ids" value="{{ row.id }}"></td>{% endif %}
             <td>{{ row.id }}</td>
 
@@ -321,5 +337,31 @@ function toggleAllCalibrationRows(source) {
   const checkboxes = document.querySelectorAll('input[name="selected_ids"]');
   checkboxes.forEach(cb => cb.checked = source.checked);
 }
+
+document.addEventListener("DOMContentLoaded", function () {
+  const input = document.getElementById("calibrationSearchInput");
+  const form = document.getElementById("calibrationSearchForm");
+  const rows = Array.from(document.querySelectorAll(".cal-table tbody tr[data-search]"));
+
+  if (!input) return;
+
+  function runCalibrationFilter() {
+    const q = (input.value || "").trim().toLowerCase();
+
+    rows.forEach(function (row) {
+      const hay = row.getAttribute("data-search") || "";
+      row.style.display = hay.includes(q) ? "" : "none";
+    });
+  }
+
+  input.addEventListener("input", runCalibrationFilter);
+
+  if (form) {
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      runCalibrationFilter();
+    });
+  }
+});
 </script>
 {% endblock %}
