@@ -1811,6 +1811,25 @@ def _photos_appendix_pdf_bytes(photos: list) -> bytes:
     c.save()
     buf.seek(0)
     return buf.getvalue()
+
+
+def _merge_pdf_bytes(parts: list[bytes]) -> bytes:
+    from io import BytesIO
+    from pypdf import PdfReader, PdfWriter
+
+    writer = PdfWriter()
+
+    for pdf_bytes in parts:
+        if not pdf_bytes:
+            continue
+        reader = PdfReader(BytesIO(pdf_bytes))
+        for page in reader.pages:
+            writer.add_page(page)
+
+    out = BytesIO()
+    writer.write(out)
+    out.seek(0)
+    return out.read()
     
 def _doc_path_to_pdf_bytes(path: str) -> bytes | None:
     """
@@ -6255,6 +6274,20 @@ def mrr_export_inspection_package(
         receiving=receiving,
         docs=all_docs,  # report generation may need full context
     )
+
+    photos = session.exec(
+        select(MrrInspectionPhoto)
+        .where(MrrInspectionPhoto.ticket_id == lot.id)
+        .where(MrrInspectionPhoto.inspection_id == insp.id)
+        .order_by(MrrInspectionPhoto.created_at.asc())
+    ).all()
+    
+    appendix_pdf = b""
+    if photos:
+        appendix_pdf = _photos_appendix_pdf_bytes(photos)
+    
+    if appendix_pdf:
+        pdf_bytes = _merge_pdf_bytes([pdf_bytes, appendix_pdf])
 
     report_no = getattr(insp, "report_no", "") or f"MRR_{lot_id}_{inspection_id}"
     report_no = _safe_filename(report_no)
