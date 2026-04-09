@@ -619,48 +619,18 @@ def create_db_and_tables() -> None:
     if _SCHEMA_READY:
         return
 
-    def create_db_and_tables() -> None:
-    global _SCHEMA_READY
-
-    if _SCHEMA_READY:
-        return
-
-    # Create all missing tables from SQLModel metadata
+    # First pass: create any missing tables from models
     SQLModel.metadata.create_all(engine)
 
-    from sqlalchemy import inspect, text
-    from sqlmodel import Session, SQLModel
-
-    def init_db():
-        SQLModel.metadata.create_all(engine)
-
-        with Session(engine) as session:
-            session.exec(
-                text("""
-                    ALTER TABLE manageddocument
-                    ADD COLUMN IF NOT EXISTS classification VARCHAR DEFAULT ''
-                """)
-            )
-            session.commit()
-
-        with Session(engine) as session:
-            session.exec(
-                text("""
-                    ALTER TABLE manageddocument
-                    ADD COLUMN IF NOT EXISTS classification VARCHAR DEFAULT ''
-                """)
-            )
-            session.commit()
-
+    # Existing schema maintenance helpers
     apply_rnd_schema_patches()
     _ensure_schema_patches()
     _ensure_rnd_specimen_defaults()
 
-    # Final pass to ensure all model tables exist, including newer ones
+    # Final pass: make sure newer tables such as MrrInspectionPhoto exist
     SQLModel.metadata.create_all(engine)
 
     _SCHEMA_READY = True
-
 
 def get_session():
     with Session(engine) as session:
