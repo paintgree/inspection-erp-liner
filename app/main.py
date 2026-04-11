@@ -14586,27 +14586,27 @@ async def mrr_photo_upload(
     g = (group_name or "General").strip() or "General"
     cap = (caption or "").strip()
 
-    if not photos:
+    valid_files = []
+    for f in photos or []:
+        if not f or not getattr(f, "filename", ""):
+            continue
+        ct = (f.content_type or "").lower()
+        if ct.startswith("image/"):
+            valid_files.append(f)
+
+    if not valid_files:
         return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=Please%20select%20at%20least%20one%20photo",
+            f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=No%20valid%20image%20files%20were%20uploaded",
             status_code=303,
         )
 
     base = os.path.join(MRR_PHOTO_DIR, f"ticket_{lot_id}", f"insp_{inspection_id}")
     os.makedirs(base, exist_ok=True)
 
-    saved_any = False
     written_files = []
 
     try:
-        for f in photos:
-            if not f or not getattr(f, "filename", ""):
-                continue
-
-            ct = (f.content_type or "").lower()
-            if not ct.startswith("image/"):
-                continue
-
+        for f in valid_files:
             ext = _safe_ext(f.filename)
             ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
             filename = f"{ts}{ext}"
@@ -14633,17 +14633,10 @@ async def mrr_photo_upload(
                 uploaded_by_user_name=user.display_name,
             )
             session.add(photo)
-            saved_any = True
-
-        if not saved_any:
-            return RedirectResponse(
-                f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=No%20valid%20image%20files%20were%20uploaded",
-                status_code=303,
-            )
 
         session.commit()
 
-    except Exception as e:
+    except Exception:
         session.rollback()
 
         for path in written_files:
@@ -14654,7 +14647,7 @@ async def mrr_photo_upload(
                 pass
 
         return RedirectResponse(
-            f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=Photo%20upload%20failed%20while%20saving.%20Please%20try%20again.",
+            f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=Photo%20upload%20failed%20while%20saving",
             status_code=303,
         )
 
