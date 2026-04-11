@@ -254,7 +254,7 @@
           <div class="tiny">PDF, JPG, PNG up to your configured size</div>
         </div>
 
-        <form class="mt" action="/mrr/{{ lot.id }}/docs/upload" method="post" enctype="multipart/form-data">
+        <form class="mt" action="/mrr/{{ lot.id }}/docs/upload" method="post" enctype="multipart/form-data" onsubmit="return validateMrrDocUpload(this)">
           <label class="docs-label">Select File</label>
           <input type="file" name="file" required>
 
@@ -273,8 +273,11 @@
               <input class="docs-input" type="text" name="doc_name" placeholder="Auto-generated">
             </div>
             <div>
-              <label class="docs-label">Number (Optional)</label>
-              <input class="docs-input" type="text" name="doc_number" placeholder="Ref #">
+              <label class="docs-label">Reference Number</label>
+              <input class="docs-input" type="text" name="doc_number" placeholder="Required for all documents except PO">
+              <small style="display:block; margin-top:6px; color:#64748b; font-size:12px; font-weight:600;">
+                Required for all documents except PO
+              </small>
             </div>
           </div>
 
@@ -383,4 +386,29 @@
   </div>
 </div>
 
+
+<script>
+function validateMrrDocUpload(form) {
+  const docTypeEl = form.querySelector('[name="doc_type"]');
+  const docNoEl = form.querySelector('[name="doc_number"]');
+
+  const docType = (docTypeEl?.value || "").trim().toUpperCase();
+  const docNo = (docNoEl?.value || "").trim();
+
+  if (docType !== "PO" && !docNo) {
+    alert("Reference Number is required for all documents except PO.");
+    if (docNoEl) {
+      docNoEl.focus();
+      docNoEl.style.borderColor = "#dc2626";
+    }
+    return false;
+  }
+
+  if (docNoEl) {
+    docNoEl.style.borderColor = "";
+  }
+
+  return true;
+}
+</script>
 {% endblock %}
