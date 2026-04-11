@@ -11350,114 +11350,120 @@ async def mrr_doc_upload(
     lot_id: int,
     request: Request,
     session: Session = Depends(get_session),
-    doc_type: str = Form(...),
-    doc_title: str = Form(""),
-    doc_number: str = Form(""),
-    attach_to: str = Form("AUTO"),                 # NEW: AUTO / TICKET / SHIPMENT
-    attach_inspection_id: str = Form(""),          # NEW: chosen inspection id
     file: UploadFile = File(...),
+    doc_type: str = Form("GENERAL"),
+    doc_name: str = Form(""),
+    doc_number: str = Form(""),
+    attach_to: str = Form(""),
+    attach_inspection_id: Optional[int] = Form(None),
 ):
     user = get_current_user(request, session)
+    forbid_boss(user)
 
     lot = session.get(MaterialLot, lot_id)
     if not lot:
         raise HTTPException(404, "MRR Ticket not found")
-    block_if_mrr_canceled(lot)
 
-    safe_original = os.path.basename(file.filename or "upload.bin")
-    filename = f"{lot_id}_{int(datetime.utcnow().timestamp())}_{safe_original}"
-    abs_path = os.path.join(MRR_UPLOAD_DIR, filename)
-
-    # write file
-    with open(abs_path, "wb") as f:
-        f.write(await file.read())
-
-    dt = (doc_type or "").strip().upper()
-
-    # For PO docs, doc number is the ticket PO number (auto) and must be ticket-level
-    if dt == "PO":
-        doc_number = (lot.po_number or "").strip()
-        attach_to = "TICKET"
-        attach_inspection_id = ""
-
-    # Auto doc name unless RELATED
-    title = (doc_title or "").strip()
-    if dt != "RELATED":
-        title = {
-            "PO": "PO Copy",
-            "DELIVERY_NOTE": "Delivery Note",
-            "COA": "COA / Lab Test",
-            "GENERAL": "General Document",
-        }.get(dt, dt)
-
-    if dt == "RELATED" and not title:
-        raise HTTPException(400, "Document Name is required when type is RELATED")
-
-    # store RELATIVE path (portable)
-    rel_path = os.path.relpath(abs_path, BASE_DIR)
-
-    doc_type = (doc_type or "").strip().upper()
+    doc_type = (doc_type or "GENERAL").strip().upper()
+    doc_name = (doc_name or "").strip()
     doc_number = (doc_number or "").strip()
-    
+    attach_to = (attach_to or "").strip().upper()
+
+    if not file or not getattr(file, "filename", ""):
+        return RedirectResponse(
+            f"/mrr/{lot_id}/docs?error=Please%20select%20a%20file%20to%20upload",
+            status_code=303,
+        )
+
     if doc_type != "PO" and not doc_number:
         return RedirectResponse(
             f"/mrr/{lot_id}/docs?error=Reference%20Number%20is%20required%20for%20all%20documents%20except%20PO",
             status_code=303,
         )
 
-    # Decide target inspection id based on attach_to
-    target_insp_id = None
+    if attach_to == "SHIPMENT":
+        if not attach_inspection_id:
+            return RedirectResponse(
+                f"/mrr/{lot_id}/docs?error=Shipment%20attachment%20target%20is%20missing",
+                status_code=303,
+            )
 
-    mode = (attach_to or "AUTO").strip().upper()
-
-    if mode == "TICKET":
-        target_insp_id = None
-
-    elif mode == "SHIPMENT":
-        try:
-            chosen = int((attach_inspection_id or "").strip())
-        except Exception:
-            chosen = 0
-        if chosen <= 0:
-            raise HTTPException(400, "Please select a shipment to attach this document to.")
-        # validate shipment belongs to this ticket
-        insp = session.get(MrrReceivingInspection, chosen)
+        insp = session.get(MrrReceivingInspection, attach_inspection_id)
         if not insp or insp.ticket_id != lot_id:
-            raise HTTPException(400, "Invalid shipment selected.")
-        
-        # Only allow attaching to SUBMITTED/APPROVED shipments
-        if not (insp.inspector_confirmed or insp.manager_approved):
-            raise HTTPException(400, "You can only attach to a submitted shipment.")
-        
-        target_insp_id = chosen
+            return RedirectResponse(
+                f"/mrr/{lot_id}/docs?error=Selected%20shipment%20was%20not%20found",
+                status_code=303,
+            )
 
-    else:
-        # AUTO behavior (your current flow): attach to latest draft shipment if exists
-        if dt != "PO":
-            draft = get_latest_draft_shipment(session, lot_id)
-            if draft and getattr(draft, "id", None) is not None:
-                target_insp_id = int(draft.id)
+    ext = os.path.splitext(file.filename or "")[1].lower().strip()
+    if not ext:
+        ext = ".bin"
+
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
+    safe_name = f"{doc_type}_{timestamp}{ext}"
+
+    save_dir = os.path.join(MRR_UPLOAD_DIR, f"ticket_{lot_id}")
+    os.makedirs(save_dir, exist_ok=True)
+
+    abs_path = os.path.join(save_dir, safe_name)
+    rel_path = os.path.relpath(abs_path, DATA_DIR)
+
+    content = await file.read()
+    if not content:
+        return RedirectResponse(
+            f"/mrr/{lot_id}/docs?error=Uploaded%20file%20was%20empty",
+            status_code=303,
+        )
+
+    try:
+        with open(abs_path, "wb") as f:
+            f.write(content)
+
+        if not doc_name:
+            if doc_type == "DELIVERY_NOTE":
+                doc_name = "Delivery Note"
+            elif doc_type == "COA":
+                doc_name = "Certificate of Analysis"
+            elif doc_type == "PO":
+                doc_name = "Purchase Order"
+            elif doc_type == "OTHER":
+                doc_name = "Other Document"
             else:
-                # no draft exists yet -> keep ticket-level (will not mis-attach)
-                target_insp_id = None
+                doc_name = "General Document"
 
-    doc = MrrDocument(
-        ticket_id=lot_id,
-        inspection_id=target_insp_id,
-        doc_type=dt,
-        doc_name=title,
-        doc_number=(doc_number or "").strip(),
-        file_path=rel_path,
-        uploaded_by_user_id=user.id,
-        uploaded_by_user_name=user.display_name,
-        doc_number=doc_number,
-    )
+        doc = MrrDocument(
+            ticket_id=lot_id,
+            doc_type=doc_type,
+            doc_name=doc_name,
+            doc_number=doc_number,
+            file_path=rel_path,
+            uploaded_by_user_id=user.id,
+            uploaded_by_name=user.display_name,
+            attach_to=attach_to,
+            attach_inspection_id=attach_inspection_id,
+        )
 
-    session.add(doc)
-    session.commit()
+        session.add(doc)
+        session.commit()
 
-    return RedirectResponse(f"/mrr/{lot_id}/docs", status_code=303)
+    except Exception:
+        session.rollback()
+        try:
+            if os.path.exists(abs_path):
+                os.remove(abs_path)
+        except Exception:
+            pass
 
+        return RedirectResponse(
+            f"/mrr/{lot_id}/docs?error=Document%20upload%20failed%20while%20saving",
+            status_code=303,
+        )
+
+    target_url = f"/mrr/{lot_id}/docs?success=Document%20uploaded"
+    if attach_to == "SHIPMENT" and attach_inspection_id:
+        target_url += f"&attach_to=SHIPMENT&attach_inspection_id={attach_inspection_id}"
+
+    return RedirectResponse(target_url, status_code=303)
 from fastapi import Form
 from datetime import datetime
 from fastapi.responses import RedirectResponse
