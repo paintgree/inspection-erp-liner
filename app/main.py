@@ -14621,11 +14621,17 @@ async def mrr_photo_upload(
     caption = (caption or "").strip()
 
     valid_files = []
+    allowed_exts = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".heic", ".heif"}
+
     for f in photos or []:
         if not f or not getattr(f, "filename", ""):
             continue
-        content_type = (f.content_type or "").lower()
-        if content_type.startswith("image/"):
+
+        ext = os.path.splitext(f.filename or "")[1].lower().strip()
+        content_type = (f.content_type or "").lower().strip()
+
+        # Accept either a real image content_type OR a known image extension
+        if content_type.startswith("image/") or ext in allowed_exts:
             valid_files.append(f)
 
     if not valid_files:
@@ -14638,8 +14644,10 @@ async def mrr_photo_upload(
     os.makedirs(save_dir, exist_ok=True)
 
     created_paths = []
+    saved_any = False
 
     try:
+        print("PHOTO UPLOAD DEBUG:", [(getattr(f, "filename", ""), getattr(f, "content_type", "")) for f in (photos or [])])
         for f in valid_files:
             ext = os.path.splitext(f.filename or "")[1].lower().strip()
             if not ext:
@@ -14658,7 +14666,6 @@ async def mrr_photo_upload(
 
             created_paths.append(abs_path)
 
-            # IMPORTANT: store path relative to MRR_PHOTO_DIR, not DATA_DIR and not absolute
             rel_path = os.path.relpath(abs_path, MRR_PHOTO_DIR)
 
             row = MrrInspectionPhoto(
@@ -14671,10 +14678,17 @@ async def mrr_photo_upload(
                 uploaded_by_user_name=user.display_name,
             )
             session.add(row)
+            saved_any = True
+
+        if not saved_any:
+            return RedirectResponse(
+                f"/mrr/{lot_id}/inspection/id/{inspection_id}?photo_error=Uploaded%20photo%20file%20was%20empty",
+                status_code=303,
+            )
 
         session.commit()
 
-    except Exception:
+    except Exception as e:
         session.rollback()
 
         for p in created_paths:
@@ -14693,7 +14707,6 @@ async def mrr_photo_upload(
         f"/mrr/{lot_id}/inspection/id/{inspection_id}?success=Photos%20uploaded",
         status_code=303,
     )
-
 
 @app.post("/mrr/{lot_id}/inspection/id/{inspection_id}/photos/{photo_id}/delete")
 def mrr_photo_delete(
