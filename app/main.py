@@ -11396,10 +11396,14 @@ async def mrr_doc_upload(
     # store RELATIVE path (portable)
     rel_path = os.path.relpath(abs_path, BASE_DIR)
 
-    if dt != "PO" and not (doc_number or "").strip():
-        # allow GENERAL without number
-        if dt not in ("GENERAL", "RELATED"):
-            raise HTTPException(400, "Document Number is required")
+    doc_type = (doc_type or "").strip().upper()
+    doc_number = (doc_number or "").strip()
+    
+    if doc_type != "PO" and not doc_number:
+        return RedirectResponse(
+            f"/mrr/{lot_id}/docs?error=Reference%20Number%20is%20required%20for%20all%20documents%20except%20PO",
+            status_code=303,
+        )
 
     # Decide target inspection id based on attach_to
     target_insp_id = None
@@ -11446,6 +11450,7 @@ async def mrr_doc_upload(
         file_path=rel_path,
         uploaded_by_user_id=user.id,
         uploaded_by_user_name=user.display_name,
+        doc_number=doc_number,
     )
 
     session.add(doc)
