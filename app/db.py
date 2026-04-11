@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 from sqlmodel import SQLModel, Session, create_engine
-from sqlalchemy import text
+
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -619,15 +619,15 @@ def create_db_and_tables() -> None:
     if _SCHEMA_READY:
         return
 
-    # First pass: create any missing tables from models
+    # Create all missing tables from current models
     SQLModel.metadata.create_all(engine)
 
-    # Existing schema maintenance helpers
+    # Apply compatibility patches for older databases
     apply_rnd_schema_patches()
     _ensure_schema_patches()
     _ensure_rnd_specimen_defaults()
 
-    # Final pass: make sure newer tables such as MrrInspectionPhoto exist
+    # Final pass in case patches and model metadata introduce newer tables
     SQLModel.metadata.create_all(engine)
 
     _SCHEMA_READY = True
@@ -636,8 +636,6 @@ def get_session():
     with Session(engine) as session:
         yield session
 
-
-from sqlalchemy import text
 
 def apply_rnd_schema_patches():
     statements = [
