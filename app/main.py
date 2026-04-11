@@ -3122,6 +3122,33 @@ def resolve_mrr_doc_path(p: str) -> str:
     return ""
 
 
+
+def resolve_mrr_photo_path(p: str) -> str:
+    """Resolve stored MRR photo path to an existing file on disk."""
+    if not p:
+        return ""
+
+    p_norm = p.replace("\\", "/").lstrip("/")
+
+    try:
+        if os.path.isabs(p) and os.path.exists(p):
+            return p
+    except Exception:
+        pass
+
+    candidates = [
+        p_norm,
+        os.path.join(MRR_PHOTO_DIR, p_norm),
+        os.path.join(MRR_PHOTO_DIR, os.path.basename(p_norm)),
+    ]
+
+    for c in candidates:
+        if c and os.path.exists(c):
+            return c
+
+    return ""
+    
+
 def _resolve_template_type(lot, inspection) -> str:
     """
     Decide which template to use for:
@@ -14545,26 +14572,22 @@ def _safe_ext(filename: str) -> str:
 
 
 @app.get("/mrr/photos/{photo_id}/view")
-def mrr_photo_view(photo_id: int, session: Session = Depends(get_session)):
+def mrr_photo_view(
+    photo_id: int,
+    request: Request,
+    session: Session = Depends(get_session),
+):
+    user = get_current_user(request, session)
     photo = session.get(MrrInspectionPhoto, photo_id)
     if not photo:
         raise HTTPException(404, "Photo not found")
 
-    rel_path = (photo.file_path or "").strip()
-    if not rel_path:
-        raise HTTPException(404, "Photo file missing")
+    abs_path = resolve_mrr_photo_path(photo.file_path)
+    if not abs_path or not os.path.exists(abs_path):
+        raise HTTPException(404, "Photo file not found")
 
-    abs_path = os.path.normpath(os.path.join(MRR_PHOTO_DIR, rel_path))
-
-    # safety: keep path inside MRR_PHOTO_DIR
-    base_norm = os.path.normpath(MRR_PHOTO_DIR)
-    if not abs_path.startswith(base_norm):
-        raise HTTPException(400, "Invalid photo path")
-
-    if not os.path.isfile(abs_path):
-        raise HTTPException(404, "Photo file missing")
-
-    return FileResponse(abs_path)
+    media_type, _ = mimetypes.guess_type(abs_path)
+    return FileResponse(abs_path, media_type=media_type or "application/octet-stream")
 
 
 @app.post("/mrr/{lot_id}/inspection/id/{inspection_id}/photos/upload")
@@ -14594,15 +14617,15 @@ async def mrr_photo_upload(
             status_code=303,
         )
 
-    g = (group_name or "General").strip() or "General"
-    cap = (caption or "").strip()
+    group_name = (group_name or "General").strip() or "General"
+    caption = (caption or "").strip()
 
     valid_files = []
     for f in photos or []:
         if not f or not getattr(f, "filename", ""):
             continue
-        ct = (f.content_type or "").lower()
-        if ct.startswith("image/"):
+        content_type = (f.content_type or "").lower()
+        if content_type.startswith("image/"):
             valid_files.append(f)
 
     if not valid_files:
@@ -14611,49 +14634,53 @@ async def mrr_photo_upload(
             status_code=303,
         )
 
-    base = os.path.join(MRR_PHOTO_DIR, f"ticket_{lot_id}", f"insp_{inspection_id}")
-    os.makedirs(base, exist_ok=True)
+    save_dir = os.path.join(MRR_PHOTO_DIR, f"ticket_{lot_id}", f"insp_{inspection_id}")
+    os.makedirs(save_dir, exist_ok=True)
 
-    written_files = []
+    created_paths = []
 
     try:
         for f in valid_files:
-            ext = _safe_ext(f.filename)
+            ext = os.path.splitext(f.filename or "")[1].lower().strip()
+            if not ext:
+                ext = ".jpg"
+
             ts = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
             filename = f"{ts}{ext}"
-            abs_path = os.path.join(base, filename)
+            abs_path = os.path.join(save_dir, filename)
 
             content = await f.read()
             if not content:
                 continue
 
-            with open(abs_path, "wb") as w:
-                w.write(content)
+            with open(abs_path, "wb") as out:
+                out.write(content)
 
-            written_files.append(abs_path)
+            created_paths.append(abs_path)
 
+            # IMPORTANT: store path relative to MRR_PHOTO_DIR, not DATA_DIR and not absolute
             rel_path = os.path.relpath(abs_path, MRR_PHOTO_DIR)
 
-            photo = MrrInspectionPhoto(
-                ticket_id=lot.id,
-                inspection_id=insp.id,
-                group_name=g,
-                caption=cap,
+            row = MrrInspectionPhoto(
+                ticket_id=lot_id,
+                inspection_id=inspection_id,
+                group_name=group_name,
+                caption=caption,
                 file_path=rel_path,
                 uploaded_by_user_id=user.id,
                 uploaded_by_user_name=user.display_name,
             )
-            session.add(photo)
+            session.add(row)
 
         session.commit()
 
     except Exception:
         session.rollback()
 
-        for path in written_files:
+        for p in created_paths:
             try:
-                if os.path.exists(path):
-                    os.remove(path)
+                if os.path.exists(p):
+                    os.remove(p)
             except Exception:
                 pass
 
@@ -14666,6 +14693,7 @@ async def mrr_photo_upload(
         f"/mrr/{lot_id}/inspection/id/{inspection_id}?success=Photos%20uploaded",
         status_code=303,
     )
+
 
 @app.post("/mrr/{lot_id}/inspection/id/{inspection_id}/photos/{photo_id}/delete")
 def mrr_photo_delete(
