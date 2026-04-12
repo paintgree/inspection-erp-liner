@@ -204,7 +204,7 @@
   </div>
 </div>
 
-<form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/submit">
+<form method="post" action="/mrr/{{ lot.id }}/inspection/{{ inspection.id }}/submit" id="inspectionMainForm">
   <div class="out-grid">
     <div class="out-stack">
 
@@ -402,17 +402,24 @@
         </div>
       </div>
 
+      </form>
+
       <div class="out-card">
         <div class="out-head">Photo Evidence</div>
         <div class="out-body">
           <div class="section-note">Add packaging, marking, label, damage, or condition photos for this outsourced inspection.</div>
-
+      
           {% if photo_error %}
             <div class="alert alert-error mt">{{ photo_error }}</div>
           {% endif %}
-
+      
           {% if not inspection.manager_approved %}
-            <form class="mt" action="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}/photos/upload" method="post" enctype="multipart/form-data">
+            <form
+              class="mt"
+              action="/mrr/{{ lot.id }}/inspection/id/{{ inspection.id }}/photos/upload"
+              method="post"
+              enctype="multipart/form-data"
+            >
               <div class="out-grid-2">
                 <div class="out-field">
                   <label>Group / Category</label>
@@ -423,12 +430,12 @@
                   <input name="caption" placeholder="Optional description">
                 </div>
               </div>
-
+      
               <div class="out-field" style="margin-top:16px;">
                 <label>Photos</label>
                 <input type="file" name="photos" accept="image/*" capture="environment" multiple required>
               </div>
-
+      
               <div class="mini-actions">
                 <button class="btn btn-secondary" type="submit">Upload Photos</button>
               </div>
@@ -436,7 +443,7 @@
           {% else %}
             <div class="muted tiny mt">Inspection is submitted — photos are locked (view only).</div>
           {% endif %}
-
+      
           {% if photo_groups and photo_groups|length > 0 %}
             <div class="mt">
               {% for gname, items in photo_groups.items() %}
@@ -469,9 +476,9 @@
           {% endif %}
         </div>
       </div>
-
+      
       <div class="mini-actions">
-        <button class="btn btn-primary" type="submit">Save / Submit</button>
+        <button class="btn btn-primary" type="submit" form="inspectionMainForm">Save / Submit</button>
         <a class="btn btn-muted" href="/mrr/{{ lot.id }}">Cancel</a>
       </div>
     </div>
