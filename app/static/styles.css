@@ -6258,3 +6258,619 @@ Burst search + filters
   font-size:12px;
   color:#64748b;
 }
+
+/* ===== FINAL DASHBOARD LOOK LIKE REFERENCE ===== */
+
+.overview-main {
+  gap: 22px;
+}
+
+.overview-header {
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 4px;
+}
+
+.dash-title {
+  font-size: 24px;
+  font-weight: 900;
+  margin: 0 0 4px 0;
+  color: #0f172a;
+}
+
+.overview-header .muted {
+  font-size: 14px;
+  color: #64748b !important;
+}
+
+.global-search-wrap {
+  width: min(420px, 100%);
+}
+
+.global-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.global-search-input {
+  height: 44px;
+  border-radius: 14px;
+  border: 1px solid #dbe3ee;
+  background: #ffffff;
+  font-size: 13px;
+  padding: 0 14px;
+}
+
+.global-search-bar .btn {
+  height: 44px;
+  border-radius: 14px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* ===== KPI CARDS ===== */
+
+.kpi-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 2px;
+}
+
+.kpi-card {
+  min-height: 124px;
+  border: 1px solid #dfe6ef;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: none;
+  padding: 18px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.kpi-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.kpi-value {
+  font-size: 32px;
+  font-weight: 900;
+  color: #0f172a;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.kpi-card::after {
+  content: "";
+  display: block;
+  margin-top: auto;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.kpi-card:nth-child(1)::after { content: "Live production orders"; }
+.kpi-card:nth-child(2)::after { content: "Ongoing manufacturing"; }
+.kpi-card:nth-child(3)::after { content: "Across all active runs"; }
+.kpi-card:nth-child(4)::after { content: "Ready for production"; }
+
+/* ===== MAIN LAYOUT ===== */
+
+.overview-grid {
+  grid-template-columns: minmax(0, 1fr) 355px;
+  gap: 18px;
+  align-items: start;
+}
+
+.overview-orders-section.section,
+.overview-side-panel .section {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.section-head {
+  margin-bottom: 10px;
+}
+
+.section-head h2 {
+  font-size: 16px;
+  font-weight: 900;
+  margin: 0;
+  color: #0f172a;
+}
+
+.section-head .muted {
+  display: none;
+}
+
+/* ===== BATCH CARDS ===== */
+
+.overview-workorders-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.workorder-card {
+  background: #ffffff !important;
+  border: 1px solid #dfe6ef !important;
+  border-radius: 20px !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  overflow: hidden;
+  position: relative;
+}
+
+.workorder-card-topline {
+  padding: 18px 18px 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.workorder-card-topline-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.workorder-status-chip {
+  order: 2;
+  background: #eff6ff !important;
+  color: #2563eb !important;
+  border: 1px solid #bfdbfe !important;
+  border-radius: 999px !important;
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  padding: 5px 10px !important;
+}
+
+.workorder-priority {
+  order: 1;
+  background: #ffe4e6 !important;
+  color: #e11d48 !important;
+  border: 1px solid #fecdd3 !important;
+  border-radius: 999px !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  padding: 4px 8px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.priority-toggle-form {
+  display: none !important;
+}
+
+.workorder-top {
+  padding: 0 18px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.workorder-title {
+  font-size: 26px;
+  font-weight: 900;
+  line-height: 1.05;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.workorder-sub {
+  font-size: 12px;
+  color: #64748b !important;
+  line-height: 1.5;
+}
+
+.workorder-progress {
+  text-align: right;
+  min-width: 70px;
+}
+
+.workorder-progress-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+}
+
+.workorder-progress-val {
+  font-size: 14px;
+  font-weight: 900;
+  color: #2563eb;
+}
+
+.progressbar {
+  height: 7px !important;
+  margin: 0 18px 14px !important;
+  background: #e9eff6 !important;
+  border-radius: 999px !important;
+  overflow: hidden;
+}
+
+.progressbar-fill {
+  background: #1d73c9 !important;
+  border-radius: 999px;
+}
+
+/* ===== PROCESS BREAKDOWN TO LOOK LIKE PHOTO ===== */
+
+.process-breakdown {
+  margin: 0 18px 14px !important;
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.process-breakdown-head {
+  display: none !important;
+}
+
+.process-breakdown-list {
+  display: grid;
+  gap: 10px;
+}
+
+.process-breakdown-row {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.process-breakdown-top {
+  margin-bottom: 5px !important;
+}
+
+.process-breakdown-name {
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  color: #94a3b8 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.process-breakdown-pct {
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  color: #64748b !important;
+}
+
+.process-breakdown-bar {
+  height: 4px !important;
+  background: #e8edf4 !important;
+  border-radius: 999px !important;
+  margin-bottom: 4px !important;
+}
+
+.process-breakdown-bar-fill {
+  background: #22c55e !important;
+  border-radius: 999px !important;
+}
+
+.process-breakdown-meta {
+  display: none !important;
+}
+
+/* ===== INFO BOXES ===== */
+
+.workorder-grid-two {
+  display: none !important;
+}
+
+.workorder-info-box {
+  display: none !important;
+}
+
+.order-next-action {
+  margin: 0 18px 14px !important;
+  border: 1px solid #e7edf5 !important;
+  background: #f8fafc !important;
+  border-radius: 14px !important;
+  padding: 14px 14px !important;
+}
+
+.order-stage-label {
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8 !important;
+  margin-bottom: 6px !important;
+}
+
+.order-stage-value {
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+}
+
+.order-inline-note {
+  display: none !important;
+}
+
+/* ===== META + BUTTONS ===== */
+
+.workorder-meta {
+  padding: 0 18px 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.meta-item {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+}
+
+.meta-label {
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8 !important;
+  margin-bottom: 4px;
+}
+
+.meta-value {
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  color: #0f172a !important;
+  margin-top: 0 !important;
+}
+
+.card-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 0 18px 18px;
+  margin-top: 0 !important;
+}
+
+.card-actions-row .btn {
+  min-width: 90px;
+  height: 34px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 0 14px;
+}
+
+.card-actions-row .btn-ghost {
+  background: #ffffff !important;
+  border: 1px solid #dbe3ee !important;
+  color: #0f172a !important;
+  text-decoration: none !important;
+  padding: 0 14px !important;
+}
+
+.card-actions-row .btn-primary {
+  background: #1d73c9 !important;
+  border: 1px solid #1d73c9 !important;
+  color: #ffffff !important;
+}
+
+/* ===== RIGHT PANEL ===== */
+
+.calendar-panel-modern {
+  background: #ffffff !important;
+  border: 1px solid #dfe6ef !important;
+  border-radius: 20px !important;
+  padding: 18px !important;
+}
+
+.compact-head {
+  margin-bottom: 12px;
+}
+
+.compact-head .muted {
+  display: none;
+}
+
+.calendar-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 0 0 14px 0 !important;
+}
+
+.calendar-summary-card {
+  padding: 14px 10px !important;
+  border-radius: 14px !important;
+  text-align: center;
+  border: 1px solid #e7edf5 !important;
+  background: #f8fafc !important;
+}
+
+.calendar-summary-card.is-overdue {
+  background: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+}
+
+.calendar-summary-card.is-today {
+  background: #f8fafc !important;
+  border-color: #e7edf5 !important;
+}
+
+.calendar-summary-value {
+  font-size: 28px !important;
+  font-weight: 900 !important;
+  color: #e11d48 !important;
+  line-height: 1;
+}
+
+.calendar-summary-card.is-today .calendar-summary-value,
+.calendar-summary-card:not(.is-overdue):not(.is-today) .calendar-summary-value {
+  color: #94a3b8 !important;
+}
+
+.calendar-summary-label {
+  margin-top: 6px !important;
+  font-size: 10px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8 !important;
+}
+
+.calendar-board {
+  display: block !important;
+}
+
+.calendar-column {
+  border: none !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin-bottom: 12px;
+}
+
+.calendar-column:nth-child(2),
+.calendar-column:nth-child(3) {
+  display: none !important;
+}
+
+.calendar-column-head {
+  margin-bottom: 10px !important;
+}
+
+.calendar-column-count {
+  display: none !important;
+}
+
+.calendar-group-title {
+  font-size: 11px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8 !important;
+}
+
+.calendar-column-body {
+  display: grid;
+  gap: 10px;
+}
+
+.calendar-item {
+  background: #ffffff !important;
+  border: 1px solid #e7edf5 !important;
+  border-radius: 14px !important;
+  padding: 14px !important;
+  margin-bottom: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.calendar-item-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  margin-bottom: 0 !important;
+  background: #ffe4e6 !important;
+  color: #e11d48 !important;
+  border-radius: 999px !important;
+  font-size: 9px !important;
+  font-weight: 900 !important;
+  padding: 4px 8px !important;
+}
+
+.calendar-item-title {
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  color: #0f172a !important;
+  margin-bottom: 6px !important;
+  padding-right: 70px;
+}
+
+.calendar-item-sub {
+  font-size: 11px !important;
+  line-height: 1.5;
+  color: #64748b !important;
+}
+
+.calendar-empty {
+  font-size: 12px !important;
+  color: #94a3b8 !important;
+}
+
+.calendar-panel-modern::after {
+  content: "View Full Calendar";
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  margin-top: 8px;
+  border: 1px solid #dbe3ee;
+  border-radius: 14px;
+  background: #f8fafc;
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+}
+
+/* ===== RESPONSIVE ===== */
+
+@media (max-width: 1200px) {
+  .overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .overview-workorders-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .global-search-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .global-search-wrap {
+    width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .workorder-top {
+    flex-direction: column;
+  }
+
+  .workorder-progress {
+    text-align: left;
+  }
+
+  .workorder-title {
+    font-size: 20px;
+  }
+
+  .card-actions-row {
+    flex-direction: column;
+  }
+
+  .card-actions-row .btn {
+    width: 100%;
+  }
+}
