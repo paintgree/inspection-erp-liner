@@ -24,24 +24,51 @@
   </div>
 
   <div class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-label">Active Batches</div>
+    <div class="kpi-card modern">
+      <div class="kpi-top">
+        <div class="kpi-icon">📦</div>
+        <div class="kpi-meta">
+          <div class="kpi-label">Active Batches</div>
+          <div class="kpi-sub">Live production orders</div>
+        </div>
+      </div>
       <div class="kpi-value">{{ batch_cards|length }}</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Active Production Runs</div>
+  
+    <div class="kpi-card modern">
+      <div class="kpi-top">
+        <div class="kpi-icon">⚙️</div>
+        <div class="kpi-meta">
+          <div class="kpi-label">Production Runs</div>
+          <div class="kpi-sub">Ongoing manufacturing</div>
+        </div>
+      </div>
       <div class="kpi-value">{{ progress_map|length }}</div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">Avg. Progress</div>
+  
+    <div class="kpi-card modern">
+      <div class="kpi-top">
+        <div class="kpi-icon">📈</div>
+        <div class="kpi-meta">
+          <div class="kpi-label">Avg Progress</div>
+          <div class="kpi-sub">Across all runs</div>
+        </div>
+      </div>
       <div class="kpi-value">
-        {% if progress_map|length == 0 %}0%{% else %}
-          {{ (progress_map.values()|sum / (progress_map|length))|round(0, 'floor') }}%
+        {% if progress_map|length == 0 %}0%
+        {% else %}{{ (progress_map.values()|sum / (progress_map|length))|round(0, 'floor') }}%
         {% endif %}
       </div>
     </div>
-    <div class="kpi-card">
-      <div class="kpi-label">MRR Approved Lots</div>
+  
+    <div class="kpi-card modern">
+      <div class="kpi-top">
+        <div class="kpi-icon">✔️</div>
+        <div class="kpi-meta">
+          <div class="kpi-label">MRR Approved</div>
+          <div class="kpi-sub">Ready for production</div>
+        </div>
+      </div>
       <div class="kpi-value">{{ mrr_stats.final_approved }}</div>
     </div>
   </div>
@@ -62,7 +89,7 @@
       {% else %}
         <div class="workorders-grid overview-workorders-grid">
           {% for b in batch_cards %}
-            <div class="workorder-card status-card {{ b.status_class }}">
+            <div class="workorder-card modern status-card {{ b.status_class }}">
               <div class="workorder-card-topline">
                 <div class="workorder-card-topline-left">
                   <div class="workorder-status-chip {{ b.status_class }}">{{ b.status_label }}</div>
@@ -82,52 +109,41 @@
                 {% endif %}
               </div>
 
-              <div class="workorder-top">
+              <div class="card-head">
                 <div>
-                  <div class="workorder-title">Batch {{ b.batch_no }}</div>
-                  <div class="workorder-sub muted">
+                  <div class="card-title">Batch {{ b.batch_no }}</div>
+                  <div class="card-sub muted">
                     {% if b.client_name %}{{ b.client_name }}{% else %}-{% endif %}
                     {% if b.po_number %} · PO: {{ b.po_number }}{% endif %}
                     {% if b.itp_number %} · ITP: {{ b.itp_number }}{% endif %}
                   </div>
                 </div>
-                <div class="workorder-progress">
-                  <div class="workorder-progress-label">Completion</div>
-                  <div class="workorder-progress-val">{{ b.avg_progress }}%</div>
+              
+                <div class="status-pill {{ b.status_class }}">
+                  {{ b.status_label }}
                 </div>
               </div>
-
-              <div class="progressbar" aria-label="progress">
+              
+              <div class="progress-row">
+                <span>Overall Progress</span>
+                <strong>{{ b.avg_progress }}%</strong>
+              </div>
+              
+              <div class="progressbar thin" aria-label="progress">
                 <div class="progressbar-fill" style="width: {{ b.avg_progress }}%;"></div>
               </div>
 
               {% if b.process_breakdown %}
-                <div class="process-breakdown">
-                  <div class="process-breakdown-head">
-                    <div class="order-stage-label" style="margin-bottom:0;">Production Detail</div>
-                    <div class="process-breakdown-sub">Covered vs balance by process</div>
-                  </div>
-
-                  <div class="process-breakdown-list">
-                    {% for p in b.process_breakdown %}
-                      <div class="process-breakdown-row">
-                        <div class="process-breakdown-top">
-                          <div class="process-breakdown-name">{{ p.label }}</div>
-                          <div class="process-breakdown-pct">{{ p.pct }}%</div>
-                        </div>
-
-                        <div class="process-breakdown-bar">
-                          <div class="process-breakdown-bar-fill" style="width: {{ p.pct }}%;"></div>
-                        </div>
-
-                        <div class="process-breakdown-meta">
-                          <span><strong>Covered:</strong> {{ p.produced_text }}</span>
-                          <span><strong>Balance:</strong> {{ p.balance_text }}</span>
-                          <span><strong>Total:</strong> {{ p.total_text }}</span>
-                        </div>
+                <div class="process-table">
+                  {% for p in b.process_breakdown %}
+                    <div class="process-row">
+                      <div class="process-name">{{ p.label }}</div>
+                      <div class="process-bar">
+                        <div style="width: {{ p.pct }}%;"></div>
                       </div>
-                    {% endfor %}
-                  </div>
+                      <div class="process-val">{{ p.pct }}%</div>
+                    </div>
+                  {% endfor %}
                 </div>
               {% endif %}
 
@@ -182,9 +198,9 @@
                 </div>
               </div>
 
-              <div class="card-actions-row">
-                <a class="btn btn-ghost" href="/batches/{{ b.batch_no }}">Open Batch</a>
-                <button class="btn btn-primary" type="button" onclick="openTimeline('{{ b.batch_no }}')">View Timeline</button>
+              <div class="card-footer">
+                <a class="btn btn-ghost" href="/batches/{{ b.batch_no }}">Open</a>
+                <button class="btn btn-primary" type="button" onclick="openTimeline('{{ b.batch_no }}')">Timeline</button>
               </div>
 
               <div id="timeline-data-{{ b.batch_no|replace('/', '-') }}" class="timeline-data-store" style="display:none;"
