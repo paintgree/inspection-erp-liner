@@ -1639,6 +1639,18 @@ def _photos_appendix_pdf_bytes(photos: list, report_no: str = "") -> bytes:
     row_gap = 16
     section_gap = 18
 
+    def draw_appendix_title(current_y):
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(margin, current_y, "Appendix A - Photo Evidence")
+
+        if report_no:
+            c.setFont("Helvetica", 8.5)
+            c.drawString(
+                margin + 210,
+                current_y + 1,
+                f"Associated with {report_no}"
+            )
+
     def draw_appendix_title():
         c.setFont("Helvetica-Bold", 14)
         c.drawString(margin, y, "Appendix A - Photo Evidence")
@@ -1651,7 +1663,7 @@ def _photos_appendix_pdf_bytes(photos: list, report_no: str = "") -> bytes:
         nonlocal y
         c.showPage()
         y = page_title_y
-        draw_appendix_title()
+        draw_appendix_title(y)
         y -= 24
 
     def fit_text(text, max_width, font_name="Helvetica", font_size=8):
@@ -6314,7 +6326,10 @@ def mrr_export_inspection_package(
         .where(MrrInspectionPhoto.inspection_id == insp.id)
         .order_by(MrrInspectionPhoto.created_at.asc())
     ).all()
-    
+
+    report_no = getattr(insp, "report_no", "") or f"MRR_{lot_id}_{inspection_id}"
+    report_no = _safe_filename(report_no)
+
     appendix_pdf = b""
     if photos:
         try:
@@ -6322,9 +6337,6 @@ def mrr_export_inspection_package(
         except Exception as e:
             print("PHOTO APPENDIX ERROR:", e)
             appendix_pdf = b""
-
-    report_no = getattr(insp, "report_no", "") or f"MRR_{lot_id}_{inspection_id}"
-    report_no = _safe_filename(report_no)
 
     # Sort documents in practical order: PO -> DN -> COA -> others
     order_map = {"PO": 0, "DELIVERY_NOTE": 1, "COA": 2}
@@ -6362,9 +6374,8 @@ def mrr_export_inspection_package(
         return Response(
             content=merged,
             media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="{filename}"'},
+            headers={"Content-Disposition": f'inline; filename=\"{filename}\"'},
         )
-
     # ------------------------
     # MODE = ZIP BUNDLE
     # ------------------------
