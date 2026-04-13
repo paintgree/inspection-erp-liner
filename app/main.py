@@ -1608,7 +1608,7 @@ def _image_path_to_pdf_bytes(image_path: str) -> bytes:
     buf.seek(0)
     return buf.getvalue()
 
-def _photos_appendix_pdf_bytes(photos: list) -> bytes:
+def _photos_appendix_pdf_bytes(photos: list, report_no: str = "") -> bytes:
     """
     Build a grouped photo appendix PDF:
     - grouped by category/group_name
@@ -1639,12 +1639,19 @@ def _photos_appendix_pdf_bytes(photos: list) -> bytes:
     row_gap = 16
     section_gap = 18
 
+    def draw_appendix_title():
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(margin, y, "Appendix A - Photo Evidence")
+
+        if report_no:
+            c.setFont("Helvetica", 8.5)
+            c.drawString(margin + 210, y + 1, f'Associated with {report_no}')
+
     def new_page():
         nonlocal y
         c.showPage()
         y = page_title_y
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(margin, y, "Appendix A - Photo Evidence")
+        draw_appendix_title()
         y -= 24
 
     def fit_text(text, max_width, font_name="Helvetica", font_size=8):
@@ -1695,8 +1702,7 @@ def _photos_appendix_pdf_bytes(photos: list) -> bytes:
         grouped.setdefault(gname, []).append(ph)
 
     # first page title
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(margin, y, "Appendix A - Photo Evidence")
+    draw_appendix_title()
     y -= 24
 
     if not grouped:
@@ -6312,7 +6318,7 @@ def mrr_export_inspection_package(
     appendix_pdf = b""
     if photos:
         try:
-            appendix_pdf = _photos_appendix_pdf_bytes(photos)
+            appendix_pdf = _photos_appendix_pdf_bytes(photos, report_no=report_no)
         except Exception as e:
             print("PHOTO APPENDIX ERROR:", e)
             appendix_pdf = b""
