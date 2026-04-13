@@ -6416,6 +6416,8 @@ Burst search + filters
   gap: 12px;
   border-bottom: none;
   margin-bottom: 0;
+  position: relative;
+  z-index: 3;
 }
 
 .workorder-card-topline-left {
@@ -6450,7 +6452,16 @@ Burst search + filters
 }
 
 .priority-toggle-form {
-  display: none !important;
+  display: block !important;
+  margin: 0;
+  flex: 0 0 auto;
+  position: relative;
+  z-index: 3;
+}
+
+.priority-toggle-form .btn {
+  white-space: nowrap;
+  pointer-events: auto;
 }
 
 .workorder-top {
