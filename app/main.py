@@ -6311,10 +6311,11 @@ def mrr_export_inspection_package(
     
     appendix_pdf = b""
     if photos:
-        appendix_pdf = _photos_appendix_pdf_bytes(photos)
-    
-    if appendix_pdf:
-        pdf_bytes = _merge_pdf_bytes([pdf_bytes, appendix_pdf])
+        try:
+            appendix_pdf = _photos_appendix_pdf_bytes(photos)
+        except Exception as e:
+            print("PHOTO APPENDIX ERROR:", e)
+            appendix_pdf = b""
 
     report_no = getattr(insp, "report_no", "") or f"MRR_{lot_id}_{inspection_id}"
     report_no = _safe_filename(report_no)
@@ -6342,13 +6343,8 @@ def mrr_export_inspection_package(
                 pdf_parts.append(pdf_b)
 
         # 3) then photo appendix pages
-        if photos:
-            try:
-                appendix_pdf = _photos_appendix_pdf_bytes(photos)
-                if appendix_pdf:
-                    pdf_parts.append(appendix_pdf)
-            except Exception:
-                pass
+        if appendix_pdf:
+            pdf_parts.append(appendix_pdf)
 
         # merge everything first
         merged = _merge_pdf_bytes_in_order(pdf_parts)
