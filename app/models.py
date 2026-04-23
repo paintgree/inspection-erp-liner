@@ -209,6 +209,10 @@ class MrrDocument(SQLModel, table=True):
     ticket_id: int
     inspection_id: Optional[int] = None  # null for ticket-level docs, set for shipment-level docs
 
+
+    doc_scope: str = Field(default="GENERAL")
+    shipment_seq: Optional[int] = Field(default=None)
+
     doc_type: str
     doc_number: Optional[str] = None
     doc_name: str
