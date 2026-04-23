@@ -71,92 +71,92 @@ def _ensure_schema_patches() -> None:
         (
             "mrrreceiving",
             "qty_arrived",
-            "ALTER TABLE mrrreceiving ADD COLUMN IF NOT EXISTS qty_arrived DOUBLE PRECISION",
-            "ALTER TABLE mrrreceiving ADD COLUMN qty_arrived REAL",
+            " mrrreceiving ADD COLUMN IF NOT EXISTS qty_arrived DOUBLE PRECISION",
+            " mrrreceiving ADD COLUMN qty_arrived REAL",
         ),
         (
             "mrrreceiving",
             "qty_unit",
-            "ALTER TABLE mrrreceiving ADD COLUMN IF NOT EXISTS qty_unit VARCHAR(10) DEFAULT 'KG'",
-            "ALTER TABLE mrrreceiving ADD COLUMN qty_unit TEXT DEFAULT 'KG'",
+            " mrrreceiving ADD COLUMN IF NOT EXISTS qty_unit VARCHAR(10) DEFAULT 'KG'",
+            " mrrreceiving ADD COLUMN qty_unit TEXT DEFAULT 'KG'",
         ),
         (
             "mrrreceiving",
             "is_partial_delivery",
-            "ALTER TABLE mrrreceiving ADD COLUMN IF NOT EXISTS is_partial_delivery BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE mrrreceiving ADD COLUMN is_partial_delivery INTEGER DEFAULT 0",
+            " mrrreceiving ADD COLUMN IF NOT EXISTS is_partial_delivery BOOLEAN DEFAULT FALSE",
+            " mrrreceiving ADD COLUMN is_partial_delivery INTEGER DEFAULT 0",
         ),
         (
             "mrrreceiving",
             "qty_mismatch_reason",
-            "ALTER TABLE mrrreceiving ADD COLUMN IF NOT EXISTS qty_mismatch_reason TEXT DEFAULT ''",
-            "ALTER TABLE mrrreceiving ADD COLUMN qty_mismatch_reason TEXT DEFAULT ''",
+            " mrrreceiving ADD COLUMN IF NOT EXISTS qty_mismatch_reason TEXT DEFAULT ''",
+            " mrrreceiving ADD COLUMN qty_mismatch_reason TEXT DEFAULT ''",
         ),
 
         # burstattachment
         (
             "burstattachment",
             "sample_id",
-            "ALTER TABLE burstattachment ADD COLUMN IF NOT EXISTS sample_id INTEGER",
-            "ALTER TABLE burstattachment ADD COLUMN sample_id INTEGER",
+            " burstattachment ADD COLUMN IF NOT EXISTS sample_id INTEGER",
+            " burstattachment ADD COLUMN sample_id INTEGER",
         ),
         (
             "burstattachment",
             "kind",
-            "ALTER TABLE burstattachment ADD COLUMN IF NOT EXISTS kind TEXT DEFAULT ''",
-            "ALTER TABLE burstattachment ADD COLUMN kind TEXT DEFAULT ''",
+            " burstattachment ADD COLUMN IF NOT EXISTS kind TEXT DEFAULT ''",
+            " burstattachment ADD COLUMN kind TEXT DEFAULT ''",
         ),
 
         # materiallot
         (
             "materiallot",
             "quantity_unit",
-            "ALTER TABLE materiallot ADD COLUMN IF NOT EXISTS quantity_unit VARCHAR(10) DEFAULT 'KG'",
-            "ALTER TABLE materiallot ADD COLUMN quantity_unit TEXT DEFAULT 'KG'",
+            " materiallot ADD COLUMN IF NOT EXISTS quantity_unit VARCHAR(10) DEFAULT 'KG'",
+            " materiallot ADD COLUMN quantity_unit TEXT DEFAULT 'KG'",
         ),
         (
             "materiallot",
             "received_total",
-            "ALTER TABLE materiallot ADD COLUMN IF NOT EXISTS received_total DOUBLE PRECISION DEFAULT 0",
-            "ALTER TABLE materiallot ADD COLUMN received_total REAL DEFAULT 0",
+            " materiallot ADD COLUMN IF NOT EXISTS received_total DOUBLE PRECISION DEFAULT 0",
+            " materiallot ADD COLUMN received_total REAL DEFAULT 0",
         ),
         (
             "productionrun",
             "is_high_priority",
-            "ALTER TABLE productionrun ADD COLUMN IF NOT EXISTS is_high_priority BOOLEAN DEFAULT FALSE",
-            "ALTER TABLE productionrun ADD COLUMN is_high_priority INTEGER DEFAULT 0",
+            " productionrun ADD COLUMN IF NOT EXISTS is_high_priority BOOLEAN DEFAULT FALSE",
+            " productionrun ADD COLUMN is_high_priority INTEGER DEFAULT 0",
         ),
 
         # mrrreceivinginspection
         (
             "mrrreceivinginspection",
             "created_at",
-            "ALTER TABLE mrrreceivinginspection ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()",
-            "ALTER TABLE mrrreceivinginspection ADD COLUMN created_at TEXT",
+            " mrrreceivinginspection ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()",
+            " mrrreceivinginspection ADD COLUMN created_at TEXT",
         ),
         (
             "mrrreceivinginspection",
             "delivery_note_no",
-            "ALTER TABLE mrrreceivinginspection ADD COLUMN IF NOT EXISTS delivery_note_no TEXT DEFAULT ''",
-            "ALTER TABLE mrrreceivinginspection ADD COLUMN delivery_note_no TEXT DEFAULT ''",
+            " mrrreceivinginspection ADD COLUMN IF NOT EXISTS delivery_note_no TEXT DEFAULT ''",
+            " mrrreceivinginspection ADD COLUMN delivery_note_no TEXT DEFAULT ''",
         ),
         (
             "mrrreceivinginspection",
             "qty_arrived",
-            "ALTER TABLE mrrreceivinginspection ADD COLUMN IF NOT EXISTS qty_arrived DOUBLE PRECISION DEFAULT 0",
-            "ALTER TABLE mrrreceivinginspection ADD COLUMN qty_arrived REAL DEFAULT 0",
+            " mrrreceivinginspection ADD COLUMN IF NOT EXISTS qty_arrived DOUBLE PRECISION DEFAULT 0",
+            " mrrreceivinginspection ADD COLUMN qty_arrived REAL DEFAULT 0",
         ),
         (
             "mrrreceivinginspection",
             "qty_unit",
-            "ALTER TABLE mrrreceivinginspection ADD COLUMN IF NOT EXISTS qty_unit VARCHAR(10) DEFAULT 'KG'",
-            "ALTER TABLE mrrreceivinginspection ADD COLUMN qty_unit TEXT DEFAULT 'KG'",
+            " mrrreceivinginspection ADD COLUMN IF NOT EXISTS qty_unit VARCHAR(10) DEFAULT 'KG'",
+            " mrrreceivinginspection ADD COLUMN qty_unit TEXT DEFAULT 'KG'",
         ),
         (
             "mrrreceivinginspection",
             "report_no",
-            "ALTER TABLE mrrreceivinginspection ADD COLUMN IF NOT EXISTS report_no TEXT DEFAULT ''",
-            "ALTER TABLE mrrreceivinginspection ADD COLUMN report_no TEXT DEFAULT ''",
+            " mrrreceivinginspection ADD COLUMN IF NOT EXISTS report_no TEXT DEFAULT ''",
+            " mrrreceivinginspection ADD COLUMN report_no TEXT DEFAULT ''",
         ),
 
         # mrrdocument
@@ -192,6 +192,18 @@ def _ensure_schema_patches() -> None:
         ),
 
 
+        (
+            "mrrdocument",
+            "doc_scope",
+            "ALTER TABLE mrrdocument ADD COLUMN IF NOT EXISTS doc_scope TEXT DEFAULT 'GENERAL'",
+            "ALTER TABLE mrrdocument ADD COLUMN doc_scope TEXT DEFAULT 'GENERAL'",
+        ),
+        (
+            "mrrdocument",
+            "shipment_seq",
+            "ALTER TABLE mrrdocument ADD COLUMN IF NOT EXISTS shipment_seq INTEGER",
+            "ALTER TABLE mrrdocument ADD COLUMN shipment_seq INTEGER",
+        ),
         # rndqualificationspecimen execution detail fields
 
         (
